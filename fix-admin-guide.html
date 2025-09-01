@@ -1,0 +1,60 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Fix Admin User ID</title>
+    <style>
+        body { font-family: Arial; padding: 20px; }
+        button { padding: 10px 20px; font-size: 16px; margin: 10px; }
+        .success { color: green; }
+        .error { color: red; }
+        pre { background: #f5f5f5; padding: 10px; }
+    </style>
+</head>
+<body>
+    <h1>🔧 Fix Admin User ID</h1>
+    
+    <button onclick="fixUsers()">รัน Fix Users API</button>
+    
+    <div id="result"></div>
+    
+    <script>
+        async function fixUsers() {
+            const resultDiv = document.getElementById('result');
+            resultDiv.innerHTML = '<p>⏳ กำลังประมวลผล...</p>';
+            
+            try {
+                const response = await fetch('/api/fix-users', { 
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' }
+                });
+                
+                const data = await response.json();
+                
+                if (data.success) {
+                    resultDiv.innerHTML = `
+                        <div class="success">
+                            <h3>✅ สำเร็จ!</h3>
+                            <p>อัปเดต ${data.updated} users จากทั้งหมด ${data.total} users</p>
+                            <p>🔄 กรุณา Logout แล้ว Login ใหม่</p>
+                        </div>
+                    `;
+                } else {
+                    resultDiv.innerHTML = `
+                        <div class="error">
+                            <h3>❌ ล้มเหลว</h3>
+                            <pre>${JSON.stringify(data, null, 2)}</pre>
+                        </div>
+                    `;
+                }
+            } catch (error) {
+                resultDiv.innerHTML = `
+                    <div class="error">
+                        <h3>❌ เกิดข้อผิดพลาด</h3>
+                        <pre>${error.message}</pre>
+                    </div>
+                `;
+            }
+        }
+    </script>
+</body>
+</html>
