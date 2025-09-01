@@ -1,0 +1,57 @@
+# Files to ignore when deploying to Plesk
+# =====================================
+
+# Development files
+.env.local
+.env.development
+.env.test
+
+# Git files
+.git/
+.gitignore
+
+# IDE files
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# Logs
+logs/
+*.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+
+# Runtime data
+pids/
+*.pid
+*.seed
+*.pid.lock
+
+# Coverage directory used by tools like istanbul
+coverage/
+
+# Cache directories
+.cache/
+.parcel-cache/
+
+# Temporary folders
+tmp/
+temp/
+
+# OS generated files
+.DS_Store
+.DS_Store?
+._*
+.Spotlight-V100
+.Trashes
+ehthumbs.db
+Thumbs.db
+
+# Documentation (optional, แล้วแต่ต้องการ)
+*.md
+!PLESK_DEPLOYMENT_INSTRUCTIONS.md
+
+# Development dependencies (จะ install ใหม่ใน production)
+node_modules/
