@@ -522,15 +522,15 @@ export default function AdminInventoryPage() {
         await fetchInventory();
         
         // อัปเดต stockItem ให้ใช้ชื่อใหม่
-        setStockItem(prev => ({
+        setStockItem(prev => prev ? ({
           ...prev,
           itemName: stockRenameNewName.trim()
-        }));
+        }) : null);
         
         // รีเฟรช stock data ด้วยชื่อใหม่
         const updatedItem = {
           itemName: stockRenameNewName.trim(),
-          category: stockItem.category
+          category: stockItem?.category || ''
         };
         
         // ปิด rename mode และเปิด stock modal ใหม่ด้วยข้อมูลใหม่
@@ -697,10 +697,7 @@ export default function AdminInventoryPage() {
     try {
       const isDelete = itemOperation === 'delete';
       
-      if (isDelete && !stockReason.trim()) {
-        toast.error('กรุณาระบุเหตุผลในการลบรายการ');
-        return;
-      }
+      // Reason is auto-generated, no need to validate
       
       if (!isDelete && !editingSerialNum.trim()) {
         toast.error('กรุณาระบุ Serial Number');
@@ -829,10 +826,7 @@ export default function AdminInventoryPage() {
       return;
     } else {
       // Validation for other operations
-      if (!stockReason.trim()) {
-        toast.error('กรุณากรอกข้อมูลให้ครบถ้วน');
-        return;
-      }
+      // Reason is auto-generated, no need to validate
 
       if (stockOperation === 'adjust_stock' && stockValue < 0) {
         toast.error('จำนวน stock ต้องเป็นจำนวนบวก');
@@ -2349,6 +2343,21 @@ export default function AdminInventoryPage() {
                   </span>
                 </div>
                 
+                {/* 🆕 Information about items with Serial Numbers */}
+                {stockInfo.currentStats?.adminItemsWithSN > 0 && (
+                  <div className="mt-2 p-3 bg-blue-50 border border-blue-200 rounded-lg">
+                    <div className="flex items-center text-blue-600">
+                      <div className="text-blue-600 mr-2">ℹ️</div>
+                      <span className="text-sm text-blue-800">
+                        มีอุปกรณ์ที่มี Serial Number อีก <span className="font-semibold">{stockInfo.currentStats.adminItemsWithSN} ชิ้น</span> ในคลัง Admin
+                      </span>
+                    </div>
+                    <p className="text-xs text-blue-600 mt-1 ml-6">
+                      หากต้องการแก้ไขอุปกรณ์ที่มี Serial Number ให้ใช้ "แก้ไขรายการ - แก้ไข/ลบ อุปกรณ์ที่มี Serial Number"
+                    </p>
+                  </div>
+                )}
+                
                 {/* Debug Info - Show if no data detected */}
                 {(stockInfo.stockManagement?.adminDefinedStock === 0 && stockInfo.stockManagement?.userContributedCount === 0 && stockInfo.currentStats?.totalQuantity > 0) && (
                   <div className="mt-3 pt-3 border-t border-orange-200 bg-orange-50 p-3 rounded">
@@ -2371,93 +2380,39 @@ export default function AdminInventoryPage() {
             <div className="space-y-4">
               {/* Operation Type */}
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-3">
+                <label className="block text-sm font-medium text-gray-700 mb-1">
                   ประเภทการดำเนินการ
                 </label>
-                <div className="grid grid-cols-1 gap-3">
-                  <label className="flex items-center p-3 border rounded-lg hover:bg-gray-50 cursor-pointer">
-                    <input
-                      type="radio"
-                      value="adjust_stock"
-                      checked={stockOperation === 'adjust_stock'}
-                      onChange={(e) => {
-                        const newOperation = e.target.value as 'adjust_stock' | 'delete_item' | 'edit_items';
-                        setStockOperation(newOperation);
-                        
-                        // Set current admin stock as starting point for adjustment
-                        if (stockInfo?.stockManagement?.adminDefinedStock !== undefined) {
-                          setStockValue(stockInfo.stockManagement.adminDefinedStock);
-                        } else {
-                          setStockValue(0);
-                        }
-                        
-                        // Update reason based on operation
-                        if (newOperation === 'delete_item') {
-                          setStockReason('ลบรายการทั้งหมด');
-                        } else if (newOperation === 'edit_items') {
-                          setStockReason('แก้ไขรายการอุปกรณ์');
-                        } else {
-                          setStockReason('ปรับจำนวน Admin Stock');
-                        }
-                      }}
-                      className="mr-3"
-                    />
-                    <div>
-                      <div className="font-semibold text-gray-800">ปรับจำนวน</div>
-                      <div className="text-xs text-gray-600">แสดงจำนวนปัจจุบันใน Field</div>
-                    </div>
-                  </label>
-                  <label className="flex items-center p-3 border border-blue-200 rounded-lg hover:bg-blue-50 cursor-pointer">
-                    <input
-                      type="radio"
-                      value="edit_items"
-                      checked={stockOperation === 'edit_items'}
-                      onChange={(e) => {
-                        const newOperation = e.target.value as 'adjust_stock' | 'delete_item' | 'edit_items';
-                        setStockOperation(newOperation);
-                        
-                        // Update reason based on operation
-                        if (newOperation === 'delete_item') {
-                          setStockReason('ลบรายการทั้งหมด');
-                        } else if (newOperation === 'edit_items') {
-                          setStockReason('แก้ไขรายการอุปกรณ์');
-                        } else {
-                          setStockReason('ปรับจำนวน Admin Stock');
-                        }
-                      }}
-                      className="mr-3"
-                    />
-                    <div>
-                      <div className="font-semibold text-blue-700">แก้ไขรายการ</div>
-                      <div className="text-xs text-blue-600">แก้ไข/ลบ อุปกรณ์ที่มี Serial Number</div>
-                    </div>
-                  </label>
-                  <label className="flex items-center p-3 border border-red-200 rounded-lg hover:bg-red-50 cursor-pointer">
-                    <input
-                      type="radio"
-                      value="delete_item"
-                      checked={stockOperation === 'delete_item'}
-                      onChange={(e) => {
-                        const newOperation = e.target.value as 'adjust_stock' | 'delete_item' | 'edit_items';
-                        setStockOperation(newOperation);
-                        
-                        // Update reason based on operation
-                        if (newOperation === 'delete_item') {
-                          setStockReason('ลบรายการทั้งหมด');
-                        } else if (newOperation === 'edit_items') {
-                          setStockReason('แก้ไขรายการอุปกรณ์');
-                        } else {
-                          setStockReason('ปรับจำนวน Admin Stock');
-                        }
-                      }}
-                      className="mr-3"
-                    />
-                    <div>
-                      <div className="font-semibold text-red-700">ลบรายการ</div>
-                      <div className="text-xs text-red-600">ลบทั้งหมด (ไม่สามารถยกเลิก)</div>
-                    </div>
-                  </label>
-                </div>
+                <select
+                  value={stockOperation}
+                  onChange={(e) => {
+                    const newOperation = e.target.value as 'adjust_stock' | 'delete_item' | 'edit_items';
+                    setStockOperation(newOperation);
+                    
+                    // Set current admin stock as starting point for adjustment
+                    if (newOperation === 'adjust_stock') {
+                      if (stockInfo?.stockManagement?.adminDefinedStock !== undefined) {
+                        setStockValue(stockInfo.stockManagement.adminDefinedStock);
+                      } else {
+                        setStockValue(0);
+                      }
+                    }
+                    
+                    // Update reason based on operation
+                    if (newOperation === 'delete_item') {
+                      setStockReason('ลบรายการทั้งหมด');
+                    } else if (newOperation === 'edit_items') {
+                      setStockReason('แก้ไขรายการอุปกรณ์');
+                    } else {
+                      setStockReason('ปรับจำนวน Admin Stock');
+                    }
+                  }}
+                  className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 text-gray-900"
+                >
+                  <option value="adjust_stock">ปรับจำนวนอุปกรณ์ที่ไม่มี Serial Number</option>
+                  <option value="edit_items">แก้ไขรายการ - แก้ไข/ลบ อุปกรณ์ที่มี Serial Number</option>
+                  <option value="delete_item">ลบรายการ - ลบทั้งหมด (ไม่สามารถยกเลิก)</option>
+                </select>
               </div>
 
               {/* Value Input - Hide for delete operation and edit_items */}
@@ -2486,10 +2441,9 @@ export default function AdminInventoryPage() {
                   <div className="bg-blue-50 border border-blue-200 p-4 rounded-lg">
                     <div className="flex items-center text-blue-600 mb-2">
                       <div className="text-blue-600 mr-2">ℹ️</div>
-                      <h5 className="font-medium text-blue-800">แก้ไขรายการอุปกรณ์</h5>
+                      <h5 className="font-medium text-blue-800">คุณสามารถแก้ไขหรือลบอุปกรณ์ที่มี Serial Number ได้เท่านั้น</h5>
                     </div>
                     <p className="text-sm text-blue-700">
-                      คุณสามารถแก้ไขหรือลบอุปกรณ์ที่มี Serial Number เท่านั้น<br/>
                       อุปกรณ์ที่ไม่มี Serial Number จะแสดงเป็นรายการเดียวพร้อมจำนวน
                     </p>
                   </div>
@@ -2507,6 +2461,31 @@ export default function AdminInventoryPage() {
                       </div>
 
                       {/* Search and Filter Controls */}
+                      {/* Items without Serial Numbers - แสดงก่อน */}
+                      {availableItems.withoutSerialNumber && availableItems.withoutSerialNumber.count > 0 && (
+                        <div className="mb-4">
+                          <h4 className="text-sm font-semibold text-gray-800 mb-2">
+                            📦 อุปกรณ์ที่ไม่มี Serial Number
+                          </h4>
+                          <div className="p-3 border rounded-lg bg-gray-50">
+                            <div className="flex items-center justify-between">
+                              <div className="flex items-center">
+                                <span className="text-sm text-gray-600">
+                                  รายการที่ไม่มี Serial Number
+                                </span>
+                                <span className="ml-2 px-2 py-1 text-xs bg-gray-200 text-gray-700 rounded">
+                                  จำนวน: {availableItems.withoutSerialNumber.count} ชิ้น
+                                </span>
+                              </div>
+                              <div className="text-xs text-gray-500">
+                                ไม่สามารถแก้ไขรายการนี้ได้
+                              </div>
+                            </div>
+                          </div>
+                        </div>
+                      )}
+
+                      {/* Search & Filter for Serial Number Items - แสดงตรงกลาง */}
                       {availableItems.withSerialNumber && availableItems.withSerialNumber.length > 0 && (
                         <div className="mb-4 space-y-3">
                           {/* Search Bar */}
@@ -2557,7 +2536,7 @@ export default function AdminInventoryPage() {
                         </div>
                       )}
 
-                      {/* Items with Serial Numbers */}
+                      {/* Items with Serial Numbers - แสดงสุดท้าย */}
                       {availableItems.withSerialNumber && availableItems.withSerialNumber.length > 0 && (
                         <div className="mb-4">
                           <h4 className="text-sm font-semibold text-gray-800 mb-2 flex items-center">
@@ -2625,29 +2604,7 @@ export default function AdminInventoryPage() {
                         </div>
                       )}
 
-                      {/* Items without Serial Numbers */}
-                      {availableItems.withoutSerialNumber && availableItems.withoutSerialNumber.count > 0 && (
-                        <div>
-                          <h4 className="text-sm font-semibold text-gray-800 mb-2">
-                            📦 อุปกรณ์ที่ไม่มี Serial Number
-                          </h4>
-                          <div className="p-3 border rounded-lg bg-gray-50">
-                            <div className="flex items-center justify-between">
-                              <div className="flex items-center">
-                                <span className="text-sm text-gray-600">
-                                  รายการที่ไม่มี Serial Number
-                                </span>
-                                <span className="ml-2 px-2 py-1 text-xs bg-gray-200 text-gray-700 rounded">
-                                  จำนวน: {availableItems.withoutSerialNumber.count} ชิ้น
-                                </span>
-                              </div>
-                              <div className="text-xs text-gray-500">
-                                ไม่สามารถแก้ไขรายการนี้ได้
-                              </div>
-                            </div>
-                          </div>
-                        </div>
-                      )}
+
 
                       {/* No items */}
                       {(!availableItems.withSerialNumber || availableItems.withSerialNumber.length === 0) &&
@@ -2691,33 +2648,19 @@ export default function AdminInventoryPage() {
                 </div>
               )}
 
-              {/* Reason Input - Hide for edit_items */}
-              {stockOperation !== 'edit_items' && (
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">
-                    เหตุผล *
-                  </label>
-                  <textarea
-                    value={stockReason}
-                    onChange={(e) => setStockReason(e.target.value)}
-                    className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
-                    rows={3}
-                    placeholder={
-                      stockOperation === 'delete_item' ? 
-                      'ระบุเหตุผลในการลบรายการ...' : 
-                      'ระบุเหตุผลในการปรับ stock...'
-                    }
-                    required
-                  />
-                </div>
-              )}
+              {/* Hidden Reason Input - Auto-generated based on operation type */}
+              <input
+                type="hidden"
+                value={stockReason}
+                onChange={(e) => setStockReason(e.target.value)}
+              />
 
 
 
             </div>
 
             {/* Modal Footer - Fixed */}
-            <div className="border-t border-gray-200 p-6 bg-white/95 rounded-b-2xl">
+            <div className="p-6">
               {/* Action Buttons - Hide for edit_items */}
               {stockOperation !== 'edit_items' && (
                 <div className="flex justify-end space-x-3">
@@ -2730,7 +2673,7 @@ export default function AdminInventoryPage() {
                   </button>
                   <button
                     onClick={handleStockSubmit}
-                    disabled={stockLoading || !stockReason.trim()}
+                    disabled={stockLoading}
                     className={`px-4 py-2 rounded-md disabled:opacity-50 disabled:cursor-not-allowed ${
                       stockOperation === 'delete_item'
                         ? 'bg-red-600 text-white hover:bg-red-700'
@@ -2844,7 +2787,7 @@ export default function AdminInventoryPage() {
                   </button>
                   <button
                     onClick={() => handleSaveEditItem()}
-                    disabled={!stockReason.trim()}
+                    disabled={false}
                     className="px-4 py-2 bg-red-600 text-white rounded-md hover:bg-red-700 disabled:opacity-50 disabled:cursor-not-allowed"
                   >
                     ลบรายการ
@@ -2942,9 +2885,9 @@ export default function AdminInventoryPage() {
               </button>
               <button
                 onClick={handleConfirmDelete}
-                disabled={deleteLoading || deleteConfirmText !== 'DELETE' || !stockReason.trim()}
+                disabled={deleteLoading || deleteConfirmText !== 'DELETE'}
                 className={`px-6 py-2.5 text-white rounded-lg transition-all disabled:opacity-50 disabled:cursor-not-allowed font-medium ${
-                  deleteConfirmText === 'DELETE' && stockReason.trim() && !deleteLoading
+                  deleteConfirmText === 'DELETE' && !deleteLoading
                     ? 'bg-red-600 hover:bg-red-700 shadow-lg hover:shadow-xl'
                     : 'bg-gray-400'
                 }`}

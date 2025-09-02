@@ -381,15 +381,28 @@ export async function getAdminStockInfo(itemName: string, category: string) {
     throw new Error(`ไม่พบรายการ ${itemName} ในหมวดหมู่ ${category}`);
   }
   
-  // 🆕 EXACTLY SAME LOGIC AS INVENTORY TABLE: Use InventoryMaster fields directly
-  console.log(`📊 Stock Info - Raw InventoryMaster data for ${itemName}:`, {
-    totalQuantity: item.totalQuantity,        // Same as Inventory Table  
-    availableQuantity: item.availableQuantity,// admin_stock items (จำนวนที่เหลือให้เบิก)
-    userOwnedQuantity: item.userOwnedQuantity // user_owned items
+  // 🆕 Get detailed breakdown of items with and without serial numbers in admin_stock
+  const adminStockItems = await InventoryItem.find({
+    itemName,
+    category,
+    'currentOwnership.ownerType': 'admin_stock'
+  });
+  
+  // Count items with and without serial numbers in admin_stock
+  const adminItemsWithSN = adminStockItems.filter(item => item.serialNumber && item.serialNumber.trim() !== '');
+  const adminItemsWithoutSN = adminStockItems.filter(item => !item.serialNumber || item.serialNumber.trim() === '');
+  
+  console.log(`📊 Stock Info - Detailed breakdown for ${itemName}:`, {
+    totalQuantity: item.totalQuantity,
+    availableQuantity: item.availableQuantity,
+    userOwnedQuantity: item.userOwnedQuantity,
+    adminItemsWithSN: adminItemsWithSN.length,
+    adminItemsWithoutSN: adminItemsWithoutSN.length,
+    totalAdminItems: adminStockItems.length
   });
   
   // For Stock Modal display purposes:
-  // - "Admin ตั้งไว้" = availableQuantity (items in admin_stock)
+  // - "Admin ตั้งไว้" = adminItemsWithoutSN (เฉพาะที่ไม่มี SN)
   // - "User เพิ่มมา" = userOwnedQuantity (items with users) 
   // - "รวมทั้งหมด" = totalQuantity (same as table)
   
@@ -397,16 +410,19 @@ export async function getAdminStockInfo(itemName: string, category: string) {
     itemName: item.itemName,
     category: item.category,
     stockManagement: {
-      adminDefinedStock: item.availableQuantity,                // Items in admin_stock  
+      adminDefinedStock: adminItemsWithoutSN.length,            // 🔧 FIXED: Only items without SN in admin_stock
       userContributedCount: item.userOwnedQuantity,             // Items with users
       currentlyAllocated: item.userOwnedQuantity,               // Items with users
-      realAvailable: item.availableQuantity                     // Items in admin_stock
+      realAvailable: adminItemsWithoutSN.length                 // 🔧 FIXED: Only items without SN available for adjustment
     },
     adminStockOperations: item.adminStockOperations || [],
     currentStats: {
       totalQuantity: item.totalQuantity,                        // EXACTLY same as Inventory Table
       availableQuantity: item.availableQuantity,                // EXACTLY same as Inventory Table  
-      userOwnedQuantity: item.userOwnedQuantity                 // EXACTLY same as Inventory Table
+      userOwnedQuantity: item.userOwnedQuantity,                // EXACTLY same as Inventory Table
+      // 🆕 NEW: Add breakdown for frontend
+      adminItemsWithSN: adminItemsWithSN.length,                // Items with SN in admin_stock
+      adminItemsWithoutSN: adminItemsWithoutSN.length           // Items without SN in admin_stock
     }
   };
 }
