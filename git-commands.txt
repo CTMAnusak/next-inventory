@@ -1,0 +1,149 @@
+# คู่มือการใช้งาน Git สำหรับ Inventory System
+
+## 📥 การดึงโค้ดลงมาครั้งแรก (Clone Repository)
+git clone https://github.com/panuwatsopwork/inventory-system.git
+cd inventory-system
+
+## 🔄 การดึงอัพเดตล่าสุดก่อนเริ่มงาน (สำคัญ!)
+git pull origin main
+
+## 🚀 การตั้งค่าโปรเจคใหม่ (กรณีเริ่มต้นจาก local)
+
+### ขั้นตอนพื้นฐาน
+git init
+git remote add origin https://github.com/panuwatsopwork/inventory-system.git
+git add .
+git commit -m "Initial commit"
+git push -u origin main
+
+## ⚠️ การแก้ปัญหาที่พบบ่อย
+
+### กรณีที่ 1: "remote origin already exists"
+# ดู remote ปัจจุบัน
+git remote -v
+
+# แก้ไข (เลือก 1 วิธี)
+git remote remove origin && git remote add origin https://github.com/panuwatsopwork/inventory-system.git
+# หรือ (แนะนำ)
+git remote set-url origin https://github.com/panuwatsopwork/inventory-system.git
+
+## 🔄 การเปลี่ยน Repository ปลายทาง
+
+### เช็ค remote ปัจจุบัน
+git remote -v
+
+### เปลี่ยนไปยัง repository ใหม่
+git remote set-url origin https://github.com/USERNAME/REPOSITORY-NAME.git
+
+### ตัวอย่าง: เปลี่ยนจาก repo ตัวเองไปเป็นของเพื่อน
+git remote set-url origin https://github.com/panuwatsopwork/inventory-system.git
+
+### ตรวจสอบการเปลี่ยนแปลง
+git remote -v
+
+## 🚀 การ Push ไปหลาย Repository พร้อมกัน
+
+### วิธีที่ 1: Multiple Remotes (แนะนำ)
+git remote add repo1 https://github.com/panuwatsopwork/inventory-system.git
+git remote add repo2 https://github.com/CTMAnusak/next-inventory.git
+
+# Push ไปทั้งสองที่พร้อม commit message
+git add .
+git commit -m "ข้อความ commit ของคุณ"
+
+# PowerShell (Windows)
+git push repo1 main; git push repo2 main
+
+# Command Prompt/Git Bash
+git push repo1 main && git push repo2 main
+
+# หรือ Push แต่ละที่แยก
+git push repo1 main
+git push repo2 main
+
+### วิธีที่ 2: เปลี่ยน Remote แล้ว Push พร้อม Commit
+# Commit ก่อน
+git add .
+git commit -m "ข้อความ commit ของคุณ"
+
+# Push ไปที่แรก
+git remote set-url origin https://github.com/panuwatsopwork/inventory-system.git
+git push origin main
+
+# เปลี่ยนไปที่สอง
+git remote set-url origin https://github.com/CTMAnusak/next-inventory.git
+git push origin main
+
+### วิธีที่ 3: ใช้ Script พร้อม Commit (สร้างไฟล์ push-both.bat)
+@echo off
+echo "กำลัง commit และ push ไปทั้งสอง repository..."
+git add .
+git commit -m "%1"
+git push https://github.com/panuwatsopwork/inventory-system.git main
+git push https://github.com/CTMAnusak/next-inventory.git main
+echo "Pushed to both repositories สำเร็จ!"
+
+# วิธีใช้: push-both.bat "ข้อความ commit ของคุณ"
+
+### วิธีที่ 4: One-liner Command
+
+#### สำหรับ PowerShell (Windows)
+git add .; git commit -m "ข้อความ commit"; git push repo1 main; git push repo2 main
+
+#### สำหรับ Command Prompt หรือ Git Bash
+git add . && git commit -m "ข้อความ commit" && git push repo1 main && git push repo2 main
+
+### กรณีที่ 2: "no upstream branch"
+git push -u origin main
+# หรือ
+git push --set-upstream origin main
+
+### กรณีที่ 3: "working tree clean" (ไม่มีอะไรให้ commit)
+# หมายความว่าทุกอย่างอัพเดตแล้ว ไม่ต้องทำอะไร
+
+## 📝 ขั้นตอนการทำงานประจำวัน (Workflow)
+
+### 1. ก่อนเริ่มงานทุกครั้ง
+git status                 # เช็คสถานะปัจจุบัน
+git pull origin main       # ดึงอัพเดตล่าสุด
+
+### 2. ทำงานและบันทึกการเปลี่ยนแปลง
+git add .                  # เพิ่มไฟล์ทั้งหมด
+# หรือ git add filename.js # เลือกไฟล์เฉพาะ
+git commit -m "อธิบายการเปลี่ยนแปลง"
+
+### 3. อัพโหลดขึ้น GitHub
+git push
+
+## 🛠️ คำสั่งเพิ่มเติมที่มีประโยชน์
+
+### การจัดการ Branch
+git branch                 # ดู branch ทั้งหมด
+git branch -a              # ดูทั้ง local และ remote branch
+git checkout -b new-branch # สร้าง branch ใหม่
+git checkout main          # เปลี่ยนไป branch main
+git merge branch-name      # รวม branch เข้ากับ branch ปัจจุบัน
+
+### การดู History และสถานะ
+git log                    # ดู commit history
+git log --oneline          # ดู history แบบสั้น
+git status                 # ดูสถานะไฟล์ปัจจุบัน
+git diff                   # ดูความแตกต่างของไฟล์
+
+### การยกเลิกการเปลี่ยนแปลง
+git checkout -- filename  # ยกเลิกการแก้ไขไฟล์
+git reset HEAD filename    # ยกเลิกการ add ไฟล์
+git reset --hard HEAD      # ยกเลิกทุกการเปลี่ยนแปลง (ระวัง!)
+
+## 📋 สรุปคำสั่งที่ใช้บ่อย
+1. git pull origin main    # ดึงอัพเดต
+2. git add .               # เพิ่มไฟล์
+3. git commit -m "message" # บันทึกการเปลี่ยนแปลง
+4. git push                # อัพโหลด
+5. git status              # เช็คสถานะ
+
+## 💡 Tips สำคัญ
+- ทำ git pull ก่อนเริ่มงานทุกครั้ง
+- เขียน commit message ให้ชัดเจน
+- ถ้า repository ใช้ branch master แทน main ให้เปลี่ยนในคำสั่งได้เลย
+- ใช้ git status เพื่อเช็คสถานะบ่อยๆ

@@ -1,0 +1,275 @@
+@import "tailwindcss";
+
+:root {
+  --background: #ffffff;
+  --foreground: #171717;
+}
+
+/* Fix hydration mismatch */
+body {
+  @apply antialiased;
+}
+
+@theme inline {
+  --color-background: var(--background);
+  --color-foreground: var(--foreground);
+  --font-sans: var(--font-geist-sans);
+  --font-mono: var(--font-geist-mono);
+}
+
+@media (prefers-color-scheme: dark) {
+  :root {
+    --background: #0a0a0a;
+    --foreground: #ededed;
+  }
+}
+
+body {
+  background: var(--background);
+  color: var(--foreground);
+  font-family: Arial, Helvetica, sans-serif;
+}
+
+/* Custom input styles for better visibility */
+input[type="text"],
+input[type="email"], 
+input[type="password"],
+input[type="tel"],
+input[type="date"],
+input[type="number"],
+textarea,
+select {
+  color: #111827 !important; /* text-gray-900 */
+  background-color: #ffffff !important; /* bg-white */
+}
+
+input[type="text"]::placeholder,
+input[type="email"]::placeholder,
+input[type="password"]::placeholder,
+input[type="tel"]::placeholder,
+textarea::placeholder {
+  color: #6B7280 !important; /* text-gray-500 */
+  font-weight: normal;
+}
+
+/* Focus states for better contrast */
+input:focus,
+textarea:focus,
+select:focus {
+  color: #111827 !important; /* text-gray-900 */
+  background-color: #ffffff !important; /* bg-white */
+}
+
+/* Select dropdown options */
+select option {
+  color: #111827 !important; /* text-gray-900 */
+  background-color: #ffffff !important; /* bg-white */
+}
+
+/* Custom validation styles - only show after form submission */
+.form-submitted input:invalid {
+  border-color: #ef4444 !important; /* red-500 */
+  box-shadow: 0 0 0 1px #ef4444 !important;
+}
+
+/* Error state class for manual validation */
+.input-error {
+  border-color: #ef4444 !important; /* red-500 */
+  box-shadow: 0 0 0 1px #ef4444 !important;
+}
+
+.input-success {
+  border-color: #10b981 !important; /* green-500 */
+}
+
+/* Phone number input styling */
+input[type="tel"] {
+  letter-spacing: 0.05em;
+}
+
+/* Touch scrolling support for tables */
+.table-container {
+  overflow-x: auto;
+  -webkit-overflow-scrolling: touch; /* iOS smooth scrolling */
+  scrollbar-width: thin; /* Firefox */
+  scrollbar-color: #3b82f6 #e5f3ff; /* Blue scrollbar for Firefox */
+  cursor: grab; /* Default grab cursor for all tables */
+}
+
+/* Allow text selection only in table cell content, not the cells themselves */
+.table-container td *,
+.table-container th * {
+  user-select: text !important;
+  cursor: text !important;
+}
+
+/* Override cursor for interactive elements in table cells */
+.table-container td button,
+.table-container td button *,
+.table-container td [role="button"],
+.table-container td [role="button"] *,
+.table-container td [onClick],
+.table-container td [onClick] *,
+.table-container td [data-clickable="true"],
+.table-container td [data-clickable="true"] * {
+  cursor: pointer !important;
+  user-select: none !important;
+  -webkit-user-select: none !important;
+  -moz-user-select: none !important;
+  -ms-user-select: none !important;
+}
+
+/* Override cursor for text selectable elements */
+.table-container .text-selectable {
+  user-select: text !important;
+  cursor: text !important;
+}
+
+/* Ensure text selection works for selectable table cells */
+.text-selectable {
+  user-select: text !important;
+  cursor: text !important;
+}
+
+/* Keep table cells as non-selectable for drag scrolling, except selectable ones */
+.table-container td:not(.text-selectable),
+.table-container th {
+  user-select: none;
+  cursor: default;
+}
+
+/* Override for selectable cells with higher specificity */
+.table-container table td.text-selectable {
+  user-select: text !important;
+  cursor: text !important;
+}
+
+/* Text selection for selectable table cells */
+.table-container td.text-selectable {
+  user-select: text !important;
+  cursor: text !important;
+  -webkit-user-select: text !important;
+  -moz-user-select: text !important;
+  -ms-user-select: text !important;
+  pointer-events: auto !important;
+}
+
+/* Override for spans inside buttons - should not be selectable */
+button span {
+  user-select: none !important;
+  cursor: inherit !important;
+  -webkit-user-select: none !important;
+  -moz-user-select: none !important;
+  -ms-user-select: none !important;
+}
+
+/* Specific override for buttons in table cells */
+.table-container button {
+  cursor: pointer !important;
+}
+
+.table-container button span {
+  user-select: none !important;
+  cursor: inherit !important;
+  -webkit-user-select: none !important;
+  -moz-user-select: none !important;
+  -ms-user-select: none !important;
+}
+
+/* Override cursor for SVG elements inside buttons in table cells */
+.table-container button svg,
+.table-container button svg * {
+  cursor: pointer !important;
+  user-select: none !important;
+  -webkit-user-select: none !important;
+  -moz-user-select: none !important;
+  -ms-user-select: none !important;
+}
+
+/* Override cursor for all interactive elements in table cells */
+.table-container button,
+.table-container a,
+.table-container [role="button"],
+.table-container [onClick],
+.table-container [data-clickable="true"] {
+  cursor: pointer !important;
+}
+
+.table-container button *,
+.table-container a *,
+.table-container [role="button"] *,
+.table-container [onClick] *,
+.table-container [data-clickable="true"] * {
+  cursor: pointer !important;
+  user-select: none !important;
+  -webkit-user-select: none !important;
+  -moz-user-select: none !important;
+  -ms-user-select: none !important;
+}
+
+/* Cursor states for drag scrolling */
+.table-container:active {
+  cursor: grabbing; /* Show grabbing cursor while dragging */
+}
+
+.table-container.dragging {
+  cursor: grabbing !important;
+  box-shadow: inset 0 0 0 2px #3b82f6; /* Blue border when dragging */
+}
+
+/* Blue WebKit scrollbar for all tables */
+.table-container::-webkit-scrollbar {
+  height: 8px;
+}
+
+.table-container::-webkit-scrollbar-track {
+  background: #e5f3ff;
+  border-radius: 4px;
+}
+
+.table-container::-webkit-scrollbar-thumb {
+  background: #3b82f6;
+  border-radius: 4px;
+  border: 1px solid #e5f3ff;
+}
+
+.table-container::-webkit-scrollbar-thumb:hover {
+  background: #1d4ed8;
+}
+
+/* Ensure smooth scrolling on touch devices */
+.table-container {
+  scroll-behavior: smooth;
+  touch-action: pan-x pan-y;
+}
+
+/* Cursor pointer for interactive elements */
+button,
+[role="button"],
+.cursor-pointer,
+[onClick],
+[data-clickable="true"] {
+  cursor: pointer !important;
+}
+
+/* Specific cursor styles for interactive elements */
+button:not(:disabled) {
+  cursor: pointer !important;
+}
+
+button:disabled {
+  cursor: not-allowed !important;
+}
+
+/* Clickable links and navigation items */
+a,
+[role="link"] {
+  cursor: pointer !important;
+}
+
+/* Dropdown toggles and expandable menus */
+[aria-expanded],
+.dropdown-toggle,
+.menu-toggle {
+  cursor: pointer !important;
+}

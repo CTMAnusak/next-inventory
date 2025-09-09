@@ -1,0 +1,96 @@
+# =============================================================================
+# NEXT INVENTORY MANAGEMENT SYSTEM - ENVIRONMENT CONFIGURATION BACKUP
+# =============================================================================
+
+# MongoDB Configuration
+# ใช้สำหรับเชื่อมต่อฐานข้อมูล MongoDB Atlas หรือ Local MongoDB
+MONGODB_URI=mongodb+srv://vsq-admin:vsqWedYykRQQjZtmHX9@cluster0.r3yibxs.mongodb.net/inventory-management?retryWrites=true&w=majority&appName=Cluster0
+
+# JWT Configuration  
+# ใช้สำหรับการสร้างและยืนยัน JWT Token สำหรับ Authentication
+JWT_SECRET=my-super-secret-jwt-key-2024-vsq-clinic
+
+# Email Configuration (Nodemailer)
+# ใช้สำหรับส่งอีเมลแจ้งเตือนต่างๆ เช่น การสมัครสมาชิกใหม่, IT Reports
+EMAIL_HOST=smtp.gmail.com
+EMAIL_PORT=587
+EMAIL_USER=panuwat.sop.work@gmail.com
+EMAIL_PASS=appiaukqlafmcixb
+EMAIL_FROM=panuwat.sop.work@gmail.com
+
+# NextAuth Configuration
+# ใช้สำหรับ NextAuth.js สำหรับการ Authentication
+NEXTAUTH_URL=http://localhost:3000
+NEXTAUTH_SECRET=my-nextauth-secret-2024-vsq-clinic
+
+# Google OAuth Configuration (Current - อาร์ม)
+# ใช้สำหรับการ Login ผ่าน Google OAuth
+NEXT_PUBLIC_GOOGLE_CLIENT_ID=689507743564-msuhgr7sbljam4oegkc804oq0q38q6m0.apps.googleusercontent.com
+GOOGLE_CLIENT_SECRET=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
+
+# Google OAuth Configuration (Legacy - เก่า)
+#NEXT_PUBLIC_GOOGLE_CLIENT_ID=407337870132-7gud56tvea46jpedokfd3ho8kujro3eo.apps.googleusercontent.com
+#GOOGLE_CLIENT_SECRET=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
+
+# =============================================================================
+# SUPER ADMIN CONFIGURATION (Bootstrap System)
+# =============================================================================
+# ข้อมูลนี้ใช้สำหรับสร้าง Super Admin คนแรกในระบบเมื่อเริ่มต้นระบบใหม่
+# เมื่อฐานข้อมูลยังไม่มี Admin ใดๆ เลย ระบบจะใช้ข้อมูลนี้สร้าง Super Admin อัตโนมัติ
+# 
+# วัตถุประสงค์:
+# - แก้ปัญหาการ Bootstrap ระบบใหม่ที่ไม่มี Admin
+# - ป้องกันการ Lock out จากระบบ
+# - ให้มี Entry Point สำหรับเข้าใช้งานระบบครั้งแรก
+# - ทำให้ระบบสามารถใช้งานได้ทันทีหลังจาก Deploy
+#
+# ความปลอดภัย:
+# - รหัสผ่านสร้างด้วย crypto.randomBytes() 8 ตัวอักษรแบบ HEX
+# - ควรเปลี่ยนรหัสผ่านหลังจากเข้าใช้งานครั้งแรก
+# - ข้อมูลนี้จะใช้เฉพาะตอน Bootstrap เท่านั้น
+# - หลังจากมี Admin ในระบบแล้ว จะไม่สร้าง Super Admin ซ้ำ
+#
+# การใช้งาน:
+# 1. Copy ข้อมูลนี้ไปใส่ในไฟล์ .env.local
+# 2. เริ่มระบบ (npm run dev)
+# 3. เข้า /api/create-user เพื่อ Bootstrap ระบบ
+# 4. Login ด้วย admin@gmail.com / 2952B210
+# 5. เปลี่ยนรหัสผ่านและสร้าง Admin คนอื่นๆ
+#
+SUPER_ADMIN_EMAIL=admin@gmail.com
+SUPER_ADMIN_PASSWORD=2952B210
+SUPER_ADMIN_FIRST_NAME=Super
+SUPER_ADMIN_LAST_NAME=Administrator
+SUPER_ADMIN_NICKNAME=SuperAdmin
+SUPER_ADMIN_DEPARTMENT=System Administration
+SUPER_ADMIN_OFFICE=สำนักงานใหญ่
+SUPER_ADMIN_PHONE=000-000-0000
+
+# =============================================================================
+# SYSTEM FLAGS
+# =============================================================================
+# ใช้สำหรับควบคุมการทำงานของระบบ
+#
+# ENABLE_AUTO_SUPER_ADMIN_CREATION:
+# - true = ระบบจะสร้าง Super Admin อัตโนมัติหากไม่มี Admin ในระบบ
+# - false = ปิดการสร้าง Super Admin อัตโนมัติ (ต้องสร้างด้วยตนเอง)
+# 
+# ใช้สำหรับ:
+# - Production: ตั้งเป็น false เพื่อความปลอดภัย
+# - Development/Staging: ตั้งเป็น true เพื่อความสะดวก
+#
+ENABLE_AUTO_SUPER_ADMIN_CREATION=true
+
+# =============================================================================
+# CRON JOB SECURITY (Optional)
+# =============================================================================
+# สำหรับรักษาความปลอดภัยของ Cron Jobs
+# หากไม่ได้ตั้งค่า cron jobs จะทำงานได้โดยไม่ต้องมี authorization
+#
+# CRON_SECRET=your-secret-key-here
+# ใช้สำหรับ:
+# - ป้องกันการเรียก cron endpoints จากภายนอก
+# - รักษาความปลอดภัยของ auto-cleanup system
+# - ใช้ใน Authorization header: Bearer your-secret-key-here
+#
+# ตัวอย่าง: CRON_SECRET=cleanup_secret_2024

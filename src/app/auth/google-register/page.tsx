@@ -1,0 +1,364 @@
+'use client';
+
+import { useState, useEffect } from 'react';
+import { useRouter, useSearchParams } from 'next/navigation';
+import { toast } from 'react-hot-toast';
+import { Package, User, Building, Phone, Mail, MapPin, Briefcase } from 'lucide-react';
+
+interface GoogleProfile {
+  id: string;
+  email: string;
+  name: string;
+  picture?: string;
+}
+
+interface ProfileCompletionForm {
+  firstName: string;
+  lastName: string;
+  nickname: string;
+  department: string;
+  office: string;
+  phone: string;
+  userType: 'individual' | 'branch';
+  requestMessage?: string;
+}
+
+export default function GoogleRegisterPage() {
+  const router = useRouter();
+  const searchParams = useSearchParams();
+  const [loading, setLoading] = useState(false);
+  const [googleProfile, setGoogleProfile] = useState<GoogleProfile | null>(null);
+  
+  const [formData, setFormData] = useState<ProfileCompletionForm>({
+    firstName: '',
+    lastName: '',
+    nickname: '',
+    department: '',
+    office: '',
+    phone: '',
+    userType: 'individual',
+    requestMessage: ''
+  });
+
+  useEffect(() => {
+    // ดึงข้อมูลจาก URL parameters (จาก Google OAuth callback)
+    const profileData = searchParams.get('profile');
+    if (profileData) {
+      try {
+        const profile: GoogleProfile = JSON.parse(decodeURIComponent(profileData));
+        setGoogleProfile(profile);
+        
+        // แยกชื่อจาก Google name
+        const nameParts = profile.name.split(' ');
+        setFormData(prev => ({
+          ...prev,
+          firstName: nameParts[0] || '',
+          lastName: nameParts.slice(1).join(' ') || ''
+        }));
+      } catch (error) {
+        console.error('Error parsing profile data:', error);
+        toast.error('เกิดข้อผิดพลาดในการโหลดข้อมูลโปรไฟล์');
+        router.push('/login');
+      }
+    } else {
+      // ถ้าไม่มีข้อมูลโปรไฟล์ ให้กลับไปหน้า login
+      router.push('/login');
+    }
+  }, [searchParams, router]);
+
+  const handleInputChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement>) => {
+    const { name, value } = e.target;
+    
+    // Validation for phone number
+    if (name === 'phone') {
+      const numbersOnly = value.replace(/[^0-9]/g, '');
+      if (numbersOnly.length <= 10) {
+        setFormData(prev => ({
+          ...prev,
+          [name]: numbersOnly
+        }));
+      }
+      return;
+    }
+    
+    setFormData(prev => ({
+      ...prev,
+      [name]: value
+    }));
+  };
+
+  const validateForm = () => {
+    if (formData.userType === 'individual') {
+      if (!formData.firstName || !formData.lastName || !formData.nickname || 
+          !formData.department || !formData.office || !formData.phone) {
+        toast.error('กรุณากรอกข้อมูลให้ครบถ้วน');
+        return false;
+      }
+    } else {
+      if (!formData.office || !formData.phone) {
+        toast.error('กรุณากรอกข้อมูลให้ครบถ้วน');
+        return false;
+      }
+    }
+
+    // Validate phone number
+    if (formData.phone && formData.phone.length !== 10) {
+      toast.error('เบอร์โทรศัพท์ต้องเป็นตัวเลข 10 หลักเท่านั้น');
+      return false;
+    }
+
+    return true;
+  };
+
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    
+    if (!validateForm() || !googleProfile) return;
+
+    setLoading(true);
+    try {
+      const response = await fetch('/api/auth/google-register', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          googleProfile,
+          profileData: formData
+        }),
+      });
+
+      const data = await response.json();
+
+      if (response.ok) {
+        toast.success('สมัครสมาชิกเรียบร้อยแล้ว รอการอนุมัติจากผู้ดูแลระบบ', { duration: 5000 });
+        setTimeout(() => {
+          router.push('/login?message=registration_pending');
+        }, 2000);
+      } else {
+        toast.error(data.error || 'เกิดข้อผิดพลาด');
+      }
+    } catch (error) {
+      toast.error('เกิดข้อผิดพลาดในการเชื่อมต่อ');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  if (!googleProfile) {
+    return (
+      <div className="min-h-screen bg-gradient-to-br from-blue-600 via-blue-700 to-indigo-800 flex items-center justify-center p-4">
+        <div className="bg-white/95 backdrop-blur-sm rounded-2xl shadow-2xl p-8 border border-white/20">
+          <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600 mx-auto"></div>
+          <p className="text-center mt-4 text-gray-600">กำลังโหลดข้อมูล...</p>
+        </div>
+      </div>
+    );
+  }
+
+  return (
+    <div className="min-h-screen bg-gradient-to-br from-blue-600 via-blue-700 to-indigo-800 flex items-center justify-center p-4">
+      <div className="max-w-2xl w-full space-y-8">
+        <div className="bg-white/95 backdrop-blur-sm rounded-2xl shadow-2xl p-8 border border-white/20">
+          <div className="text-center mb-6">
+            <div className="w-16 h-16 bg-gradient-to-r from-blue-500 to-blue-600 rounded-2xl flex items-center justify-center mx-auto mb-4">
+              <Package className="w-8 h-8 text-white" />
+            </div>
+            <h2 className="text-3xl font-bold bg-gradient-to-r from-blue-600 to-blue-800 bg-clip-text text-transparent">
+              สมัครสมาชิก
+            </h2>
+            <p className="mt-2 text-sm text-gray-600">
+              กรุณากรอกข้อมูลเพิ่มเติมเพื่อสมัครสมาชิก
+            </p>
+          </div>
+
+          {/* Google Profile Info */}
+          <div className="bg-gray-50 rounded-lg p-4 mb-6">
+            <div className="flex items-center space-x-4">
+              {googleProfile.picture && (
+                <img 
+                  src={googleProfile.picture} 
+                  alt="Profile" 
+                  className="w-12 h-12 rounded-full"
+                />
+              )}
+              <div>
+                <p className="font-medium text-gray-900">
+                  <Mail className="w-4 h-4 inline mr-2" />
+                  {googleProfile.email}
+                </p>
+                <p className="text-sm text-gray-500">ข้อมูลจาก Google Account</p>
+              </div>
+            </div>
+          </div>
+          
+          <form onSubmit={handleSubmit} className="space-y-6">
+            {/* User Type Selection */}
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-2">
+                ประเภทผู้ใช้ *
+              </label>
+              <select
+                name="userType"
+                value={formData.userType}
+                onChange={handleInputChange}
+                className="w-full px-4 py-3 border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500 text-gray-900"
+                required
+              >
+                <option value="individual">บุคคล</option>
+                <option value="branch">สาขา</option>
+              </select>
+            </div>
+
+            {formData.userType === 'individual' && (
+              <>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-2">
+                      <User className="w-4 h-4 inline mr-1" />
+                      ชื่อ *
+                    </label>
+                    <input
+                      type="text"
+                      name="firstName"
+                      value={formData.firstName}
+                      onChange={handleInputChange}
+                      className="w-full px-4 py-3 border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500 text-gray-900"
+                      required
+                    />
+                  </div>
+                  
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-2">
+                      <User className="w-4 h-4 inline mr-1" />
+                      นามสกุล *
+                    </label>
+                    <input
+                      type="text"
+                      name="lastName"
+                      value={formData.lastName}
+                      onChange={handleInputChange}
+                      className="w-full px-4 py-3 border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500 text-gray-900"
+                      required
+                    />
+                  </div>
+                </div>
+                
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-2">
+                      ชื่อเล่น *
+                    </label>
+                    <input
+                      type="text"
+                      name="nickname"
+                      value={formData.nickname}
+                      onChange={handleInputChange}
+                      className="w-full px-4 py-3 border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500 text-gray-900"
+                      required
+                    />
+                  </div>
+                  
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-2">
+                      <Briefcase className="w-4 h-4 inline mr-1" />
+                      แผนก *
+                    </label>
+                    <input
+                      type="text"
+                      name="department"
+                      value={formData.department}
+                      onChange={handleInputChange}
+                      className="w-full px-4 py-3 border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500 text-gray-900"
+                      placeholder="เช่น IT, การเงิน, ทรัพยากรบุคคล"
+                      required
+                    />
+                  </div>
+                </div>
+              </>
+            )}
+            
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-2">
+                <MapPin className="w-4 h-4 inline mr-1" />
+                ออฟฟิศ/สาขา *
+              </label>
+              <input
+                type="text"
+                name="office"
+                value={formData.office}
+                onChange={handleInputChange}
+                className="w-full px-4 py-3 border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500 text-gray-900"
+                placeholder="เช่น สำนักงานใหญ่, สาขาสีลม, สาขาอโศก"
+                required
+              />
+            </div>
+            
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-2">
+                <Phone className="w-4 h-4 inline mr-1" />
+                เบอร์โทร *
+              </label>
+              <input
+                type="tel"
+                name="phone"
+                value={formData.phone}
+                onChange={handleInputChange}
+                className="w-full px-4 py-3 border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500 text-gray-900"
+                placeholder="0812345678"
+                pattern="[0-9]{10}"
+                maxLength={10}
+                required
+              />
+            </div>
+
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-2">
+                ข้อความถึงผู้ดูแลระบบ (ไม่บังคับ)
+              </label>
+              <textarea
+                name="requestMessage"
+                value={formData.requestMessage}
+                onChange={handleInputChange}
+                className="w-full px-4 py-3 border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500 text-gray-900"
+                rows={3}
+                placeholder="เช่น ต้องการเข้าใช้งานระบบเพื่อ..."
+              />
+            </div>
+
+            <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
+              <p className="text-sm text-blue-800">
+                <span className="font-medium">หมายเหตุ:</span> ข้อมูลของคุณจะถูกส่งไปยังผู้ดูแลระบบเพื่อพิจารณาอนุมัติ 
+                คุณจะได้รับการแจ้งเตือนทางอีเมลเมื่อบัญชีของคุณได้รับการอนุมัติแล้ว
+              </p>
+            </div>
+
+            <div className="flex space-x-4">
+              <button
+                type="button"
+                onClick={() => router.push('/login')}
+                className="flex-1 py-3 px-4 border border-gray-300 text-gray-700 rounded-xl hover:bg-gray-50 transition-colors"
+              >
+                ยกเลิก
+              </button>
+              <button
+                type="submit"
+                disabled={loading}
+                className="flex-1 py-3 px-4 bg-gradient-to-r from-blue-600 to-blue-700 hover:from-blue-700 hover:to-blue-800 text-white rounded-xl transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+              >
+                {loading ? (
+                  <div className="flex items-center justify-center">
+                    <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white mr-2"></div>
+                    กำลังสมัครสมาชิก...
+                  </div>
+                ) : (
+                  'สมัครสมาชิก'
+                )}
+              </button>
+            </div>
+          </form>
+        </div>
+      </div>
+    </div>
+  );
+}

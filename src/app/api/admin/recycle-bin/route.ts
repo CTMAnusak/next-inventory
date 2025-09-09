@@ -1,0 +1,113 @@
+import { NextRequest, NextResponse } from 'next/server';
+import dbConnect from '@/lib/mongodb';
+import User from '@/models/User';
+import { verifyToken } from '@/lib/auth';
+import { getRecycleBinItems, permanentDeleteExpiredItems } from '@/lib/recycle-bin-helpers';
+
+// GET - Fetch recycle bin items
+export async function GET(request: NextRequest) {
+  try {
+    await dbConnect();
+    
+    // Get user info from token
+    const token = request.cookies.get('auth-token')?.value;
+    const payload: any = token ? verifyToken(token) : null;
+    
+    if (!payload) {
+      return NextResponse.json(
+        { error: 'กรุณาเข้าสู่ระบบ' },
+        { status: 401 }
+      );
+    }
+
+    // Check if user is admin or it_admin
+    const currentUser = await User.findOne({ user_id: payload.userId });
+    if (!currentUser || !['admin', 'it_admin'].includes(currentUser.userRole)) {
+      return NextResponse.json(
+        { error: 'คุณไม่มีสิทธิ์เข้าถึงถังขยะ' },
+        { status: 403 }
+      );
+    }
+
+    const { searchParams } = new URL(request.url);
+    const type = searchParams.get('type') as 'individual' | 'category' || 'individual';
+    const page = parseInt(searchParams.get('page') || '1');
+    const limit = parseInt(searchParams.get('limit') || '50');
+
+    console.log(`🗑️ Fetching recycle bin items: type=${type}, page=${page}, limit=${limit}`);
+
+    const result = await getRecycleBinItems(type, page, limit);
+
+    return NextResponse.json({
+      success: true,
+      data: result.items,
+      pagination: {
+        page: result.page,
+        limit: result.limit,
+        total: result.total,
+        totalPages: Math.ceil(result.total / result.limit)
+      }
+    });
+
+  } catch (error) {
+    console.error('❌ Recycle Bin API - Error fetching items:', error);
+    return NextResponse.json(
+      { error: 'เกิดข้อผิดพลาดในการดึงข้อมูลถังขยะ' },
+      { status: 500 }
+    );
+  }
+}
+
+// POST - Manual cleanup expired items (for testing/admin purposes)
+export async function POST(request: NextRequest) {
+  try {
+    await dbConnect();
+    
+    // Get user info from token
+    const token = request.cookies.get('auth-token')?.value;
+    const payload: any = token ? verifyToken(token) : null;
+    
+    if (!payload) {
+      return NextResponse.json(
+        { error: 'กรุณาเข้าสู่ระบบ' },
+        { status: 401 }
+      );
+    }
+
+    // Check if user is admin or it_admin
+    const currentUser = await User.findOne({ user_id: payload.userId });
+    if (!currentUser || !['admin', 'it_admin'].includes(currentUser.userRole)) {
+      return NextResponse.json(
+        { error: 'คุณไม่มีสิทธิ์ทำการ cleanup ถังขยะ' },
+        { status: 403 }
+      );
+    }
+
+    const body = await request.json();
+    const { action } = body;
+
+    if (action === 'cleanup') {
+      console.log('🧹 Manual cleanup requested by admin');
+      const result = await permanentDeleteExpiredItems();
+      
+      return NextResponse.json({
+        success: true,
+        message: `ลบรายการหมดอายุแล้ว ${result.deletedCount} รายการ`,
+        deletedCount: result.deletedCount,
+        deletedItems: result.items
+      });
+    }
+
+    return NextResponse.json(
+      { error: 'Action ไม่ถูกต้อง' },
+      { status: 400 }
+    );
+
+  } catch (error) {
+    console.error('❌ Recycle Bin API - Error in POST action:', error);
+    return NextResponse.json(
+      { error: 'เกิดข้อผิดพลาดในการดำเนินการ' },
+      { status: 500 }
+    );
+  }
+}

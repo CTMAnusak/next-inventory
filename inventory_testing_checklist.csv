@@ -1,0 +1,142 @@
+Test Category,Test ID,Test Name,Description,Steps,Expected Results,Priority,Status,Tester Name,Test Date,Notes,Issues Found
+Basic CRUD Operations,1.1,เพิ่มอุปกรณ์ใหม่,"ทดสอบการเพิ่มอุปกรณ์ทั้งที่มี SN และไม่มี SN","1. Login เป็น admin/it_admin
+2. ไป Admin → Inventory Management  
+3. เพิ่มอุปกรณ์ใหม่: ชื่อ ""Test Mouse"" หมวดหมู่ ""อุปกรณ์คอมพิวเตอร์"" จำนวน 3 (ไม่มี SN)
+4. เพิ่มอุปกรณ์ที่มี SN: ชื่อ ""Test Keyboard"" หมวดหมู่ ""อุปกรณ์คอมพิวเตอร์"" Serial Number ""KB001""","- อุปกรณ์ถูกเพิ่มสำเร็จ
+- จำนวนแสดงถูกต้อง (3 ชิ้นสำหรับ Mouse, 1 ชิ้นสำหรับ Keyboard)
+- InventoryMaster อัปเดตถูกต้อง",Priority 1,Not Started,,,
+Basic CRUD Operations,1.2,แก้ไขอุปกรณ์,ทดสอบการแก้ไข Serial Number,"1. เลือกอุปกรณ์ที่มี SN
+2. แก้ไข Serial Number
+3. บันทึก","- Serial Number อัปเดตสำเร็จ
+- ไม่มี error เรื่อง duplicate SN
+- ข้อมูลในฐานข้อมูลถูกต้อง",Priority 1,Not Started,,,
+Basic CRUD Operations,1.3,ดูรายละเอียดอุปกรณ์,ทดสอบการแสดงรายละเอียด,"1. คลิกดูรายละเอียดอุปกรณ์
+2. ตรวจสอบข้อมูลทั้งหมด","- ข้อมูลแสดงครบถ้วน
+- Status แสดงถูกต้อง  
+- History แสดงถูกต้อง",Priority 1,Not Started,,,
+Stock Management & Auto-Detection,2.1,Auto-Detection หลังเพิ่มอุปกรณ์,ทดสอบระบบ Auto-Detection,"1. เพิ่มอุปกรณ์ใหม่ 5 ชิ้น (ไม่มี SN)
+2. รอสักครู่แล้วรีเฟรชหน้า
+3. ตรวจสอบ Stock Management","- adminDefinedStock แสดง 5
+- realAvailable แสดง 5
+- Auto-detection log ใน adminStockOperations
+- จำนวนตรงกับจำนวนจริงใน database",Priority 1,Not Started,,,
+Stock Management & Auto-Detection,2.2,Manual Stock Adjustment,ทดสอบการเพิ่ม Stock แบบ Manual,"1. เลือกอุปกรณ์ที่มี stock
+2. คลิก ""จัดการ Stock""
+3. เปลี่ยนจำนวนจาก 5 เป็น 8
+4. ระบุเหตุผล: ""เพิ่ม stock ทดสอบ""
+5. บันทึก","- Stock เพิ่มจาก 5 เป็น 8
+- มี InventoryItem ใหม่ 3 รายการ (ไม่มี SN)
+- adminStockOperations มี log การเปลี่ยนแปลง
+- realAvailable = 8",Priority 1,Not Started,,,
+Stock Management & Auto-Detection,2.3,Stock Reduction,ทดสอบการลด Stock,"1. ลดจำนวน stock จาก 8 เป็น 5
+2. ระบุเหตุผล: ""ลด stock ทดสอบ""
+3. บันทึก","- Stock ลดจาก 8 เป็น 5
+- InventoryItem ที่ไม่มี SN ถูกลบ 3 รายการ
+- รายการที่มี SN ไม่ถูกลบ
+- realAvailable = 5",Priority 1,Not Started,,,
+Delete Operations & Soft Delete,3.1,ทดสอบบัคที่แก้ไข - CRITICAL,ทดสอบบัคการนับจำนวนที่เพิ่งแก้ไข,"1. เพิ่มอุปกรณ์ 2 ชิ้น: 1 ชิ้นไม่มี SN, 1 ชิ้นมี SN ""TEST001""
+2. ลบอุปกรณ์ที่มี SN ออก (ระบุเหตุผล)
+3. เพิ่มอุปกรณ์ไม่มี SN อีก 1 ชิ้น","- ขั้นตอนที่ 1: มี 2 ชิ้น (1 ไม่มี SN, 1 มี SN)
+- ขั้นตอนที่ 2: เหลือ 1 ชิ้น (ไม่มี SN)
+- ขั้นตอนที่ 3: มี 2 ชิ้นไม่มี SN (ไม่ใช่ 3 ชิ้น!)
+- Auto-detection ไม่สร้างรายการเพิ่ม",CRITICAL,Not Started,,,
+Delete Operations & Soft Delete,3.2,Soft Delete Verification,ตรวจสอบการ Soft Delete,"1. ลบอุปกรณ์ที่มี SN
+2. ตรวจสอบใน database: ไป MongoDB Atlas/Compass ดู collection ""inventoryitems"" หา record ที่ถูกลบ","- Record ยังอยู่ใน database
+- status = ""deleted""
+- deletedAt มีวันที่
+- deleteReason มีเหตุผล
+- ไม่ถูกนับในการคำนวณ stock",Priority 1,Not Started,,,
+Delete Operations & Soft Delete,3.3,Multiple Delete Test,ทดสอบการลบหลายรายการ,"1. เพิ่มอุปกรณ์ 10 ชิ้น (5 มี SN, 5 ไม่มี SN)
+2. ลบที่มี SN 2 ชิ้น
+3. ลบที่ไม่มี SN 1 ชิ้น
+4. ตรวจสอบการนับ","- เหลือ 7 ชิ้น (3 มี SN, 4 ไม่มี SN)
+- จำนวนในระบบถูกต้อง
+- Auto-detection ไม่ทำงานผิด",Priority 1,Not Started,,,
+Counting & Statistics,4.1,ตรวจสอบการนับใน Admin Panel,ทดสอบความถูกต้องของการนับ,"1. ไป Admin → Inventory Management
+2. ดูจำนวนในตาราง
+3. เปรียบเทียบกับ Stock Management
+4. ตรวจสอบ Available vs Total","- จำนวนใน table ตรงกับ realAvailable
+- totalQuantity = adminStock + userOwned
+- availableQuantity = items ที่ status ไม่ใช่ deleted",Priority 1,Not Started,,,
+Counting & Statistics,4.2,ตรวจสอบการนับใน Equipment Request,ทดสอบการแสดงจำนวนใน Request,"1. ไป Equipment Request
+2. เลือกอุปกรณ์ที่มี stock
+3. ดูจำนวนที่แสดง","- จำนวนที่แสดงตรงกับ available items
+- ไม่แสดงรายการที่ถูกลบ
+- รายการที่ maintenance/damaged แสดงแยก",Priority 1,Not Started,,,
+Counting & Statistics,4.3,Database Count Verification,ตรวจสอบจำนวนใน Database,"1. เข้า MongoDB Atlas/Compass
+2. รัน query: db.inventoryitems.countDocuments({""itemName"": ""Test Mouse"", ""status"": { ""$ne"": ""deleted"" }})
+3. เปรียบเทียบกับที่แสดงในระบบ","- จำนวนใน database ตรงกับที่แสดงในระบบ
+- Deleted items ไม่ถูกนับ",Priority 1,Not Started,,,
+Transfer & Request Operations,5.1,Equipment Request Flow,ทดสอบกระบวนการขออุปกรณ์,"1. Login เป็น user ทั่วไป
+2. ขออุปกรณ์ที่มี stock
+3. Login เป็น admin อนุมัติ
+4. ตรวจสอบการโอนย้าย","- Stock ลดลง
+- User ได้รับอุปกรณ์
+- Transfer log ถูกต้อง
+- จำนวนใน admin stock ลดลง",Priority 2,Not Started,,,
+Transfer & Request Operations,5.2,Equipment Return Flow,ทดสอบกระบวนการคืนอุปกรณ์,"1. User คืนอุปกรณ์
+2. Admin อนุมัติการคืน
+3. ตรวจสอบ stock","- Stock เพิ่มขึ้น
+- อุปกรณ์กลับเข้า admin_stock
+- จำนวนถูกต้อง",Priority 2,Not Started,,,
+Transfer & Request Operations,5.3,Transfer History,ทดสอบประวัติการโอนย้าย,"1. ดูประวัติการโอนย้ายอุปกรณ์
+2. ตรวจสอบ log ทั้งหมด","- ประวัติครบถ้วน
+- วันที่เวลาถูกต้อง
+- ชื่อผู้ดำเนินการถูกต้อง",Priority 2,Not Started,,,
+User Permission Tests,6.1,Admin Permissions,ทดสอบสิทธิ์ Admin,"1. Login เป็น admin (userRole: 'admin')
+2. ทดสอบการเข้าถึงทุกฟังก์ชัน","- เข้าถึง Admin Panel ได้
+- สร้าง/แก้ไข/ลบ inventory ได้
+- อนุมัติ request ได้
+- จัดการ stock ได้",Priority 2,Not Started,,,
+User Permission Tests,6.2,IT Admin Permissions,ทดสอบสิทธิ์ IT Admin,"1. Login เป็น it_admin (userRole: 'it_admin')
+2. ทดสอบการเข้าถึงทุกฟังก์ชัน","- เข้าถึง Admin Panel ได้
+- มีสิทธิ์เหมือน admin
+- อนุมัติสมาชิกได้
+- จัดการระบบได้",Priority 2,Not Started,,,
+User Permission Tests,6.3,Regular User Permissions,ทดสอบสิทธิ์ User ทั่วไป,"1. Login เป็น user (userRole: 'user')
+2. พยายามเข้า admin panel","- ไม่สามารถเข้า admin panel ได้
+- redirect ไป dashboard
+- เห็นเฉพาะฟังก์ชัน user",Priority 2,Not Started,,,
+Edge Cases & Error Handling,7.1,Duplicate Serial Number,ทดสอบ Serial Number ซ้ำ,"1. เพิ่มอุปกรณ์ที่มี SN ""TEST001""
+2. พยายามเพิ่มอุปกรณ์ใหม่ที่มี SN ""TEST001""","- แสดง error message
+- ไม่สามารถเพิ่มได้
+- ข้อมูลเดิมไม่เสียหาย",Priority 2,Not Started,,,
+Edge Cases & Error Handling,7.2,Invalid Data Input,ทดสอบข้อมูลผิดพลาด,"1. ใส่ข้อมูลไม่ครบ
+2. ใส่จำนวนเป็นลบ
+3. ใส่ชื่อที่ยาวเกินไป","- แสดง validation error
+- ไม่บันทึกข้อมูลผิด
+- form validation ทำงาน",Priority 2,Not Started,,,
+Edge Cases & Error Handling,7.3,Network/Database Error,ทดสอบ Error Handling,"1. ปิด internet connection
+2. พยายามบันทึกข้อมูล","- แสดง error message ที่เหมาะสม
+- ไม่ crash
+- สามารถ retry ได้",Priority 3,Not Started,,,
+Edge Cases & Error Handling,7.4,Large Dataset Test,ทดสอบข้อมูลจำนวนมาก,"1. เพิ่มอุปกรณ์ 100+ รายการ
+2. ทดสอบการโหลดหน้า
+3. ทดสอบการค้นหา","- หน้าโหลดไม่ช้า
+- ค้นหาทำงานได้
+- pagination ทำงาน",Priority 3,Not Started,,,
+Comprehensive Integration Test,8.1,Full Workflow Test,ทดสอบ Workflow ทั้งหมด,"1. Admin เพิ่มอุปกรณ์ใหม่ 10 ชิ้น
+2. User ขออุปกรณ์ 3 ชิ้น
+3. Admin อนุมัติ
+4. User คืนอุปกรณ์ 1 ชิ้น
+5. Admin อนุมัติการคืน
+6. Admin ลบอุปกรณ์ 2 ชิ้น
+7. Admin เพิ่มอุปกรณ์ใหม่ 5 ชิ้น","- Admin stock: 10 - 3 + 1 - 2 + 5 = 11 ชิ้น
+- User owned: 3 - 1 = 2 ชิ้น
+- Deleted: 2 ชิ้น (ไม่นับ)
+- Total visible: 11 + 2 = 13 ชิ้น",Priority 2,Not Started,,,
+Performance & Load Testing,9.1,Response Time Test,ทดสอบเวลาตอบสนอง,"1. วัดเวลาการโหลดหน้า inventory
+2. วัดเวลาการบันทึกข้อมูล
+3. วัดเวลาการค้นหา","- หน้าโหลดภายใน 3 วินาที
+- บันทึกข้อมูลภายใน 2 วินาที
+- ค้นหาภายใน 1 วินาที",Priority 3,Not Started,,,
+Performance & Load Testing,9.2,Concurrent User Test,ทดสอบผู้ใช้พร้อมกัน,"1. หลาย user เข้าใช้พร้อมกัน
+2. ทำงานกับข้อมูลเดียวกัน
+3. ตรวจสอบ data consistency","- ไม่มี race condition
+- ข้อมูลไม่เสียหาย
+- แต่ละ user เห็นข้อมูลถูกต้อง",Priority 3,Not Started,,,
+Database Integrity Check,10.1,Data Consistency Check,ตรวจสอบความสอดคล้องของข้อมูล,"1. ตรวจสอบ orphaned records: InventoryItem ที่ไม่มี InventoryMaster, TransferLog ที่ไม่มี InventoryItem
+2. ตรวจสอบ duplicate serial numbers: หา SN ที่ซ้ำกันใน active items
+3. ตรวจสอบ stock count: เปรียบเทียบ InventoryMaster กับ actual count","- ไม่มี orphaned records
+- ไม่มี duplicate SN
+- จำนวนใน master ตรงกับ actual",Priority 3,Not Started,,,
