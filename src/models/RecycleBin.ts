@@ -5,6 +5,7 @@ export interface IRecycleBin extends Document {
   itemName: string;
   category: string;
   serialNumber?: string;        // SN ของอุปกรณ์ (ถ้ามี)
+  numberPhone?: string;         // เบอร์โทรศัพท์ (สำหรับซิมการ์ด)
   
   // ข้อมูลการลบ
   deleteType: 'individual_item' | 'category_bulk';  // ประเภทการลบ
@@ -42,6 +43,11 @@ const RecycleBinSchema = new Schema<IRecycleBin>({
     type: String,
     sparse: true,
     index: true  // สำหรับค้นหา SN ในถังขยะ
+  },
+  numberPhone: {
+    type: String,
+    sparse: true,
+    index: true  // สำหรับค้นหาเบอร์โทรศัพท์ในถังขยะ
   },
   
   deleteType: {
@@ -94,6 +100,7 @@ const RecycleBinSchema = new Schema<IRecycleBin>({
 
 // Indexes สำหรับ performance
 RecycleBinSchema.index({ serialNumber: 1, isRestored: 1 }); // สำหรับตรวจสอบ SN ซ้ำ
+RecycleBinSchema.index({ numberPhone: 1, isRestored: 1 }); // สำหรับตรวจสอบเบอร์โทรศัพท์ซ้ำ
 RecycleBinSchema.index({ deletedAt: 1, isRestored: 1 });    // สำหรับ auto-cleanup
 RecycleBinSchema.index({ itemName: 1, category: 1, deleteType: 1 }); // สำหรับ UI listing
 

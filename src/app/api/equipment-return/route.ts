@@ -76,7 +76,7 @@ export async function POST(request: NextRequest) {
             userId: currentUserId
           });
         } else {
-          // Find by itemId without serial number
+          // Find by itemId without serial number - สำหรับอุปกรณ์ไม่มี SN
           inventoryItem = await InventoryItem.findOne({
             _id: item.itemId,
             $or: [
@@ -102,6 +102,30 @@ export async function POST(request: NextRequest) {
         
         if (inventoryItem) {
           console.log(`✅ Validated ownership of ${inventoryItem.itemName} (${inventoryItem.serialNumber || 'No SN'})`);
+          
+          // สำหรับอุปกรณ์ไม่มี SN ให้ตรวจสอบจำนวนที่ครอบครอง
+          if (!item.serialNumber) {
+            // นับจำนวนที่ครอบครองจริง
+            const ownedCount = await InventoryItem.countDocuments({
+              itemName: inventoryItem.itemName,
+              $or: [
+                { serialNumber: { $exists: false } },
+                { serialNumber: '' },
+                { serialNumber: null }
+              ],
+              'currentOwnership.ownerType': 'user_owned',
+              'currentOwnership.userId': currentUserId
+            });
+            
+            console.log(`🔍 User owns ${ownedCount} items of ${inventoryItem.itemName} (no SN)`);
+            
+            if (item.quantity > ownedCount) {
+              return NextResponse.json(
+                { error: `จำนวนที่ต้องการคืน (${item.quantity} ชิ้น) เกินจำนวนที่ครอบครอง (${ownedCount} ชิ้น) สำหรับ ${inventoryItem.itemName}` },
+                { status: 400 }
+              );
+            }
+          }
         } else {
           console.warn(`⚠️ User does not own this item or item not found:`, item);
           
@@ -145,7 +169,8 @@ export async function POST(request: NextRequest) {
       quantity: item.quantity,
       serialNumber: item.serialNumber || undefined, // Include serial number
       assetNumber: item.assetNumber || undefined,
-      image: item.image || undefined
+      image: item.image || undefined,
+      masterItemId: item.masterItemId || undefined // เพิ่ม masterItemId
     }));
 
     const returnLogData = {

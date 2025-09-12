@@ -5,6 +5,7 @@ export interface ITransferLog extends Document {
   itemName: string;
   category: string;
   serialNumber?: string;
+  numberPhone?: string;         // เบอร์โทรศัพท์ (สำหรับซิมการ์ด)
   
   // ประเภทการ transfer
   transferType: 'user_report' | 'admin_add' | 'request_approved' | 'return_completed' | 'status_change' | 'ownership_change';
@@ -61,6 +62,11 @@ const TransferLogSchema = new Schema<ITransferLog>({
     index: true
   },
   serialNumber: {
+    type: String,
+    sparse: true,
+    index: true
+  },
+  numberPhone: {
     type: String,
     sparse: true,
     index: true

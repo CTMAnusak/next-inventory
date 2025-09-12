@@ -1,13 +1,16 @@
 import { NextRequest, NextResponse } from 'next/server';
 import dbConnect from '@/lib/mongodb';
 import IssueLog from '@/models/IssueLog';
+import User from '@/models/User';
 
 // GET - Fetch all IT issues
 export async function GET() {
   try {
     await dbConnect();
     
-    const issues = await IssueLog.find({}).sort({ reportDate: -1 });
+    const issues = await IssueLog.find({})
+      .populate('userId', 'firstName lastName nickname department office phone pendingDeletion')
+      .sort({ reportDate: -1 });
     
     return NextResponse.json(issues);
   } catch (error) {

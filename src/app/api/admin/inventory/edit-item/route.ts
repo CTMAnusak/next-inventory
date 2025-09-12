@@ -16,8 +16,10 @@ export async function POST(request: NextRequest) {
       category, 
       operation, 
       newSerialNumber, 
+      newPhoneNumber,
       reason, 
-      oldSerialNumber 
+      oldSerialNumber,
+      oldPhoneNumber
     } = await request.json();
 
     console.log('🔧 Edit Item Request:', {
@@ -26,7 +28,9 @@ export async function POST(request: NextRequest) {
       category,
       operation,
       newSerialNumber,
+      newPhoneNumber,
       oldSerialNumber,
+      oldPhoneNumber,
       reason
     });
 
@@ -83,34 +87,72 @@ export async function POST(request: NextRequest) {
     });
 
     if (operation === 'edit') {
-      // Edit operation - update serial number
-      if (!newSerialNumber || !newSerialNumber.trim()) {
-        return NextResponse.json(
-          { error: 'กรุณาระบุ Serial Number ใหม่' },
-          { status: 400 }
-        );
-      }
+      // Edit operation - update serial number or phone number
+      const isSimCard = category === 'ซิมการ์ด';
+      
+      if (isSimCard) {
+        // For SIM cards, update phone number
+        if (!newPhoneNumber || !newPhoneNumber.trim()) {
+          return NextResponse.json(
+            { error: 'กรุณาระบุเบอร์โทรศัพท์ใหม่' },
+            { status: 400 }
+          );
+        }
 
-      // Check if new serial number already exists for this item type
-      const duplicateCheck = await InventoryItem.findOne({
-        itemName,
-        category,
-        serialNumber: newSerialNumber.trim(),
-        status: { $ne: 'deleted' }, // ยกเว้นรายการที่ถูกลบแล้ว
-        _id: { $ne: itemId } // Exclude current item
-      });
-
-      if (duplicateCheck) {
-        return NextResponse.json({
-          success: false,
-          message: `Serial Number "${newSerialNumber}" มีอยู่แล้วสำหรับ ${itemName}`,
-          isDuplicate: true
+        // Check if new phone number already exists for SIM cards
+        const duplicateCheck = await InventoryItem.findOne({
+          itemName,
+          category: 'ซิมการ์ด',
+          numberPhone: newPhoneNumber.trim(),
+          status: { $ne: 'deleted' },
+          _id: { $ne: itemId }
         });
-      }
 
-      // Update the serial number
-      existingItem.serialNumber = newSerialNumber.trim();
-      existingItem.updatedAt = new Date();
+        if (duplicateCheck) {
+          return NextResponse.json({
+            success: false,
+            message: `เบอร์โทรศัพท์ "${newPhoneNumber}" มีอยู่แล้วสำหรับ ${itemName}`,
+            isDuplicate: true
+          });
+        }
+
+        // Update the phone number
+        existingItem.numberPhone = newPhoneNumber.trim();
+        existingItem.updatedAt = new Date();
+        
+        console.log(`📱 Updated phone number: ${oldPhoneNumber} → ${newPhoneNumber.trim()}`);
+      } else {
+        // For other items, update serial number
+        if (!newSerialNumber || !newSerialNumber.trim()) {
+          return NextResponse.json(
+            { error: 'กรุณาระบุ Serial Number ใหม่' },
+            { status: 400 }
+          );
+        }
+
+        // Check if new serial number already exists for this item type
+        const duplicateCheck = await InventoryItem.findOne({
+          itemName,
+          category,
+          serialNumber: newSerialNumber.trim(),
+          status: { $ne: 'deleted' },
+          _id: { $ne: itemId }
+        });
+
+        if (duplicateCheck) {
+          return NextResponse.json({
+            success: false,
+            message: `Serial Number "${newSerialNumber}" มีอยู่แล้วสำหรับ ${itemName}`,
+            isDuplicate: true
+          });
+        }
+
+        // Update the serial number
+        existingItem.serialNumber = newSerialNumber.trim();
+        existingItem.updatedAt = new Date();
+        
+        console.log(`🔢 Updated serial number: ${oldSerialNumber} → ${newSerialNumber.trim()}`);
+      }
       
       await existingItem.save();
 
@@ -138,16 +180,19 @@ export async function POST(request: NextRequest) {
 
       console.log('✅ Item updated successfully:', {
         itemId,
-        oldSN: oldSerialNumber,
-        newSN: newSerialNumber
+        category,
+        isSimCard,
+        oldValue: isSimCard ? oldPhoneNumber : oldSerialNumber,
+        newValue: isSimCard ? newPhoneNumber : newSerialNumber
       });
 
       return NextResponse.json({
         success: true,
-        message: 'แก้ไข Serial Number สำเร็จ',
+        message: isSimCard ? 'แก้ไขเบอร์โทรศัพท์สำเร็จ' : 'แก้ไข Serial Number สำเร็จ',
         item: {
           itemId: existingItem._id,
           serialNumber: existingItem.serialNumber,
+          numberPhone: existingItem.numberPhone,
           itemName: existingItem.itemName,
           category: existingItem.category
         }
@@ -170,7 +215,7 @@ export async function POST(request: NextRequest) {
       
       // Try to move to recycle bin using direct MongoDB, but continue if it fails
       try {
-        console.log(`🗑️ Moving individual item to recycle bin: ${existingItem.itemName} (SN: ${existingItem.serialNumber})`);
+        console.log(`🗑️ Moving individual item to recycle bin: ${existingItem.itemName} (SN: ${existingItem.serialNumber || 'null'}, Phone: ${existingItem.numberPhone || 'null'})`);
         
         const { MongoClient } = require('mongodb');
         const uri = process.env.MONGODB_URI;
@@ -184,6 +229,7 @@ export async function POST(request: NextRequest) {
           itemName: existingItem.itemName,
           category: existingItem.category,
           serialNumber: existingItem.serialNumber,
+          numberPhone: existingItem.numberPhone, // เพิ่มเบอร์โทรศัพท์
           deleteType: 'individual_item',
           deleteReason: reason.trim(),
           deletedBy: currentUser?.user_id || 'unknown',

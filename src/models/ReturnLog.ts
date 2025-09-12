@@ -4,9 +4,9 @@ export interface IReturnItem {
   itemId: string;       // Primary reference to inventory item (legacy)
   inventoryItemId?: string; // Reference to InventoryItem._id (new system)
   quantity: number;
-  itemName?: string;    // Item name for display
-  category?: string;    // Category for display
+  masterItemId?: string; // Reference to InventoryMaster._id for consistency
   serialNumber?: string; // Serial Number (ถ้ามี)
+  numberPhone?: string; // Phone Number (สำหรับซิมการ์ด)
   assetNumber?: string; // เลขทรัพย์สิน
   image?: string; // รูปภาพ
   condition?: 'good' | 'damaged' | 'needs_repair'; // สภาพของที่คืน
@@ -39,9 +39,9 @@ const ReturnItemSchema = new Schema<IReturnItem>({
   itemId: { type: String, required: true },         // Primary reference to inventory (legacy)
   inventoryItemId: { type: String },                // Reference to InventoryItem._id (new system)
   quantity: { type: Number, required: true, min: 1 },
-  itemName: { type: String },                       // Item name for display
-  category: { type: String },                       // Category for display
+  masterItemId: { type: String },                   // Reference to InventoryMaster._id
   serialNumber: { type: String },                   // Serial Number
+  numberPhone: { type: String },                    // Phone Number (สำหรับซิมการ์ด)
   assetNumber: { type: String },
   image: { type: String },                          // path ของรูปภาพ
   condition: { 

@@ -1,0 +1,634 @@
+[
+  {
+    "_id": "68beede5f17ccd2688daed39",
+    "itemName": "Dell",
+    "category": "คอมพิวเตอร์และแล็ปท็อป",
+    "status": "active",
+    "currentOwnership": {
+      "ownerType": "user_owned",
+      "userId": "68beec0bf17ccd2688daece3",
+      "ownedSince": "2025-09-08T14:53:25.692Z"
+    },
+    "sourceInfo": {
+      "addedBy": "user",
+      "addedByUserId": "68beec0bf17ccd2688daece3",
+      "dateAdded": "2025-09-08T14:53:25.692Z",
+      "initialOwnerType": "user_owned",
+      "acquisitionMethod": "self_reported",
+      "notes": "Added by user via dashboard (1/1)"
+    },
+    "createdAt": "2025-09-08T14:53:25.698Z",
+    "updatedAt": "2025-09-08T14:53:25.698Z",
+    "__v": 0
+  },
+  {
+    "_id": "68beef42f17ccd2688daedb2",
+    "itemName": "HP",
+    "category": "คอมพิวเตอร์และแล็ปท็อป",
+    "status": "active",
+    "currentOwnership": {
+      "ownerType": "user_owned",
+      "userId": "68beec0bf17ccd2688daece3",
+      "ownedSince": "2025-09-08T14:59:14.650Z"
+    },
+    "sourceInfo": {
+      "addedBy": "user",
+      "addedByUserId": "68beec0bf17ccd2688daece3",
+      "dateAdded": "2025-09-08T14:59:14.650Z",
+      "initialOwnerType": "user_owned",
+      "acquisitionMethod": "self_reported",
+      "notes": "Added by user via dashboard (1/1)"
+    },
+    "createdAt": "2025-09-08T14:59:14.659Z",
+    "updatedAt": "2025-09-08T14:59:14.659Z",
+    "__v": 0
+  },
+  {
+    "_id": "68beefc3f17ccd2688daee3e",
+    "itemName": "Asus",
+    "category": "คอมพิวเตอร์และแล็ปท็อป",
+    "status": "active",
+    "currentOwnership": {
+      "ownerType": "user_owned",
+      "userId": "68beec0bf17ccd2688daece3",
+      "ownedSince": "2025-09-08T15:01:23.049Z"
+    },
+    "sourceInfo": {
+      "addedBy": "user",
+      "addedByUserId": "68beec0bf17ccd2688daece3",
+      "dateAdded": "2025-09-08T15:01:23.049Z",
+      "initialOwnerType": "user_owned",
+      "acquisitionMethod": "self_reported",
+      "notes": "Added by user via dashboard (1/1)"
+    },
+    "createdAt": "2025-09-08T15:01:23.059Z",
+    "updatedAt": "2025-09-08T15:01:23.059Z",
+    "__v": 0
+  },
+  {
+    "_id": "68bef229f17ccd2688daee8f",
+    "itemName": "Lenovo",
+    "category": "คอมพิวเตอร์และแล็ปท็อป",
+    "status": "active",
+    "currentOwnership": {
+      "ownerType": "user_owned",
+      "userId": "68beec0bf17ccd2688daece3",
+      "ownedSince": "2025-09-08T15:11:37.223Z"
+    },
+    "sourceInfo": {
+      "addedBy": "user",
+      "addedByUserId": "68beec0bf17ccd2688daece3",
+      "dateAdded": "2025-09-08T15:11:37.223Z",
+      "initialOwnerType": "user_owned",
+      "acquisitionMethod": "self_reported",
+      "notes": "Added by user via dashboard (1/1)"
+    },
+    "createdAt": "2025-09-08T15:11:37.230Z",
+    "updatedAt": "2025-09-08T15:11:37.230Z",
+    "__v": 0
+  },
+  {
+    "_id": "68bef258f17ccd2688daeeda",
+    "itemName": "Dell 01",
+    "category": "คอมพิวเตอร์และแล็ปท็อป",
+    "serialNumber": "D01",
+    "status": "active",
+    "currentOwnership": {
+      "ownerType": "user_owned",
+      "userId": "68beec0bf17ccd2688daece3",
+      "ownedSince": "2025-09-08T15:12:24.940Z"
+    },
+    "sourceInfo": {
+      "addedBy": "user",
+      "addedByUserId": "68beec0bf17ccd2688daece3",
+      "dateAdded": "2025-09-08T15:12:24.940Z",
+      "initialOwnerType": "user_owned",
+      "acquisitionMethod": "self_reported",
+      "notes": "Added by user via dashboard"
+    },
+    "createdAt": "2025-09-08T15:12:24.944Z",
+    "updatedAt": "2025-09-08T15:12:24.944Z",
+    "__v": 0
+  },
+  {
+    "_id": "68c12958632b09ca323d83f0",
+    "itemName": "HP one",
+    "category": "คอมพิวเตอร์และแล็ปท็อป",
+    "serialNumber": "hp01",
+    "status": "active",
+    "currentOwnership": {
+      "ownerType": "admin_stock",
+      "ownedSince": "2025-09-10T07:31:36.232Z"
+    },
+    "sourceInfo": {
+      "addedBy": "admin",
+      "dateAdded": "2025-09-10T07:31:36.232Z",
+      "initialOwnerType": "admin_stock",
+      "acquisitionMethod": "admin_purchased",
+      "notes": "Added by admin via inventory management"
+    },
+    "createdAt": "2025-09-10T07:31:36.248Z",
+    "updatedAt": "2025-09-10T07:31:36.248Z",
+    "__v": 0
+  },
+  {
+    "_id": "68c1298b632b09ca323d8430",
+    "itemName": "สาย Lan",
+    "category": "อุปกรณ์เครือข่าย",
+    "status": "active",
+    "currentOwnership": {
+      "ownerType": "user_owned",
+      "userId": "USER1757000398264115",
+      "ownedSince": "2025-09-10T07:32:27.861Z"
+    },
+    "sourceInfo": {
+      "addedBy": "user",
+      "addedByUserId": "USER1757000398264115",
+      "dateAdded": "2025-09-10T07:32:27.861Z",
+      "initialOwnerType": "user_owned",
+      "acquisitionMethod": "self_reported",
+      "notes": "Added by user via dashboard (1/10)"
+    },
+    "createdAt": "2025-09-10T07:32:27.862Z",
+    "updatedAt": "2025-09-10T07:32:27.862Z",
+    "__v": 0
+  },
+  {
+    "_id": "68c1298c632b09ca323d8449",
+    "itemName": "สาย Lan",
+    "category": "อุปกรณ์เครือข่าย",
+    "status": "active",
+    "currentOwnership": {
+      "ownerType": "admin_stock",
+      "ownedSince": "2025-09-10T08:02:12.265Z"
+    },
+    "sourceInfo": {
+      "addedBy": "user",
+      "addedByUserId": "USER1757000398264115",
+      "dateAdded": "2025-09-10T07:32:28.537Z",
+      "initialOwnerType": "user_owned",
+      "acquisitionMethod": "self_reported",
+      "notes": "Added by user via dashboard (2/10)"
+    },
+    "createdAt": "2025-09-10T07:32:28.537Z",
+    "updatedAt": "2025-09-10T08:02:12.266Z",
+    "__v": 0,
+    "transferInfo": {
+      "transferredFrom": "user_owned",
+      "transferDate": "2025-09-10T08:02:12.265Z",
+      "approvedBy": "USER1757000398264115",
+      "returnId": "68c13078632b09ca323d870a"
+    }
+  },
+  {
+    "_id": "68c1298d632b09ca323d8460",
+    "itemName": "สาย Lan",
+    "category": "อุปกรณ์เครือข่าย",
+    "status": "active",
+    "currentOwnership": {
+      "ownerType": "admin_stock",
+      "ownedSince": "2025-09-10T08:02:43.801Z"
+    },
+    "sourceInfo": {
+      "addedBy": "user",
+      "addedByUserId": "USER1757000398264115",
+      "dateAdded": "2025-09-10T07:32:29.379Z",
+      "initialOwnerType": "user_owned",
+      "acquisitionMethod": "self_reported",
+      "notes": "Added by user via dashboard (3/10)"
+    },
+    "createdAt": "2025-09-10T07:32:29.381Z",
+    "updatedAt": "2025-09-10T08:02:43.803Z",
+    "__v": 0,
+    "transferInfo": {
+      "transferredFrom": "user_owned",
+      "transferDate": "2025-09-10T08:02:43.802Z",
+      "approvedBy": "USER1757000398264115",
+      "returnId": "68c13096632b09ca323d8794"
+    }
+  },
+  {
+    "_id": "68c1298e632b09ca323d846b",
+    "itemName": "สาย Lan",
+    "category": "อุปกรณ์เครือข่าย",
+    "status": "active",
+    "currentOwnership": {
+      "ownerType": "user_owned",
+      "userId": "USER1757000398264115",
+      "ownedSince": "2025-09-10T07:32:30.197Z"
+    },
+    "sourceInfo": {
+      "addedBy": "user",
+      "addedByUserId": "USER1757000398264115",
+      "dateAdded": "2025-09-10T07:32:30.197Z",
+      "initialOwnerType": "user_owned",
+      "acquisitionMethod": "self_reported",
+      "notes": "Added by user via dashboard (4/10)"
+    },
+    "createdAt": "2025-09-10T07:32:30.198Z",
+    "updatedAt": "2025-09-10T07:32:30.198Z",
+    "__v": 0
+  },
+  {
+    "_id": "68c1298e632b09ca323d8475",
+    "itemName": "สาย Lan",
+    "category": "อุปกรณ์เครือข่าย",
+    "status": "active",
+    "currentOwnership": {
+      "ownerType": "user_owned",
+      "userId": "USER1757000398264115",
+      "ownedSince": "2025-09-10T07:32:30.672Z"
+    },
+    "sourceInfo": {
+      "addedBy": "user",
+      "addedByUserId": "USER1757000398264115",
+      "dateAdded": "2025-09-10T07:32:30.672Z",
+      "initialOwnerType": "user_owned",
+      "acquisitionMethod": "self_reported",
+      "notes": "Added by user via dashboard (5/10)"
+    },
+    "createdAt": "2025-09-10T07:32:30.673Z",
+    "updatedAt": "2025-09-10T07:32:30.673Z",
+    "__v": 0
+  },
+  {
+    "_id": "68c1298e632b09ca323d847f",
+    "itemName": "สาย Lan",
+    "category": "อุปกรณ์เครือข่าย",
+    "status": "active",
+    "currentOwnership": {
+      "ownerType": "user_owned",
+      "userId": "USER1757000398264115",
+      "ownedSince": "2025-09-10T07:32:30.968Z"
+    },
+    "sourceInfo": {
+      "addedBy": "user",
+      "addedByUserId": "USER1757000398264115",
+      "dateAdded": "2025-09-10T07:32:30.968Z",
+      "initialOwnerType": "user_owned",
+      "acquisitionMethod": "self_reported",
+      "notes": "Added by user via dashboard (6/10)"
+    },
+    "createdAt": "2025-09-10T07:32:30.969Z",
+    "updatedAt": "2025-09-10T07:32:30.969Z",
+    "__v": 0
+  },
+  {
+    "_id": "68c1298f632b09ca323d8489",
+    "itemName": "สาย Lan",
+    "category": "อุปกรณ์เครือข่าย",
+    "status": "active",
+    "currentOwnership": {
+      "ownerType": "user_owned",
+      "userId": "USER1757000398264115",
+      "ownedSince": "2025-09-10T07:32:31.266Z"
+    },
+    "sourceInfo": {
+      "addedBy": "user",
+      "addedByUserId": "USER1757000398264115",
+      "dateAdded": "2025-09-10T07:32:31.266Z",
+      "initialOwnerType": "user_owned",
+      "acquisitionMethod": "self_reported",
+      "notes": "Added by user via dashboard (7/10)"
+    },
+    "createdAt": "2025-09-10T07:32:31.267Z",
+    "updatedAt": "2025-09-10T07:32:31.267Z",
+    "__v": 0
+  },
+  {
+    "_id": "68c1298f632b09ca323d8493",
+    "itemName": "สาย Lan",
+    "category": "อุปกรณ์เครือข่าย",
+    "status": "active",
+    "currentOwnership": {
+      "ownerType": "user_owned",
+      "userId": "USER1757000398264115",
+      "ownedSince": "2025-09-10T07:32:31.567Z"
+    },
+    "sourceInfo": {
+      "addedBy": "user",
+      "addedByUserId": "USER1757000398264115",
+      "dateAdded": "2025-09-10T07:32:31.567Z",
+      "initialOwnerType": "user_owned",
+      "acquisitionMethod": "self_reported",
+      "notes": "Added by user via dashboard (8/10)"
+    },
+    "createdAt": "2025-09-10T07:32:31.568Z",
+    "updatedAt": "2025-09-10T07:32:31.568Z",
+    "__v": 0
+  },
+  {
+    "_id": "68c1298f632b09ca323d849d",
+    "itemName": "สาย Lan",
+    "category": "อุปกรณ์เครือข่าย",
+    "status": "active",
+    "currentOwnership": {
+      "ownerType": "user_owned",
+      "userId": "USER1757000398264115",
+      "ownedSince": "2025-09-10T07:32:31.878Z"
+    },
+    "sourceInfo": {
+      "addedBy": "user",
+      "addedByUserId": "USER1757000398264115",
+      "dateAdded": "2025-09-10T07:32:31.878Z",
+      "initialOwnerType": "user_owned",
+      "acquisitionMethod": "self_reported",
+      "notes": "Added by user via dashboard (9/10)"
+    },
+    "createdAt": "2025-09-10T07:32:31.878Z",
+    "updatedAt": "2025-09-10T07:32:31.878Z",
+    "__v": 0
+  },
+  {
+    "_id": "68c12990632b09ca323d84a7",
+    "itemName": "สาย Lan",
+    "category": "อุปกรณ์เครือข่าย",
+    "status": "active",
+    "currentOwnership": {
+      "ownerType": "user_owned",
+      "userId": "USER1757000398264115",
+      "ownedSince": "2025-09-10T07:32:32.176Z"
+    },
+    "sourceInfo": {
+      "addedBy": "user",
+      "addedByUserId": "USER1757000398264115",
+      "dateAdded": "2025-09-10T07:32:32.176Z",
+      "initialOwnerType": "user_owned",
+      "acquisitionMethod": "self_reported",
+      "notes": "Added by user via dashboard (10/10)"
+    },
+    "createdAt": "2025-09-10T07:32:32.178Z",
+    "updatedAt": "2025-09-10T07:32:32.178Z",
+    "__v": 0
+  },
+  {
+    "_id": "68c12c15632b09ca323d85bd",
+    "itemName": "สาย Lan",
+    "category": "อุปกรณ์เครือข่าย",
+    "serialNumber": "สาย internet",
+    "status": "active",
+    "currentOwnership": {
+      "ownerType": "user_owned",
+      "userId": "USER1757000398264115",
+      "ownedSince": "2025-09-10T07:43:17.261Z"
+    },
+    "sourceInfo": {
+      "addedBy": "user",
+      "addedByUserId": "USER1757000398264115",
+      "dateAdded": "2025-09-10T07:43:17.261Z",
+      "initialOwnerType": "user_owned",
+      "acquisitionMethod": "self_reported",
+      "notes": "อุปกรณ์ที่ผู้ใช้เพิ่มเอง"
+    },
+    "createdAt": "2025-09-10T07:43:17.263Z",
+    "updatedAt": "2025-09-10T07:43:17.263Z",
+    "__v": 0
+  },
+  {
+    "_id": "68c12c28632b09ca323d85ea",
+    "itemName": "สาย internet",
+    "category": "อุปกรณ์เครือข่าย",
+    "status": "active",
+    "currentOwnership": {
+      "ownerType": "user_owned",
+      "userId": "USER1757000398264115",
+      "ownedSince": "2025-09-10T07:43:36.821Z"
+    },
+    "sourceInfo": {
+      "addedBy": "user",
+      "addedByUserId": "USER1757000398264115",
+      "dateAdded": "2025-09-10T07:43:36.821Z",
+      "initialOwnerType": "user_owned",
+      "acquisitionMethod": "self_reported",
+      "notes": "Added by user via dashboard (1/10)"
+    },
+    "createdAt": "2025-09-10T07:43:36.822Z",
+    "updatedAt": "2025-09-10T07:43:36.822Z",
+    "__v": 0
+  },
+  {
+    "_id": "68c12c29632b09ca323d85f4",
+    "itemName": "สาย internet",
+    "category": "อุปกรณ์เครือข่าย",
+    "status": "active",
+    "currentOwnership": {
+      "ownerType": "user_owned",
+      "userId": "USER1757000398264115",
+      "ownedSince": "2025-09-10T07:43:37.593Z"
+    },
+    "sourceInfo": {
+      "addedBy": "user",
+      "addedByUserId": "USER1757000398264115",
+      "dateAdded": "2025-09-10T07:43:37.593Z",
+      "initialOwnerType": "user_owned",
+      "acquisitionMethod": "self_reported",
+      "notes": "Added by user via dashboard (2/10)"
+    },
+    "createdAt": "2025-09-10T07:43:37.596Z",
+    "updatedAt": "2025-09-10T07:43:37.596Z",
+    "__v": 0
+  },
+  {
+    "_id": "68c12c2a632b09ca323d85fe",
+    "itemName": "สาย internet",
+    "category": "อุปกรณ์เครือข่าย",
+    "status": "active",
+    "currentOwnership": {
+      "ownerType": "user_owned",
+      "userId": "USER1757000398264115",
+      "ownedSince": "2025-09-10T07:43:38.560Z"
+    },
+    "sourceInfo": {
+      "addedBy": "user",
+      "addedByUserId": "USER1757000398264115",
+      "dateAdded": "2025-09-10T07:43:38.560Z",
+      "initialOwnerType": "user_owned",
+      "acquisitionMethod": "self_reported",
+      "notes": "Added by user via dashboard (3/10)"
+    },
+    "createdAt": "2025-09-10T07:43:38.561Z",
+    "updatedAt": "2025-09-10T07:43:38.561Z",
+    "__v": 0
+  },
+  {
+    "_id": "68c12c2b632b09ca323d8608",
+    "itemName": "สาย internet",
+    "category": "อุปกรณ์เครือข่าย",
+    "status": "active",
+    "currentOwnership": {
+      "ownerType": "user_owned",
+      "userId": "USER1757000398264115",
+      "ownedSince": "2025-09-10T07:43:39.197Z"
+    },
+    "sourceInfo": {
+      "addedBy": "user",
+      "addedByUserId": "USER1757000398264115",
+      "dateAdded": "2025-09-10T07:43:39.197Z",
+      "initialOwnerType": "user_owned",
+      "acquisitionMethod": "self_reported",
+      "notes": "Added by user via dashboard (4/10)"
+    },
+    "createdAt": "2025-09-10T07:43:39.198Z",
+    "updatedAt": "2025-09-10T07:43:39.198Z",
+    "__v": 0
+  },
+  {
+    "_id": "68c12c2b632b09ca323d8612",
+    "itemName": "สาย internet",
+    "category": "อุปกรณ์เครือข่าย",
+    "status": "active",
+    "currentOwnership": {
+      "ownerType": "user_owned",
+      "userId": "USER1757000398264115",
+      "ownedSince": "2025-09-10T07:43:39.891Z"
+    },
+    "sourceInfo": {
+      "addedBy": "user",
+      "addedByUserId": "USER1757000398264115",
+      "dateAdded": "2025-09-10T07:43:39.891Z",
+      "initialOwnerType": "user_owned",
+      "acquisitionMethod": "self_reported",
+      "notes": "Added by user via dashboard (5/10)"
+    },
+    "createdAt": "2025-09-10T07:43:39.891Z",
+    "updatedAt": "2025-09-10T07:43:39.891Z",
+    "__v": 0
+  },
+  {
+    "_id": "68c12c2c632b09ca323d861c",
+    "itemName": "สาย internet",
+    "category": "อุปกรณ์เครือข่าย",
+    "status": "active",
+    "currentOwnership": {
+      "ownerType": "user_owned",
+      "userId": "USER1757000398264115",
+      "ownedSince": "2025-09-10T07:43:40.506Z"
+    },
+    "sourceInfo": {
+      "addedBy": "user",
+      "addedByUserId": "USER1757000398264115",
+      "dateAdded": "2025-09-10T07:43:40.506Z",
+      "initialOwnerType": "user_owned",
+      "acquisitionMethod": "self_reported",
+      "notes": "Added by user via dashboard (6/10)"
+    },
+    "createdAt": "2025-09-10T07:43:40.508Z",
+    "updatedAt": "2025-09-10T07:43:40.508Z",
+    "__v": 0
+  },
+  {
+    "_id": "68c12c2d632b09ca323d8626",
+    "itemName": "สาย internet",
+    "category": "อุปกรณ์เครือข่าย",
+    "status": "active",
+    "currentOwnership": {
+      "ownerType": "user_owned",
+      "userId": "USER1757000398264115",
+      "ownedSince": "2025-09-10T07:43:41.034Z"
+    },
+    "sourceInfo": {
+      "addedBy": "user",
+      "addedByUserId": "USER1757000398264115",
+      "dateAdded": "2025-09-10T07:43:41.034Z",
+      "initialOwnerType": "user_owned",
+      "acquisitionMethod": "self_reported",
+      "notes": "Added by user via dashboard (7/10)"
+    },
+    "createdAt": "2025-09-10T07:43:41.034Z",
+    "updatedAt": "2025-09-10T07:43:41.034Z",
+    "__v": 0
+  },
+  {
+    "_id": "68c12c2d632b09ca323d8630",
+    "itemName": "สาย internet",
+    "category": "อุปกรณ์เครือข่าย",
+    "status": "active",
+    "currentOwnership": {
+      "ownerType": "user_owned",
+      "userId": "USER1757000398264115",
+      "ownedSince": "2025-09-10T07:43:41.336Z"
+    },
+    "sourceInfo": {
+      "addedBy": "user",
+      "addedByUserId": "USER1757000398264115",
+      "dateAdded": "2025-09-10T07:43:41.336Z",
+      "initialOwnerType": "user_owned",
+      "acquisitionMethod": "self_reported",
+      "notes": "Added by user via dashboard (8/10)"
+    },
+    "createdAt": "2025-09-10T07:43:41.337Z",
+    "updatedAt": "2025-09-10T07:43:41.337Z",
+    "__v": 0
+  },
+  {
+    "_id": "68c12c2d632b09ca323d863a",
+    "itemName": "สาย internet",
+    "category": "อุปกรณ์เครือข่าย",
+    "status": "active",
+    "currentOwnership": {
+      "ownerType": "user_owned",
+      "userId": "USER1757000398264115",
+      "ownedSince": "2025-09-10T07:43:41.649Z"
+    },
+    "sourceInfo": {
+      "addedBy": "user",
+      "addedByUserId": "USER1757000398264115",
+      "dateAdded": "2025-09-10T07:43:41.649Z",
+      "initialOwnerType": "user_owned",
+      "acquisitionMethod": "self_reported",
+      "notes": "Added by user via dashboard (9/10)"
+    },
+    "createdAt": "2025-09-10T07:43:41.650Z",
+    "updatedAt": "2025-09-10T07:43:41.650Z",
+    "__v": 0
+  },
+  {
+    "_id": "68c12c2d632b09ca323d8644",
+    "itemName": "สาย internet",
+    "category": "อุปกรณ์เครือข่าย",
+    "status": "active",
+    "currentOwnership": {
+      "ownerType": "user_owned",
+      "userId": "USER1757000398264115",
+      "ownedSince": "2025-09-10T07:43:41.966Z"
+    },
+    "sourceInfo": {
+      "addedBy": "user",
+      "addedByUserId": "USER1757000398264115",
+      "dateAdded": "2025-09-10T07:43:41.966Z",
+      "initialOwnerType": "user_owned",
+      "acquisitionMethod": "self_reported",
+      "notes": "Added by user via dashboard (10/10)"
+    },
+    "createdAt": "2025-09-10T07:43:41.966Z",
+    "updatedAt": "2025-09-10T07:43:41.966Z",
+    "__v": 0
+  },
+  {
+    "_id": "68c140e3632b09ca323d8953",
+    "itemName": "Asus",
+    "category": "คอมพิวเตอร์และแล็ปท็อป",
+    "status": "active",
+    "currentOwnership": {
+      "ownerType": "admin_stock",
+      "ownedSince": "2025-09-10T09:12:54.382Z"
+    },
+    "sourceInfo": {
+      "addedBy": "user",
+      "addedByUserId": "U002",
+      "dateAdded": "2025-09-10T09:12:03.234Z",
+      "initialOwnerType": "user_owned",
+      "acquisitionMethod": "self_reported",
+      "notes": "อุปกรณ์ที่ผู้ใช้เพิ่มเอง"
+    },
+    "createdAt": "2025-09-10T09:12:03.235Z",
+    "updatedAt": "2025-09-10T09:12:54.384Z",
+    "__v": 0,
+    "transferInfo": {
+      "transferredFrom": "user_owned",
+      "transferDate": "2025-09-10T09:12:54.382Z",
+      "approvedBy": "USER1757000398264115",
+      "returnId": "68c140ed632b09ca323d8983"
+    }
+  }
+]

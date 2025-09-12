@@ -13,6 +13,7 @@ export interface CreateItemParams {
   itemName: string;
   category: string;
   serialNumber?: string;
+  numberPhone?: string;
   status?: 'active' | 'maintenance' | 'damaged' | 'retired';
   addedBy: 'admin' | 'user';
   addedByUserId?: string;
@@ -39,10 +40,21 @@ export interface TransferItemParams {
  * สร้าง InventoryItem ใหม่และอัปเดต InventoryMaster
  */
 export async function createInventoryItem(params: CreateItemParams) {
+  console.log('🏗️ createInventoryItem called with:', JSON.stringify(params, null, 2));
+  
+  try {
+    await dbConnect();
+    console.log('✅ Database connected successfully');
+  } catch (dbError) {
+    console.error('❌ Database connection failed:', dbError);
+    throw new Error(`Database connection failed: ${dbError}`);
+  }
+  
   const {
     itemName,
     category,
     serialNumber,
+    numberPhone,
     status = 'active',
     addedBy,
     addedByUserId,
@@ -75,6 +87,39 @@ export async function createInventoryItem(params: CreateItemParams) {
     }
   }
 
+  // Enhanced Phone Number validation for SIM cards
+  if (numberPhone && numberPhone.trim() !== '' && category === 'ซิมการ์ด') {
+    console.log('📱 Validating phone number for SIM card:', numberPhone.trim());
+    const trimmedNumberPhone = numberPhone.trim();
+    
+    try {
+      // Check if phone number exists in active items
+      const existingPhoneItem = await InventoryItem.findOne({ 
+        numberPhone: trimmedNumberPhone,
+        category: 'ซิมการ์ด',
+        status: { $ne: 'deleted' } // ยกเว้นรายการที่ถูกลบแล้ว
+      });
+      
+      if (existingPhoneItem) {
+        console.error('❌ Phone number already exists:', trimmedNumberPhone);
+        throw new Error(`ACTIVE_PHONE_EXISTS:Phone Number "${trimmedNumberPhone}" already exists for SIM card: ${existingPhoneItem.itemName}`);
+      }
+      
+      // Check if phone number exists in recycle bin
+      const { checkPhoneNumberInRecycleBin } = await import('./recycle-bin-helpers');
+      const recycleBinPhoneItem = await checkPhoneNumberInRecycleBin(trimmedNumberPhone);
+      
+      if (recycleBinPhoneItem) {
+        throw new Error(`RECYCLE_PHONE_EXISTS:Phone Number "${trimmedNumberPhone}" exists in recycle bin for SIM card: ${recycleBinPhoneItem.itemName}`);
+      }
+      
+      console.log('✅ Phone number validation passed');
+    } catch (phoneError) {
+      console.error('❌ Phone number validation error:', phoneError);
+      throw phoneError;
+    }
+  }
+
   // Validate parameters
   if (addedBy === 'user' && !addedByUserId) {
     throw new Error('User-added items must have addedByUserId');
@@ -84,13 +129,25 @@ export async function createInventoryItem(params: CreateItemParams) {
     throw new Error('User-owned items must have userId');
   }
 
-  // Create InventoryItem - ทำความสะอาด serialNumber
+  // Create InventoryItem - ทำความสะอาด serialNumber และ numberPhone
   const cleanSerialNumber = serialNumber && serialNumber.trim() !== '' ? serialNumber.trim() : undefined;
+  const cleanNumberPhone = numberPhone && numberPhone.trim() !== '' ? numberPhone.trim() : undefined;
+  
+  console.log('🏗️ Creating new InventoryItem with data:', {
+    itemName,
+    category,
+    serialNumber: cleanSerialNumber,
+    numberPhone: cleanNumberPhone,
+    status,
+    initialOwnerType,
+    addedBy
+  });
   
   const newItem = new InventoryItem({
     itemName,
     category,
     serialNumber: cleanSerialNumber,
+    numberPhone: cleanNumberPhone,
     status,
     
     currentOwnership: {
@@ -109,32 +166,56 @@ export async function createInventoryItem(params: CreateItemParams) {
       notes
     }
   });
+  
+  console.log('✅ InventoryItem instance created successfully');
 
-  const savedItem = await newItem.save();
+  console.log('💾 Saving InventoryItem to database...');
+  try {
+    const savedItem = await newItem.save();
+    console.log('✅ InventoryItem saved successfully:', savedItem._id);
 
-  // Update InventoryMaster
-  await updateInventoryMaster(itemName, category);
+    // Update InventoryMaster
+    console.log('📊 Updating InventoryMaster...');
+    try {
+      await updateInventoryMaster(itemName, category);
+      console.log('✅ InventoryMaster updated successfully');
+    } catch (masterError) {
+      console.error('❌ Failed to update InventoryMaster:', masterError);
+      // Don't throw here - item is already saved
+    }
 
-  // Create TransferLog
-  await TransferLog.create({
-    itemId: savedItem._id.toString(),
-    itemName,
-    category,
-    serialNumber,
-    transferType: addedBy === 'user' ? 'user_report' : 'admin_add',
-    fromOwnership: {
-      ownerType: 'new_item'
-    },
-    toOwnership: {
-      ownerType: initialOwnerType,
-      userId: userId
-    },
-    transferDate: new Date(),
-    processedBy: addedByUserId || assignedBy || 'system',
-    reason: notes || (addedBy === 'user' ? 'User reported existing equipment' : 'Admin added new equipment')
-  });
+    // Create TransferLog
+    console.log('📝 Creating TransferLog...');
+    try {
+      await TransferLog.create({
+        itemId: savedItem._id.toString(),
+        itemName,
+        category,
+        serialNumber: cleanSerialNumber,
+        numberPhone: cleanNumberPhone,
+        transferType: addedBy === 'user' ? 'user_report' : 'admin_add',
+        fromOwnership: {
+          ownerType: 'new_item'
+        },
+        toOwnership: {
+          ownerType: initialOwnerType,
+          userId: userId
+        },
+        transferDate: new Date(),
+        processedBy: addedByUserId || assignedBy || 'system',
+        reason: notes || (addedBy === 'user' ? 'User reported existing equipment' : 'Admin added new equipment')
+      });
+      console.log('✅ TransferLog created successfully');
+    } catch (logError) {
+      console.error('❌ Failed to create TransferLog:', logError);
+      // Don't throw here - item is already saved
+    }
 
-  return savedItem;
+    return savedItem;
+  } catch (saveError) {
+    console.error('❌ Failed to save InventoryItem to database:', saveError);
+    throw new Error(`Failed to save to database: ${saveError}`);
+  }
 }
 
 /**

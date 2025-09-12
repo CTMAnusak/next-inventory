@@ -4,6 +4,7 @@ import RequestLog from '@/models/RequestLog';
 import ReturnLog from '@/models/ReturnLog';
 import Inventory from '@/models/Inventory';
 import InventoryItem from '@/models/InventoryItem';
+import User from '@/models/User';
 
 // GET - Fetch all equipment tracking data (including user-owned items and request logs minus returns)
 export async function GET(request: NextRequest) {
@@ -32,8 +33,10 @@ export async function GET(request: NextRequest) {
       requestFilter.office = office;
     }
     
-    // Fetch request logs with filters (only actual requests, not user-owned)
-    let requests = await RequestLog.find({ ...requestFilter, requestType: 'request' }).sort({ requestDate: -1 });
+    // Fetch request logs with filters and populate user data (only actual requests, not user-owned)
+    let requests = await RequestLog.find({ ...requestFilter, requestType: 'request' })
+      .populate('userId', 'firstName lastName nickname department office phone pendingDeletion')
+      .sort({ requestDate: -1 });
     
     // Filter by itemId if provided
     if (itemId) {
@@ -42,8 +45,9 @@ export async function GET(request: NextRequest) {
       );
     }
     
-    // Fetch all return logs to exclude returned items
-    const returnLogs = await ReturnLog.find({});
+    // Fetch all return logs with user data to exclude returned items
+    const returnLogs = await ReturnLog.find({})
+      .populate('userId', 'firstName lastName nickname department office phone pendingDeletion');
     
     // Create a map of returned items (userId + itemId + serialNumber)
     const returnedItems = new Set();
@@ -60,20 +64,41 @@ export async function GET(request: NextRequest) {
       request.items.forEach(item => {
         const key = `${request.userId}-${item.itemId}-${item.serialNumber || ''}`;
         if (!returnedItems.has(key)) {
-          trackingDataFromRequests.push({
-            _id: `${request._id}-${item.itemId}`,
-            requestId: request._id.toString(),
+          // Use populated user data or fallback to stored data
+          const user = request.userId as any;
+          const userData = user && typeof user === 'object' ? {
+            firstName: user.firstName,
+            lastName: user.lastName,
+            nickname: user.nickname,
+            department: user.department,
+            office: user.office,
+            phone: user.phone,
+            pendingDeletion: user.pendingDeletion
+          } : {
             firstName: request.firstName,
             lastName: request.lastName,
             nickname: request.nickname,
             department: request.department,
             office: request.office,
             phone: request.phone,
+            pendingDeletion: false
+          };
+
+          trackingDataFromRequests.push({
+            _id: `${request._id}-${item.itemId}`,
+            requestId: request._id.toString(),
+            firstName: userData.firstName,
+            lastName: userData.lastName,
+            nickname: userData.nickname,
+            department: userData.department,
+            office: userData.office,
+            phone: userData.phone,
+            pendingDeletion: userData.pendingDeletion,
             requestDate: request.requestDate,
             deliveryLocation: request.deliveryLocation,
             urgency: request.urgency,
             reason: request.reason,
-            userId: request.userId,
+            userId: typeof user === 'object' ? user._id : request.userId,
             itemId: item.itemId,
             itemName: item.itemName,
             quantity: item.quantity,

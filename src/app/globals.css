@@ -273,3 +273,40 @@ a,
 .menu-toggle {
   cursor: pointer !important;
 }
+
+/* Custom scrollbar for sidebar */
+.sidebar-scrollbar {
+  scrollbar-width: thin; /* Firefox */
+  scrollbar-color: rgb(59 130 246) transparent; /* Firefox - blue with low opacity */
+}
+
+/* WebKit scrollbar for sidebar */
+.sidebar-scrollbar::-webkit-scrollbar {
+  width: 6px;
+}
+
+.sidebar-scrollbar::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+.sidebar-scrollbar::-webkit-scrollbar-thumb {
+  background: rgba(59, 130, 246, 0.8); /* White with low opacity */
+  border-radius: 3px;
+  transition: background 0.2s ease;
+}
+
+.sidebar-scrollbar::-webkit-scrollbar-thumb:hover {
+  background: #3b82f6; /* Blue-500 - medium blue */
+}
+
+/* Hide scrollbar on mobile for cleaner look */
+@media (max-width: 1024px) {
+  .sidebar-scrollbar::-webkit-scrollbar {
+    width: 0px;
+    background: transparent;
+  }
+  
+  .sidebar-scrollbar {
+    scrollbar-width: none; /* Firefox */
+  }
+}

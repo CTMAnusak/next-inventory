@@ -4,6 +4,7 @@ export interface IInventoryItem extends Document {
   itemName: string;
   category: string;
   serialNumber?: string;        // SN เฉพาะของชิ้นนี้ (ถ้ามี)
+  numberPhone?: string;         // เบอร์โทรศัพท์ (สำหรับอุปกรณ์หมวดหมู่ซิมการ์ด)
   status: 'active' | 'maintenance' | 'damaged' | 'retired' | 'deleted';
   
   // Ownership ปัจจุบัน
@@ -57,6 +58,19 @@ const InventoryItemSchema = new Schema<IInventoryItem>({
     sparse: true   // อนุญาตให้เป็น null/undefined แต่ไม่ enforce unique constraint
     // Note: ลบ unique: true เพื่อป้องกัน E11000 error กับ null values
     // Application-level validation จะตรวจสอบความซ้ำแทน
+  },
+  numberPhone: {
+    type: String,
+    sparse: true,  // เบอร์โทรศัพท์สำหรับซิมการ์ด (10 หลัก)
+    validate: {
+      validator: function(v: string) {
+        // ถ้าไม่มีค่า ให้ผ่าน (เพราะเป็น optional field)
+        if (!v) return true;
+        // ถ้ามีค่า ต้องเป็นตัวเลข 10 หลักเท่านั้น
+        return /^[0-9]{10}$/.test(v);
+      },
+      message: 'เบอร์โทรศัพท์ต้องเป็นตัวเลข 10 หลักเท่านั้น'
+    }
   },
   status: { 
     type: String, 

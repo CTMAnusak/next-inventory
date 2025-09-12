@@ -2,7 +2,7 @@
 
 import { useRouter } from 'next/navigation';
 import Layout from '@/components/Layout';
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useRef, useState, useCallback, useMemo } from 'react';
 import { toast } from 'react-hot-toast';
 import { Package, PackageOpen, AlertTriangle, BarChart3, Users, Plus, X, RefreshCw } from 'lucide-react';
 import { useAuth } from '@/contexts/AuthContext';
@@ -28,6 +28,7 @@ export default function DashboardPage() {
   const [showNewCategoryInput, setShowNewCategoryInput] = useState(false);
   const [ownedLoading, setOwnedLoading] = useState(false);
   const [dataLoaded, setDataLoaded] = useState(false);
+  const [isSubmitting, setIsSubmitting] = useState(false);
   
   // Drag scroll ref
   const tableContainerRef = useRef<HTMLDivElement>(null);
@@ -45,15 +46,7 @@ export default function DashboardPage() {
     return cleanup;
   }, []);
 
-  useEffect(() => {
-    // Only fetch once when user data is available and not already loaded
-    if (user && user.firstName && user.lastName && user.office && !dataLoaded && !ownedLoading) {
-      console.log('🔄 Dashboard - Triggering fetchOwned for first time');
-      fetchOwned();
-    }
-  }, [user?.firstName, user?.lastName, user?.office, dataLoaded, ownedLoading]);
-
-  const fetchOwned = async () => {
+  const fetchOwned = useCallback(async () => {
     const startTime = Date.now();
     console.log('🔄 Dashboard - Starting fetchOwned...');
     
@@ -71,7 +64,15 @@ export default function DashboardPage() {
       console.log(`🔄 Dashboard - Making API calls for userId: ${user?.id}`);
       const apiStartTime = Date.now();
       
-      const ownedRes = await fetch(`/api/user/owned-equipment?${withUserId.toString()}`);
+      // Add timeout to prevent hanging
+      const controller = new AbortController();
+      const timeoutId = setTimeout(() => controller.abort(), 30000); // 30 second timeout
+      
+      const ownedRes = await fetch(`/api/user/owned-equipment?${withUserId.toString()}`, {
+        signal: controller.signal
+      });
+      
+      clearTimeout(timeoutId);
       
       console.log(`⏱️ Dashboard - API call completed: ${Date.now() - apiStartTime}ms`);
       console.log(`📡 Dashboard - API response status: ${ownedRes.status}`);
@@ -80,32 +81,20 @@ export default function DashboardPage() {
       const responseData = ownedRes.ok ? await ownedRes.json() : { items: [] };
       const ownedEquipment = responseData.items || [];
       
-      console.log(`📊 Dashboard - Raw API response:`, responseData);
-      console.log(`📊 Dashboard - Extracted items:`, ownedEquipment);
-      
       console.log(`📊 Dashboard - Data received: ${ownedEquipment.length} owned equipment items`);
-      console.log('📊 Dashboard - Owned equipment data:', ownedEquipment);
       
       // Group by itemId + serialNumber + user info and combine quantities
       const combinedMap = new Map();
-      
-      console.log('📊 Dashboard - Processing owned equipment:', ownedEquipment);
       
       ownedEquipment.forEach((item: any) => {
         // Include user info in the key to separate items by different users
         const key = `${item.itemId}||${item.serialNumber || ''}||${item.firstName || ''}||${item.lastName || ''}`;
         const existing = combinedMap.get(key);
         
-        console.log(`🔍 Processing item: ${item.itemName} (${item.itemId}) - quantity: ${item.quantity}`);
-        console.log(`🔍 Key: ${key}`);
-        console.log(`🔍 Existing in map:`, existing);
-        
         if (existing) {
           // Merge quantities - use totalQuantity from API
-          const oldQuantity = existing.quantity;
           const itemQuantity = (item as any).totalQuantity || item.quantity || 0;
           existing.quantity += Number(itemQuantity);
-          console.log(`🔍 Merged quantities: ${oldQuantity} + ${itemQuantity} = ${existing.quantity}`);
         } else {
           // Add new item - use totalQuantity from API
           const newQuantity = Number((item as any).totalQuantity || item.quantity || 0);
@@ -115,31 +104,41 @@ export default function DashboardPage() {
             quantity: newQuantity,
             editable: false // All items are now from logs, not editable directly
           });
-          console.log(`🔍 Added new item with quantity: ${newQuantity}`);
         }
       });
       
       const all = Array.from(combinedMap.values());
-      console.log('📊 Dashboard - Final merged data (separated by user):', all);
-      console.log('📊 Dashboard - Sample item structure:', all[0]);
       setOwnedItems(all);
       setDataLoaded(true); // Mark as loaded to prevent duplicate calls
       
       console.log(`✅ Dashboard - fetchOwned completed: ${Date.now() - startTime}ms (${all.length} total items)`);
     } catch (error) {
-      console.error('❌ Dashboard - fetchOwned error:', error);
-    }
-    finally {
+      if (error instanceof Error && error.name === 'AbortError') {
+        toast.error('การโหลดข้อมูลใช้เวลานานเกินไป กรุณาลองใหม่');
+        console.error('❌ Dashboard - fetchOwned timeout');
+      } else {
+        console.error('❌ Dashboard - fetchOwned error:', error);
+        toast.error('เกิดข้อผิดพลาดในการโหลดข้อมูล');
+      }
+    } finally {
       setOwnedLoading(false);
     }
-  };
+  }, [user?.firstName, user?.lastName, user?.office, user?.id]);
+
+  useEffect(() => {
+    // Only fetch once when user data is available and not already loaded
+    if (user && user.firstName && user.lastName && user.office && !dataLoaded && !ownedLoading) {
+      console.log('🔄 Dashboard - Triggering fetchOwned for first time');
+      fetchOwned();
+    }
+  }, [user?.firstName, user?.lastName, user?.office, dataLoaded, ownedLoading, fetchOwned]);
 
   // Force refresh function for manual refresh
-  const refreshData = async () => {
+  const refreshData = useCallback(async () => {
     console.log('🔄 Dashboard - Force refreshing data...');
     setDataLoaded(false); // Reset loaded flag
     await fetchOwned();
-  };
+  }, [fetchOwned]);
 
   const fetchCategories = async () => {
     try {
@@ -218,6 +217,9 @@ export default function DashboardPage() {
   const submitAddOwned = async (e: React.FormEvent) => {
     e.preventDefault();
     
+    // Set loading state
+    setIsSubmitting(true);
+    
     console.log('🔍 submitAddOwned - Starting validation...');
     console.log('🔍 selectedCategory:', selectedCategory);
     console.log('🔍 form.itemName:', form.itemName);
@@ -228,6 +230,7 @@ export default function DashboardPage() {
     if (!user || !user.id) {
       console.log('❌ Validation failed: User not available');
       toast.error('กรุณาเข้าสู่ระบบใหม่');
+      setIsSubmitting(false);
       return;
     }
     
@@ -235,6 +238,7 @@ export default function DashboardPage() {
     if (!selectedCategory || selectedCategory === 'new' || (user?.userType === 'branch' && (!form.firstName || !form.lastName))) {
       console.log('❌ Validation failed: Invalid category');
       toast.error('กรุณาเลือกหมวดหมู่');
+      setIsSubmitting(false);
       return;
     }
     
@@ -242,6 +246,7 @@ export default function DashboardPage() {
     if (form.itemName === 'new' && (selectedCategory === 'new' || !selectedCategory)) {
       console.log('❌ Validation failed: Invalid category for new item');
       toast.error('กรุณาเลือกหมวดหมู่ที่ต้องการเพิ่มอุปกรณ์');
+      setIsSubmitting(false);
       return;
     }
     
@@ -249,6 +254,7 @@ export default function DashboardPage() {
     if (form.itemName === 'new' && !newItemName?.trim()) {
       console.log('❌ Validation failed: Missing newItemName');
       toast.error('กรุณากรอกชื่ออุปกรณ์ใหม่');
+      setIsSubmitting(false);
       return;
     }
     
@@ -256,6 +262,7 @@ export default function DashboardPage() {
     if (form.itemName !== 'new' && !form.itemName) {
       console.log('❌ Validation failed: Missing itemName');
       toast.error('กรุณาเลือกอุปกรณ์');
+      setIsSubmitting(false);
       return;
     }
     
@@ -300,6 +307,7 @@ export default function DashboardPage() {
           const errorData = await inventoryRes.json();
           console.error('❌ Inventory creation failed:', errorData);
           toast.error(`ไม่สามารถสร้างอุปกรณ์ใหม่ได้: ${errorData.error || 'Unknown error'}`);
+          setIsSubmitting(false);
           return;
         }
         
@@ -310,12 +318,13 @@ export default function DashboardPage() {
         if (!newInventoryData.items || !Array.isArray(newInventoryData.items) || newInventoryData.items.length === 0) {
           console.error('❌ Invalid response structure:', newInventoryData);
           toast.error('ไม่สามารถสร้างอุปกรณ์ใหม่ได้ - โครงสร้างข้อมูลไม่ถูกต้อง');
+          setIsSubmitting(false);
           return;
         }
         
         // Use the first created item's ID
         itemId = newInventoryData.items[0]._id;
-        toast.success('สร้างอุปกรณ์ใหม่สำเร็จ');
+        // Remove duplicate toast - will show unified success message later
       } else {
         // Find existing item in inventory
         const inventoryResponse = await fetch('/api/inventory');
@@ -357,7 +366,7 @@ export default function DashboardPage() {
       // because the item is already created as user_owned in the new system
       if (form.itemName === 'new') {
         console.log('✅ New item created and already owned by user - skipping owned-equipment API call');
-        toast.success('เพิ่มอุปกรณ์ที่มีเรียบร้อย');
+        // Success message will be shown below - no duplicate toast here
       } else {
         // For existing items, we still need to call the owned-equipment API
         const payload = {
@@ -382,10 +391,14 @@ export default function DashboardPage() {
         const data = await res.json();
         if (!res.ok) {
           toast.error(data.error || 'บันทึกไม่สำเร็จ');
+          setIsSubmitting(false);
           return;
         }
-        toast.success('เพิ่มอุปกรณ์ที่มีเรียบร้อย');
+        // Success message will be shown below - no duplicate toast here
       }
+      
+      // Unified success message for both new and existing items
+      toast.success('เพิ่มอุปกรณ์ที่มีเรียบร้อย');
       
       // Reset form and close modal
       setShowAddOwned(false);
@@ -394,12 +407,15 @@ export default function DashboardPage() {
     } catch (error) {
       console.error('Error adding owned equipment:', error);
       toast.error('เกิดข้อผิดพลาด');
+    } finally {
+      // Always reset loading state
+      setIsSubmitting(false);
     }
   };
 
 
 
-  const quickActions = [
+  const quickActions = useMemo(() => [
     {
       title: 'เบิกอุปกรณ์',
       description: 'ยื่นคำขอเบิกอุปกรณ์จากคลัง',
@@ -435,7 +451,7 @@ export default function DashboardPage() {
       href: '/contact',
       color: 'bg-purple-500',
     },
-  ];
+  ], []);
 
   // Prevent hydration mismatch - wait for auth to load
   if (loading) {
@@ -529,56 +545,76 @@ export default function DashboardPage() {
             <table className="min-w-full border border-gray-200 rounded-md">
               <thead>
                 <tr className="bg-blue-600">
-                  {user?.userType === 'branch' && (
-                    <>
-                      <th className="px-3 py-2 text-center border-b text-white">ชื่อ</th>
-                      <th className="px-3 py-2 text-center border-b text-white">นามสกุล</th>
-                      <th className="px-3 py-2 text-center border-b text-white">ชื่อเล่น</th>
-                      <th className="px-3 py-2 text-center border-b text-white">แผนก</th>
-                      <th className="px-3 py-2 text-center border-b text-white">เบอร์โทร</th>
-                    </>
-                  )}
+                  <th className="px-3 py-2 text-center border-b text-white">ชื่อ</th>
+                  <th className="px-3 py-2 text-center border-b text-white">นามสกุล</th>
+                  <th className="px-3 py-2 text-center border-b text-white">ชื่อเล่น</th>
+                  <th className="px-3 py-2 text-center border-b text-white">แผนก</th>
+                  <th className="px-3 py-2 text-center border-b text-white">ออฟฟิศ/สาขา</th>
+                  <th className="px-3 py-2 text-center border-b text-white">เบอร์โทร</th>
                   <th className="px-3 py-2 text-center border-b text-white">ชื่ออุปกรณ์</th>
                   <th className="px-3 py-2 text-center border-b text-white">หมวดหมู่</th>
-                  <th className="px-3 py-2 text-center border-b text-white">Serial Number</th>
-                  <th className="px-3 py-2 text-center border-b text-white">จำนวน</th>
+                  <th className="px-3 py-2 text-center border-b text-white">รายละเอียด</th>
                   <th className="px-3 py-2 text-center border-b text-white">จัดการ</th>
                 </tr>
               </thead>
               <tbody>
                 {ownedLoading ? (
                   <tr>
-                    <td colSpan={user?.userType === 'branch' ? 10 : 5} className="px-3 py-6 text-center text-gray-500">
+                    <td colSpan={10} className="px-3 py-6 text-center text-gray-500">
                       <RefreshCw className="inline-block w-4 h-4 mr-2 animate-spin text-gray-400" /> กำลังโหลดข้อมูล
                     </td>
                   </tr>
                 ) : ownedItems.length === 0 ? (
                   <tr>
-                    <td colSpan={user?.userType === 'branch' ? 10 : 5} className="px-3 py-6 text-center text-gray-500">
+                    <td colSpan={10} className="px-3 py-6 text-center text-gray-500">
                       ยังไม่มีอุปกรณ์ในความครอบครอง
                     </td>
                   </tr>
                 ) : ownedItems.map((row, idx) => (
                   <tr key={idx} className={`hover:bg-gray-100 ${idx % 2 === 0 ? 'bg-white' : 'bg-blue-50'}`}>
-                    {user?.userType === 'branch' && (
-                      <>
-                        <td className="px-3 py-2 text-center border-b">
-                          <div className="text-gray-900">{row.firstName || '-'}</div>
-                        </td>
-                        <td className="px-3 py-2 text-center border-b">
-                          <div className="text-gray-900">{row.lastName || '-'}</div>
-                        </td>
-                        <td className="px-3 py-2 text-center border-b">
-                          <div className="text-gray-900">{row.nickname || '-'}</div>
-                        </td>
-                        <td className="px-3 py-2 text-center border-b">
-                          <div className="text-gray-900">{row.department || '-'}</div>
-                        </td>
-                        <td className="px-3 py-2 text-center border-b">
-                          <div className="text-gray-900">{row.phone || '-'}</div>
-                        </td>
-                      </>
-                    )}
+                    <td className="px-3 py-2 text-center border-b">
+                      <div className="text-gray-900">
+                        {user?.userType === 'branch' 
+                          ? (row.firstName || '-')
+                          : (user?.firstName || '-')
+                        }
+                      </div>
+                    </td>
+                    <td className="px-3 py-2 text-center border-b">
+                      <div className="text-gray-900">
+                        {user?.userType === 'branch' 
+                          ? (row.lastName || '-')
+                          : (user?.lastName || '-')
+                        }
+                      </div>
+                    </td>
+                    <td className="px-3 py-2 text-center border-b">
+                      <div className="text-gray-900">
+                        {user?.userType === 'branch' 
+                          ? (row.nickname || '-')
+                          : (user?.nickname || '-')
+                        }
+                      </div>
+                    </td>
+                    <td className="px-3 py-2 text-center border-b">
+                      <div className="text-gray-900">
+                        {user?.userType === 'branch' 
+                          ? (row.department || '-')
+                          : (user?.department || '-')
+                        }
+                      </div>
+                    </td>
+                    <td className="px-3 py-2 text-center border-b">
+                      <div className="text-gray-900">{user?.office || '-'}</div>
+                    </td>
+                    <td className="px-3 py-2 text-center border-b">
+                      <div className="text-gray-900">
+                        {user?.userType === 'branch' 
+                          ? (row.phone || '-')
+                          : (user?.phone || '-')
+                        }
+                      </div>
+                    </td>
                     <td className="px-3 py-2 text-center border-b">
                       <div className="text-gray-900">{row.itemName}</div>
                     </td>
@@ -588,51 +624,75 @@ export default function DashboardPage() {
                         {(() => {
                           const totalQuantity = (row as any).totalQuantity || row.quantity || 1;
                           const serialNumbers = (row as any).serialNumbers || [];
+                          const phoneNumbers = (row as any).phoneNumbers || [];
+                          const isSimCard = row.category === 'ซิมการ์ด';
                           
                           // ถ้ามีชิ้นเดียว
                           if (totalQuantity === 1) {
-                            if (serialNumbers.length > 0) {
+                            if (isSimCard && phoneNumbers.length > 0) {
+                              // แสดงเบอร์โทรศัพท์สำหรับซิมการ์ด
+                              return (
+                                <span className="text-xs bg-green-100 text-green-800 px-2 py-1 rounded">
+                                  {phoneNumbers[0]}
+                                </span>
+                              );
+                            } else if (serialNumbers.length > 0) {
+                              // แสดง Serial Number สำหรับอุปกรณ์ทั่วไป
                               return (
                                 <span className="text-xs bg-blue-100 text-blue-800 px-2 py-1 rounded">
                                   {serialNumbers[0]}
                                 </span>
                               );
                             } else {
-                              return <span className="text-gray-500">ไม่มี SN</span>;
+                              // ไม่มี SN หรือ Phone Number
+                              return <span className="text-gray-500">1 ชิ้น (อุปกรณ์ทั่วไป)</span>;
                             }
                           }
                           
                           // ถ้ามีหลายชิ้น
                           const hasSerialItems = serialNumbers.length;
-                          const hasNonSerialItems = totalQuantity - hasSerialItems;
+                          const hasPhoneItems = phoneNumbers.length;
+                          const hasSpecialItems = hasSerialItems + hasPhoneItems; // รวม SN และ Phone Number
+                          const hasNonSpecialItems = totalQuantity - hasSpecialItems;
                           
-                          if (hasSerialItems > 0 && hasNonSerialItems > 0) {
-                            // มีทั้งที่มี SN และไม่มี SN
+                          if (hasSpecialItems > 0 && hasNonSpecialItems > 0) {
+                            // มีทั้งที่มี SN/Phone และไม่มี SN/Phone
                             return (
                               <button 
                                 className="text-xs bg-green-100 text-green-800 px-2 py-1 rounded hover:bg-green-200 transition-colors"
                                 onClick={() => {
                                   setDetailData({
                                     itemName: row.itemName,
+                                    category: row.category,
                                     hasSerialItems,
-                                    hasNonSerialItems,
+                                    hasPhoneItems,
+                                    hasNonSpecialItems: hasNonSpecialItems,
                                     serialNumbers,
+                                    phoneNumbers,
                                     totalQuantity
                                   });
                                   setShowDetailModal(true);
                                 }}
                               >
-                                ดูรายละเอียด ({totalQuantity} ชิ้น)
+                                ดูรายละเอียด
                               </button>
                             );
-                          } else if (hasSerialItems > 0) {
-                            // มีแต่ที่มี SN
-                            if (hasSerialItems === 1) {
-                              return (
-                                <span className="text-xs bg-blue-100 text-blue-800 px-2 py-1 rounded">
-                                  {serialNumbers[0]}
-                                </span>
-                              );
+                          } else if (hasSpecialItems > 0) {
+                            // มีแต่ที่มี SN หรือ Phone Number
+                            if (hasSpecialItems === 1) {
+                              if (isSimCard && phoneNumbers.length > 0) {
+                                return (
+                                  <span className="text-xs bg-green-100 text-green-800 px-2 py-1 rounded">
+                                    {phoneNumbers[0]}
+                                  </span>
+                                );
+                              } else if (serialNumbers.length > 0) {
+                                return (
+                                  <span className="text-xs bg-blue-100 text-blue-800 px-2 py-1 rounded">
+                                    {serialNumbers[0]}
+                                  </span>
+                                );
+                              }
                             } else {
                               return (
                                 <button 
@@ -640,27 +700,27 @@ export default function DashboardPage() {
                                   onClick={() => {
                                     setDetailData({
                                       itemName: row.itemName,
+                                      category: row.category,
                                       hasSerialItems,
-                                      hasNonSerialItems: 0,
+                                      hasPhoneItems,
+                                      hasNonSpecialItems: 0,
                                       serialNumbers,
+                                      phoneNumbers,
                                       totalQuantity
                                     });
                                     setShowDetailModal(true);
                                   }}
                                 >
-                                  ดูรายละเอียด ({hasSerialItems} ชิ้น)
+                                  ดูรายละเอียด
                                 </button>
                               );
                             }
                           } else {
-                            // มีแต่ที่ไม่มี SN
-                            return <span className="text-gray-500">ไม่มี SN ({totalQuantity} ชิ้น)</span>;
+                            // มีแต่ที่ไม่มี SN หรือ Phone Number
+                            return <span className="text-gray-500">{totalQuantity} ชิ้น (อุปกรณ์ทั่วไป)</span>;
                           }
                         })()}
                       </div>
-                    </td>
-                    <td className="px-3 py-2 text-center border-b">
-                      <div className="text-gray-900">{(row as any).totalQuantity || row.quantity}</div>
                     </td>
                     <td className="px-3 py-2 text-center border-b">
                       <div className="flex items-center justify-center gap-2">
@@ -668,16 +728,12 @@ export default function DashboardPage() {
                         {((row as any).totalQuantity || row.quantity) > 0 ? (
                           <button
                             onClick={() => {
-                              // Navigate to equipment return page with detailed data
+                              // Navigate to equipment return page with minimal data
+                              // Only send essential info - the page will fetch detailed data itself
                               const params = new URLSearchParams({
                                 category: row.category || '',
                                 itemName: row.itemName || '',
-                                itemId: (row as any).itemId || '', // This is group ID - will be resolved in return page
-                                // ส่งข้อมูลรายละเอียดสำหรับการเลือก
-                                totalQuantity: ((row as any).totalQuantity || row.quantity).toString(),
-                                serialNumbers: JSON.stringify((row as any).serialNumbers || []),
-                                items: JSON.stringify((row as any).items || []),
-                                itemIdMap: JSON.stringify((row as any).itemIdMap || {}) // ส่ง itemIdMap ด้วย
+                                itemId: (row as any).itemId || ''
                               });
                               router.push(`/equipment-return?${params.toString()}`);
                             }}
@@ -699,15 +755,26 @@ export default function DashboardPage() {
         </div>
 
         {showAddOwned && (
-          <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/20 backdrop-blur-sm">
-            <div className="bg-white/95 backdrop-blur-md rounded-2xl shadow-xl w-full max-w-lg p-6 border border-white/20">
-              <div className="flex items-center justify-between mb-4">
-                 <h3 className="text-lg font-semibold text-gray-700">
-                   {editItemId ? 'แก้ไขอุปกรณ์ที่มี' : 'เพิ่มอุปกรณ์ที่มี'}
-                 </h3>
-                <button onClick={() => { resetAddModal(); setShowAddOwned(false); }} className="p-1 rounded hover:bg-gray-100"><X className="h-5 w-5" /></button>
+          <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-sm p-4">
+            <div className="bg-white rounded-2xl shadow-2xl w-full max-w-lg max-h-[90vh] overflow-hidden border-0 flex flex-col">
+              {/* Header - Fixed */}
+              <div className="bg-gradient-to-r from-blue-500 to-blue-600 text-white px-6 py-4">
+                <div className="flex items-center justify-between">
+                  <h3 className="text-xl font-bold">
+                    {editItemId ? 'แก้ไขอุปกรณ์ที่มี' : 'เพิ่มอุปกรณ์ที่มี'}
+                  </h3>
+                  <button 
+                    onClick={() => { resetAddModal(); setShowAddOwned(false); }} 
+                    className="text-white/80 hover:text-white hover:bg-white/20 p-2 rounded-lg transition-all duration-200"
+                  >
+                    <X className="h-5 w-5" />
+                  </button>
+                </div>
               </div>
-              <form onSubmit={submitAddOwned} className="space-y-4">
+              
+              {/* Content - Scrollable */}
+              <div className="flex-1 overflow-y-auto p-6 bg-gray-50/30">
+                <form onSubmit={submitAddOwned} className="space-y-5">
                 {user?.userType === 'branch' && (
                   <>
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
@@ -806,44 +873,94 @@ export default function DashboardPage() {
                   </div>
                 )}
 
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">Serial Number (ถ้ามี)</label>
-                  <input type="text" value={form.serialNumber} onChange={(e) => setForm({ ...form, serialNumber: e.target.value })} className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500" placeholder="กรอกถ้ามี" />
-                </div>
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">จำนวน *</label>
-                  <input type="number" min={1} value={form.quantity} onChange={(e) => setForm({ ...form, quantity: Number(e.target.value) })} className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500" required />
-                </div>
-                <div className="flex justify-end gap-2 pt-2">
-                   <button type="button" onClick={() => { setEditItemId(null); setShowAddOwned(false); setForm({ itemName: '', category: '', serialNumber: '', quantity: 1, firstName: '', lastName: '', nickname: '', department: '', phone: '' }); }} className="px-4 py-2 rounded-md border border-gray-300 text-gray-700 hover:bg-gray-50">ยกเลิก</button>
-                  <button type="submit" className="px-4 py-2 rounded-md bg-blue-600 text-white hover:bg-blue-700">{editItemId ? 'อัพเดต' : 'บันทึก'}</button>
+                {/* Step 3: Additional fields (only show after category and item are selected) */}
+                {((selectedCategory && selectedCategory !== 'new' && form.itemName) || 
+                  (selectedCategory === 'new' && newCategoryName) || 
+                  showNewItemInput) && (
+                  <>
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-1">Serial Number (ถ้ามี)</label>
+                      <input type="text" value={form.serialNumber} onChange={(e) => setForm({ ...form, serialNumber: e.target.value })} className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500" placeholder="กรอกถ้ามี" />
+                    </div>
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-1">จำนวน *</label>
+                      <input type="number" min={1} value={form.quantity} onChange={(e) => setForm({ ...form, quantity: Number(e.target.value) })} className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500" required />
+                    </div>
+                  </>
+                )}
+                
+                {/* Footer - Fixed */}
+                <div className="flex justify-end gap-3 pt-4">
+                  {/* Show buttons only when required fields are filled */}
+                  {((selectedCategory && selectedCategory !== 'new' && form.itemName) || 
+                    (selectedCategory === 'new' && newCategoryName) || 
+                    showNewItemInput) && (
+                    <>
+                      <button 
+                        type="button" 
+                        onClick={() => { setEditItemId(null); setShowAddOwned(false); resetAddModal(); }} 
+                        className="px-6 py-2.5 rounded-lg border border-gray-300 text-gray-600 hover:bg-gray-50 hover:border-gray-400 transition-all duration-200 font-medium"
+                      >
+                        ยกเลิก
+                      </button>
+                      <button 
+                        type="submit" 
+                        disabled={isSubmitting}
+                        className={`px-6 py-2.5 rounded-lg font-medium transition-all duration-200 shadow-lg hover:shadow-xl ${
+                          isSubmitting 
+                            ? 'bg-gray-400 cursor-not-allowed' 
+                            : 'bg-gradient-to-r from-blue-500 to-blue-600 text-white hover:from-blue-600 hover:to-blue-700'
+                        }`}
+                      >
+                        {isSubmitting ? (
+                          <div className="flex items-center justify-center">
+                            <svg className="animate-spin -ml-1 mr-2 h-4 w-4 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                              <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                              <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                            </svg>
+                            กำลังบันทึก...
+                          </div>
+                        ) : (
+                          editItemId ? 'อัพเดต' : 'บันทึก'
+                        )}
+                      </button>
+                    </>
+                  )}
                 </div>
               </form>
+              </div>
             </div>
           </div>
         )}
 
         {/* Detail Modal */}
         {showDetailModal && detailData && (
-          <div className="fixed inset-0 bg-black/20 backdrop-blur-sm flex items-center justify-center z-50">
-            <div className="bg-white/95 backdrop-blur-md rounded-lg p-6 max-w-md w-full mx-4 shadow-xl border border-white/20">
-              <div className="flex justify-between items-center mb-4">
-                <h3 className="text-lg font-semibold text-gray-900">
-                  รายละเอียด {detailData.itemName}
-                </h3>
-                <button
-                  onClick={() => setShowDetailModal(false)}
-                  className="text-gray-400 hover:text-gray-600 text-xl"
-                >
-                  ×
-                </button>
+          <div className="fixed inset-0 bg-black/40 backdrop-blur-sm flex items-center justify-center z-50 p-4">
+            <div className="bg-white rounded-2xl shadow-2xl max-w-md w-full max-h-[90vh] overflow-hidden border-0 flex flex-col">
+              {/* Header */}
+              <div className="bg-gradient-to-r from-blue-500 to-blue-600 text-white px-6 py-4">
+                <div className="flex items-center justify-between">
+                  <h3 className="text-xl font-bold">
+                    รายละเอียด {detailData.itemName}
+                  </h3>
+                  <button
+                    onClick={() => setShowDetailModal(false)}
+                    className="text-white/80 hover:text-white hover:bg-white/20 p-2 rounded-lg transition-all duration-200"
+                  >
+                    <X className="h-5 w-5" />
+                  </button>
+                </div>
               </div>
+              
+              {/* Content */}
+              <div className="flex-1 overflow-y-auto p-6 bg-gray-50/30">
               
               <div className="space-y-4">
                 <div className="text-sm text-gray-600">
                   จำนวนทั้งหมด: <span className="font-medium text-gray-900">{detailData.totalQuantity} ชิ้น</span>
                 </div>
                 
+                {/* แสดง Serial Numbers */}
                 {detailData.hasSerialItems > 0 && (
                   <div className="bg-blue-50 p-3 rounded-lg">
                     <div className="text-sm font-medium text-blue-900 mb-2">
@@ -858,23 +975,43 @@ export default function DashboardPage() {
                     </div>
                   </div>
                 )}
+
+                {/* แสดง Phone Numbers สำหรับซิมการ์ด */}
+                {detailData.hasPhoneItems > 0 && (
+                  <div className="bg-green-50 p-3 rounded-lg">
+                    <div className="text-sm font-medium text-green-900 mb-2">
+                      เบอร์โทรศัพท์ (ซิมการ์ด): {detailData.hasPhoneItems} ชิ้น
+                    </div>
+                    <div className="space-y-1">
+                      {detailData.phoneNumbers?.map((phone: string, idx: number) => (
+                        <div key={idx} className="text-sm text-green-800 bg-green-100 px-2 py-1 rounded">
+                          • {phone}
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )}
                 
-                {detailData.hasNonSerialItems > 0 && (
+                {/* แสดงอุปกรณ์ทั่วไป */}
+                {detailData.hasNonSpecialItems > 0 && (
                   <div className="bg-gray-50 p-3 rounded-lg">
                     <div className="text-sm font-medium text-gray-900">
-                      ไม่มี Serial Number: {detailData.hasNonSerialItems} ชิ้น
+                      อุปกรณ์ทั่วไป: {detailData.hasNonSpecialItems} ชิ้น
                     </div>
                   </div>
                 )}
               </div>
               
-              <div className="flex justify-end mt-6">
+              
+              {/* Footer */}
+              <div className="flex justify-end p-6 border-t border-gray-200 bg-white">
                 <button
                   onClick={() => setShowDetailModal(false)}
-                  className="px-4 py-2 bg-gray-600 text-white rounded-lg hover:bg-gray-700 transition-colors"
+                  className="px-6 py-2.5 rounded-lg bg-gradient-to-r from-blue-500 to-blue-600 text-white hover:from-blue-600 hover:to-blue-700 transition-all duration-200 shadow-lg hover:shadow-xl font-medium"
                 >
                   ปิด
                 </button>
+              </div>
               </div>
             </div>
           </div>

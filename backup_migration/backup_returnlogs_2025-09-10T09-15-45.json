@@ -1,0 +1,72 @@
+[
+  {
+    "_id": "68c13078632b09ca323d870a",
+    "firstName": "แอม IT",
+    "lastName": "แอมแปร์",
+    "nickname": "แอมป์ IT",
+    "department": "IT",
+    "office": "สำนักงานใหญ่",
+    "returnDate": "2025-09-10T00:00:00.000Z",
+    "items": [
+      {
+        "itemId": "68c1298c632b09ca323d8449",
+        "quantity": 1,
+        "assetNumber": "54586",
+        "condition": "good",
+        "_id": "68c13078632b09ca323d870b"
+      }
+    ],
+    "status": "completed",
+    "userId": "USER1757000398264115",
+    "isAutoReturn": false,
+    "createdAt": "2025-09-10T08:02:00.816Z",
+    "updatedAt": "2025-09-10T08:02:12.878Z",
+    "__v": 0
+  },
+  {
+    "_id": "68c13096632b09ca323d8794",
+    "firstName": "แอม IT",
+    "lastName": "แอมแปร์",
+    "nickname": "แอมป์ IT",
+    "department": "IT",
+    "office": "สำนักงานใหญ่",
+    "returnDate": "2025-09-10T00:00:00.000Z",
+    "items": [
+      {
+        "itemId": "68c1298d632b09ca323d8460",
+        "quantity": 1,
+        "condition": "good",
+        "_id": "68c13096632b09ca323d8795"
+      }
+    ],
+    "status": "completed",
+    "userId": "USER1757000398264115",
+    "isAutoReturn": false,
+    "createdAt": "2025-09-10T08:02:30.392Z",
+    "updatedAt": "2025-09-10T08:02:44.621Z",
+    "__v": 0
+  },
+  {
+    "_id": "68c140ed632b09ca323d8983",
+    "firstName": "ชุติมณฑน์",
+    "lastName": "อนุศักดิ์",
+    "nickname": "แอมป์",
+    "department": "Web",
+    "office": "สำนักงานใหญ่",
+    "returnDate": "2025-09-10T00:00:00.000Z",
+    "items": [
+      {
+        "itemId": "68c140e3632b09ca323d8953",
+        "quantity": 1,
+        "condition": "good",
+        "_id": "68c140ed632b09ca323d8984"
+      }
+    ],
+    "status": "completed",
+    "userId": "U002",
+    "isAutoReturn": false,
+    "createdAt": "2025-09-10T09:12:13.434Z",
+    "updatedAt": "2025-09-10T09:12:55.101Z",
+    "__v": 0
+  }
+]

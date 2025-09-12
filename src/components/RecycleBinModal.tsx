@@ -9,6 +9,7 @@ interface RecycleBinItem {
   itemName: string;
   category: string;
   serialNumber?: string;
+  numberPhone?: string;   // เพิ่มเบอร์โทรศัพท์
   deleteType: 'individual_item' | 'category_bulk';
   deletedAt: string;
   deleteReason: string;
@@ -46,6 +47,7 @@ interface ConfirmationModalData {
   onConfirm: () => void;
   onCancel: () => void;
   isDangerous?: boolean;
+  isLoading?: boolean;
 }
 
 export default function RecycleBinModal({ isOpen, onClose, onInventoryRefresh }: RecycleBinModalProps) {
@@ -71,7 +73,8 @@ export default function RecycleBinModal({ isOpen, onClose, onInventoryRefresh }:
     icon: '',
     onConfirm: () => {},
     onCancel: () => {},
-    isDangerous: false
+    isDangerous: false,
+    isLoading: false
   });
 
   // Helper function to show confirmation modal
@@ -140,7 +143,8 @@ export default function RecycleBinModal({ isOpen, onClose, onInventoryRefresh }:
   };
 
   const executeRestore = async (itemId: string, itemName: string) => {
-    closeConfirmation();
+    // Set loading state in confirmation modal
+    setConfirmationModal(prev => ({ ...prev, isLoading: true }));
     setRestoring(itemId);
     try {
       const response = await fetch('/api/admin/recycle-bin/restore', {
@@ -178,6 +182,7 @@ export default function RecycleBinModal({ isOpen, onClose, onInventoryRefresh }:
       toast.error('เกิดข้อผิดพลาดในการเชื่อมต่อ');
     } finally {
       setRestoring(null);
+      closeConfirmation();
     }
   };
 
@@ -206,7 +211,8 @@ export default function RecycleBinModal({ isOpen, onClose, onInventoryRefresh }:
   };
 
   const executePermanentDelete = async (itemId: string, itemName: string) => {
-    closeConfirmation();
+    // Set loading state in confirmation modal
+    setConfirmationModal(prev => ({ ...prev, isLoading: true }));
     setRestoring(itemId); // Reuse restoring state for loading
     try {
       const response = await fetch('/api/admin/recycle-bin/permanent-delete', {
@@ -233,6 +239,7 @@ export default function RecycleBinModal({ isOpen, onClose, onInventoryRefresh }:
       toast.error('เกิดข้อผิดพลาดในการเชื่อมต่อ');
     } finally {
       setRestoring(null);
+      closeConfirmation();
     }
   };
 
@@ -391,6 +398,7 @@ export default function RecycleBinModal({ isOpen, onClose, onInventoryRefresh }:
         onConfirm={confirmationModal.onConfirm}
         onCancel={confirmationModal.onCancel}
         isDangerous={confirmationModal.isDangerous}
+        isLoading={confirmationModal.isLoading}
       />
     </div>
   );
@@ -444,6 +452,11 @@ function IndividualItemsTab({
                       SN: {item.serialNumber}
                     </span>
                   )}
+                  {item.numberPhone && (
+                    <span className="px-2 py-1 text-xs bg-purple-100 text-purple-800 rounded-full font-mono">
+                      📱 {item.numberPhone}
+                    </span>
+                  )}
                 </div>
                 
                 <div className="grid grid-cols-2 gap-4 text-sm text-gray-600 mb-3">
@@ -471,7 +484,14 @@ function IndividualItemsTab({
 
               <div className="ml-4 flex space-x-2">
                 <button
-                  onClick={() => onRestore(item._id, `${item.itemName} (SN: ${item.serialNumber})`)}
+                  onClick={() => {
+                    const identifier = item.category === 'ซิมการ์ด' && item.numberPhone 
+                      ? `${item.itemName} (เบอร์: ${item.numberPhone})`
+                      : item.serialNumber 
+                        ? `${item.itemName} (SN: ${item.serialNumber})`
+                        : item.itemName;
+                    onRestore(item._id, identifier);
+                  }}
                   disabled={restoring === item._id}
                   className="px-3 py-1 text-sm bg-green-600 text-white rounded-md hover:bg-green-700 disabled:opacity-50 disabled:cursor-not-allowed flex items-center space-x-1"
                 >
@@ -488,7 +508,14 @@ function IndividualItemsTab({
                   )}
                 </button>
                 <button
-                  onClick={() => onPermanentDelete(item._id, `${item.itemName} (SN: ${item.serialNumber})`)}
+                  onClick={() => {
+                    const identifier = item.category === 'ซิมการ์ด' && item.numberPhone 
+                      ? `${item.itemName} (เบอร์: ${item.numberPhone})`
+                      : item.serialNumber 
+                        ? `${item.itemName} (SN: ${item.serialNumber})`
+                        : item.itemName;
+                    onPermanentDelete(item._id, identifier);
+                  }}
                   disabled={restoring === item._id}
                   className="px-3 py-1 text-sm bg-red-600 text-white rounded-md hover:bg-red-700 disabled:opacity-50 disabled:cursor-not-allowed flex items-center space-x-1"
                 >

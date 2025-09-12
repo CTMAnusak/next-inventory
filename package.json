@@ -9,7 +9,10 @@
     "lint": "next lint",
     "migrate-serial-numbers": "tsx src/scripts/migrate-serial-numbers.ts",
     "test-server": "node test-server.js",
-    "minimal": "node minimal.js"
+    "minimal": "node minimal.js",
+    "backup": "node backup_migration/backup-script.js",
+    "health-check": "node backup_migration/health-check.js",
+    "create-indexes": "node backup_migration/create-indexes-safe.js"
   },
   "dependencies": {
     "@dnd-kit/core": "^6.3.1",

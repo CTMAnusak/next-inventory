@@ -27,6 +27,7 @@ interface EquipmentTracking {
   department: string;
   office: string;
   phone: string;
+  pendingDeletion?: boolean;
   requestDate: string;
   deliveryLocation: string;
   urgency: string;
@@ -450,11 +451,25 @@ export default function AdminEquipmentTrackingPage() {
                         <td className="px-6 py-4 whitespace-nowrap">
                           <div className="flex items-center">
                             <div>
-                              <div className="text-sm font-medium text-gray-900">
-                                {record.firstName} {record.lastName}
+                              <div className={`text-sm font-medium ${
+                                record.pendingDeletion 
+                                  ? 'text-orange-600' 
+                                  : !record.firstName 
+                                  ? 'text-gray-500 italic' 
+                                  : 'text-gray-900'
+                              }`}>
+                                {record.firstName && record.lastName ? (
+                                  <>
+                                    {record.firstName} {record.lastName}
+                                    {record.pendingDeletion && ' (รอลบ)'}
+                                    {!record.firstName && ' (ผู้ใช้ถูกลบแล้ว)'}
+                                  </>
+                                ) : (
+                                  '(ผู้ใช้ถูกลบแล้ว)'
+                                )}
                               </div>
                               <div className="text-sm text-gray-500">
-                                ({record.nickname})
+                                {record.nickname ? `(${record.nickname})` : '-'}
                               </div>
                               {record.userId && (
                                 <div className="text-xs text-gray-400">

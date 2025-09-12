@@ -70,7 +70,7 @@ export async function POST(request: NextRequest) {
     await dbConnect();
     
     const body = await request.json();
-    const { itemName, category, quantity, totalQuantity, serialNumber, status } = body;
+    const { itemName, category, quantity, totalQuantity, serialNumber, numberPhone, status } = body;
     
     // Get user info from token
     const token = request.cookies.get('auth-token')?.value;
@@ -91,7 +91,7 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // Check for duplicate serial number if provided
+    // Check for duplicate serial number or phone number if provided
     // 🔧 CRITICAL FIX: Exclude soft-deleted items from duplicate check
     if (serialNumber) {
       const existingItem = await InventoryItem.findOne({ 
@@ -101,6 +101,21 @@ export async function POST(request: NextRequest) {
       if (existingItem) {
         return NextResponse.json(
           { error: 'Serial Number นี้มีอยู่ในระบบแล้ว' },
+          { status: 400 }
+        );
+      }
+    }
+    
+    // Check for duplicate phone number for SIM cards
+    if (numberPhone && category === 'ซิมการ์ด') {
+      const existingItem = await InventoryItem.findOne({ 
+        numberPhone: numberPhone,
+        category: 'ซิมการ์ด',
+        status: { $ne: 'deleted' } // ✅ Exclude soft-deleted items
+      });
+      if (existingItem) {
+        return NextResponse.json(
+          { error: 'เบอร์โทรศัพท์นี้มีอยู่ในระบบแล้ว' },
           { status: 400 }
         );
       }
@@ -118,18 +133,19 @@ export async function POST(request: NextRequest) {
     // Create items using new inventory system
     const itemsToCreate = [];
     
-    if (serialNumber) {
-      // Create single item with serial number
+    if (serialNumber || numberPhone) {
+      // Create single item with serial number or phone number
       itemsToCreate.push({
         itemName,
         category,
-        serialNumber,
+        serialNumber: serialNumber || undefined,
+        numberPhone: numberPhone || undefined,
         addedBy: 'admin' as const,
         initialOwnerType: 'admin_stock' as const,
-        notes: 'Added by admin via inventory management'
+        notes: `Added by admin via inventory management${numberPhone ? ' (SIM card)' : ''}`
       });
     } else {
-      // Create multiple items without serial numbers
+      // Create multiple items without serial numbers or phone numbers
       const actualQuantity = quantity || 1;
       for (let i = 0; i < actualQuantity; i++) {
         itemsToCreate.push({
@@ -167,7 +183,7 @@ export async function POST(request: NextRequest) {
   } catch (error) {
     console.error('Error creating inventory item:', error);
     
-    // Handle enhanced Serial Number validation errors
+    // Handle enhanced Serial Number and Phone Number validation errors
     if (error instanceof Error) {
       if (error.message.startsWith('ACTIVE_SN_EXISTS:')) {
         const message = error.message.replace('ACTIVE_SN_EXISTS:', '');
@@ -179,6 +195,26 @@ export async function POST(request: NextRequest) {
       
       if (error.message.startsWith('RECYCLE_SN_EXISTS:')) {
         const message = error.message.replace('RECYCLE_SN_EXISTS:', '');
+        return NextResponse.json(
+          { 
+            error: `${message} - รายการนี้อยู่ในถังขยะ กรุณากู้คืนจากถังขยะก่อนใช้งาน`,
+            errorType: 'RECYCLE_BIN_EXISTS',
+            showRecycleBinLink: true
+          },
+          { status: 400 }
+        );
+      }
+      
+      if (error.message.startsWith('ACTIVE_PHONE_EXISTS:')) {
+        const message = error.message.replace('ACTIVE_PHONE_EXISTS:', '');
+        return NextResponse.json(
+          { error: message },
+          { status: 400 }
+        );
+      }
+      
+      if (error.message.startsWith('RECYCLE_PHONE_EXISTS:')) {
+        const message = error.message.replace('RECYCLE_PHONE_EXISTS:', '');
         return NextResponse.json(
           { 
             error: `${message} - รายการนี้อยู่ในถังขยะ กรุณากู้คืนจากถังขยะก่อนใช้งาน`,

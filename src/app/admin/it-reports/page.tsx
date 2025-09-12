@@ -538,8 +538,23 @@ export default function AdminITReportsPage() {
                     <td className="px-6 py-4 text-sm font-medium text-blue-600 text-center text-selectable">
                       {issue.issueId}
                     </td>
-                    <td className="px-6 py-4 text-sm text-gray-900 text-center text-selectable">
-                      {issue.firstName} {issue.lastName}
+                    <td className="px-6 py-4 text-sm text-center text-selectable">
+                      <div className={
+                        (issue as any).userId?.pendingDeletion 
+                          ? 'text-orange-600' 
+                          : !issue.firstName 
+                          ? 'text-gray-500 italic' 
+                          : 'text-gray-900'
+                      }>
+                        {issue.firstName && issue.lastName ? (
+                          <>
+                            {issue.firstName} {issue.lastName}
+                            {(issue as any).userId?.pendingDeletion && ' (รอลบ)'}
+                          </>
+                        ) : (
+                          '(ผู้ใช้ถูกลบแล้ว)'
+                        )}
+                      </div>
                     </td>
                     <td className="px-6 py-4 text-sm text-gray-500 text-center text-selectable">
                       {issue.phone}
@@ -686,8 +701,25 @@ export default function AdminITReportsPage() {
                       <User className="w-5 h-5 text-blue-500" />
                       <label className="text-sm font-semibold text-gray-700">ชื่อ-นามสกุล</label>
                     </div>
-                    <p className="text-gray-900 font-medium">{selectedIssue.firstName} {selectedIssue.lastName}</p>
-                    <p className="text-gray-600 text-sm">({selectedIssue.nickname})</p>
+                    <div className={
+                      (selectedIssue as any).userId?.pendingDeletion 
+                        ? 'text-orange-600' 
+                        : !selectedIssue.firstName 
+                        ? 'text-gray-500 italic' 
+                        : 'text-gray-900'
+                    }>
+                      {selectedIssue.firstName && selectedIssue.lastName ? (
+                        <>
+                          <p className="font-medium">
+                            {selectedIssue.firstName} {selectedIssue.lastName}
+                            {(selectedIssue as any).userId?.pendingDeletion && ' (รอลบ)'}
+                          </p>
+                          <p className="text-sm">({selectedIssue.nickname})</p>
+                        </>
+                      ) : (
+                        <p className="font-medium">(ผู้ใช้ถูกลบแล้ว)</p>
+                      )}
+                    </div>
                   </div>
                   
                   <div className="bg-gray-50 p-4 rounded-lg border border-gray-100">

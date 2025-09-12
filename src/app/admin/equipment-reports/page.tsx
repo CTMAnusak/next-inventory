@@ -715,8 +715,24 @@ export default function AdminEquipmentReportsPage() {
                         </td>
                         {itemIndex === 0 && (
                           <>
-                            <td rowSpan={requestLog.items.length} className="px-6 py-4 text-sm text-gray-900 text-center text-selectable">
-                              {requestLog.firstName} {requestLog.lastName} ({requestLog.nickname})
+                            <td rowSpan={requestLog.items.length} className="px-6 py-4 text-sm text-center text-selectable">
+                              <div className={
+                                (requestLog as any).userId?.pendingDeletion 
+                                  ? 'text-orange-600' 
+                                  : !requestLog.firstName 
+                                  ? 'text-gray-500 italic' 
+                                  : 'text-gray-900'
+                              }>
+                                {requestLog.firstName && requestLog.lastName ? (
+                                  <>
+                                    {requestLog.firstName} {requestLog.lastName}
+                                    {requestLog.nickname && ` (${requestLog.nickname})`}
+                                    {(requestLog as any).userId?.pendingDeletion && ' (รอลบ)'}
+                                  </>
+                                ) : (
+                                  '(ผู้ใช้ถูกลบแล้ว)'
+                                )}
+                              </div>
                             </td>
                             <td rowSpan={requestLog.items.length} className="px-6 py-4 text-sm text-gray-500 text-center text-selectable">
                               {requestLog.department}
@@ -826,8 +842,24 @@ export default function AdminEquipmentReportsPage() {
                             <td rowSpan={returnLog.items.length} className="px-6 py-4 text-sm text-gray-500 text-center text-selectable">
                               {new Date(returnLog.returnDate).toLocaleDateString('th-TH')}
                             </td>
-                            <td rowSpan={returnLog.items.length} className="px-6 py-4 text-sm text-gray-900 text-center text-selectable">
-                              {returnLog.firstName} {returnLog.lastName} {returnLog.nickname ? `(${returnLog.nickname})` : ''}
+                            <td rowSpan={returnLog.items.length} className="px-6 py-4 text-sm text-center text-selectable">
+                              <div className={
+                                (returnLog as any).userId?.pendingDeletion 
+                                  ? 'text-orange-600' 
+                                  : !returnLog.firstName 
+                                  ? 'text-gray-500 italic' 
+                                  : 'text-gray-900'
+                              }>
+                                {returnLog.firstName && returnLog.lastName ? (
+                                  <>
+                                    {returnLog.firstName} {returnLog.lastName}
+                                    {returnLog.nickname && ` (${returnLog.nickname})`}
+                                    {(returnLog as any).userId?.pendingDeletion && ' (รอลบ)'}
+                                  </>
+                                ) : (
+                                  '(ผู้ใช้ถูกลบแล้ว)'
+                                )}
+                              </div>
                             </td>
                             <td rowSpan={returnLog.items.length} className="px-6 py-4 text-sm text-gray-500 text-center text-selectable">
                               {returnLog.department || '-'}

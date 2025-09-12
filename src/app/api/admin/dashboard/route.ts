@@ -54,7 +54,7 @@ export async function GET(request: NextRequest) {
       urgentIssues: issues.filter(i => i.urgency === 'very_urgent').length,
       totalRequests: requests.length,
       totalReturns: returns.length,
-      totalUsers: users.length,
+      totalUsers: users.filter(u => !u.pendingDeletion).length,
       totalInventoryItems: inventory.length,
       lowStockItems: inventory.filter(item => item.quantity <= 2 && !item.serialNumber).length,
 

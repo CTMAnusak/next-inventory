@@ -245,20 +245,37 @@ export default function AdminInventoryPage() {
   // Function to refresh data and clear all caches
   const refreshAndClearCache = async () => {
     try {
-      // Clear all caches in the system first
-      const response = await fetch('/api/admin/clear-all-caches', { method: 'POST' });
-      const handledResponse = await handleApiResponse(response, 'ไม่สามารถล้าง cache ได้ - เซสชันหมดอายุ');
+      setLoading(true);
+      toast.loading('รีเฟรชและ Sync ข้อมูล...', { id: 'refresh-sync' });
+
+      // 1. Sync master data first
+      const syncResponse = await fetch('/api/admin/refresh-master-data', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ refreshAll: true }),
+      });
+
+      // 2. Clear all caches in the system
+      const cacheResponse = await fetch('/api/admin/clear-all-caches', { method: 'POST' });
+      const handledCacheResponse = await handleApiResponse(cacheResponse, 'ไม่สามารถล้าง cache ได้ - เซสชันหมดอายุ');
       
-      if (handledResponse && handledResponse.ok) {
-        toast.success('ล้าง cache และรีเฟรชข้อมูลเรียบร้อยแล้ว');
-      } else if (handledResponse) {
-        toast.error('เกิดข้อผิดพลาดในการล้าง cache');
+      const syncResult = await syncResponse.json();
+      
+      if (syncResponse.ok && syncResult.success && handledCacheResponse && handledCacheResponse.ok) {
+        toast.success(`รีเฟรชข้อมูลเรียบร้อยแล้ว (Sync ${syncResult.refreshedItems} รายการ)`, { id: 'refresh-sync' });
+      } else if (handledCacheResponse) {
+        toast.error('เกิดข้อผิดพลาดในการรีเฟรชข้อมูล', { id: 'refresh-sync' });
       }
     } catch (error) {
-      toast.error('เกิดข้อผิดพลาดในการเชื่อมต่อ');
+      console.error('Refresh and sync error:', error);
+      toast.error('เกิดข้อผิดพลาดในการเชื่อมต่อ', { id: 'refresh-sync' });
+    } finally {
+      setLoading(false);
     }
     
-    // Always refresh inventory data
+    // Always refresh inventory data at the end
     await fetchInventory();
   };
 
@@ -416,9 +433,18 @@ export default function AdminInventoryPage() {
       const url = editingItem ? `/api/admin/inventory/${editingItem._id}` : '/api/admin/inventory';
       const method = editingItem ? 'PUT' : 'POST';
 
-      // Force quantity/totalQuantity to 1 when adding from SN flow
-      const payload = addFromSN && !editingItem
-        ? { ...formData, quantity: 1, totalQuantity: 1 }
+      // Force quantity/totalQuantity to 1 when adding from SN flow or SIM card
+      const payload = (addFromSN && !editingItem) || selectedCategory === 'ซิมการ์ด'
+        ? { 
+            ...formData, 
+            quantity: 1, 
+            totalQuantity: 1,
+            // สำหรับซิมการ์ด ส่ง numberPhone แทน serialNumber
+            ...(selectedCategory === 'ซิมการ์ด' && formData.serialNumber && {
+              numberPhone: formData.serialNumber,
+              serialNumber: '' // ล้าง serialNumber สำหรับซิมการ์ด
+            })
+          }
         : formData;
 
       const response = await fetch(url, {
@@ -798,16 +824,24 @@ export default function AdminInventoryPage() {
 
 
 
-  const handleEditItem = (item: any) => {
+  const handleEditItem = (item: any, type: 'serial' | 'phone' = 'serial') => {
     setEditingItemId(item.itemId);
-    setEditingSerialNum(item.serialNumber || '');
+    if (type === 'phone') {
+      setEditingSerialNum(item.numberPhone || '');
+    } else {
+      setEditingSerialNum(item.serialNumber || '');
+    }
     setItemOperation('edit');
     setShowEditItemModal(true);
   };
 
-  const handleDeleteItem = (item: any) => {
+  const handleDeleteItem = (item: any, type: 'serial' | 'phone' = 'serial') => {
     setEditingItemId(item.itemId);
-    setEditingSerialNum(item.serialNumber || '');
+    if (type === 'phone') {
+      setEditingSerialNum(item.numberPhone || '');
+    } else {
+      setEditingSerialNum(item.serialNumber || '');
+    }
     setItemOperation('delete');
     setStockReason(''); // Reset reason for new operation
     setShowEditItemModal(true);
@@ -851,21 +885,49 @@ export default function AdminInventoryPage() {
         return;
       }
       
+      const isSimCard = stockItem.category === 'ซิมการ์ด';
+      
       if (!isDelete && !editingSerialNum.trim()) {
-        toast.error('กรุณาระบุ Serial Number');
+        toast.error(isSimCard ? 'กรุณาระบุเบอร์โทรศัพท์' : 'กรุณาระบุ Serial Number');
         setEditItemLoading(false);
         return;
       }
+      
+      // เพิ่ม validation สำหรับเบอร์โทรศัพท์
+      if (!isDelete && isSimCard) {
+        const phoneNumber = editingSerialNum.trim();
+        if (phoneNumber.length !== 10) {
+          toast.error('เบอร์โทรศัพท์ต้องเป็น 10 หลักเท่านั้น');
+          setEditItemLoading(false);
+          return;
+        }
+        if (!/^[0-9]{10}$/.test(phoneNumber)) {
+          toast.error('เบอร์โทรศัพท์ต้องเป็นตัวเลข 10 หลักเท่านั้น');
+          setEditItemLoading(false);
+          return;
+        }
+      }
+
+      // Find old value from availableItems
+      const oldSerialNumber = availableItems?.withSerialNumber?.find(item => item.itemId === editingItemId)?.serialNumber;
+      const oldPhoneNumber = availableItems?.withPhoneNumber?.find(item => item.itemId === editingItemId)?.numberPhone;
 
       const requestBody = {
         itemId: editingItemId,
         itemName: stockItem.itemName,
         category: stockItem.category,
         operation: itemOperation,
-        newSerialNumber: editingSerialNum,
-        reason: stockReason,
-        oldSerialNumber: availableItems?.withSerialNumber?.find(item => item.itemId === editingItemId)?.serialNumber || editingSerialNum
+        reason: stockReason
       };
+
+      // Add appropriate fields based on item type
+      if (isSimCard) {
+        requestBody.newPhoneNumber = editingSerialNum;
+        requestBody.oldPhoneNumber = oldPhoneNumber || editingSerialNum;
+      } else {
+        requestBody.newSerialNumber = editingSerialNum;
+        requestBody.oldSerialNumber = oldSerialNumber || editingSerialNum;
+      }
 
       console.log('🔍 Frontend - Sending edit item request:', requestBody);
 
@@ -965,6 +1027,13 @@ export default function AdminInventoryPage() {
   const handleConfirmDelete = async () => {
     if (!stockItem || deleteConfirmText !== 'DELETE') {
       toast.error('กรุณาพิมพ์ "DELETE" เพื่อยืนยันการลบ');
+      return;
+    }
+
+    // 🛡️ ป้องกันการลบหมวดหมู่ "ซิมการ์ด"
+    if (stockItem.category === 'ซิมการ์ด') {
+      toast.error('⚠️ ไม่สามารถลบหมวดหมู่ "ซิมการ์ด" ได้ เนื่องจากเป็นหมวดหมู่พิเศษของระบบ');
+      setDeleteLoading(false);
       return;
     }
 
@@ -1196,7 +1265,12 @@ export default function AdminInventoryPage() {
   // Function to handle category selection and fetch existing items
   const handleCategorySelection = async (category: string) => {
     setSelectedCategory(category);
-    setFormData(prev => ({ ...prev, category }));
+    setFormData(prev => ({ 
+      ...prev, 
+      category,
+      // ตั้งจำนวนเป็น 1 สำหรับซิมการ์ด
+      quantity: category === 'ซิมการ์ด' ? 1 : prev.quantity
+    }));
     setSelectedExistingItem('');
     setIsAddingNewItem(false);
 
@@ -1240,6 +1314,7 @@ export default function AdminInventoryPage() {
     // This would implement Excel export functionality
     toast('ฟีเจอร์ Export Excel จะพัฒนาในอนาคต');
   };
+
 
   const getStatusText = (status: string) => {
     const map: Record<string, string> = {
@@ -1319,6 +1394,7 @@ export default function AdminInventoryPage() {
                 onClick={refreshAndClearCache}
                 disabled={loading}
                 className="w-full min-[440px]:w-3/7 min-[650px]:w-auto flex items-center justify-center space-x-2 px-4 py-2 bg-blue-100 text-blue-700 rounded-lg hover:bg-blue-200 transition-colors disabled:opacity-50"
+                title="รีเฟรชข้อมูล, ล้าง Cache และ Sync ข้อมูล InventoryMaster"
               >
                 <RefreshCw className={`w-4 h-4 ${loading ? 'animate-spin' : ''}`} />
                 <span>รีเฟรช</span>
@@ -1454,7 +1530,7 @@ export default function AdminInventoryPage() {
               <tbody className="bg-white divide-y divide-gray-200">
                 {loading && (
                   <tr>
-                    <td colSpan={6} className="px-6 py-8 text-center text-gray-500">
+                    <td colSpan={7} className="px-6 py-8 text-center text-gray-500">
                       <RefreshCw className="inline-block w-4 h-4 mr-2 animate-spin text-gray-400" />
                       กำลังโหลดข้อมูล
                     </td>
@@ -1462,7 +1538,7 @@ export default function AdminInventoryPage() {
                 )}
                 {!loading && currentItems.length === 0 && (
                   <tr>
-                    <td colSpan={6} className="px-6 py-8 text-center text-gray-500">ไม่พบข้อมูล</td>
+                    <td colSpan={7} className="px-6 py-8 text-center text-gray-500">ไม่พบข้อมูล</td>
                   </tr>
                 )}
                 {currentItems.map((item, index) => {
@@ -1553,19 +1629,24 @@ export default function AdminInventoryPage() {
 
         {/* Add Modal */}
         {showAddModal && (
-          <div className="fixed inset-0 bg-black/30 backdrop-blur-sm flex items-center justify-center z-50">
-            <div className="bg-white/95 backdrop-blur-md p-8 rounded-2xl shadow-2xl max-w-md w-full mx-4 border border-white/20">
-              <div className="flex justify-between items-center mb-6">
-                <h3 className="text-xl font-bold text-gray-900">เพิ่มรายการใหม่</h3>
-                <button
-                  onClick={() => { setShowAddModal(false); setAddFromSN(false); }}
-                  className="text-gray-400 hover:text-gray-600"
-                >
-                  <X className="w-6 h-6" />
-                </button>
+          <div className="fixed inset-0 bg-black/40 backdrop-blur-sm flex items-center justify-center z-50 p-4">
+            <div className="bg-white rounded-2xl shadow-2xl max-w-md w-full max-h-[90vh] overflow-hidden border-0 flex flex-col">
+              {/* Header - Fixed */}
+              <div className="bg-gradient-to-r from-blue-500 to-blue-600 text-white px-6 py-4">
+                <div className="flex items-center justify-between">
+                  <h3 className="text-xl font-bold">เพิ่มรายการใหม่</h3>
+                  <button
+                    onClick={() => { setShowAddModal(false); setAddFromSN(false); }}
+                    className="text-white/80 hover:text-white hover:bg-white/20 p-2 rounded-lg transition-all duration-200"
+                  >
+                    <X className="w-5 h-5" />
+                  </button>
+                </div>
               </div>
               
-              <form onSubmit={handleSubmit} className="space-y-4">
+              {/* Content - Scrollable */}
+              <div className="flex-1 overflow-y-auto p-6 bg-gray-50/30">
+                <form onSubmit={handleSubmit} className="space-y-5">
                 {/* Step 1: Select Category */}
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-1">
@@ -1662,18 +1743,24 @@ export default function AdminInventoryPage() {
                         min={1}
                         className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 text-gray-900"
                         required
-                        disabled={addFromSN || formData.serialNumber.trim() !== ''}
+                        disabled={addFromSN || formData.serialNumber.trim() !== '' || selectedCategory === 'ซิมการ์ด'}
                       />
-                      {(addFromSN || formData.serialNumber.trim() !== '') && (
+                      {(addFromSN || formData.serialNumber.trim() !== '' || selectedCategory === 'ซิมการ์ด') && (
                         <p className="text-xs text-blue-600 mt-1">
-                          {addFromSN ? '* เพิ่มจากรายการ Serial Number: จำนวนทั้งหมดถูกตั้งเป็น 1 และแก้ไขไม่ได้' : '* เมื่อระบุ Serial Number จำนวนทั้งหมดจะเป็น 1 อัตโนมัติ'}
+                          {selectedCategory === 'ซิมการ์ด'
+                            ? '* ซิมการ์ด: จำนวนถูกตั้งเป็น 1 และแก้ไขไม่ได้'
+                            : addFromSN 
+                            ? '* เพิ่มจากรายการ Serial Number: จำนวนทั้งหมดถูกตั้งเป็น 1 และแก้ไขไม่ได้' 
+                            : '* เมื่อระบุ Serial Number จำนวนทั้งหมดจะเป็น 1 อัตโนมัติ'
+                          }
                         </p>
                       )}
                     </div>
 
                     <div>
                       <label className="block text-sm font-medium text-gray-700 mb-1">
-                        Serial Number
+                        {selectedCategory === 'ซิมการ์ด' ? 'เบอร์โทรศัพท์' : 'Serial Number'}
+                        {selectedCategory === 'ซิมการ์ด' && ' *'}
                       </label>
                       <input
                         type="text"
@@ -1681,11 +1768,18 @@ export default function AdminInventoryPage() {
                         value={formData.serialNumber}
                         onChange={handleInputChange}
                         className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 text-gray-900"
-                        placeholder="ไม่จำเป็น"
-                        required={addFromSN}
+                        placeholder={selectedCategory === 'ซิมการ์ด' ? 'กรอกเบอร์โทรศัพท์ 10 หลัก' : 'ไม่จำเป็น'}
+                        pattern={selectedCategory === 'ซิมการ์ด' ? '[0-9]{10}' : undefined}
+                        maxLength={selectedCategory === 'ซิมการ์ด' ? 10 : undefined}
+                        required={addFromSN || selectedCategory === 'ซิมการ์ด'}
                       />
                       <p className="text-xs text-gray-500 mt-1">
-                        {addFromSN ? 'กรุณากรอก Serial Number ของรายการใหม่' : 'เมื่อใส่ Serial Number จำนวนจะถูกตั้งเป็น 1 อัตโนมัติ'}
+                        {selectedCategory === 'ซิมการ์ด' 
+                          ? 'กรุณากรอกหมายเลขโทรศัพท์ให้ครบ 10 หลัก' 
+                          : addFromSN 
+                          ? 'กรุณากรอก Serial Number ของรายการใหม่' 
+                          : 'เมื่อใส่ Serial Number จำนวนจะถูกตั้งเป็น 1 อัตโนมัติ'
+                        }
                       </p>
                     </div>
                     
@@ -1710,35 +1804,40 @@ export default function AdminInventoryPage() {
                       </select>
                     </div>
 
-                    <div className="flex space-x-3 pt-4">
+                    {/* Footer */}
+                    <div className="flex justify-end gap-3 pt-4">
                       <button
                         type="button"
                         onClick={() => { setShowAddModal(false); setAddFromSN(false); }}
-                        className="flex-1 px-4 py-2 border border-gray-300 text-gray-700 rounded-md hover:bg-gray-50 transition-colors"
+                        className="px-6 py-2.5 rounded-lg border border-gray-300 text-gray-600 hover:bg-gray-50 hover:border-gray-400 transition-all duration-200 font-medium"
                       >
                         ยกเลิก
                       </button>
-                      <button
-                        type="submit"
-                        disabled={loading}
-                        className="flex-1 px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors flex items-center justify-center space-x-2"
-                      >
-                        {loading ? (
-                          <>
-                            <RefreshCw className="w-4 h-4 animate-spin" />
-                            <span>กำลังบันทึก...</span>
-                          </>
-                        ) : (
-                          <>
-                            <Save className="w-4 h-4" />
-                            <span>บันทึก</span>
-                          </>
-                        )}
-                      </button>
+                      {/* Show submit button only when required fields are filled */}
+                      {selectedCategory && (selectedExistingItem || isAddingNewItem) && (
+                        <button
+                          type="submit"
+                          disabled={loading}
+                          className="px-6 py-2.5 rounded-lg bg-gradient-to-r from-blue-500 to-blue-600 text-white hover:from-blue-600 hover:to-blue-700 disabled:opacity-50 disabled:cursor-not-allowed transition-all duration-200 shadow-lg hover:shadow-xl font-medium flex items-center justify-center space-x-2"
+                        >
+                          {loading ? (
+                            <>
+                              <RefreshCw className="w-4 h-4 animate-spin" />
+                              <span>กำลังบันทึก...</span>
+                            </>
+                          ) : (
+                            <>
+                              <Save className="w-4 h-4" />
+                              <span>บันทึก</span>
+                            </>
+                          )}
+                        </button>
+                      )}
                     </div>
                   </>
                 )}
               </form>
+              </div>
             </div>
           </div>
               )}
@@ -2279,8 +2378,17 @@ export default function AdminInventoryPage() {
                   className="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
                 >
                   <option value="view_current_info">📊 ดูข้อมูลปัจจุบัน</option>
-                  <option value="adjust_stock">📝 ปรับจำนวน (อุปกรณ์ที่ไม่มี Serial Number)</option>
-                  <option value="edit_items">✏️ แก้ไข/ลบ (อุปกรณ์ที่มี Serial Number)</option>
+                  {/* แสดง dropdown สำหรับอุปกรณ์ที่ไม่ใช่ซิมการ์ด */}
+                  {stockItem?.category !== 'ซิมการ์ด' && (
+                    <option value="adjust_stock">📝 ปรับจำนวน (อุปกรณ์ที่ไม่มี Serial Number)</option>
+                  )}
+                  <option value="edit_items">
+                    {stockItem?.category === 'ซิมการ์ด' 
+                      ? '✏️ แก้ไข/ลบอุปกรณ์ซิมการ์ด' 
+                      : '✏️ แก้ไข/ลบ (อุปกรณ์ที่มี Serial Number)'
+                    }
+                  </option>
+                  {/* ลบรายการทั้งหมด - อยู่ล่างสุดเสมอ สำหรับทุกประเภทอุปกรณ์ */}
                   <option value="delete_item">🗑️ ลบรายการทั้งหมด</option>
                 </select>
               </div>
@@ -2328,26 +2436,43 @@ export default function AdminInventoryPage() {
                       <div className="bg-white/60 p-3 rounded-lg border border-blue-200">
                         <h5 className="font-medium text-blue-800 mb-2">📱 ประเภทอุปกรณ์</h5>
                         <div className="space-y-2">
-                          <div className="flex items-center justify-between">
-                            <span className="text-blue-700">ไม่มี Serial Number:</span>
-                            <span className="font-bold text-orange-600">
-                              {availableItems ? (
-                                availableItems.withoutSerialNumber?.count || 0
-                              ) : (
-                                <span className="text-gray-400 animate-pulse">กำลังโหลด...</span>
-                              )} ชิ้น
-                            </span>
-                          </div>
-                          <div className="flex items-center justify-between">
-                            <span className="text-blue-700">มี Serial Number:</span>
-                            <span className="font-bold text-green-600">
-                              {availableItems ? (
-                                availableItems.withSerialNumber?.length || 0
-                              ) : (
-                                <span className="text-gray-400 animate-pulse">กำลังโหลด...</span>
-                              )} ชิ้น
-                            </span>
-                          </div>
+                          {stockItem?.category === 'ซิมการ์ด' ? (
+                            // แสดงสำหรับซิมการ์ด
+                            <div className="flex items-center justify-between">
+                              <span className="text-blue-700">มีอุปกรณ์ซิม:</span>
+                              <span className="font-bold text-green-600">
+                                {availableItems ? (
+                                  (availableItems.withPhoneNumber?.length || 0)
+                                ) : (
+                                  <span className="text-gray-400 animate-pulse">กำลังโหลด...</span>
+                                )} ชิ้น
+                              </span>
+                            </div>
+                          ) : (
+                            // แสดงสำหรับอุปกรณ์ทั่วไป
+                            <>
+                              <div className="flex items-center justify-between">
+                                <span className="text-blue-700">ไม่มี Serial Number:</span>
+                                <span className="font-bold text-orange-600">
+                                  {availableItems ? (
+                                    availableItems.withoutSerialNumber?.count || 0
+                                  ) : (
+                                    <span className="text-gray-400 animate-pulse">กำลังโหลด...</span>
+                                  )} ชิ้น
+                                </span>
+                              </div>
+                              <div className="flex items-center justify-between">
+                                <span className="text-blue-700">มี Serial Number:</span>
+                                <span className="font-bold text-green-600">
+                                  {availableItems ? (
+                                    availableItems.withSerialNumber?.length || 0
+                                  ) : (
+                                    <span className="text-gray-400 animate-pulse">กำลังโหลด...</span>
+                                  )} ชิ้น
+                                </span>
+                              </div>
+                            </>
+                          )}
                         </div>
                       </div>
                     </div>
@@ -2458,7 +2583,9 @@ export default function AdminInventoryPage() {
                         <div className="flex items-center">
                           <span className="px-2 py-1 text-xs bg-gray-500 text-white rounded">
                             รวม {availableItems ? 
-                              (availableItems.withSerialNumber?.length || 0) + (availableItems.withoutSerialNumber?.count || 0) : 
+                              (availableItems.withSerialNumber?.length || 0) + 
+                              (availableItems.withPhoneNumber?.length || 0) + 
+                              (availableItems.withoutSerialNumber?.count || 0) : 
                               'กำลังโหลด...'
                             } ชิ้น
                           </span>
@@ -2478,7 +2605,7 @@ export default function AdminInventoryPage() {
                             <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 w-4 h-4 text-gray-400" />
                             <input
                               type="text"
-                              placeholder="ค้นหา Serial Number..."
+                              placeholder={stockItem?.category === 'ซิมการ์ด' ? 'ค้นหาเบอร์โทรศัพท์...' : 'ค้นหา Serial Number...'}
                               value={itemSearchTerm}
                               onChange={(e) => setItemSearchTerm(e.target.value)}
                               className="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
@@ -2589,10 +2716,52 @@ export default function AdminInventoryPage() {
                         </div>
                       )}
 
-
+                      {/* Items with Phone Numbers (SIM Cards) */}
+                      {availableItems?.withPhoneNumber && availableItems.withPhoneNumber.length > 0 && (
+                        <div className="mb-4">
+                          <h4 className="text-sm font-semibold text-gray-800 mb-2 flex items-center">
+                            📱 ซิมการ์ดที่มีเบอร์โทรศัพท์ ({availableItems.withPhoneNumber.length} ชิ้น)
+                          </h4>
+                          <div className="space-y-2 max-h-64 overflow-y-auto">
+                            {availableItems.withPhoneNumber.map((item: any) => (
+                              <div
+                                key={`${item.itemId}-${item.numberPhone}`}
+                                className="p-3 border rounded-lg hover:bg-gray-50"
+                              >
+                                <div className="flex items-center justify-between">
+                                  <div className="flex items-center">
+                                    <span className="text-sm font-mono text-green-600 font-medium">
+                                      {item.numberPhone}
+                                    </span>
+                                    <span className="ml-2 text-xs text-gray-500">
+                                      เพิ่มโดย: {item.addedBy === 'admin' ? 'Admin' : 'User'}
+                                    </span>
+                                  </div>
+                                  <div className="flex space-x-2">
+                                    <button
+                                      onClick={() => handleEditItem(item, 'phone')}
+                                      className="px-3 py-1 text-xs bg-blue-100 text-blue-700 rounded hover:bg-blue-200"
+                                    >
+                                      แก้ไข
+                                    </button>
+                                    <button
+                                      onClick={() => handleDeleteItem(item, 'phone')}
+                                      className="px-3 py-1 text-xs bg-red-100 text-red-700 rounded hover:bg-red-200"
+                                    >
+                                      ลบ
+                                    </button>
+                                  </div>
+                                </div>
+                              </div>
+                            ))}
+                          </div>
+                        </div>
+                      )}
 
                       {/* No items */}
-                      {availableItems && (!availableItems.withSerialNumber || availableItems.withSerialNumber.length === 0) &&
+                      {availableItems && 
+                       (!availableItems.withSerialNumber || availableItems.withSerialNumber.length === 0) &&
+                       (!availableItems.withPhoneNumber || availableItems.withPhoneNumber.length === 0) &&
                        (!availableItems.withoutSerialNumber || availableItems.withoutSerialNumber.count === 0) && (
                         <div className="text-center py-8 text-gray-500">
                           <p>ไม่มีรายการอุปกรณ์ในคลัง</p>
@@ -2725,15 +2894,47 @@ export default function AdminInventoryPage() {
               <div className="space-y-4">
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-1">
-                    Serial Number *
+                    {stockItem?.category === 'ซิมการ์ด' ? 'เบอร์โทรศัพท์' : 'Serial Number'} *
                   </label>
                   <input
                     type="text"
                     value={editingSerialNum}
-                    onChange={(e) => setEditingSerialNum(e.target.value)}
-                    className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
-                    placeholder="ระบุ Serial Number ใหม่"
+                    onChange={(e) => {
+                      const value = e.target.value;
+                      if (stockItem?.category === 'ซิมการ์ด') {
+                        // สำหรับซิมการ์ด: อนุญาตเฉพาะตัวเลข และไม่เกิน 10 หลัก
+                        const numericValue = value.replace(/[^0-9]/g, '');
+                        if (numericValue.length <= 10) {
+                          setEditingSerialNum(numericValue);
+                        }
+                      } else {
+                        // สำหรับอุปกรณ์ทั่วไป: อนุญาตทุกตัวอักษร
+                        setEditingSerialNum(value);
+                      }
+                    }}
+                    className={`w-full px-3 py-2 border rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 ${
+                      stockItem?.category === 'ซิมการ์ด' 
+                        ? editingSerialNum.length === 10 
+                          ? 'border-green-300 bg-green-50' 
+                          : 'border-red-300 bg-red-50'
+                        : 'border-gray-300'
+                    }`}
+                    placeholder={stockItem?.category === 'ซิมการ์ด' ? 'ระบุเบอร์โทรศัพท์ 10 หลัก' : 'ระบุ Serial Number ใหม่'}
+                    maxLength={stockItem?.category === 'ซิมการ์ด' ? 10 : undefined}
+                    pattern={stockItem?.category === 'ซิมการ์ด' ? '[0-9]{10}' : undefined}
                   />
+                  {stockItem?.category === 'ซิมการ์ด' && (
+                    <div className="mt-1 text-sm">
+                      <span className={editingSerialNum.length === 10 ? 'text-green-600' : 'text-red-600'}>
+                        {editingSerialNum.length}/10 หลัก
+                      </span>
+                      {editingSerialNum.length !== 10 && (
+                        <span className="text-red-600 ml-2">
+                          (ต้องครบ 10 หลัก)
+                        </span>
+                      )}
+                    </div>
+                  )}
                 </div>
                 <div className="flex justify-end space-x-3">
                   <button
@@ -2745,7 +2946,11 @@ export default function AdminInventoryPage() {
                   </button>
                   <button
                     onClick={() => handleSaveEditItem()}
-                    disabled={!editingSerialNum.trim() || editItemLoading}
+                    disabled={
+                      !editingSerialNum.trim() || 
+                      editItemLoading ||
+                      (stockItem?.category === 'ซิมการ์ด' && editingSerialNum.length !== 10)
+                    }
                     className="px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed flex items-center space-x-2"
                   >
                     {editItemLoading ? (
@@ -2767,7 +2972,7 @@ export default function AdminInventoryPage() {
                     <div>
                       <h5 className="font-medium text-red-800">คำเตือน: การลบรายการ</h5>
                       <p className="text-sm text-red-700 mt-1">
-                        คุณต้องการลบ <strong>{stockItem?.itemName}</strong> ที่มี Serial Number: <strong>{editingSerialNum}</strong> หรือไม่?
+                        คุณต้องการลบ <strong>{stockItem?.itemName}</strong> ที่มี{stockItem?.category === 'ซิมการ์ด' ? 'เบอร์โทรศัพท์' : 'Serial Number'}: <strong>{editingSerialNum}</strong> หรือไม่?
                       </p>
                       <p className="text-sm text-red-800 font-medium mt-2">
                         ⚠️ ไม่สามารถยกเลิกการดำเนินการนี้ได้!

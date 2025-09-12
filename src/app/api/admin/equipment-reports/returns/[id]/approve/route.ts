@@ -150,88 +150,121 @@ export async function POST(
         });
         console.log(`✅ Returned item SN: ${item.serialNumber} back to admin stock`);
       } else {
-        console.log(`🔍 Looking for InventoryItem without SN`);
-        console.log(`🔍 Query params: _id=${item.itemId}, ownerType=user_owned, userId=${userIdToFind}`);
+        console.log(`🔍 Looking for InventoryItems without SN - quantity: ${item.quantity}`);
+        console.log(`🔍 Query params: itemName=${item.itemName}, ownerType=user_owned, userId=${userIdToFind}`);
         
-        // For items without serial numbers, find by _id
-        let inventoryItem = await InventoryItem.findOne({
-          _id: item.itemId,
-          $or: [
-            { serialNumber: { $exists: false } },
-            { serialNumber: '' },
-            { serialNumber: null }
-          ],
-          'currentOwnership.ownerType': 'user_owned',
-          'currentOwnership.userId': userIdToFind
-        });
+        // For items without serial numbers, find all items with the same name owned by user
+        // ใช้ itemId เป็นหลัก และใช้ masterItemId เป็น fallback
+        let userOwnedItems = await InventoryItem.find({
+          $and: [
+            {
+              $or: [
+                { _id: item.itemId }, // ใช้ itemId เป็นหลัก
+                ...(item.masterItemId ? [{ masterItemId: item.masterItemId }] : []) // fallback ใช้ masterItemId
+              ]
+            },
+            {
+              $or: [
+                { serialNumber: { $exists: false } },
+                { serialNumber: '' },
+                { serialNumber: null }
+              ]
+            },
+            {
+              'currentOwnership.ownerType': 'user_owned',
+              'currentOwnership.userId': userIdToFind
+            }
+          ]
+        }).limit(item.quantity); // จำกัดจำนวนตามที่ต้องการคืน
 
-        // If not found in user_owned, check if it's already in admin_stock
-        if (!inventoryItem) {
-          const adminStockItem = await InventoryItem.findOne({
-            _id: item.itemId,
+        console.log(`🔍 Found ${userOwnedItems.length} items without SN for ${item.itemName}`);
+
+        if (userOwnedItems.length === 0) {
+          console.warn(`⚠️ No items without SN found for user ${userIdToFind} - item: ${item.itemName}`);
+          
+          // Check if items are already in admin_stock
+          const adminStockItems = await InventoryItem.find({
+            itemName: item.itemName,
             $or: [
               { serialNumber: { $exists: false } },
               { serialNumber: '' },
               { serialNumber: null }
             ],
             'currentOwnership.ownerType': 'admin_stock'
-          });
+          }).limit(item.quantity);
 
-          if (adminStockItem) {
-            console.log(`ℹ️ Item (no SN) is already in admin_stock - marking as already returned`);
-            transferResults.push({
-              itemId: adminStockItem._id.toString(),
-              itemName: item.itemName || 'Unknown Item',
-              serialNumber: null,
-              transferType: 'already_returned',
-              success: true,
-              message: 'Item was already in admin stock'
-            });
+          if (adminStockItems.length > 0) {
+            console.log(`ℹ️ ${adminStockItems.length} items (no SN) are already in admin_stock - marking as already returned`);
+            for (const adminStockItem of adminStockItems) {
+              transferResults.push({
+                itemId: adminStockItem._id.toString(),
+                itemName: item.itemName || 'Unknown Item',
+                serialNumber: null,
+                transferType: 'already_returned',
+                success: true,
+                message: 'Item was already in admin stock'
+              });
+            }
             continue;
           }
+
+          // Try to find the item without strict matching to see what's wrong
+          const debugItems = await InventoryItem.find({
+            itemName: item.itemName,
+            $or: [
+              { serialNumber: { $exists: false } },
+              { serialNumber: '' },
+              { serialNumber: null }
+            ]
+          });
+          console.warn(`🔍 Debug - Items with name "${item.itemName}" exist:`, debugItems.map(i => ({
+            _id: i._id,
+            serialNumber: i.serialNumber,
+            ownerType: i.currentOwnership.ownerType,
+            userId: i.currentOwnership.userId
+          })));
+          continue;
         }
 
-        if (inventoryItem) {
-          console.log(`✅ Found InventoryItem without SN:`, {
+        // Check if we have enough items to return
+        if (userOwnedItems.length < item.quantity) {
+          console.warn(`⚠️ Not enough items to return: requested ${item.quantity}, found ${userOwnedItems.length}`);
+          return NextResponse.json(
+            { error: `ไม่พบอุปกรณ์เพียงพอสำหรับคืน: ต้องการ ${item.quantity} ชิ้น แต่พบเพียง ${userOwnedItems.length} ชิ้น` },
+            { status: 400 }
+          );
+        }
+
+        // Transfer the specified quantity of items
+        for (let i = 0; i < item.quantity; i++) {
+          const inventoryItem = userOwnedItems[i];
+          
+          console.log(`✅ Found InventoryItem without SN (${i + 1}/${item.quantity}):`, {
             _id: inventoryItem._id,
             ownerType: inventoryItem.currentOwnership.ownerType,
             userId: inventoryItem.currentOwnership.userId
           });
           
-          const userOwnedItems = [inventoryItem]; // Convert to array for existing loop
+          const transferredItem = await transferInventoryItem({
+            itemId: inventoryItem._id.toString(),
+            fromOwnerType: 'user_owned',
+            fromUserId: userIdToFind,
+            toOwnerType: 'admin_stock',
+            transferType: 'return_completed',
+            processedBy: adminId,
+            returnId: id,
+            reason: `Equipment returned by ${returnLog.firstName} ${returnLog.lastName} via return log ${id} (${i + 1}/${item.quantity})`
+          });
 
-          for (const inventoryItem of userOwnedItems) {
-            const transferredItem = await transferInventoryItem({
-              itemId: inventoryItem._id.toString(),
-              fromOwnerType: 'user_owned',
-              fromUserId: userIdToFind,
-              toOwnerType: 'admin_stock',
-              transferType: 'return_completed',
-              processedBy: adminId,
-              returnId: id,
-              reason: `Equipment returned by ${returnLog.firstName} ${returnLog.lastName} via return log ${id}`
-            });
-
-            transferResults.push({
-              itemId: transferredItem._id.toString(),
-              itemName: transferredItem.itemName,
-              serialNumber: transferredItem.serialNumber || null,
-              transferType: 'return_completed',
-              success: true,
-              message: `Returned ${transferredItem.itemName} (${transferredItem.serialNumber || 'No SN'}) to admin stock`
-            });
-            console.log(`✅ Returned 1x ${item.itemName} (no SN) back to admin stock`);
-          }
-        } else {
-          // Try to find the item without strict matching to see what's wrong
-          const debugItem = await InventoryItem.findById(item.itemId);
-          console.warn(`⚠️ InventoryItem without SN not found for user ${userIdToFind}`);
-          console.warn(`🔍 Debug - Item exists:`, debugItem ? {
-            _id: debugItem._id,
-            serialNumber: debugItem.serialNumber,
-            ownerType: debugItem.currentOwnership.ownerType,
-            userId: debugItem.currentOwnership.userId
-          } : 'NOT_FOUND');
+          transferResults.push({
+            itemId: transferredItem._id.toString(),
+            itemName: transferredItem.itemName,
+            serialNumber: transferredItem.serialNumber || null,
+            transferType: 'return_completed',
+            success: true,
+            message: `Returned ${transferredItem.itemName} (${transferredItem.serialNumber || 'No SN'}) to admin stock (${i + 1}/${item.quantity})`
+          });
+          console.log(`✅ Returned ${i + 1}/${item.quantity} ${item.itemName} (no SN) back to admin stock`);
         }
       }
     }

@@ -14,62 +14,39 @@ export async function GET(request: NextRequest) {
 
     console.log('🔍 User-owned logs found:', userOwnedLogs.length);
 
-    // Enhance logs with user profile data
-    const enhancedLogs = await Promise.all(
-      userOwnedLogs.map(async (log) => {
-        console.log('🔍 Processing log:', {
-          _id: log._id,
-          userId: log.userId,
-          firstName: log.firstName,
-          lastName: log.lastName,
-          nickname: log.nickname,
-          department: log.department,
-          phone: log.phone
-        });
+    // Get all unique userIds from logs efficiently
+    const userIds = [...new Set(userOwnedLogs.filter(log => log.userId).map(log => log.userId))];
+    
+    // Batch fetch all user profiles in one query
+    const userProfiles = await User.find({ 
+      user_id: { $in: userIds } 
+    }).select('user_id firstName lastName nickname department office phone');
+    
+    // Create a lookup map for quick access
+    const userProfileMap = new Map();
+    userProfiles.forEach(profile => {
+      userProfileMap.set(profile.user_id, profile);
+    });
 
-        // Try to find user profile to get complete information
-        let userProfile = null;
-        if (log.userId) {
-          try {
-            userProfile = await User.findOne({ user_id: log.userId });
-            console.log('🔍 User profile found for userId:', log.userId, userProfile ? 'Yes' : 'No');
-            if (userProfile) {
-              console.log('🔍 User profile data:', {
-                nickname: userProfile.nickname,
-                department: userProfile.department,
-                phone: userProfile.phone
-              });
-            }
-          } catch (error) {
-            console.log('Could not fetch user profile for userId:', log.userId, error);
-          }
-        } else {
-          console.log('🔍 No userId found in log');
-        }
+    console.log(`🔍 Fetched ${userProfiles.length} user profiles for ${userIds.length} unique userIds`);
 
-        // Enhance log data with user profile information
-        const enhancedLog = log.toObject();
-        if (userProfile) {
-          // Use user profile data if available, fallback to log data
-          enhancedLog.nickname = userProfile.nickname || log.nickname || '';
-          enhancedLog.department = userProfile.department || log.department || '';
-          enhancedLog.phone = userProfile.phone || log.phone || '';
-          enhancedLog.firstName = userProfile.firstName || log.firstName || '';
-          enhancedLog.lastName = userProfile.lastName || log.lastName || '';
-          enhancedLog.office = userProfile.office || log.office || '';
-          
-          console.log('🔍 Enhanced log data:', {
-            nickname: enhancedLog.nickname,
-            department: enhancedLog.department,
-            phone: enhancedLog.phone
-          });
-        } else {
-          console.log('🔍 Using original log data (no user profile found)');
-        }
+    // Enhance logs with user profile data (no async operations in map)
+    const enhancedLogs = userOwnedLogs.map(log => {
+      const enhancedLog = log.toObject();
+      
+      if (log.userId && userProfileMap.has(log.userId)) {
+        const userProfile = userProfileMap.get(log.userId);
+        // Use user profile data if available, fallback to log data
+        enhancedLog.nickname = userProfile.nickname || log.nickname || '';
+        enhancedLog.department = userProfile.department || log.department || '';
+        enhancedLog.phone = userProfile.phone || log.phone || '';
+        enhancedLog.firstName = userProfile.firstName || log.firstName || '';
+        enhancedLog.lastName = userProfile.lastName || log.lastName || '';
+        enhancedLog.office = userProfile.office || log.office || '';
+      }
 
-        return enhancedLog;
-      })
-    );
+      return enhancedLog;
+    });
 
     console.log('🔍 Enhanced logs ready to return:', enhancedLogs.length);
 

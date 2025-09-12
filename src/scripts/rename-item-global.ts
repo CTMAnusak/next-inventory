@@ -170,7 +170,7 @@ export async function renameItemGlobally(
   options: RenameOptions = {}
 ): Promise<RenameResult> {
   const startTime = Date.now();
-  const { dryRun = false, createBackup: shouldCreateBackup = true, batchSize = 1000 } = options;
+  const { dryRun = false, createBackup: shouldCreateBackup = false, batchSize = 1000 } = options;
   
   const result: RenameResult = {
     success: false,

@@ -8,6 +8,7 @@ export interface IRequestItem {
   serialNumbers?: string[]; // Serial numbers if applicable (user request)
   assignedSerialNumbers?: string[]; // SN ที่ Admin assign ให้เมื่อ approve
   assignedItemIds?: string[]; // IDs ของ InventoryItem ที่ assign ให้
+  assignedPhoneNumbers?: string[]; // Phone numbers ที่ Admin assign ให้ (สำหรับซิมการ์ด)
 }
 
 export interface IRequestLog extends Document {
@@ -36,7 +37,8 @@ const RequestItemSchema = new Schema<IRequestItem>({
   category: { type: String, required: false },      // Category for display
   serialNumbers: [{ type: String, required: false }],   // Serial numbers if available (user request)
   assignedSerialNumbers: [{ type: String, required: false }], // SN ที่ Admin assign ให้
-  assignedItemIds: [{ type: String, required: false }]  // InventoryItem IDs ที่ assign ให้
+  assignedItemIds: [{ type: String, required: false }],  // InventoryItem IDs ที่ assign ให้
+  assignedPhoneNumbers: [{ type: String, required: false }] // Phone numbers ที่ Admin assign ให้ (สำหรับซิมการ์ด)
 });
 
 const RequestLogSchema = new Schema<IRequestLog>({

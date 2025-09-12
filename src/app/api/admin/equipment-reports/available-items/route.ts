@@ -131,9 +131,10 @@ export async function GET(request: NextRequest) {
       });
     }
 
-    // จัดกลุ่มเป็น มี SN และ ไม่มี SN (will be updated after virtual items are added)
+    // จัดกลุ่มเป็น มี SN, ไม่มี SN, และมี Phone Number (will be updated after virtual items are added)
     let itemsWithSN = availableItems.filter(item => item.serialNumber);
-    let itemsWithoutSN = availableItems.filter(item => !item.serialNumber);
+    let itemsWithoutSN = availableItems.filter(item => !item.serialNumber && !item.numberPhone);
+    let itemsWithPhoneNumber = availableItems.filter(item => item.numberPhone);
 
     // ✅ Handle data mismatch case - Create virtual items if needed
     let actualAvailableItems = [...availableItems];
@@ -171,7 +172,8 @@ export async function GET(request: NextRequest) {
         
         // Re-group items after adding virtual items
         itemsWithSN = actualAvailableItems.filter(item => item.serialNumber);
-        itemsWithoutSN = actualAvailableItems.filter(item => !item.serialNumber);
+        itemsWithoutSN = actualAvailableItems.filter(item => !item.serialNumber && !item.numberPhone);
+        itemsWithPhoneNumber = actualAvailableItems.filter(item => item.numberPhone);
       }
     }
 
@@ -179,7 +181,8 @@ export async function GET(request: NextRequest) {
       totalAvailable: totalAvailable,
       withSerialNumberCount: itemsWithSN.length,
       withoutSerialNumberCount: itemsWithoutSN.length,
-      totalItems: itemsWithSN.length + itemsWithoutSN.length
+      withPhoneNumberCount: itemsWithPhoneNumber.length,
+      totalItems: itemsWithSN.length + itemsWithoutSN.length + itemsWithPhoneNumber.length
     });
 
     const response = {
@@ -194,8 +197,16 @@ export async function GET(request: NextRequest) {
         addedBy: item.sourceInfo?.addedBy || 'system',
         isVirtual: item.isVirtual || false // ✅ Mark virtual items
       })),
+      withPhoneNumber: itemsWithPhoneNumber.map(item => ({
+        itemId: item._id,
+        numberPhone: item.numberPhone,
+        status: item.status,
+        dateAdded: item.sourceInfo?.dateAdded || new Date(),
+        addedBy: item.sourceInfo?.addedBy || 'system',
+        isVirtual: item.isVirtual || false // ✅ Mark virtual items
+      })),
       withoutSerialNumber: {
-        count: Math.max(0, totalAvailable - itemsWithSN.length), // ✅ Calculate from InventoryMaster
+        count: Math.max(0, totalAvailable - itemsWithSN.length - itemsWithPhoneNumber.length), // ✅ Calculate from InventoryMaster
         items: itemsWithoutSN.map(item => ({ // ✅ Show ALL items (including virtual)
           itemId: item._id,
           status: item.status,

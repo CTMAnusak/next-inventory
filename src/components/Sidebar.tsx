@@ -213,7 +213,7 @@ export default function Sidebar({ isOpen, onClose }: SidebarProps) {
           </div>
 
           {/* Menu Items */}
-          <nav className="flex-1 px-4 py-6 space-y-2 overflow-y-auto">
+          <nav className="flex-1 px-4 py-6 space-y-2 overflow-y-auto sidebar-scrollbar">
             {menuItems
               .filter(item => !item.isAdmin || isAdmin) // ซ่อนเมนู Admin จากผู้ใช้ทั่วไป
               .map((item, index) => (
@@ -222,7 +222,7 @@ export default function Sidebar({ isOpen, onClose }: SidebarProps) {
                   <div>
                     <button
                       onClick={item.isAdmin ? handleAdminClick : () => handleMenuClick('it-report')}
-                      className="w-full flex items-center justify-between px-4 py-3 text-white/90 rounded-xl hover:bg-white/10 hover:text-white transition-all duration-200 backdrop-blur-sm cursor-pointer"
+                      className="w-full flex items-center justify-between px-4 py-3 text-white/90 rounded-xl hover:bg-white/10 hover:text-white hover:scale-105 transition-all duration-200 backdrop-blur-sm cursor-pointer"
                       data-tutorial={item.title === 'แจ้งปัญหา IT' ? 'it-report' : undefined}
                     >
                       <div className="flex items-center">
@@ -256,7 +256,7 @@ export default function Sidebar({ isOpen, onClose }: SidebarProps) {
                               className={`flex items-center px-4 py-2 text-sm rounded-lg transition-all duration-200 ml-6 ${
                                 pathname === subItem.href
                                   ? 'bg-white/20 text-white shadow-md'
-                                  : 'text-white/70 hover:bg-white/10 hover:text-white'
+                                  : 'text-white/70 hover:bg-white/10 hover:text-white hover:scale-105'
                               }`}
                               data-tutorial={dataTutorial || undefined}
                               onClick={(e) => {

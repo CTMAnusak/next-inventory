@@ -24,6 +24,7 @@ interface ReturnItem {
     value: string;
     itemId: string;
     inventorySerialNumber?: string;
+    maxQuantity?: number; // เพิ่มข้อมูลจำนวนสูงสุดสำหรับอุปกรณ์ไม่มี SN
   }>;
   selectedOption?: string;
 }
@@ -43,6 +44,7 @@ interface OwnedEquipment {
   serialNumbers?: string[];
   items?: any[];
   itemIdMap?: { [key: string]: string }; // Map serial number to actual itemId
+  masterItemId?: string; // เพิ่ม masterItemId สำหรับอ้างอิง InventoryMaster
 }
 
 export default function EquipmentReturnPage() {
@@ -81,40 +83,26 @@ export default function EquipmentReturnPage() {
   const [showEquipmentDropdown, setShowEquipmentDropdown] = useState<boolean>(false);
   const [showOptionDropdown, setShowOptionDropdown] = useState<boolean>(false);
   const [searchTerm, setSearchTerm] = useState('');
+  const [hasShownNotification, setHasShownNotification] = useState(false);
+  const [maxQuantity, setMaxQuantity] = useState<number>(0); // จำนวนสูงสุดที่คืนได้
+  const [remainingQuantity, setRemainingQuantity] = useState<number>(0); // จำนวนที่เหลือ
 
   useEffect(() => {
     fetchUserItems();
   }, []);
 
-  // New useEffect to handle URL parameters for pre-filling data
+  // Simplified useEffect to handle URL parameters for pre-filling data
   useEffect(() => {
     const category = searchParams.get('category');
     const itemName = searchParams.get('itemName');
     const itemId = searchParams.get('itemId');
-    const totalQuantity = searchParams.get('totalQuantity');
-    const serialNumbers = searchParams.get('serialNumbers');
-    const items = searchParams.get('items');
-    const itemIdMap = searchParams.get('itemIdMap');
 
     if (category && itemName && ownedEquipment.length > 0) {
       console.log('🔗 Equipment Return - Pre-filling from URL:', { 
-        category, itemName, itemId, totalQuantity, serialNumbers, items, itemIdMap 
+        category, itemName, itemId
       });
       
-      // Parse detailed data
-      let parsedSerialNumbers = [];
-      let parsedItems = [];
-      let parsedItemIdMap = {};
-      
-      try {
-        parsedSerialNumbers = serialNumbers ? JSON.parse(serialNumbers) : [];
-        parsedItems = items ? JSON.parse(items) : [];
-        parsedItemIdMap = itemIdMap ? JSON.parse(itemIdMap) : {};
-      } catch (e) {
-        console.warn('Failed to parse URL data:', e);
-      }
-      
-      // Prefer itemId if available, otherwise find by itemName
+      // Find the equipment item by itemId or itemName
       let foundItem = null;
       if (itemId) {
         foundItem = ownedEquipment.find(equip => String(equip.itemId) === itemId);
@@ -127,136 +115,24 @@ export default function EquipmentReturnPage() {
       }
 
       if (foundItem) {
-        // ถ้ามีหลายชิ้นหรือมี serial numbers หลายอัน ให้แสดงตัวเลือก
-        const hasMultipleItems = parseInt(totalQuantity || '1') > 1;
-        const hasMultipleSerials = parsedSerialNumbers.length > 1;
+        // Use the existing selectEquipment function to handle the selection
+        // This will automatically set up the proper options and notifications
+        selectEquipment(foundItem);
         
-        if (hasMultipleItems || hasMultipleSerials) {
-          // สร้าง availableOptions สำหรับ dropdown
-          const availableOptions = [];
+        // Show notification only once for URL prefill
+        if (!hasShownNotification) {
+          const totalQuantity = foundItem.totalQuantity || foundItem.quantity || 1;
+          const hasSerialNumbers = foundItem.serialNumbers && foundItem.serialNumbers.length > 0;
           
-          // เพิ่มตัวเลือกที่มี SN
-          parsedSerialNumbers.forEach(sn => {
-            // ใช้ parsedItemIdMap จาก URL ก่อน แล้วค่อย fallback ไป foundItem.itemIdMap
-            const actualItemId = parsedItemIdMap[sn] || foundItem.itemIdMap?.[sn] || foundItem.itemId;
-            availableOptions.push({
-              serialNumber: sn,
-              displayName: `${itemName} (SN: ${sn})`,
-              value: `sn_${sn}`,
-              itemId: actualItemId,
-              inventorySerialNumber: sn
-            });
-          });
-          
-          // เพิ่มตัวเลือกที่ไม่มี SN (ถ้ามี)
-          const totalWithSN = parsedSerialNumbers.length;
-          const totalWithoutSN = parseInt(totalQuantity || '1') - totalWithSN;
-          
-          for (let i = 0; i < totalWithoutSN; i++) {
-            const noSnKey = `no_sn_${i + 1}`;
-            // ใช้ parsedItemIdMap จาก URL ก่อน แล้วค่อย fallback ไป foundItem.itemIdMap  
-            const actualItemId = parsedItemIdMap[noSnKey] || foundItem.itemIdMap?.[noSnKey] || foundItem.itemId;
-            availableOptions.push({
-              serialNumber: '',
-              displayName: `${itemName} (ไม่มี SN) #${i + 1}`,
-              value: `no_sn_${i}`,
-              itemId: actualItemId,
-              inventorySerialNumber: ''
-            });
+          if (hasSerialNumbers) {
+            toast.success(`พบ ${foundItem.itemName} ที่มี Serial Number กรุณาเลือกรายการที่ต้องการคืน`);
+          } else if (totalQuantity > 1) {
+            toast.success(`พบ ${foundItem.itemName} ${totalQuantity} ชิ้น กรุณาเลือกรายการที่ต้องการคืน`);
           }
-          
-          // Auto-select first option for URL prefill case  
-          const defaultOption = availableOptions.length > 0 ? availableOptions[0] : null;
-          
-          console.log('🔧 URL Prefill - availableOptions:', availableOptions);
-          console.log('🔧 URL Prefill - defaultOption:', defaultOption);
-          console.log('🔧 URL Prefill - parsedItemIdMap:', parsedItemIdMap);
-          
-          // แจ้งเตือนครั้งเดียวเมื่อ pre-fill จาก URL
-          toast.success(`พบ ${itemName} ${totalQuantity} ชิ้น กรุณาเลือกรายการที่ต้องการคืน`);
-          
-          setReturnItems([{
-            itemId: defaultOption?.itemId || String(foundItem.itemId),
-            itemName: foundItem.itemName,
-            quantity: 1,
-            serialNumber: defaultOption?.serialNumber || '',
-            assetNumber: '',
-            image: null,
-            category: foundItem.category,
-            inventorySerialNumber: defaultOption?.inventorySerialNumber || '',
-            availableOptions: availableOptions,
-            selectedOption: defaultOption?.value || '' // Auto-select first option
-          }]);
-        } else {
-          // กรณีมีชิ้นเดียว - ใช้ actual itemId จาก parsedItems หรือ foundItem.items
-          let actualItemId = String(foundItem.itemId); // fallback
-          let actualSerialNumber = parsedSerialNumbers[0] || foundItem.serialNumber || '';
-          
-          // หา actual itemId จาก parsedItems
-          if (parsedItems.length > 0) {
-            const firstItem = parsedItems[0];
-            actualItemId = firstItem.actualItemId || actualItemId;
-            if (firstItem.serialNumbers && firstItem.serialNumbers.length > 0) {
-              actualSerialNumber = firstItem.serialNumbers[0];
-            }
-          } else if (foundItem.items && foundItem.items.length > 0) {
-            // fallback ใช้ข้อมูลจาก foundItem.items[0]
-            const firstItem = foundItem.items[0];
-            actualItemId = firstItem.actualItemId || actualItemId;
-          }
-          
-          console.log('🔧 URL Prefill Single Item:', {
-            originalItemId: foundItem.itemId,
-            actualItemId,
-            actualSerialNumber,
-            parsedItems: parsedItems.length,
-            foundItemItems: foundItem.items?.length || 0
-          });
-          
-          setReturnItems([{ 
-            itemId: actualItemId, 
-            itemName: foundItem.itemName, 
-            quantity: 1, 
-            serialNumber: actualSerialNumber, 
-            assetNumber: '', 
-            image: null,
-            category: foundItem.category,
-            inventorySerialNumber: actualSerialNumber
-          }]);
+          setHasShownNotification(true);
         }
       } else {
-        // If not found in current owned equipment, try to find by exact match
         console.warn('⚠️ Item not found in owned equipment:', itemName);
-        
-        // Try alternative search methods
-        const alternativeItem = ownedEquipment.find(equip => 
-          equip.itemName.trim().toLowerCase() === itemName.trim().toLowerCase()
-        );
-        
-        if (alternativeItem) {
-          console.log('✅ Found alternative match:', alternativeItem);
-          setReturnItems([{ 
-            itemId: String(alternativeItem.itemId), 
-            itemName: alternativeItem.itemName, 
-            quantity: alternativeItem.quantity, 
-            serialNumber: serialNumber || alternativeItem.serialNumber || '', 
-            assetNumber: '', 
-            image: null,
-            category: alternativeItem.category,
-            inventorySerialNumber: alternativeItem.inventorySerialNumber
-          }]);
-        } else {
-          // Still set the itemName but warn user
-          setReturnItems([{ 
-            itemId: itemId || '', 
-            itemName: itemName, 
-            quantity: 1, 
-            serialNumber: serialNumber || '', 
-            assetNumber: '', 
-            image: null
-          }]);
-          console.error('❌ Item not found in owned equipment:', itemName);
-        }
       }
     }
   }, [searchParams, ownedEquipment]);
@@ -336,6 +212,13 @@ export default function EquipmentReturnPage() {
     console.log('🔄 handleItemChange:', { field, value });
     setReturnItem(prev => {
       const newItem = { ...prev, [field]: value };
+      
+      // คำนวณจำนวนที่เหลือเมื่อมีการเปลี่ยนจำนวน
+      if (field === 'quantity' && maxQuantity > 0) {
+        const newQuantity = parseInt(value) || 0;
+        setRemainingQuantity(Math.max(0, maxQuantity - newQuantity));
+      }
+      
       console.log('🔄 Updated returnItem:', newItem);
       return newItem;
     });
@@ -354,6 +237,9 @@ export default function EquipmentReturnPage() {
   };
 
   const selectEquipment = (equipment: OwnedEquipment) => {
+    // Reset notification flag when selecting new equipment
+    setHasShownNotification(false);
+    
     // ตรวจสอบว่ามีข้อมูล totalQuantity และ serialNumbers จาก API response
     const totalQuantity = equipment.totalQuantity || equipment.quantity || 1;
     const serialNumbers = equipment.serialNumbers || [];
@@ -388,27 +274,21 @@ export default function EquipmentReturnPage() {
         });
       });
       
-      // เพิ่มรายการที่ไม่มี SN (ถ้ามี)
+      // เพิ่มรายการที่ไม่มี SN (ถ้ามี) - แสดงเป็นรายการเดียวพร้อมช่องจำนวน
       const totalWithSN = serialNumbers.length;
       const totalWithoutSN = totalQuantity - totalWithSN;
       
-      for (let i = 0; i < totalWithoutSN; i++) {
-        const noSnKey = `no_sn_${i + 1}`;
-        // Try to get actual itemId from itemIdMap, or fallback to items array, or finally equipment.itemId
-        let actualItemId = equipment.itemIdMap?.[noSnKey];
-        if (!actualItemId && equipment.items && equipment.items[i]) {
-          actualItemId = equipment.items[i].actualItemId;
-        }
-        if (!actualItemId) {
-          actualItemId = equipment.defaultItemId || equipment.itemId;
-        }
+      if (totalWithoutSN > 0) {
+        // ใช้ itemId หลักสำหรับอุปกรณ์ไม่มี SN
+        const actualItemId = equipment.defaultItemId || equipment.itemId;
         
         availableOptions.push({
           serialNumber: '',
-          displayName: `${equipment.itemName} (ไม่มี SN) #${i + 1}`,
-          value: `no_sn_${i}`,
+          displayName: `${equipment.itemName} (ไม่มี SN)`,
+          value: `no_sn_bulk`,
           itemId: actualItemId,
-          inventorySerialNumber: ''
+          inventorySerialNumber: '',
+          maxQuantity: totalWithoutSN // เพิ่มข้อมูลจำนวนสูงสุด
         });
       }
       
@@ -430,14 +310,12 @@ export default function EquipmentReturnPage() {
       handleItemChange('serialNumber', '');
       handleItemChange('inventorySerialNumber', '');
       
-      // แจ้งเตือนเฉพาะเมื่อไม่ได้มาจาก URL pre-fill
-      if (!searchParams.get('itemName')) {
-        if (hasSerialNumbers) {
-          toast.success(`พบ ${equipment.itemName} ที่มี Serial Number กรุณาเลือกรายการที่ต้องการคืน`);
-        } else {
-          toast.success(`พบ ${equipment.itemName} ${totalQuantity} ชิ้น กรุณาเลือกรายการที่ต้องการคืน`);
-        }
-      }
+      // รีเซ็ตจำนวนสูงสุดและจำนวนที่เหลือ
+      setMaxQuantity(0);
+      setRemainingQuantity(0);
+      
+      // ลบการแจ้งเตือนซ้ำ - ไม่แจ้งเตือนเมื่อเลือกอุปกรณ์แล้ว
+      // เพราะจะมีการแจ้งเตือนอีกครั้งเมื่อส่งข้อมูลสำเร็จ
     } else {
       // ไม่มี SN และมีชิ้นเดียว - ใช้ actualItemId จาก items[0]
       const actualItemId = equipment.items && equipment.items.length > 0 ? equipment.items[0].actualItemId : equipment.itemId;
@@ -532,6 +410,14 @@ export default function EquipmentReturnPage() {
         return;
       }
       
+      // ตรวจสอบจำนวนไม่เกินที่ครอบครอง (สำหรับอุปกรณ์ไม่มี SN)
+      if (maxQuantity > 0 && returnItem.quantity > maxQuantity) {
+        console.log('❌ Quantity exceeds maximum allowed');
+        toast.error(`จำนวนที่ต้องการคืนเกินจำนวนที่ครอบครอง (สูงสุด ${maxQuantity} ชิ้น)`);
+        setIsLoading(false);
+        return;
+      }
+      
       // ถ้ามี availableOptions ต้องเลือก selectedOption ด้วย
       if (returnItem.availableOptions && returnItem.availableOptions.length > 0) {
         if (!returnItem.selectedOption || returnItem.selectedOption.length === 0) {
@@ -605,7 +491,8 @@ export default function EquipmentReturnPage() {
           quantity: returnItemData.quantity,
           serialNumber: returnItemData.serialNumber || '',
           assetNumber: returnItemData.assetNumber || '',
-          image: returnItemData.image || undefined
+          image: returnItemData.image || undefined,
+          masterItemId: returnItem.masterItemId // เพิ่ม masterItemId
         }]
       };
 
@@ -685,6 +572,8 @@ export default function EquipmentReturnPage() {
           availableOptions: undefined,
           selectedOption: ''
         });
+        setMaxQuantity(0);
+        setRemainingQuantity(0);
       } else {
         console.error('❌ Equipment return error:', {
           status: response.status,
@@ -864,10 +753,20 @@ export default function EquipmentReturnPage() {
                                     handleItemChange('inventorySerialNumber', option.serialNumber || '');
                                     handleItemChange('itemId', option.itemId);
                                     
+                                    // ตั้งค่าจำนวนสูงสุดและจำนวนที่เหลือสำหรับอุปกรณ์ไม่มี SN
+                                    if (option.value === 'no_sn_bulk' && option.maxQuantity) {
+                                      setMaxQuantity(option.maxQuantity);
+                                      setRemainingQuantity(option.maxQuantity - 1); // เริ่มต้นที่ 1 ชิ้น
+                                    } else {
+                                      setMaxQuantity(0);
+                                      setRemainingQuantity(0);
+                                    }
+                                    
                                     console.log('🔄 Updated item after selection:', {
                                       selectedOption: option.value,
                                       itemId: option.itemId,
-                                      serialNumber: option.serialNumber
+                                      serialNumber: option.serialNumber,
+                                      maxQuantity: option.maxQuantity
                                     });
                                     setShowOptionDropdown(false);
                                   }}
@@ -908,12 +807,18 @@ export default function EquipmentReturnPage() {
                           <input
                             type="number"
                             min="1"
-                            max={returnItem.quantity || 1}
+                            max={maxQuantity > 0 ? maxQuantity : (returnItem.quantity || 1)}
                             value={returnItem.quantity || 1}
                             onChange={(e) => handleItemChange('quantity', parseInt(e.target.value) || 1)}
                             className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 text-gray-900"
                             required
                           />
+                          {/* แสดงข้อความจำนวนสูงสุดและจำนวนที่เหลือสำหรับอุปกรณ์ไม่มี SN */}
+                          {maxQuantity > 0 && (
+                            <div className="mt-1 text-sm text-gray-600">
+                              คืนอุปกรณ์ได้สูงสุด {maxQuantity} ชิ้น  ต้องการคืน {returnItem.quantity || 1} ชิ้น เหลือ {remainingQuantity} ชิ้น
+                            </div>
+                          )}
                         </div>
 
                         <div>

@@ -51,10 +51,13 @@ export async function GET(request: NextRequest) {
     const userIdToFind = userId || `${firstName}-${lastName}`;
 
     // Get current user-owned items from InventoryItem (single source of truth)
+    // Use lean() for better performance and limit fields
     const userOwnedInventoryItems = await InventoryItem.find({
       'currentOwnership.ownerType': 'user_owned',
       'currentOwnership.userId': userIdToFind
-    });
+    })
+    .select('itemName category serialNumber numberPhone currentOwnership _id')
+    .lean();
 
     console.log(`🔍 Found ${userOwnedInventoryItems.length} user-owned InventoryItems for user: ${userIdToFind}`);
 
@@ -86,19 +89,24 @@ export async function GET(request: NextRequest) {
             displayCategory: item.category,
             totalQuantity: 0,
             serialNumbers: [],
+            phoneNumbers: [], // สำหรับซิมการ์ด
             items: [],
             itemIdMap: {}, // Map serial number to actual itemId
+            phoneIdMap: {}, // Map phone number to actual itemId
             requestDate: item.currentOwnership.ownedSince,
-            searchText: `${item.itemName} ${item.category} ${item.serialNumber || ''}`.toLowerCase()
+            searchText: `${item.itemName} ${item.category} ${item.serialNumber || ''} ${item.numberPhone || ''}`.toLowerCase()
           };
         }
         
-        // Store itemId mapping for each serial number or no-SN items BEFORE incrementing totalQuantity
+        // Store itemId mapping for each serial number, phone number, or no-SN items BEFORE incrementing totalQuantity
         if (item.serialNumber) {
           inventoryItemGroups[groupKey].serialNumbers.push(item.serialNumber);
           inventoryItemGroups[groupKey].itemIdMap[item.serialNumber] = item._id.toString();
+        } else if (item.numberPhone) {
+          inventoryItemGroups[groupKey].phoneNumbers.push(item.numberPhone);
+          inventoryItemGroups[groupKey].phoneIdMap[item.numberPhone] = item._id.toString();
         } else {
-          // For items without serial numbers, store directly in the group
+          // For items without serial numbers or phone numbers, store directly in the group
           // Since there's no SN to distinguish, we'll store the first item's ID as default
           if (!inventoryItemGroups[groupKey].defaultItemId) {
             inventoryItemGroups[groupKey].defaultItemId = item._id.toString();

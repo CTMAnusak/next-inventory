@@ -58,6 +58,7 @@ export async function POST(request: NextRequest) {
           itemName: result.item.itemName,
           category: result.item.category,
           serialNumber: result.item.serialNumber,
+          numberPhone: result.item.numberPhone, // เพิ่มเบอร์โทรศัพท์
           status: result.item.status
         }
       });
@@ -72,6 +73,7 @@ export async function POST(request: NextRequest) {
           itemName: item.itemName,
           category: item.category,
           serialNumber: item.serialNumber,
+          numberPhone: item.numberPhone, // เพิ่มเบอร์โทรศัพท์
           status: item.status
         }))
       });

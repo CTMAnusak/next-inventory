@@ -5,6 +5,7 @@ import { InventoryItem } from '@/models/InventoryItem';
 import ReturnLog from '@/models/ReturnLog';
 import { hashPassword } from '@/lib/auth';
 import jwt from 'jsonwebtoken';
+import { createAutoReturnForUser, checkUserEquipment } from '@/lib/user-deletion-helpers';
 
 // PUT - Update user
 export async function PUT(

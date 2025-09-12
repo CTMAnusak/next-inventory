@@ -29,6 +29,7 @@ export async function moveToRecycleBin(params: MoveToRecycleBinParams) {
     itemName: item.itemName,
     category: item.category,
     serialNumber: item.serialNumber || 'No SN',
+    numberPhone: item.numberPhone || 'No Phone',
     deleteType
   });
   
@@ -37,6 +38,7 @@ export async function moveToRecycleBin(params: MoveToRecycleBinParams) {
     itemName: item.itemName,
     category: item.category,
     serialNumber: item.serialNumber,
+    numberPhone: item.numberPhone,  // เพิ่ม numberPhone
     deleteType,
     deleteReason,
     deletedBy,
@@ -69,6 +71,7 @@ export async function restoreFromRecycleBin(params: RestoreFromRecycleBinParams)
     itemName: recycleBinItem.itemName,
     category: recycleBinItem.category,
     serialNumber: recycleBinItem.serialNumber || 'No SN',
+    numberPhone: recycleBinItem.numberPhone || 'No Phone',
     deleteType: recycleBinItem.deleteType
   });
   
@@ -78,6 +81,7 @@ export async function restoreFromRecycleBin(params: RestoreFromRecycleBinParams)
       itemName: recycleBinItem.itemName,
       category: recycleBinItem.category,
       serialNumber: recycleBinItem.serialNumber,
+      numberPhone: recycleBinItem.numberPhone, // กู้คืนเบอร์โทรศัพท์
       status: recycleBinItem.originalData.status, // กู้คืนสถานะเดิม
       currentOwnership: recycleBinItem.originalData.currentOwnership,
       sourceInfo: recycleBinItem.originalData.sourceInfo,
@@ -150,6 +154,23 @@ export async function checkSerialNumberInRecycleBin(serialNumber: string) {
   await dbConnect();
   
   const recycleBinItem = await RecycleBin.findBySerialNumber(serialNumber.trim());
+  return recycleBinItem;
+}
+
+/**
+ * ตรวจสอบว่า Phone Number มีอยู่ในถังขยะหรือไม่
+ */
+export async function checkPhoneNumberInRecycleBin(numberPhone: string) {
+  if (!numberPhone || numberPhone.trim() === '') {
+    return null;
+  }
+  
+  await dbConnect();
+  
+  const recycleBinItem = await RecycleBin.findOne({
+    numberPhone: numberPhone.trim(),
+    isRestored: false
+  });
   return recycleBinItem;
 }
 
