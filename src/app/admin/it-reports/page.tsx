@@ -112,6 +112,9 @@ export default function AdminITReportsPage() {
     'อื่น ๆ โปรดระบุ'
   ];
 
+  // Note: This component uses IT issue categories, not inventory categories
+  // So we keep the hardcoded categories array for IT issues
+
   useEffect(() => {
     fetchIssues();
     fetchItAdmins();

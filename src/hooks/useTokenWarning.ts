@@ -13,31 +13,28 @@ export function useTokenWarning() {
   const [showModal, setShowModal] = useState(false);
   const [showLogoutModal, setShowLogoutModal] = useState(false);
   const router = useRouter();
-
-  console.log('🚀 useTokenWarning hook initialized');
+  const lastCheckRef = useRef<number>(0);
 
   // ใช้ localStorage เพื่อเก็บสถานะว่าได้แจ้งเตือนไปแล้วในช่วงเวลานี้
   const getWarningKey = (exp: number) => `token_warning_${Math.floor(exp / 60)}`; // group by minute
 
   useEffect(() => {
-    console.log('🔄 useEffect started, setting up token check interval');
-    
     const checkTokenExpiry = () => {
-      console.log('🔍 checkTokenExpiry function called');
       try {
+        // ตรวจสอบว่าเวลาผ่านไปเพียงพอหรือไม่ (ป้องกันการตรวจสอบซ้ำ)
+        const now = Date.now();
+        if (now - lastCheckRef.current < 3000) { // ตรวจสอบอย่างน้อยทุก 3 วินาที
+          return;
+        }
+        lastCheckRef.current = now;
+
         // ดึง token จาก cookie
-        const allCookies = document.cookie;
-        console.log('🍪 All cookies:', allCookies);
-        
         const token = document.cookie
           .split('; ')
           .find(row => row.startsWith('auth-token='))
           ?.split('=')[1];
 
-        console.log('🎫 Token found:', token ? `${token.substring(0, 20)}...` : 'null');
-
         if (!token) {
-          console.log('❌ No token found, skipping check');
           setTimeToExpiry(null);
           return;
         }
@@ -52,8 +49,6 @@ export function useTokenWarning() {
         
         setTimeToExpiry(timeLeft);
 
-        console.log('🔍 Token check:', { timeLeft, hasWarned });
-
         // แจ้งเตือนเมื่อเหลือ 50 วินาที (10 วินาทีหลัง login)
         const warningThreshold = timeLeft <= 50 && timeLeft > 0;
         
@@ -61,39 +56,21 @@ export function useTokenWarning() {
         const warningKey = getWarningKey(payload.exp);
         const hasShownWarning = localStorage.getItem(warningKey) === 'true';
         
-        console.log('🔍 Warning check:', { 
-          warningThreshold, 
-          timeLeft, 
-          hasWarned, 
-          warningKey, 
-          hasShownWarning 
-        });
-        
         if (warningThreshold && !hasShownWarning && !showModal) {
           // บันทึกใน localStorage ว่าได้แจ้งเตือนแล้ว
           localStorage.setItem(warningKey, 'true');
           
           setHasWarned(true);
           setShowModal(true);
-          
-          console.log('⚠️ Token expiry warning shown, time left:', timeLeft, 'seconds');
-          console.log('🚨 Modal should be visible now!');
-          console.log('💾 Saved warning flag to localStorage:', warningKey);
         }
 
         // Auto logout เมื่อ token หมดอายุ - แสดง modal แทน alert
         if (timeLeft <= 0 && !showLogoutModal) {
-          console.log('🔐 Token expired, showing logout modal...');
-          console.log('🔍 Current state:', { timeLeft, showLogoutModal, hasWarned });
-          console.log('🔍 Token payload exp:', payload.exp);
-          console.log('🔍 Current time:', Math.floor(Date.now() / 1000));
-          
           // ลบ cookie
           document.cookie = 'auth-token=; path=/; expires=Thu, 01 Jan 1970 00:00:00 GMT';
           
           // แสดง logout modal
           setShowLogoutModal(true);
-          console.log('✅ Logout modal should be shown now');
         }
 
       } catch (error) {
@@ -102,8 +79,8 @@ export function useTokenWarning() {
       }
     };
 
-    // ตรวจสอบทุก 1 วินาที เพื่อความแม่นยำ
-    const interval = setInterval(checkTokenExpiry, 1000);
+    // ตรวจสอบทุก 10 วินาที เพื่อประหยัดทรัพยากร (แต่มี throttling ภายใน)
+    const interval = setInterval(checkTokenExpiry, 10000);
     
     // ตรวจสอบครั้งแรกทันที
     checkTokenExpiry();
@@ -125,9 +102,6 @@ export function useTokenWarning() {
           localStorage.removeItem(key);
         }
       });
-      
-      console.log('🔄 Reset hasWarned and showModal flags, new session detected');
-      console.log('🧹 Cleared old warning flags from localStorage');
     }
   }, [timeToExpiry]);
 

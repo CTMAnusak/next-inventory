@@ -2,7 +2,8 @@ import mongoose, { Document, Schema } from 'mongoose';
 
 export interface IInventoryMaster extends Document {
   itemName: string;
-  category: string;
+  categoryId: string;  // ใช้ ID แทน string เพื่อ relational integrity
+  category?: string;   // เก็บไว้ชั่วคราวสำหรับ backward compatibility
   hasSerialNumber: boolean;     // บอกว่าประเภทนี้มี SN หรือไม่
   
   // สถิติรวม
@@ -52,9 +53,14 @@ const InventoryMasterSchema = new Schema<IInventoryMaster>({
     required: true,
     index: true
   },
-  category: { 
+  categoryId: { 
     type: String, 
     required: true,
+    index: true
+  },
+  category: { 
+    type: String, 
+    required: false,  // Optional for backward compatibility
     index: true
   },
   hasSerialNumber: {
@@ -179,8 +185,9 @@ const InventoryMasterSchema = new Schema<IInventoryMaster>({
   timestamps: true
 });
 
-// Unique index สำหรับ itemName + category
-InventoryMasterSchema.index({ itemName: 1, category: 1 }, { unique: true });
+// Unique index สำหรับ itemName + categoryId
+InventoryMasterSchema.index({ itemName: 1, categoryId: 1 }, { unique: true });
+InventoryMasterSchema.index({ itemName: 1, category: 1 }); // Keep for backward compatibility
 
 // Pre-save validation
 InventoryMasterSchema.pre('save', function(next) {

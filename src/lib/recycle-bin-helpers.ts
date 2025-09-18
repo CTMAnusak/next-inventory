@@ -77,22 +77,50 @@ export async function restoreFromRecycleBin(params: RestoreFromRecycleBinParams)
   
   if (recycleBinItem.deleteType === 'individual_item') {
     // กู้คืนอุปกรณ์รายชิ้น
-    const restoredItem = new InventoryItem({
+    // 🔧 CRITICAL FIX: ป้องกัน duplicate key error สำหรับ serialNumber
+    const itemData = {
       itemName: recycleBinItem.itemName,
       category: recycleBinItem.category,
-      serialNumber: recycleBinItem.serialNumber,
-      numberPhone: recycleBinItem.numberPhone, // กู้คืนเบอร์โทรศัพท์
       status: recycleBinItem.originalData.status, // กู้คืนสถานะเดิม
       currentOwnership: recycleBinItem.originalData.currentOwnership,
       sourceInfo: recycleBinItem.originalData.sourceInfo,
       transferInfo: recycleBinItem.originalData.transferInfo
-    });
+    };
     
-    await restoredItem.save();
-    console.log(`✅ Individual item restored: ${restoredItem._id}`);
+    // เพิ่ม serialNumber เฉพาะเมื่อมีค่าจริง (ไม่ใช่ null หรือ undefined)
+    if (recycleBinItem.serialNumber && recycleBinItem.serialNumber.trim() !== '') {
+      itemData.serialNumber = recycleBinItem.serialNumber;
+    }
     
-    // อัปเดต InventoryMaster
-    await updateInventoryMaster(recycleBinItem.itemName, recycleBinItem.category);
+    // เพิ่ม numberPhone เฉพาะเมื่อมีค่าจริง (ไม่ใช่ null หรือ undefined)
+    if (recycleBinItem.numberPhone && recycleBinItem.numberPhone.trim() !== '') {
+      itemData.numberPhone = recycleBinItem.numberPhone;
+    }
+    
+    const restoredItem = new InventoryItem(itemData);
+    
+    try {
+      await restoredItem.save();
+      console.log(`✅ Individual item restored: ${restoredItem._id}`);
+      console.log(`📋 Restored item details: ${itemData.itemName} (SN: ${itemData.serialNumber || 'No SN'})`);
+    } catch (error) {
+      console.error(`❌ Error saving restored item:`, error);
+      
+      // ถ้าเป็น duplicate key error ให้แสดงข้อมูลเพิ่มเติม
+      if (error.code === 11000) {
+        console.error(`🔍 Duplicate key details:`, {
+          itemName: itemData.itemName,
+          category: itemData.category,
+          serialNumber: itemData.serialNumber,
+          numberPhone: itemData.numberPhone
+        });
+        throw new Error(`รายการนี้มีอยู่ในระบบแล้ว: ${itemData.itemName} ${itemData.serialNumber ? `(SN: ${itemData.serialNumber})` : '(ไม่มี SN)'}`);
+      }
+      throw error;
+    }
+    
+    // อัปเดต InventoryMaster (ข้าม auto-detection เพื่อป้องกันการสร้างรายการเพิ่ม)
+    await updateInventoryMaster(recycleBinItem.itemName, recycleBinItem.category, { skipAutoDetection: true });
     
     // ลบข้อมูลออกจากถังขยะ (เนื่องจากกู้คืนเสร็จแล้ว)
     await RecycleBin.findByIdAndDelete(recycleBinId);
@@ -109,25 +137,57 @@ export async function restoreFromRecycleBin(params: RestoreFromRecycleBinParams)
     });
     
     const restoredItems = [];
+    const errors = [];
+    
     for (const item of categoryItems) {
-      const restoredItem = new InventoryItem({
-        itemName: item.itemName,
-        category: item.category,
-        serialNumber: item.serialNumber,
-        status: item.originalData.status, // กู้คืนสถานะเดิม
-        currentOwnership: item.originalData.currentOwnership,
-        sourceInfo: item.originalData.sourceInfo,
-        transferInfo: item.originalData.transferInfo
-      });
-      
-      await restoredItem.save();
-      restoredItems.push(restoredItem);
+      try {
+        // 🔧 CRITICAL FIX: ป้องกัน duplicate key error สำหรับ category bulk restore
+        const itemData = {
+          itemName: item.itemName,
+          category: item.category,
+          status: item.originalData.status, // กู้คืนสถานะเดิม
+          currentOwnership: item.originalData.currentOwnership,
+          sourceInfo: item.originalData.sourceInfo,
+          transferInfo: item.originalData.transferInfo
+        };
+        
+        // เพิ่ม serialNumber เฉพาะเมื่อมีค่าจริง (ไม่ใช่ null หรือ undefined)
+        if (item.serialNumber && item.serialNumber.trim() !== '') {
+          itemData.serialNumber = item.serialNumber;
+        }
+        
+        // เพิ่ม numberPhone เฉพาะเมื่อมีค่าจริง (ไม่ใช่ null หรือ undefined)
+        if (item.numberPhone && item.numberPhone.trim() !== '') {
+          itemData.numberPhone = item.numberPhone;
+        }
+        
+        const restoredItem = new InventoryItem(itemData);
+        await restoredItem.save();
+        restoredItems.push(restoredItem);
+        
+        console.log(`✅ Restored item: ${itemData.itemName} (SN: ${itemData.serialNumber || 'No SN'})`);
+      } catch (error) {
+        console.error(`❌ Error restoring item ${item.itemName}:`, error);
+        
+        // ถ้าเป็น duplicate key error ให้เก็บ error ไว้แต่ไม่หยุดการทำงาน
+        if (error.code === 11000) {
+          const errorMsg = `รายการ ${item.itemName} ${item.serialNumber ? `(SN: ${item.serialNumber})` : '(ไม่มี SN)'} มีอยู่ในระบบแล้ว`;
+          errors.push(errorMsg);
+          console.error(`🔍 Duplicate key: ${errorMsg}`);
+        } else {
+          errors.push(`เกิดข้อผิดพลาดกับรายการ ${item.itemName}: ${error.message}`);
+        }
+      }
     }
     
-    console.log(`✅ Category restored: ${restoredItems.length} items`);
+    console.log(`✅ Category restored: ${restoredItems.length}/${categoryItems.length} items`);
+    if (errors.length > 0) {
+      console.log(`⚠️ Errors encountered: ${errors.length} items`);
+      errors.forEach(error => console.log(`   - ${error}`));
+    }
     
-    // อัปเดต InventoryMaster
-    await updateInventoryMaster(recycleBinItem.itemName, recycleBinItem.category);
+    // อัปเดต InventoryMaster (ข้าม auto-detection เพื่อป้องกันการสร้างรายการเพิ่ม)
+    await updateInventoryMaster(recycleBinItem.itemName, recycleBinItem.category, { skipAutoDetection: true });
     
     // ลบข้อมูลทั้งหมดของ category นี้ออกจากถังขยะ (เนื่องจากกู้คืนเสร็จแล้ว)
     const deleteResult = await RecycleBin.deleteMany({
@@ -135,7 +195,16 @@ export async function restoreFromRecycleBin(params: RestoreFromRecycleBinParams)
       category: recycleBinItem.category,
       deleteType: 'category_bulk'
     });
-    console.log(`🗑️ Removed ${deleteResult.deletedCount} restored category items from recycle bin`);
+    console.log(`🗑️ Removed ${deleteResult.deletedCount} category items from recycle bin`);
+    
+    // ถ้ามี errors ให้ throw error พร้อมรายละเอียด
+    if (errors.length > 0) {
+      const successCount = restoredItems.length;
+      const errorCount = errors.length;
+      const totalCount = categoryItems.length;
+      
+      throw new Error(`กู้คืนสำเร็จ ${successCount}/${totalCount} รายการ. ไม่สามารถกู้คืนได้ ${errorCount} รายการเนื่องจาก:\n${errors.join('\n')}`);
+    }
     
     return { type: 'category', items: restoredItems };
   }
@@ -153,7 +222,10 @@ export async function checkSerialNumberInRecycleBin(serialNumber: string) {
   
   await dbConnect();
   
-  const recycleBinItem = await RecycleBin.findBySerialNumber(serialNumber.trim());
+  // ✅ ใหม่: ไม่ต้องตรวจสอบ isRestored เพราะข้อมูลที่กู้คืนแล้วจะถูกลบออกจากถังขยะ
+  const recycleBinItem = await RecycleBin.findOne({
+    serialNumber: serialNumber.trim()
+  });
   return recycleBinItem;
 }
 
@@ -167,9 +239,9 @@ export async function checkPhoneNumberInRecycleBin(numberPhone: string) {
   
   await dbConnect();
   
+  // ✅ ใหม่: ไม่ต้องตรวจสอบ isRestored เพราะข้อมูลที่กู้คืนแล้วจะถูกลบออกจากถังขยะ
   const recycleBinItem = await RecycleBin.findOne({
-    numberPhone: numberPhone.trim(),
-    isRestored: false
+    numberPhone: numberPhone.trim()
   });
   return recycleBinItem;
 }

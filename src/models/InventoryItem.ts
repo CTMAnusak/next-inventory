@@ -2,7 +2,8 @@ import mongoose, { Document, Schema } from 'mongoose';
 
 export interface IInventoryItem extends Document {
   itemName: string;
-  category: string;
+  categoryId: string;  // ใช้ ID แทน string เพื่อ relational integrity
+  category?: string;   // เก็บไว้ชั่วคราวสำหรับ backward compatibility
   serialNumber?: string;        // SN เฉพาะของชิ้นนี้ (ถ้ามี)
   numberPhone?: string;         // เบอร์โทรศัพท์ (สำหรับอุปกรณ์หมวดหมู่ซิมการ์ด)
   status: 'active' | 'maintenance' | 'damaged' | 'retired' | 'deleted';
@@ -48,9 +49,14 @@ const InventoryItemSchema = new Schema<IInventoryItem>({
     required: true,
     index: true  // สำหรับ query ที่เร็วขึ้น
   },
-  category: { 
+  categoryId: { 
     type: String, 
     required: true,
+    index: true
+  },
+  category: { 
+    type: String, 
+    required: false,  // Optional for backward compatibility
     index: true
   },
   serialNumber: { 
@@ -166,7 +172,8 @@ const InventoryItemSchema = new Schema<IInventoryItem>({
 });
 
 // Indexes สำหรับ performance
-InventoryItemSchema.index({ itemName: 1, category: 1 });
+InventoryItemSchema.index({ itemName: 1, categoryId: 1 });
+InventoryItemSchema.index({ itemName: 1, category: 1 }); // Keep for backward compatibility
 InventoryItemSchema.index({ 'currentOwnership.ownerType': 1, 'currentOwnership.userId': 1 });
 InventoryItemSchema.index({ 'sourceInfo.addedBy': 1, 'sourceInfo.addedByUserId': 1 });
 

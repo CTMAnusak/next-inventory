@@ -23,12 +23,22 @@ interface InventoryItem {
   serialNumber?: string;
 }
 
+interface ICategoryConfig {
+  id: string;
+  name: string;
+  isSpecial: boolean;
+  isSystemCategory: boolean;
+  order: number;
+  createdAt: Date;
+  updatedAt: Date;
+}
+
 export default function EquipmentRequestPage() {
   const { user, loading } = useAuth();
   const [isLoading, setIsLoading] = useState(false);
   const [isSubmitted, setIsSubmitted] = useState(false);
   const [inventoryItems, setInventoryItems] = useState<InventoryItem[]>([]);
-  const [categories, setCategories] = useState<string[]>([]);
+  const [categoryConfigs, setCategoryConfigs] = useState<ICategoryConfig[]>([]);
   
   // Form data including personal info for branch users
   const [formData, setFormData] = useState({
@@ -104,7 +114,7 @@ export default function EquipmentRequestPage() {
       
       if (configResponse.ok) {
         const configData = await configResponse.json();
-        setCategories(configData.categories || []);
+        setCategoryConfigs(configData.categoryConfigs || []);
       }
     } catch (error) {
       console.error('Error fetching inventory:', error);
@@ -388,13 +398,19 @@ export default function EquipmentRequestPage() {
                     {/* Category Dropdown */}
                     {showCategorySelector && (
                       <div className="absolute z-10 w-full mt-1 bg-white border border-gray-300 rounded-md shadow-lg max-h-60 overflow-auto">
-                        {categories.map((category) => (
+                        {categoryConfigs
+                          .filter(config => !config.isSystemCategory) // ไม่แสดง "ไม่ระบุ"
+                          .sort((a, b) => a.order - b.order)
+                          .map((config) => (
                           <div
-                            key={category}
-                            onClick={() => handleCategorySelect(category)}
-                            className="px-3 py-2 hover:bg-blue-50 cursor-pointer border-b border-gray-100 text-gray-900"
+                            key={config.id}
+                            onClick={() => handleCategorySelect(config.name)}
+                            className={`px-3 py-2 hover:bg-blue-50 cursor-pointer border-b border-gray-100 text-gray-900 ${
+                              config.isSpecial ? 'bg-orange-50 border-orange-200' : ''
+                            }`}
                           >
-                            {category}
+                            {config.name}
+                            {config.isSpecial && <span className="ml-2 text-xs text-orange-600">(พิเศษ)</span>}
                           </div>
                         ))}
                       </div>

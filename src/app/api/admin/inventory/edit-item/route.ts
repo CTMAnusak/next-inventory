@@ -5,6 +5,7 @@ import InventoryMaster from '@/models/InventoryMaster';
 import User from '@/models/User';
 import jwt from 'jsonwebtoken';
 import { moveToRecycleBin } from '@/lib/recycle-bin-helpers';
+import { INVENTORY_CATEGORIES, isSIMCard } from '@/lib/inventory-constants';
 
 export async function POST(request: NextRequest) {
   try {
@@ -88,7 +89,7 @@ export async function POST(request: NextRequest) {
 
     if (operation === 'edit') {
       // Edit operation - update serial number or phone number
-      const isSimCard = category === 'ซิมการ์ด';
+      const isSimCard = isSIMCard(category);
       
       if (isSimCard) {
         // For SIM cards, update phone number
@@ -102,7 +103,7 @@ export async function POST(request: NextRequest) {
         // Check if new phone number already exists for SIM cards
         const duplicateCheck = await InventoryItem.findOne({
           itemName,
-          category: 'ซิมการ์ด',
+          category: INVENTORY_CATEGORIES.SIM_CARD,
           numberPhone: newPhoneNumber.trim(),
           status: { $ne: 'deleted' },
           _id: { $ne: itemId }

@@ -8,6 +8,16 @@ import { Package, PackageOpen, AlertTriangle, BarChart3, Users, Plus, X, Refresh
 import { useAuth } from '@/contexts/AuthContext';
 import { enableDragScroll } from '@/lib/drag-scroll';
 
+interface ICategoryConfig {
+  id: string;
+  name: string;
+  isSpecial: boolean;
+  isSystemCategory: boolean;
+  order: number;
+  createdAt: Date;
+  updatedAt: Date;
+}
+
 export default function DashboardPage() {
   const router = useRouter();
   const { user, loading } = useAuth();
@@ -16,7 +26,7 @@ export default function DashboardPage() {
   const [showDetailModal, setShowDetailModal] = useState(false);
   const [detailData, setDetailData] = useState<any>(null);
   const [ownedItems, setOwnedItems] = useState<Array<{ _id?: string; itemName: string; category: string; serialNumber?: string; quantity: number; firstName?: string; lastName?: string; nickname?: string; department?: string; phone?: string; source?: string; editable?: boolean }>>([]);
-  const [categories, setCategories] = useState<string[]>([]);
+  const [categoryConfigs, setCategoryConfigs] = useState<ICategoryConfig[]>([]);
   const [form, setForm] = useState({ itemName: '', category: '', serialNumber: '', quantity: 1, firstName: '', lastName: '', nickname: '', department: '', phone: '' });
   
   // Category-first flow states
@@ -146,8 +156,8 @@ export default function DashboardPage() {
       const res = await fetch('/api/admin/inventory/config');
       if (res.ok) {
         const data = await res.json();
-        setCategories(data.categories || []);
-        console.log(`📦 Dashboard - Loaded ${data.categories?.length || 0} admin categories`);
+        setCategoryConfigs(data.categoryConfigs || []);
+        console.log(`📦 Dashboard - Loaded ${data.categoryConfigs?.length || 0} admin categoryConfigs`);
       }
     } catch (error) {
       console.error('Failed to load admin categories:', error);
@@ -814,8 +824,13 @@ export default function DashboardPage() {
                     required
                   >
                     <option value="">เลือกหมวดหมู่</option>
-                    {categories.map((cat) => (
-                      <option key={cat} value={cat}>{cat}</option>
+                    {categoryConfigs
+                      .filter(config => !config.isSystemCategory) // ไม่แสดง "ไม่ระบุ"
+                      .sort((a, b) => a.order - b.order)
+                      .map((config) => (
+                      <option key={config.id} value={config.name}>
+                        {config.name} {config.isSpecial ? '(พิเศษ)' : ''}
+                      </option>
                     ))}
                     <option value="new">+ เพิ่มหมวดหมู่ใหม่</option>
                   </select>

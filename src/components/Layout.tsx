@@ -18,9 +18,7 @@ export default function Layout({ children }: LayoutProps) {
   const { user, logout } = useAuth();
   
   // เปิดใช้ระบบแจ้งเตือน token หมดอายุ
-  console.log('🔵 Layout: About to call useTokenWarning');
   const { timeToExpiry, showModal, showLogoutModal, handleCloseModal, handleLogoutConfirm } = useTokenWarning();
-  console.log('🟢 Layout: useTokenWarning called');
 
   // เปิดใช้ระบบตรวจสอบ force logout สำหรับ user ที่รอลบ
   useForceLogoutCheck();
