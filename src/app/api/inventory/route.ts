@@ -5,6 +5,7 @@ import Inventory from '@/models/Inventory'; // Legacy inventory model for POST c
 import User from '@/models/User';
 import { verifyTokenFromRequest } from '@/lib/auth';
 import { getCachedData, setCachedData } from '@/lib/cache-utils';
+import { enrichItemsWithCategoryName } from '@/lib/category-helpers';
 
 export async function GET(request: NextRequest) {
   const startTime = Date.now();
@@ -50,7 +51,7 @@ export async function GET(request: NextRequest) {
     }
     
     if (category) {
-      filter.category = category;
+      filter.categoryId = category; // Now expecting categoryId instead of category name
     }
     
     if (status) {
@@ -77,11 +78,15 @@ export async function GET(request: NextRequest) {
     ]);
     console.log(`⏱️ Inventory API - Query: ${Date.now() - queryStart}ms (${items.length}/${total} records, filters: ${Object.keys(filter).join(', ')})`);
 
+    // Enrich items with category names
+    const itemsWithCategoryName = await enrichItemsWithCategoryName(items);
+    
     // Convert InventoryMaster to format expected by equipment-request UI
-    const formattedItems = items.map(item => ({
+    const formattedItems = itemsWithCategoryName.map(item => ({
       _id: item._id,
       itemName: item.itemName,
-      category: item.category,
+      categoryId: item.categoryId,
+      category: item.categoryName, // Use enriched category name for backward compatibility
       quantity: item.availableQuantity, // จำนวนที่เหลือให้เบิก
       totalQuantity: item.totalQuantity,
       serialNumbers: [], // Will be populated from InventoryItem if needed

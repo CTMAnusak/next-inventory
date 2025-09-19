@@ -41,7 +41,7 @@ export async function GET(request: NextRequest) {
     // Filter by itemId if provided
     if (itemId) {
       requests = requests.filter(request => 
-        request.items.some(item => item.itemId === itemId)
+        request.items.some((item: any) => item.itemId === itemId)
       );
     }
     
@@ -52,7 +52,7 @@ export async function GET(request: NextRequest) {
     // Create a map of returned items (userId + itemId + serialNumber)
     const returnedItems = new Set();
     returnLogs.forEach(returnLog => {
-      returnLog.items.forEach(item => {
+      returnLog.items.forEach((item: any) => {
         const key = `${returnLog.userId}-${item.itemId}-${item.serialNumber || ''}`;
         returnedItems.add(key);
       });
@@ -61,7 +61,7 @@ export async function GET(request: NextRequest) {
     // Transform request logs data and filter out returned items
     const trackingDataFromRequests: any[] = [];
     requests.forEach(request => {
-      request.items.forEach(item => {
+      request.items.forEach((item: any) => {
         const key = `${request.userId}-${item.itemId}-${item.serialNumber || ''}`;
         if (!returnedItems.has(key)) {
           // Use populated user data or fallback to stored data
@@ -119,7 +119,7 @@ export async function GET(request: NextRequest) {
     // Get inventory data for categories and serial numbers
     const inventoryItems = await Inventory.find({});
     const inventoryMap: {[key: string]: any} = {};
-    inventoryItems.forEach(item => {
+    inventoryItems.forEach((item: any) => {
       inventoryMap[item._id.toString()] = {
         itemName: item.itemName,
         category: item.category || 'ไม่ระบุ'
@@ -135,7 +135,7 @@ export async function GET(request: NextRequest) {
 
     // Create a map of actual serial numbers
     const serialNumberMap: {[key: string]: string} = {};
-    actualInventoryItems.forEach(item => {
+    actualInventoryItems.forEach((item: any) => {
       if (item.serialNumber) {
         serialNumberMap[item._id.toString()] = item.serialNumber;
       }

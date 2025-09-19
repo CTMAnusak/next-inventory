@@ -18,6 +18,7 @@ interface InventoryItem {
   _id: string;
   itemName: string;
   category: string;
+  categoryId?: string; // Add categoryId field
   price: number;
   quantity: number;
   serialNumber?: string;
@@ -60,7 +61,7 @@ export default function EquipmentRequestPage() {
   });
 
   // State for category-based item selection
-  const [selectedCategory, setSelectedCategory] = useState<string>('');
+  const [selectedCategoryId, setSelectedCategoryId] = useState<string>('');
   const [itemsByCategory, setItemsByCategory] = useState<{[key: string]: string[]}>({});
   const [showCategorySelector, setShowCategorySelector] = useState<boolean>(false);
 
@@ -94,15 +95,16 @@ export default function EquipmentRequestPage() {
          console.log('🔍 Equipment Request - Inventory items:', items);
          console.log('🔍 Equipment Request - Items with quantity > 0:', items.filter((i: InventoryItem) => i.quantity > 0));
          
-         // Group items by category
+         // Group items by categoryId (not category name)
          const grouped: {[key: string]: string[]} = {};
          items.forEach((item: InventoryItem) => {
            if (item.quantity > 0) { // Only show items with available stock
-             if (!grouped[item.category]) {
-               grouped[item.category] = [];
+             const categoryId = item.categoryId || item.category; // Use categoryId if available, fallback to category
+             if (!grouped[categoryId]) {
+               grouped[categoryId] = [];
              }
-             if (!grouped[item.category].includes(item.itemName)) {
-               grouped[item.category].push(item.itemName);
+             if (!grouped[categoryId].includes(item.itemName)) {
+               grouped[categoryId].push(item.itemName);
              }
            }
          });
@@ -134,8 +136,8 @@ export default function EquipmentRequestPage() {
   };
 
   // Function to handle category selection for item
-  const handleCategorySelect = (category: string) => {
-    setSelectedCategory(category);
+  const handleCategorySelect = (categoryId: string) => {
+    setSelectedCategoryId(categoryId);
     // Clear item ID when category changes
     handleItemChange('itemId', '');
     setShowCategorySelector(false);
@@ -389,8 +391,8 @@ export default function EquipmentRequestPage() {
                       onClick={() => setShowCategorySelector(!showCategorySelector)}
                       className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 text-left flex items-center justify-between"
                     >
-                      <span className={selectedCategory ? 'text-gray-900' : 'text-gray-500'}>
-                        {selectedCategory || 'เลือกหมวดหมู่'}
+                      <span className={selectedCategoryId ? 'text-gray-900' : 'text-gray-500'}>
+                        {selectedCategoryId ? categoryConfigs.find(c => c.id === selectedCategoryId)?.name || 'เลือกหมวดหมู่' : 'เลือกหมวดหมู่'}
                       </span>
                       <span className="text-gray-400">▼</span>
                     </button>
@@ -404,7 +406,7 @@ export default function EquipmentRequestPage() {
                           .map((config) => (
                           <div
                             key={config.id}
-                            onClick={() => handleCategorySelect(config.name)}
+                            onClick={() => handleCategorySelect(config.id)}
                             className={`px-3 py-2 hover:bg-blue-50 cursor-pointer border-b border-gray-100 text-gray-900 ${
                               config.isSpecial ? 'bg-orange-50 border-orange-200' : ''
                             }`}
@@ -419,12 +421,12 @@ export default function EquipmentRequestPage() {
                 </div>
 
                 {/* Step 2: Select Item from Category */}
-                {selectedCategory && (
+                {selectedCategoryId && (
                   <div className="mb-4">
                     <label className="block text-sm font-medium text-gray-700 mb-1">
                       อุปกรณ์ *
                     </label>
-                    {itemsByCategory[selectedCategory] && itemsByCategory[selectedCategory].length > 0 ? (
+                    {itemsByCategory[selectedCategoryId] && itemsByCategory[selectedCategoryId].length > 0 ? (
                       <select
                         value={getItemDisplayName(requestItem.itemId)}
                         onChange={(e) => {
@@ -437,7 +439,7 @@ export default function EquipmentRequestPage() {
                         required
                       >
                         <option value="">-- เลือกอุปกรณ์ --</option>
-                        {itemsByCategory[selectedCategory].map((itemName) => {
+                        {itemsByCategory[selectedCategoryId].map((itemName) => {
                           const availableQty = inventoryItems
                             .filter(i => i.itemName === itemName && i.quantity > 0)
                             .reduce((sum, i) => sum + i.quantity, 0);
@@ -457,7 +459,7 @@ export default function EquipmentRequestPage() {
                 )}
 
                 {/* Step 3: Quantity and Serial Number */}
-                {selectedCategory && (
+                {selectedCategoryId && (
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
                     <div>
                       <label className="block text-sm font-medium text-gray-700 mb-1">
@@ -476,11 +478,11 @@ export default function EquipmentRequestPage() {
                         value={requestItem.quantity}
                         onChange={(e) => handleItemChange('quantity', parseInt(e.target.value))}
                         className={`w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 text-gray-900 ${
-                          (!itemsByCategory[selectedCategory] || itemsByCategory[selectedCategory].length === 0) 
+                          (!itemsByCategory[selectedCategoryId] || itemsByCategory[selectedCategoryId].length === 0) 
                             ? 'bg-gray-50 cursor-not-allowed' 
                             : ''
                         }`}
-                        disabled={!itemsByCategory[selectedCategory] || itemsByCategory[selectedCategory].length === 0}
+                        disabled={!itemsByCategory[selectedCategoryId] || itemsByCategory[selectedCategoryId].length === 0}
                         required
                       />
                     </div>
@@ -494,12 +496,12 @@ export default function EquipmentRequestPage() {
                         value={requestItem.serialNumber}
                         onChange={(e) => handleItemChange('serialNumber', e.target.value)}
                         className={`w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 text-gray-900 placeholder-gray-500 ${
-                          (!itemsByCategory[selectedCategory] || itemsByCategory[selectedCategory].length === 0) 
+                          (!itemsByCategory[selectedCategoryId] || itemsByCategory[selectedCategoryId].length === 0) 
                             ? 'bg-gray-50 cursor-not-allowed' 
                             : ''
                         }`}
                         placeholder="ระบุ Serial Number หากมี"
-                        disabled={!itemsByCategory[selectedCategory] || itemsByCategory[selectedCategory].length === 0}
+                        disabled={!itemsByCategory[selectedCategoryId] || itemsByCategory[selectedCategoryId].length === 0}
                       />
                     </div>
                   </div>

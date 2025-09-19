@@ -94,7 +94,7 @@ function CategoryItem({
     <div
       ref={setNodeRef}
       style={{ ...style, backgroundColor: getBackgroundColor() }}
-      className={`border ${getBorderColor()} rounded-lg p-3 mb-2 flex items-center gap-3 group hover:shadow-sm transition-all duration-200 ${
+      className={`border ${getBorderColor()} rounded-lg p-3 mb-1 flex items-center gap-3 group hover:shadow-sm transition-all duration-200 ${
         isDragging ? 'shadow-lg border-blue-300' : ''
       } ${config.isSystemCategory ? 'border-dashed' : ''}`}
     >
@@ -149,12 +149,12 @@ function CategoryItem({
           </div>
         ) : (
           <div className="flex items-center gap-2">
-            <span className={`text-sm font-medium ${
-              config.isSystemCategory ? 'text-yellow-800' : 
-              config.isSpecial ? 'text-orange-800' : 'text-gray-700'
-            }`}>
-              {config.name}
-            </span>
+             <span className={`text-sm font-medium ${
+               config.isSystemCategory ? 'text-yellow-800' : 
+               config.isSpecial ? 'text-orange-800' : 'text-gray-700'
+             }`}>
+               {String(config.name || '')}
+             </span>
             {config.isSpecial && !config.isSystemCategory && (
               <span className="text-xs bg-orange-200 text-orange-800 px-2 py-1 rounded">
                 พิเศษ
@@ -265,49 +265,68 @@ export default function CategoryConfigList({
     })
   );
 
-  function handleDragEnd(event: DragEndEvent) {
-    const { active, over } = event;
-
-    if (over && active.id !== over.id) {
-      const oldIndex = categoryConfigs.findIndex(config => config.id === active.id);
-      const newIndex = categoryConfigs.findIndex(config => config.id === over.id);
-      const newConfigs = arrayMove(categoryConfigs, oldIndex, newIndex);
-      
-      // Update order values
-      const reorderedConfigs = newConfigs.map((config, index) => ({
-        ...config,
-        order: index + 1,
-        updatedAt: new Date()
-      }));
-      
-      onReorder(reorderedConfigs);
-    }
-  }
+   function handleDragEnd(event: DragEndEvent) {
+     const { active, over } = event;
+ 
+     if (over && active.id !== over.id) {
+       const oldIndex = categoryConfigs.findIndex(config => config.id === active.id);
+       const newIndex = categoryConfigs.findIndex(config => config.id === over.id);
+       const newConfigs = arrayMove(categoryConfigs, oldIndex, newIndex);
+       
+       // Update order values and ensure proper serialization
+       const reorderedConfigs = newConfigs.map((config, index) => ({
+         id: String(config.id),
+         name: String(config.name || ''),
+         isSpecial: Boolean(config.isSpecial),
+         isSystemCategory: Boolean(config.isSystemCategory),
+         order: index + 1,
+         createdAt: config.createdAt ? new Date(config.createdAt) : new Date(),
+         updatedAt: new Date()
+       }));
+       
+       onReorder(reorderedConfigs);
+     }
+   }
 
   // Sort categories by order, with system categories at the bottom
-  const sortedConfigs = [...categoryConfigs].sort((a, b) => {
-    if (a.isSystemCategory && !b.isSystemCategory) return 1;
-    if (!a.isSystemCategory && b.isSystemCategory) return -1;
-    return a.order - b.order;
-  });
+  const sortedConfigs = categoryConfigs && Array.isArray(categoryConfigs) 
+    ? [...categoryConfigs]
+        .filter(config => config && typeof config === 'object' && config.id)
+        .sort((a, b) => {
+          if (a.isSystemCategory && !b.isSystemCategory) return 1;
+          if (!a.isSystemCategory && b.isSystemCategory) return -1;
+          return (a.order || 0) - (b.order || 0);
+        })
+        .map(config => ({
+          id: String(config.id),
+          name: String(config.name || ''),
+          isSpecial: Boolean(config.isSpecial),
+          isSystemCategory: Boolean(config.isSystemCategory),
+          order: Number(config.order || 0),
+          createdAt: config.createdAt ? new Date(config.createdAt) : new Date(),
+          updatedAt: config.updatedAt ? new Date(config.updatedAt) : new Date()
+        }))
+    : [];
 
   return (
-    <div className="bg-gray-50 rounded-lg p-4">
-      <h3 className="text-lg font-semibold text-gray-800 mb-4 flex items-center gap-2">
-        {title}
-        <span className="text-sm font-normal text-gray-500">
-          (ลากเพื่อเรียงลำดับ)
-        </span>
-      </h3>
+    <div className="space-y-4">
+      {title && (
+        <h3 className="text-lg font-semibold text-gray-800 mb-4 flex items-center gap-2">
+          {title}
+          <span className="text-xs font-normal text-gray-400">
+            (ลากเพื่อเรียงลำดับ)
+          </span>
+        </h3>
+      )}
 
       {/* Add New Item */}
-      <div className="mb-4 space-y-3">
+      <div className="mb-3 space-y-2">
         <div className="flex gap-2">
           <input
             type="text"
             value={newItemValue}
             onChange={(e) => onNewItemValueChange(e.target.value)}
-            placeholder={`เพิ่ม${title.toLowerCase()}ใหม่`}
+            placeholder="เพิ่มหมวดหมู่ใหม่"
             className="flex-1 px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm"
             onKeyDown={(e) => {
               if (e.key === 'Enter' && newItemValue.trim()) {
@@ -337,7 +356,7 @@ export default function CategoryConfigList({
       </div>
 
       {/* Category List */}
-      {sortedConfigs.length === 0 ? (
+      {!sortedConfigs || sortedConfigs.length === 0 ? (
         <div className="text-center py-8 text-gray-500">
           ไม่มี{title.toLowerCase()}ในระบบ
         </div>
@@ -351,24 +370,29 @@ export default function CategoryConfigList({
             items={sortedConfigs.map(config => config.id)} 
             strategy={verticalListSortingStrategy}
           >
-            <div className="space-y-0">
-              {sortedConfigs.map((config, index) => (
-                <CategoryItem
-                  key={config.id}
-                  id={config.id}
-                  config={config}
-                  index={index}
-                  isEditing={editingIndex === index}
-                  editValue={editingValue}
-                  editIsSpecial={editingIsSpecial}
-                  onEdit={onStartEdit}
-                  onSave={onSaveEdit}
-                  onCancel={onCancelEdit}
-                  onDelete={onDelete}
-                  onEditValueChange={onEditingValueChange}
-                  onEditSpecialChange={onEditingSpecialChange}
-                />
-              ))}
+            <div className="space-y-1">
+              {sortedConfigs.map((config, index) => {
+                 if (!config || !config.id) {
+                   return null;
+                 }
+                return (
+                  <CategoryItem
+                    key={config.id}
+                    id={config.id}
+                    config={config}
+                    index={index}
+                    isEditing={editingIndex === index}
+                    editValue={editingValue}
+                    editIsSpecial={editingIsSpecial}
+                    onEdit={onStartEdit}
+                    onSave={onSaveEdit}
+                    onCancel={onCancelEdit}
+                    onDelete={onDelete}
+                    onEditValueChange={onEditingValueChange}
+                    onEditSpecialChange={onEditingSpecialChange}
+                  />
+                );
+              })}
             </div>
           </SortableContext>
         </DndContext>

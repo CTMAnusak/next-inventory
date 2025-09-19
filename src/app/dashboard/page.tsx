@@ -27,10 +27,10 @@ export default function DashboardPage() {
   const [detailData, setDetailData] = useState<any>(null);
   const [ownedItems, setOwnedItems] = useState<Array<{ _id?: string; itemName: string; category: string; serialNumber?: string; quantity: number; firstName?: string; lastName?: string; nickname?: string; department?: string; phone?: string; source?: string; editable?: boolean }>>([]);
   const [categoryConfigs, setCategoryConfigs] = useState<ICategoryConfig[]>([]);
-  const [form, setForm] = useState({ itemName: '', category: '', serialNumber: '', quantity: 1, firstName: '', lastName: '', nickname: '', department: '', phone: '' });
+  const [form, setForm] = useState({ itemName: '', categoryId: '', serialNumber: '', quantity: 1, firstName: '', lastName: '', nickname: '', department: '', phone: '' });
   
   // Category-first flow states
-  const [selectedCategory, setSelectedCategory] = useState('');
+  const [selectedCategoryId, setSelectedCategoryId] = useState('');
   const [availableItems, setAvailableItems] = useState<string[]>([]);
   const [showNewItemInput, setShowNewItemInput] = useState(false);
   const [newItemName, setNewItemName] = useState('');
@@ -164,14 +164,14 @@ export default function DashboardPage() {
     }
   };
 
-  const fetchItemsInCategory = async (category: string) => {
+  const fetchItemsInCategory = async (categoryId: string) => {
     try {
-      console.log(`🔄 Dashboard - Fetching items in category: ${category}`);
-      const res = await fetch(`/api/categories/${encodeURIComponent(category)}/items`);
+      console.log(`🔄 Dashboard - Fetching items in categoryId: ${categoryId}`);
+      const res = await fetch(`/api/categories/${encodeURIComponent(categoryId)}/items`);
       if (res.ok) {
         const data = await res.json();
         setAvailableItems(data.items || []);
-        console.log(`📦 Dashboard - Loaded ${data.items?.length || 0} items in "${category}"`);
+        console.log(`📦 Dashboard - Loaded ${data.items?.length || 0} items in category "${data.categoryName}" (${categoryId})`);
       }
     } catch (error) {
       console.error('Failed to load category items:', error);
@@ -180,8 +180,8 @@ export default function DashboardPage() {
   };
 
   const resetAddModal = () => {
-    setForm({ itemName: '', category: '', serialNumber: '', quantity: 1, firstName: '', lastName: '', nickname: '', department: '', phone: '' });
-    setSelectedCategory('');
+    setForm({ itemName: '', categoryId: '', serialNumber: '', quantity: 1, firstName: '', lastName: '', nickname: '', department: '', phone: '' });
+    setSelectedCategoryId('');
     setAvailableItems([]);
     setShowNewItemInput(false);
     setNewItemName('');
@@ -190,21 +190,21 @@ export default function DashboardPage() {
     setEditItemId(null);
   };
 
-  const handleCategoryChange = async (category: string) => {
-    setSelectedCategory(category);
+  const handleCategoryChange = async (categoryId: string) => {
+    setSelectedCategoryId(categoryId);
     
-    if (category === 'new') {
-      // For new category, don't set form.category yet
-      setForm(prev => ({ ...prev, category: '' }));
+    if (categoryId === 'new') {
+      // For new category, don't set form.categoryId yet
+      setForm(prev => ({ ...prev, categoryId: '' }));
       setShowNewItemInput(false);
       setNewItemName('');
       setAvailableItems([]);
     } else {
-      // For existing category, set form.category immediately
-      setForm(prev => ({ ...prev, category }));
+      // For existing category, set form.categoryId immediately
+      setForm(prev => ({ ...prev, categoryId }));
       setShowNewItemInput(false);
       setNewItemName('');
-      await fetchItemsInCategory(category);
+      await fetchItemsInCategory(categoryId);
     }
   };
 
@@ -231,7 +231,7 @@ export default function DashboardPage() {
     setIsSubmitting(true);
     
     console.log('🔍 submitAddOwned - Starting validation...');
-    console.log('🔍 selectedCategory:', selectedCategory);
+    console.log('🔍 selectedCategoryId:', selectedCategoryId);
     console.log('🔍 form.itemName:', form.itemName);
     console.log('🔍 newItemName:', newItemName);
     console.log('🔍 user object:', user);
@@ -245,7 +245,7 @@ export default function DashboardPage() {
     }
     
     // Validate required fields
-    if (!selectedCategory || selectedCategory === 'new' || (user?.userType === 'branch' && (!form.firstName || !form.lastName))) {
+    if (!selectedCategoryId || selectedCategoryId === 'new' || (user?.userType === 'branch' && (!form.firstName || !form.lastName))) {
       console.log('❌ Validation failed: Invalid category');
       toast.error('กรุณาเลือกหมวดหมู่');
       setIsSubmitting(false);
@@ -253,7 +253,7 @@ export default function DashboardPage() {
     }
     
     // For new items, validate that we have a valid category (not 'new')
-    if (form.itemName === 'new' && (selectedCategory === 'new' || !selectedCategory)) {
+    if (form.itemName === 'new' && (selectedCategoryId === 'new' || !selectedCategoryId)) {
       console.log('❌ Validation failed: Invalid category for new item');
       toast.error('กรุณาเลือกหมวดหมู่ที่ต้องการเพิ่มอุปกรณ์');
       setIsSubmitting(false);
@@ -280,22 +280,22 @@ export default function DashboardPage() {
     try {
       console.log('🔍 Form state:', form);
       console.log('🔍 newItemName:', newItemName);
-      console.log('🔍 selectedCategory:', selectedCategory);
+      console.log('🔍 selectedCategoryId:', selectedCategoryId);
       console.log('🔍 form.itemName:', form.itemName);
-      console.log('🔍 form.category:', form.category);
+      console.log('🔍 form.categoryId:', form.categoryId);
       
       let itemId: string;
       
       if (form.itemName === 'new') {
         console.log('🔍 Creating new inventory item...');
         console.log('🔍 newItemName:', newItemName);
-        console.log('🔍 selectedCategory:', selectedCategory);
+        console.log('🔍 selectedCategoryId:', selectedCategoryId);
         console.log('🔍 form.quantity:', form.quantity);
         
         // Create new inventory item first
         const newInventoryPayload = {
           itemName: newItemName || '',
-          category: selectedCategory,
+          categoryId: selectedCategoryId,
           serialNumber: form.serialNumber || '',
           price: 0,
           quantity: Number(form.quantity) || 1, // Use the quantity from form
@@ -354,11 +354,11 @@ export default function DashboardPage() {
         }
         
         const inventoryItem = inventoryData.items.find((item: any) => 
-          item.itemName === form.itemName && item.category === selectedCategory
+          item.itemName === form.itemName && item.categoryId === selectedCategoryId
         );
         
         if (!inventoryItem) {
-          console.log('❌ Item not found in inventory:', { itemName: form.itemName, category: selectedCategory });
+          console.log('❌ Item not found in inventory:', { itemName: form.itemName, categoryId: selectedCategoryId });
           toast.error('ไม่พบรายการอุปกรณ์ในคลังสินค้า');
           return;
         }
@@ -818,7 +818,7 @@ export default function DashboardPage() {
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-1">หมวดหมู่ *</label>
                   <select
-                    value={selectedCategory}
+                    value={selectedCategoryId}
                     onChange={(e) => handleCategoryChange(e.target.value)}
                     className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
                     required
@@ -828,7 +828,7 @@ export default function DashboardPage() {
                       .filter(config => !config.isSystemCategory) // ไม่แสดง "ไม่ระบุ"
                       .sort((a, b) => a.order - b.order)
                       .map((config) => (
-                      <option key={config.id} value={config.name}>
+                      <option key={config.id} value={config.id}>
                         {config.name} {config.isSpecial ? '(พิเศษ)' : ''}
                       </option>
                     ))}
@@ -837,7 +837,7 @@ export default function DashboardPage() {
                 </div>
 
                 {/* New Category Input */}
-                {selectedCategory === 'new' && (
+                {selectedCategoryId === 'new' && (
                   <div>
                     <label className="block text-sm font-medium text-gray-700 mb-1">ชื่อหมวดหมู่ใหม่ *</label>
                     <input
@@ -855,7 +855,7 @@ export default function DashboardPage() {
                 )}
 
                 {/* Step 2: Select Item (only if category is selected) */}
-                {selectedCategory && selectedCategory !== 'new' && (
+                {selectedCategoryId && selectedCategoryId !== 'new' && (
                   <div>
                     <label className="block text-sm font-medium text-gray-700 mb-1">อุปกรณ์ *</label>
                     <select
@@ -889,8 +889,8 @@ export default function DashboardPage() {
                 )}
 
                 {/* Step 3: Additional fields (only show after category and item are selected) */}
-                {((selectedCategory && selectedCategory !== 'new' && form.itemName) || 
-                  (selectedCategory === 'new' && newCategoryName) || 
+                {((selectedCategoryId && selectedCategoryId !== 'new' && form.itemName) || 
+                  (selectedCategoryId === 'new' && newCategoryName) || 
                   showNewItemInput) && (
                   <>
                     <div>
@@ -907,8 +907,8 @@ export default function DashboardPage() {
                 {/* Footer - Fixed */}
                 <div className="flex justify-end gap-3 pt-4">
                   {/* Show buttons only when required fields are filled */}
-                  {((selectedCategory && selectedCategory !== 'new' && form.itemName) || 
-                    (selectedCategory === 'new' && newCategoryName) || 
+                  {((selectedCategoryId && selectedCategoryId !== 'new' && form.itemName) || 
+                    (selectedCategoryId === 'new' && newCategoryName) || 
                     showNewItemInput) && (
                     <>
                       <button 

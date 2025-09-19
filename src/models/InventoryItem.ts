@@ -3,7 +3,7 @@ import mongoose, { Document, Schema } from 'mongoose';
 export interface IInventoryItem extends Document {
   itemName: string;
   categoryId: string;  // ใช้ ID แทน string เพื่อ relational integrity
-  category?: string;   // เก็บไว้ชั่วคราวสำหรับ backward compatibility
+  readonly category?: string;   // เก็บไว้ชั่วคราวสำหรับ backward compatibility (readonly)
   serialNumber?: string;        // SN เฉพาะของชิ้นนี้ (ถ้ามี)
   numberPhone?: string;         // เบอร์โทรศัพท์ (สำหรับอุปกรณ์หมวดหมู่ซิมการ์ด)
   status: 'active' | 'maintenance' | 'damaged' | 'retired' | 'deleted';

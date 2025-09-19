@@ -1,35 +1,31 @@
 import { NextRequest, NextResponse } from 'next/server';
-import dbConnect from '@/lib/mongodb';
-import InventoryMaster from '@/models/InventoryMaster';
+import { getAllCategoryConfigs } from '@/lib/category-helpers';
 
-// GET - Fetch all unique categories from all inventory items (both admin and user added)
+// GET - Fetch all categories from configuration
 export async function GET(request: NextRequest) {
   try {
-    await dbConnect();
+    console.log('🔍 Fetching categories from configuration...');
     
-    console.log('🔍 Fetching unified categories from all inventory items...');
+    // Get all category configurations
+    const categoryConfigs = await getAllCategoryConfigs();
     
-    // Get all unique categories from inventory
-    const categories = await InventoryMaster.distinct('category');
+    // Convert to format expected by frontend
+    const categories = categoryConfigs.map(config => ({
+      id: config.id,
+      name: config.name,
+      isSpecial: config.isSpecial,
+      isSystemCategory: config.isSystemCategory,
+      order: config.order
+    }));
     
-    // Filter out empty/null categories and sort
-    const validCategories = categories
-      .filter(cat => cat && typeof cat === 'string' && cat.trim() !== '')
-      .map(cat => cat.trim())
-      .sort();
+    // Sort by order
+    categories.sort((a, b) => a.order - b.order);
     
-    // Remove duplicates (case-insensitive)
-    const uniqueCategories = Array.from(
-      new Set(validCategories.map(cat => cat.toLowerCase()))
-    ).map(lowerCat => 
-      validCategories.find(cat => cat.toLowerCase() === lowerCat)
-    ).filter(Boolean);
-    
-    console.log(`📦 Found ${uniqueCategories.length} unique categories:`, uniqueCategories);
+    console.log(`📦 Found ${categories.length} categories:`, categories.map(cat => cat.name));
     
     return NextResponse.json({
-      categories: uniqueCategories,
-      total: uniqueCategories.length
+      categories: categories,
+      total: categories.length
     });
     
   } catch (error) {

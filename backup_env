@@ -14,9 +14,13 @@ JWT_SECRET=my-super-secret-jwt-key-2024-vsq-clinic
 # ใช้สำหรับส่งอีเมลแจ้งเตือนต่างๆ เช่น การสมัครสมาชิกใหม่, IT Reports
 EMAIL_HOST=smtp.gmail.com
 EMAIL_PORT=587
-EMAIL_USER=panuwat.sop.work@gmail.com
-EMAIL_PASS=appiaukqlafmcixb
-EMAIL_FROM=panuwat.sop.work@gmail.com
+# EMAIL_USER=panuwat.sop.work@gmail.com
+# EMAIL_PASS=appiaukqlafmcixb
+# EMAIL_FROM=panuwat.sop.work@gmail.com
+
+EMAIL_USER=ampanusak@gmail.com
+EMAIL_PASS=rsdl tnxx ztsx kxlg
+EMAIL_FROM=ampanusak@gmail.com
 
 # NextAuth Configuration
 # ใช้สำหรับ NextAuth.js สำหรับการ Authentication

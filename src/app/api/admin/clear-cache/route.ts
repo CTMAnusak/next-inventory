@@ -1,25 +1,34 @@
+/**
+ * 🧹 API สำหรับล้าง cache ทั้งหมด
+ */
+
 import { NextRequest, NextResponse } from 'next/server';
-import { clearAllCaches } from '@/lib/cache-utils';
+import { setCachedData } from '@/lib/cache-utils';
 
 export async function POST(request: NextRequest) {
   try {
-    // Clear all caches in the system
-    console.log('🧹 Admin - Clearing all caches...');
+    console.log('🧹 Clearing all caches...');
     
-    // Clear holdings cache for all users
-    clearAllCaches();
+    // ล้าง cache ทั้งหมด
+    setCachedData('inventory_config', null);
+    setCachedData('inventory_items', null);
+    setCachedData('inventory_masters', null);
     
-    console.log('✅ Admin - All caches cleared successfully');
+    console.log('✅ All caches cleared successfully');
     
-    return NextResponse.json({ 
-      success: true, 
-      message: 'Cache cleared successfully' 
+    return NextResponse.json({
+      success: true,
+      message: 'ล้าง cache ทั้งหมดเรียบร้อย',
+      timestamp: new Date().toISOString()
     });
+
   } catch (error) {
-    console.error('❌ Admin - Error clearing cache:', error);
-    return NextResponse.json(
-      { error: 'Failed to clear cache' }, 
-      { status: 500 }
-    );
+    console.error('❌ Clear cache error:', error);
+    
+    return NextResponse.json({
+      success: false,
+      message: 'เกิดข้อผิดพลาดในการล้าง cache',
+      error: error instanceof Error ? error.message : 'Unknown error'
+    }, { status: 500 });
   }
 }

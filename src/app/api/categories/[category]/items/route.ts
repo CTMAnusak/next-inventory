@@ -1,8 +1,9 @@
 import { NextRequest, NextResponse } from 'next/server';
 import dbConnect from '@/lib/mongodb';
-import Inventory from '@/models/Inventory';
+import InventoryMaster from '@/models/InventoryMaster';
+import { getCategoryNameById, validateCategoryId } from '@/lib/category-helpers';
 
-// GET - Fetch all unique items in a specific category
+// GET - Fetch all unique items in a specific category by categoryId
 export async function GET(
   request: NextRequest,
   { params }: { params: Promise<{ category: string }> }
@@ -19,11 +20,24 @@ export async function GET(
     
     await dbConnect();
     
-    console.log(`🔍 Fetching items in category: ${decodeURIComponent(category)}`);
+    const categoryId = decodeURIComponent(category);
+    console.log(`🔍 Fetching items in categoryId: ${categoryId}`);
     
-    // Get all unique item names in this category
-    const items = await Inventory.distinct('itemName', {
-      category: { $regex: new RegExp(`^${decodeURIComponent(category)}$`, 'i') }
+    // Validate categoryId
+    const isValidCategory = await validateCategoryId(categoryId);
+    if (!isValidCategory) {
+      return NextResponse.json(
+        { error: 'ไม่พบหมวดหมู่ที่ระบุ' },
+        { status: 404 }
+      );
+    }
+    
+    // Get category name for response
+    const categoryName = await getCategoryNameById(categoryId);
+    
+    // Get all unique item names in this category using categoryId
+    const items = await InventoryMaster.distinct('itemName', {
+      categoryId: categoryId
     });
     
     // Filter and sort items
@@ -39,10 +53,11 @@ export async function GET(
       validItems.find(item => item.toLowerCase() === lowerItem)
     ).filter(Boolean);
     
-    console.log(`📦 Found ${uniqueItems.length} unique items in "${decodeURIComponent(category)}":`, uniqueItems);
+    console.log(`📦 Found ${uniqueItems.length} unique items in "${categoryName}" (${categoryId}):`, uniqueItems);
     
     return NextResponse.json({
-      category: decodeURIComponent(category),
+      categoryId: categoryId,
+      categoryName: categoryName,
       items: uniqueItems,
       total: uniqueItems.length
     });

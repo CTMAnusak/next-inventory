@@ -10,15 +10,21 @@ export interface ICategoryConfig {
   updatedAt: Date;
 }
 
-export interface IInventoryConfig extends Document {
-  statuses: string[];
-  categoryConfigs: ICategoryConfig[];
-  
+export interface IStatusConfig {
+  id: string;                    // Unique identifier for the status
+  name: string;                  // Display name of the status
+  order: number;                 // Display order for drag & drop
   createdAt: Date;
   updatedAt: Date;
 }
 
-const DEFAULT_STATUSES = ['active', 'maintenance', 'damaged', 'retired'];
+export interface IInventoryConfig extends Document {
+  // ✅ เหลือแค่ 2 fields หลัก - แต่ละ config มี timestamps แล้ว
+  statusConfigs: IStatusConfig[];   // New status system with ID support
+  categoryConfigs: ICategoryConfig[];
+}
+
+// ❌ ลบ DEFAULT_STATUSES - ไม่ใช้แล้ว
 
 // Default category configurations
 const DEFAULT_CATEGORY_CONFIGS: ICategoryConfig[] = [
@@ -112,15 +118,36 @@ const CategoryConfigSchema = new Schema<ICategoryConfig>({
   }
 }, { timestamps: true });
 
+// Schema for status configuration
+const StatusConfigSchema = new Schema<IStatusConfig>({
+  id: { 
+    type: String, 
+    required: true,
+    unique: false // Will be unique within the parent document
+  },
+  name: { 
+    type: String, 
+    required: true 
+  },
+  order: { 
+    type: Number, 
+    required: true 
+  }
+}, { timestamps: true });
+
 const InventoryConfigSchema = new Schema<IInventoryConfig>(
   {
-    statuses: { type: [String], default: DEFAULT_STATUSES },
+    // ✅ เหลือแค่ 2 fields หลัก - ไม่มี timestamps, ไม่มี statuses เก่า
+    statusConfigs: {
+      type: [StatusConfigSchema],
+      default: [] // No default - will be populated from database only
+    },
     categoryConfigs: {
       type: [CategoryConfigSchema],
       default: DEFAULT_CATEGORY_CONFIGS
     }
-  },
-  { timestamps: true }
+  }
+  // ❌ ลบ { timestamps: true } - แต่ละ config มี timestamps แล้ว
 );
 
 // Helper functions for category management
@@ -140,6 +167,21 @@ export const createDefaultCategoryConfig = (name: string, order: number, isSpeci
   };
 };
 
+// Helper functions for status management
+export const generateStatusId = (): string => {
+  return `status_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
+};
+
+export const createStatusConfig = (name: string, order: number): IStatusConfig => {
+  return {
+    id: generateStatusId(),
+    name,
+    order,
+    createdAt: new Date(),
+    updatedAt: new Date()
+  };
+};
+
 // Static methods for the model
 InventoryConfigSchema.statics.findCategoryById = function(categoryId: string) {
   return this.findOne({ 'categoryConfigs.id': categoryId });
@@ -153,6 +195,19 @@ InventoryConfigSchema.statics.getCategoryConfig = function(categoryId: string) {
   ]);
 };
 
+// Static methods for status management
+InventoryConfigSchema.statics.findStatusById = function(statusId: string) {
+  return this.findOne({ 'statusConfigs.id': statusId });
+};
+
+InventoryConfigSchema.statics.getStatusConfig = function(statusId: string) {
+  return this.aggregate([
+    { $unwind: '$statusConfigs' },
+    { $match: { 'statusConfigs.id': statusId } },
+    { $replaceRoot: { newRoot: '$statusConfigs' } }
+  ]);
+};
+
 // Export the model
 const InventoryConfig = mongoose.models.InventoryConfig ||
   mongoose.model<IInventoryConfig>('InventoryConfig', InventoryConfigSchema);
@@ -160,6 +215,6 @@ const InventoryConfig = mongoose.models.InventoryConfig ||
 export default InventoryConfig;
 
 // Export constants for use in other parts of the application
-export { DEFAULT_STATUSES, DEFAULT_CATEGORY_CONFIGS };
+export { DEFAULT_CATEGORY_CONFIGS };
 
 

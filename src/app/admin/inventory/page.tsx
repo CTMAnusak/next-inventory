@@ -31,7 +31,17 @@ import {
 import { toast } from 'react-hot-toast';
 import DraggableList from '@/components/DraggableList';
 import CategoryConfigList from '@/components/CategoryConfigList';
+import StatusConfigList from '@/components/StatusConfigList';
 import CategoryDeleteConfirmModal from '@/components/CategoryDeleteConfirmModal';
+import StatusDeleteConfirmModal from '@/components/StatusDeleteConfirmModal';
+import { 
+  getStatusNameById, 
+  getStatusClass as getStatusClassHelper,
+  getDisplayStatusText,
+  getStatusOptions,
+  matchesStatusFilter,
+  createStatusConfigsFromStatuses
+} from '@/lib/status-helpers';
 import { useTokenWarning } from '@/hooks/useTokenWarning';
 import TokenExpiryModal from '@/components/TokenExpiryModal';
 import { handleTokenExpiry } from '@/lib/auth-utils';
@@ -42,11 +52,13 @@ import RecycleBinWarningModal from '@/components/RecycleBinWarningModal';
 interface InventoryItem {
   _id: string;
   itemName: string;
-  category: string;
+  category: string; // Keep for backward compatibility
+  categoryId?: string; // New field for relational integrity
   quantity: number;
   totalQuantity?: number;
   serialNumbers?: string[]; // แก้ไขจาก serialNumber เป็น serialNumbers
-  status: string;
+  status: string; // Deprecated - will be removed
+  statusId?: string; // New field for status reference
   dateAdded: string;
 }
 
@@ -55,6 +67,14 @@ interface ICategoryConfig {
   name: string;
   isSpecial: boolean;
   isSystemCategory: boolean;
+  order: number;
+  createdAt: Date;
+  updatedAt: Date;
+}
+
+interface IStatusConfig {
+  id: string;
+  name: string;
   order: number;
   createdAt: Date;
   updatedAt: Date;
@@ -148,18 +168,23 @@ export default function AdminInventoryPage() {
   const [currentPage, setCurrentPage] = useState(1);
   const itemsPerPage = 20;
 
-  // Legacy categories support (for backward compatibility)
-  const [categories, setCategories] = useState<string[]>([]);
-  const [statuses, setStatuses] = useState<string[]>(['active','maintenance','damaged','retired']);
+  // Note: statuses state removed - using statusConfigs only
   
   // New category configuration support
   const [categoryConfigs, setCategoryConfigs] = useState<ICategoryConfig[]>([]);
   const [originalCategoryConfigs, setOriginalCategoryConfigs] = useState<ICategoryConfig[]>([]);
   
+  // New status configuration support
+  const [statusConfigs, setStatusConfigs] = useState<IStatusConfig[]>([]);
+  const [originalStatusConfigs, setOriginalStatusConfigs] = useState<IStatusConfig[]>([]);
+  
   // Category management states
   const [newCategory, setNewCategory] = useState('');
   const [newCategoryIsSpecial, setNewCategoryIsSpecial] = useState(false);
   const [newStatus, setNewStatus] = useState('');
+  
+  // Status management states
+  const [newStatusConfig, setNewStatusConfig] = useState('');
   const [editingCategoryIndex, setEditingCategoryIndex] = useState<number | null>(null);
   const [editingCategoryValue, setEditingCategoryValue] = useState('');
   const [editingCategoryIsSpecial, setEditingCategoryIsSpecial] = useState(false);
@@ -172,11 +197,20 @@ export default function AdminInventoryPage() {
   const [deletingCategoryIndex, setDeletingCategoryIndex] = useState<number | null>(null);
   const [categoryDeleteLoading, setCategoryDeleteLoading] = useState(false);
   
+  // Delete confirmation states for statuses
+  const [showStatusDeleteConfirm, setShowStatusDeleteConfirm] = useState(false);
+  const [deletingStatus, setDeletingStatus] = useState<string | null>(null);
+  const [deletingStatusIndex, setDeletingStatusIndex] = useState<number | null>(null);
+  const [statusDeleteLoading, setStatusDeleteLoading] = useState(false);
+  
   // Draft state for settings modal
   const [hasUnsavedChanges, setHasUnsavedChanges] = useState(false);
+  const [saveLoading, setSaveLoading] = useState(false);
+  const [cancelLoading, setCancelLoading] = useState(false);
 
   // New state for improved add item flow
-  const [selectedCategory, setSelectedCategory] = useState('');
+  const [selectedCategory, setSelectedCategory] = useState(''); // เพิ่ม selectedCategory
+  const [selectedCategoryId, setSelectedCategoryId] = useState('');
   const [existingItemsInCategory, setExistingItemsInCategory] = useState<string[]>([]);
   const [selectedExistingItem, setSelectedExistingItem] = useState('');
   const [isAddingNewItem, setIsAddingNewItem] = useState(false);
@@ -207,6 +241,10 @@ export default function AdminInventoryPage() {
   // Search and filter for edit items
   const [itemSearchTerm, setItemSearchTerm] = useState('');
   const [itemFilterBy, setItemFilterBy] = useState<'all' | 'admin' | 'user'>('all');
+
+  // Derived state สำหรับ backward compatibility
+  const categories = categoryConfigs.map(c => c.name);
+  const statuses = statusConfigs.map(s => s.id); // ใช้ statusId แทน statusName
 
   // State for delete confirmation
   const [showDeleteConfirmModal, setShowDeleteConfirmModal] = useState(false);
@@ -319,18 +357,24 @@ export default function AdminInventoryPage() {
       if (handledResponse && handledResponse.ok) {
         const data = await handledResponse.json();
         
-        // Handle new categoryConfigs format
+        // Handle categoryConfigs format only
         if (Array.isArray(data.categoryConfigs) && data.categoryConfigs.length > 0) {
           setCategoryConfigs(data.categoryConfigs);
           setOriginalCategoryConfigs(JSON.parse(JSON.stringify(data.categoryConfigs))); // Deep copy
-          // Update legacy categories for backward compatibility
-          setCategories(data.categoryConfigs.map((cat: ICategoryConfig) => cat.name));
-        } else if (Array.isArray(data.categories)) {
-          // Fallback to legacy categories format
-          setCategories(data.categories);
         }
         
-        if (Array.isArray(data.statuses)) setStatuses(data.statuses);
+        // Handle statusConfigs ONLY - ไม่ fallback ไป statuses เก่า
+        if (Array.isArray(data.statusConfigs) && data.statusConfigs.length > 0) {
+          setStatusConfigs(data.statusConfigs);
+          setOriginalStatusConfigs(JSON.parse(JSON.stringify(data.statusConfigs))); // Deep copy
+        } else {
+          // ไม่มี statusConfigs ให้เป็น array ว่าง
+          console.log('⚠️ No statusConfigs found in database');
+          setStatusConfigs([]);
+          setOriginalStatusConfigs([]);
+        }
+        
+        // Note: statuses field is deprecated and will be removed
       }
     } catch (error) {
       // ใช้ค่าเริ่มต้นหากโหลดไม่ได้
@@ -344,7 +388,7 @@ export default function AdminInventoryPage() {
                           (item.serialNumbers && Array.isArray(item.serialNumbers) && item.serialNumbers.some(sn => sn.toLowerCase().includes(searchTerm.toLowerCase())));
       
       const matchesCategory = !categoryFilter || item.category === categoryFilter;
-      const matchesStatus = !statusFilter || getStatusText(item.status) === getStatusText(statusFilter);
+      const matchesStatus = matchesStatusFilter(item.status, statusFilter, statusConfigs);
       
       // เพิ่มฟิลเตอร์ Serial Numbers
       const hasSerials = Array.isArray(item.serialNumbers) && item.serialNumbers.length > 0;
@@ -477,13 +521,13 @@ export default function AdminInventoryPage() {
       const method = editingItem ? 'PUT' : 'POST';
 
       // Force quantity/totalQuantity to 1 when adding from SN flow or SIM card
-      const payload = (addFromSN && !editingItem) || isSIMCard(selectedCategory)
+      const payload = (addFromSN && !editingItem) || isSIMCard(formData.category)
         ? { 
             ...formData, 
             quantity: 1, 
             totalQuantity: 1,
             // สำหรับซิมการ์ด ส่ง numberPhone แทน serialNumber
-            ...(isSIMCard(selectedCategory) && formData.serialNumber && {
+            ...(isSIMCard(formData.category) && formData.serialNumber && {
               numberPhone: formData.serialNumber,
               serialNumber: '' // ล้าง serialNumber สำหรับซิมการ์ด
             })
@@ -1299,7 +1343,7 @@ export default function AdminInventoryPage() {
     setAddFromSN(false);
     
     // Reset new states
-    setSelectedCategory('');
+    setSelectedCategoryId('');
     setExistingItemsInCategory([]);
     setSelectedExistingItem('');
     setIsAddingNewItem(false);
@@ -1359,29 +1403,31 @@ export default function AdminInventoryPage() {
   };
 
 
-  const getStatusText = (status: string) => {
-    const map: Record<string, string> = {
-      active: 'ใช้งานได้',
-      maintenance: 'ซ่อมบำรุง',
-      damaged: 'ชำรุด',
-      retired: 'เลิกใช้',
-    };
-    return map[status] || status;
+  // ✅ อัปเดตให้รองรับ statusId และ backward compatibility
+  const getStatusText = (statusIdOrName: string) => {
+    // ถ้าไม่มี statusConfigs ให้ return null เพื่อแสดง "-"
+    if (!statusConfigs || statusConfigs.length === 0) {
+      return null;
+    }
+    return getDisplayStatusText(statusIdOrName, statusConfigs);
   };
 
-  const getStatusClass = (status: string) => {
-    if (status === 'active') return 'bg-green-100 text-green-800';
-    if (status === 'maintenance') return 'bg-yellow-100 text-yellow-800';
-    if (status === 'damaged') return 'bg-red-100 text-red-800';
-    return 'bg-gray-100 text-gray-800';
+  const getStatusClass = (statusIdOrName: string) => {
+    // ถ้าไม่มี statusConfigs ให้ return default class
+    if (!statusConfigs || statusConfigs.length === 0) {
+      return 'bg-gray-100 text-gray-500';
+    }
+    return getStatusClassHelper(statusIdOrName, statusConfigs);
   };
 
   const saveConfig = async () => {
+    setSaveLoading(true);
     try {
-      // Use categoryConfigs if available, otherwise fall back to legacy categories
-      const requestBody = categoryConfigs.length > 0 
-        ? { categoryConfigs, statuses }
-        : { categories, statuses };
+      // Always use categoryConfigs and statusConfigs ONLY
+      const requestBody = { 
+        categoryConfigs, 
+        statusConfigs // New status format with IDs only
+      };
       
       const response = await fetch('/api/admin/inventory/config', {
         method: 'PUT',
@@ -1396,6 +1442,9 @@ export default function AdminInventoryPage() {
         if (data.categoryConfigs) {
           setOriginalCategoryConfigs(JSON.parse(JSON.stringify(data.categoryConfigs)));
         }
+        if (data.statusConfigs) {
+          setOriginalStatusConfigs(JSON.parse(JSON.stringify(data.statusConfigs)));
+        }
         
         setHasUnsavedChanges(false);
         toast.success('บันทึกการตั้งค่าเรียบร้อย');
@@ -1406,18 +1455,43 @@ export default function AdminInventoryPage() {
       }
     } catch (error) {
       toast.error('เกิดข้อผิดพลาดในการเชื่อมต่อ');
+    } finally {
+      setSaveLoading(false);
     }
   };
 
   // Cancel changes and revert to original state
-  const cancelConfigChanges = () => {
+  const cancelConfigChanges = async () => {
+    setCancelLoading(true);
+    
+    // Add a small delay to show loading animation (simulate processing time)
+    await new Promise(resolve => setTimeout(resolve, 300));
+    
     if (hasUnsavedChanges) {
       // Revert to original state
       setCategoryConfigs(JSON.parse(JSON.stringify(originalCategoryConfigs)));
-      setCategories(originalCategoryConfigs.map(cat => cat.name));
+      setStatusConfigs(JSON.parse(JSON.stringify(originalStatusConfigs)));
       setHasUnsavedChanges(false);
     }
+    
+    setCancelLoading(false);
     setShowSettingsModal(false);
+  };
+
+  // Handle close settings modal (X button)
+  const handleCloseSettingsModal = () => {
+    if (hasUnsavedChanges) {
+      // Show confirmation modal
+      const confirmed = window.confirm('มีการเปลี่ยนแปลงที่ยังไม่ได้บันทึก ต้องการยกเลิกหรือไม่?');
+      if (confirmed) {
+        // Cancel changes and close modal
+        cancelConfigChanges();
+      }
+      // If not confirmed, do nothing (stay in modal)
+    } else {
+      // No changes, close modal directly
+      setShowSettingsModal(false);
+    }
   };
 
   // Generate unique category ID
@@ -1441,7 +1515,6 @@ export default function AdminInventoryPage() {
       id: generateCategoryId(),
       name,
       isSpecial: newCategoryIsSpecial,
-      backgroundColor: newCategoryIsSpecial ? '#fed7aa' : '#ffffff',
       isSystemCategory: false,
       order: maxOrder + 1,
       createdAt: new Date(),
@@ -1449,7 +1522,6 @@ export default function AdminInventoryPage() {
     };
     
     setCategoryConfigs([...categoryConfigs, newCategoryConfig]);
-    setCategories([...categories, name]); // Update legacy array
     setHasUnsavedChanges(true);
     setNewCategory('');
     setNewCategoryIsSpecial(false);
@@ -1460,7 +1532,6 @@ export default function AdminInventoryPage() {
     const updated = [...categoryConfigs];
     updated[index] = { ...updated[index], ...updates, updatedAt: new Date() };
     setCategoryConfigs(updated);
-    setCategories(updated.map(cat => cat.name)); // Update legacy array
     setHasUnsavedChanges(true);
   };
 
@@ -1489,7 +1560,6 @@ export default function AdminInventoryPage() {
       // In the future, we can call API to check for items using this category
       const updated = categoryConfigs.filter((_, i) => i !== deletingCategoryIndex);
       setCategoryConfigs(updated);
-      setCategories(updated.map(cat => cat.name)); // Update legacy array
       setHasUnsavedChanges(true);
       
       toast.success(`ลบหมวดหมู่ "${deletingCategory.name}" สำเร็จ`);
@@ -1512,28 +1582,88 @@ export default function AdminInventoryPage() {
   };
 
   // Reorder categories
-  const reorderCategoryConfigs = (newOrder: string[]) => {
-    const reordered = newOrder.map((name, index) => {
-      const existingConfig = categoryConfigs.find(cat => cat.name === name);
-      if (existingConfig) {
-        return { ...existingConfig, order: index + 1, updatedAt: new Date() };
-      }
-      // This shouldn't happen, but fallback
-      return {
-        id: generateCategoryId(),
-        name,
-        isSpecial: false,
-        backgroundColor: '#ffffff',
-        isSystemCategory: false,
-        order: index + 1,
-        createdAt: new Date(),
-        updatedAt: new Date()
-      };
-    });
-    
-    setCategoryConfigs(reordered);
-    setCategories(newOrder); // Update legacy array
+  const reorderCategoryConfigs = (newConfigs: ICategoryConfig[]) => {
+    setCategoryConfigs(newConfigs);
     setHasUnsavedChanges(true);
+  };
+
+  // Status management functions
+  const generateStatusId = (): string => {
+    return `status_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
+  };
+
+  // Add new status config
+  const addStatusConfig = () => {
+    if (!newStatusConfig.trim()) {
+      toast.error('กรุณาใส่ชื่อสถานะ');
+      return;
+    }
+
+    if (statusConfigs.some(sc => sc.name === newStatusConfig.trim())) {
+      toast.error('มีสถานะนี้อยู่แล้ว');
+      return;
+    }
+
+    const newConfig: IStatusConfig = {
+      id: generateStatusId(),
+      name: newStatusConfig.trim(),
+      order: statusConfigs.length + 1,
+      createdAt: new Date(),
+      updatedAt: new Date()
+    };
+
+    setStatusConfigs([...statusConfigs, newConfig]);
+    setNewStatusConfig('');
+    setHasUnsavedChanges(true);
+    toast.success(`เพิ่มสถานะ "${newConfig.name}" เรียบร้อย`);
+  };
+
+  // Edit status config
+  const updateStatusConfig = (index: number, newConfig: IStatusConfig) => {
+    const updated = [...statusConfigs];
+    updated[index] = newConfig;
+    setStatusConfigs(updated);
+    setHasUnsavedChanges(true);
+  };
+
+  // Delete status config
+  const deleteStatusConfig = (index: number) => {
+    const statusConfig = statusConfigs[index];
+    const updated = statusConfigs.filter((_, i) => i !== index);
+    setStatusConfigs(updated);
+    setHasUnsavedChanges(true);
+    toast.success(`ลบสถานะ "${statusConfig.name}" สำเร็จ`);
+  };
+
+  // Reorder status configs
+  const reorderStatusConfigs = (newConfigs: IStatusConfig[]) => {
+    setStatusConfigs(newConfigs);
+    setHasUnsavedChanges(true);
+  };
+  
+  // Delete status with confirmation (updated for statusConfigs)
+  const deleteStatus = (index: number) => {
+    const statusConfig = statusConfigs[index];
+    setDeletingStatus(statusConfig.name);
+    setDeletingStatusIndex(index);
+    setShowStatusDeleteConfirm(true);
+  };
+  
+  const confirmDeleteStatus = () => {
+    if (deletingStatusIndex !== null) {
+      const updatedStatusConfigs = statusConfigs.filter((_, i: any) => i !== deletingStatusIndex);
+      setStatusConfigs(updatedStatusConfigs);
+      setHasUnsavedChanges(true);
+      toast.success(`ลบสถานะ "${deletingStatus}" สำเร็จ`);
+    }
+    cancelDeleteStatus();
+  };
+  
+  const cancelDeleteStatus = () => {
+    setShowStatusDeleteConfirm(false);
+    setDeletingStatus(null);
+    setDeletingStatusIndex(null);
+    setStatusDeleteLoading(false);
   };
 
   // Pagination
@@ -1632,7 +1762,7 @@ export default function AdminInventoryPage() {
                     className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 text-gray-900"
                   >
                     <option value="">ทั้งหมด</option>
-                    {categories.map((category) => (
+                    {categories.map((category: any) => (
                       <option key={category} value={category}>
                         {category}
                       </option>
@@ -1649,7 +1779,7 @@ export default function AdminInventoryPage() {
                     className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 text-gray-900"
                   >
                     <option value="">ทั้งหมด</option>
-                    {statuses.map((st) => (
+                    {statuses.map((st: any) => (
                       <option key={st} value={st}>{getStatusText(st)}</option>
                     ))}
                   </select>
@@ -1745,9 +1875,26 @@ export default function AdminInventoryPage() {
                         {item.totalQuantity ?? item.quantity}
                       </td>
                       <td className="px-6 py-4 whitespace-nowrap text-center">
-                        <span className={`inline-flex px-2 py-1 text-xs font-semibold rounded-full ${getStatusClass(item.status)}`}>
-                          {item.hasMixedStatus ? 'หลากหลาย' : getStatusText(item.status)}
+                        {(() => {
+                          // ✅ ใช้ statusId หากมี ไม่งั้นใช้ status เก่า (backward compatibility)
+                          const statusIdOrName = item.statusId || item.status;
+                          const statusName = getStatusText(statusIdOrName);
+                          
+                          // ถ้าไม่มี statusConfigs หรือไม่พบสถานะ ให้แสดง "-"
+                          if (statusConfigs.length === 0 || !statusName || statusName === statusIdOrName) {
+                            return (
+                              <span className="inline-flex px-2 py-1 text-xs font-semibold rounded-full bg-gray-100 text-gray-500">
+                                -
                         </span>
+                            );
+                          }
+                          
+                          return (
+                            <span className={`inline-flex px-2 py-1 text-xs font-semibold rounded-full ${getStatusClass(statusIdOrName)}`}>
+                              {item.hasMixedStatus ? 'หลากหลาย' : statusName}
+                            </span>
+                          );
+                        })()}
                       </td>
                       <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500 text-center">
                         {new Date(item.dateAdded).toLocaleDateString('th-TH')}
@@ -1843,7 +1990,7 @@ export default function AdminInventoryPage() {
                     required
                   >
                     <option value="">-- เลือกหมวดหมู่ --</option>
-                    {categories.map((category) => (
+                    {categories.map((category: any) => (
                       <option key={category} value={category}>
                         {category}
                       </option>
@@ -1977,14 +2124,15 @@ export default function AdminInventoryPage() {
                         onChange={handleInputChange}
                         className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 text-gray-900"
                       >
-                        {statuses.map((status) => (
-                          <option key={status} value={status}>
-                            {status === 'active' ? 'ใช้งานได้' : 
-                             status === 'maintenance' ? 'ซ่อมบำรุง' : 
-                             status === 'damaged' ? 'เสียหาย' : 
-                             status === 'retired' ? 'เลิกใช้' : status}
+                        {statusConfigs.length > 0 ? (
+                          getStatusOptions(statusConfigs).map((option) => (
+                            <option key={option.value} value={option.value}>
+                              {option.label}
                           </option>
-                        ))}
+                          ))
+                        ) : (
+                          <option value="" disabled>ไม่มีสถานะในระบบ</option>
+                        )}
                       </select>
                     </div>
 
@@ -2188,7 +2336,7 @@ export default function AdminInventoryPage() {
                     required
                   >
                     <option value="">-- เลือกหมวดหมู่ --</option>
-                    {categories.map((category) => (
+                    {categories.map((category: any) => (
                       <option key={category} value={category}>
                         {category}
                       </option>
@@ -2246,9 +2394,15 @@ export default function AdminInventoryPage() {
                     onChange={handleInputChange}
                     className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 text-gray-900"
                   >
-                    {statuses.map((st) => (
-                      <option key={st} value={st}>{getStatusText(st)}</option>
-                    ))}
+                    {statusConfigs.length > 0 ? (
+                      getStatusOptions(statusConfigs).map((option) => (
+                        <option key={option.value} value={option.value}>
+                          {option.label}
+                        </option>
+                      ))
+                    ) : (
+                      <option value="" disabled>ไม่มีสถานะในระบบ</option>
+                    )}
                   </select>
                 </div>
                 
@@ -2277,188 +2431,186 @@ export default function AdminInventoryPage() {
         {/* Settings Modal */}
         {showSettingsModal && (
           <div className="fixed inset-0 bg-black/30 backdrop-blur-sm flex items-center justify-center z-50">
-            <div className="bg-white/95 backdrop-blur-md p-8 rounded-2xl shadow-2xl max-w-4xl w-full mx-4 border border-white/20 max-h-[90vh] overflow-y-auto">
-              <div className="flex justify-between items-center mb-6">
-                <h3 className="text-xl font-bold text-gray-900">ตั้งค่าหมวดหมู่และสถานะ</h3>
-                <button onClick={() => setShowSettingsModal(false)} className="text-gray-400 hover:text-gray-600">
-                  <X className="w-6 h-6" />
-                </button>
-              </div>
-
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                {/* Categories */}
-                {categoryConfigs.length > 0 ? (
-                  <CategoryConfigList
-                    categoryConfigs={categoryConfigs}
-                    onReorder={reorderCategoryConfigs}
-                    onEdit={updateCategoryConfig}
-                    onDelete={deleteCategoryConfig}
-                    title="หมวดหมู่"
-                    newItemValue={newCategory}
-                    newItemIsSpecial={newCategoryIsSpecial}
-                    onNewItemValueChange={setNewCategory}
-                    onNewItemSpecialChange={setNewCategoryIsSpecial}
-                    onAddNewItem={addNewCategoryConfig}
-                    editingIndex={editingCategoryIndex}
-                    editingValue={editingCategoryValue}
-                    editingIsSpecial={editingCategoryIsSpecial}
-                    onEditingValueChange={setEditingCategoryValue}
-                    onEditingSpecialChange={setEditingCategoryIsSpecial}
-                    onStartEdit={(index) => {
-                      setEditingCategoryIndex(index);
-                      setEditingCategoryValue(categoryConfigs[index].name);
-                      setEditingCategoryIsSpecial(categoryConfigs[index].isSpecial);
-                    }}
-                    onSaveEdit={(index) => {
-                      updateCategoryConfig(index, {
-                        name: editingCategoryValue.trim() || categoryConfigs[index].name,
-                        isSpecial: editingCategoryIsSpecial
-                      });
-                      setEditingCategoryIndex(null);
-                      setEditingCategoryValue('');
-                      setEditingCategoryIsSpecial(false);
-                    }}
-                    onCancelEdit={() => {
-                      setEditingCategoryIndex(null);
-                      setEditingCategoryValue('');
-                      setEditingCategoryIsSpecial(false);
-                    }}
-                  />
-                ) : (
-                  // Fallback to legacy DraggableList if no categoryConfigs
-                  <DraggableList
-                    items={categories}
-                    onReorder={reorderCategoryConfigs}
-                    onEdit={(index, newValue) => {
-                      const updated = [...categories];
-                      updated[index] = newValue;
-                      setCategories(updated);
-                      setHasUnsavedChanges(true);
-                    }}
-                    onDelete={(index) => {
-                      setCategories(categories.filter((_, i) => i !== index));
-                      setHasUnsavedChanges(true);
-                    }}
-                    title="หมวดหมู่"
-                    newItemValue={newCategory}
-                    onNewItemValueChange={setNewCategory}
-                    onAddNewItem={() => {
-                      const v = newCategory.trim();
-                      if (!v) return;
-                      if (categories.includes(v)) {
-                        toast.error('เพิ่มข้อมูลไม่ได้ เนื่องจากข้อมูลซ้ำ', { duration: 4000 });
-                      } else {
-                        setCategories([...categories, v]);
-                        setHasUnsavedChanges(true);
-                      }
-                      setNewCategory('');
-                    }}
-                    editingIndex={editingCategoryIndex}
-                    editingValue={editingCategoryValue}
-                    onEditingValueChange={setEditingCategoryValue}
-                    onStartEdit={(index) => {
-                      setEditingCategoryIndex(index);
-                      setEditingCategoryValue(categories[index]);
-                    }}
-                    onSaveEdit={(index) => {
-                      const next = [...categories];
-                      next[index] = editingCategoryValue.trim() || next[index];
-                      setCategories(next);
-                      setEditingCategoryIndex(null);
-                      setEditingCategoryValue('');
-                      setHasUnsavedChanges(true);
-                    }}
-                    onCancelEdit={() => {
-                      setEditingCategoryIndex(null);
-                      setEditingCategoryValue('');
-                    }}
-                  />
-                )}
-
-                {/* Statuses */}
-                <DraggableList
-                  items={statuses}
-                  onReorder={setStatuses}
-                  onEdit={(index, newValue) => {
-                    const updated = [...statuses];
-                    updated[index] = newValue;
-                    setStatuses(updated);
-                  }}
-                  onDelete={(index) => {
-                    setStatuses(statuses.filter((_, i) => i !== index));
-                  }}
-                  title="สถานะ"
-                  newItemValue={newStatus}
-                  onNewItemValueChange={setNewStatus}
-                  addNewItem={() => {
-                    const v = newStatus.trim();
-                    if (!v) return;
-                    if (statuses.includes(v)) {
-                      toast.error('เพิ่มข้อมูลไม่ได้ เนื่องจากข้อมูลซ้ำ', { duration: 4000 });
-                    } else {
-                      setStatuses([...statuses, v]);
-                    }
-                    setNewStatus('');
-                  }}
-                  onAddNewItem={() => {
-                    const v = newStatus.trim();
-                    if (!v) return;
-                    if (statuses.includes(v)) {
-                      toast.error('เพิ่มข้อมูลไม่ได้ เนื่องจากข้อมูลซ้ำ', { duration: 4000 });
-                    } else {
-                      setStatuses([...statuses, v]);
-                    }
-                    setNewStatus('');
-                  }}
-                  editingIndex={editingStatusIndex}
-                  editingValue={editingStatusValue}
-                  onEditingValueChange={setEditingStatusValue}
-                  onStartEdit={(index) => {
-                    setEditingStatusIndex(index);
-                    setEditingStatusValue(statuses[index]);
-                  }}
-                  onSaveEdit={(index) => {
-                    const next = [...statuses];
-                    next[index] = editingStatusValue.trim() || next[index];
-                    setStatuses(next);
-                    setEditingStatusIndex(null);
-                    setEditingStatusValue('');
-                  }}
-                  onCancelEdit={() => {
-                    setEditingStatusIndex(null);
-                    setEditingStatusValue('');
-                  }}
-                />
-              </div>
-
-              <div className="flex justify-end gap-3 mt-6">
-                {hasUnsavedChanges && (
-                  <div className="flex items-center gap-2 mr-auto">
-                    <div className="w-2 h-2 bg-orange-500 rounded-full animate-pulse"></div>
-                    <span className="text-sm text-orange-600 font-medium">มีการเปลี่ยนแปลงที่ยังไม่ได้บันทึก</span>
+            <div className="bg-white/95 backdrop-blur-md rounded-3xl shadow-2xl max-w-4xl w-full mx-4 border border-white/20 max-h-[90vh] flex flex-col overflow-hidden">
+              {/* Header - Frozen */}
+              <div className="sticky top-0 bg-white/95 backdrop-blur-md border-b border-gray-200 p-6 pb-4 z-10">
+                <div className="flex justify-between items-start">
+                  <div className="flex-1">
+                    <div className="flex items-center gap-3 mb-2">
+                      <h3 className="text-xl font-bold text-gray-900">ตั้งค่าหมวดหมู่และสถานะ</h3>
+                      {hasUnsavedChanges && (
+                        <div className="flex items-center gap-2">
+                          <div className="w-2 h-2 bg-orange-500 rounded-full animate-pulse"></div>
+                          <span className="text-sm text-orange-600 font-medium">มีการเปลี่ยนแปลงที่ยังไม่ได้บันทึก</span>
+                        </div>
+                      )}
+                    </div>
+                    {hasUnsavedChanges && (
+                      <div className="flex items-center gap-2 sm:hidden">
+                        <div className="w-2 h-2 bg-orange-500 rounded-full animate-pulse"></div>
+                        <span className="text-sm text-orange-600 font-medium">มีการเปลี่ยนแปลงที่ยังไม่ได้บันทึก</span>
+                      </div>
+                    )}
                   </div>
-                )}
+                  <button onClick={handleCloseSettingsModal} className="text-gray-400 hover:text-gray-600">
+                    <X className="w-6 h-6" />
+                  </button>
+                </div>
+              </div>
+
+              {/* Content - Scrollable */}
+              <div className="flex-1 overflow-y-auto p-6">
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                {/* Categories Container */}
+                <div className="bg-gray-50 rounded-lg border border-gray-200 overflow-hidden">
+                  <div className="sticky top-0 bg-gray-50 border-b border-gray-200 p-4 z-10">
+                    <div className="flex items-center justify-between">
+                      <h3 className="text-lg font-semibold text-gray-800 flex items-center gap-2">
+                        หมวดหมู่
+                        <span className="text-xs font-normal text-gray-400">
+                          (ลากเพื่อเรียงลำดับ)
+                        </span>
+                      </h3>
+                      <span className="text-sm text-gray-500">{categoryConfigs.length} รายการ</span>
+                    </div>
+                  </div>
+                  <div className="p-4 max-h-80 overflow-y-auto">
+                    <CategoryConfigList
+                      categoryConfigs={categoryConfigs}
+                      onReorder={reorderCategoryConfigs}
+                      onEdit={updateCategoryConfig}
+                      onDelete={deleteCategoryConfig}
+                      title=""
+                      newItemValue={newCategory}
+                      newItemIsSpecial={newCategoryIsSpecial}
+                      onNewItemValueChange={setNewCategory}
+                      onNewItemSpecialChange={setNewCategoryIsSpecial}
+                      onAddNewItem={addNewCategoryConfig}
+                      editingIndex={editingCategoryIndex}
+                      editingValue={editingCategoryValue}
+                      editingIsSpecial={editingCategoryIsSpecial}
+                      onEditingValueChange={setEditingCategoryValue}
+                      onEditingSpecialChange={setEditingCategoryIsSpecial}
+                      onStartEdit={(index) => {
+                        setEditingCategoryIndex(index);
+                        setEditingCategoryValue(categoryConfigs[index].name);
+                        setEditingCategoryIsSpecial(categoryConfigs[index].isSpecial);
+                      }}
+                      onSaveEdit={(index) => {
+                        updateCategoryConfig(index, {
+                          name: editingCategoryValue.trim() || categoryConfigs[index].name,
+                          isSpecial: editingCategoryIsSpecial
+                        });
+                        setEditingCategoryIndex(null);
+                        setEditingCategoryValue('');
+                        setEditingCategoryIsSpecial(false);
+                      }}
+                      onCancelEdit={() => {
+                        setEditingCategoryIndex(null);
+                        setEditingCategoryValue('');
+                        setEditingCategoryIsSpecial(false);
+                      }}
+                    />
+                  </div>
+                </div>
+
+                {/* Status Container */}
+                <div className="bg-gray-50 rounded-lg border border-gray-200 overflow-hidden">
+                  <div className="sticky top-0 bg-gray-50 border-b border-gray-200 p-4 z-10">
+                    <div className="flex items-center justify-between">
+                      <h3 className="text-lg font-semibold text-gray-800 flex items-center gap-2">
+                        สถานะ
+                        <span className="text-xs font-normal text-gray-400">
+                          (ลากเพื่อเรียงลำดับ)
+                        </span>
+                      </h3>
+                      <span className="text-sm text-gray-500">{statusConfigs.length} รายการ</span>
+                    </div>
+                  </div>
+                  <div className="p-4 max-h-80 overflow-y-auto">
+                    {/* Add new status form */}
+                    <div className="mb-3">
+                      <div className="flex gap-2">
+                        <input
+                          type="text"
+                          value={newStatusConfig}
+                          onChange={(e) => setNewStatusConfig(e.target.value)}
+                          placeholder="เพิ่มสถานะใหม่"
+                          className="flex-1 px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm"
+                          onKeyDown={(e) => {
+                            if (e.key === 'Enter' && newStatusConfig.trim()) {
+                              e.preventDefault();
+                              addStatusConfig();
+                            }
+                          }}
+                        />
+                        <button
+                          onClick={addStatusConfig}
+                          disabled={!newStatusConfig.trim()}
+                          className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:bg-gray-300 disabled:cursor-not-allowed transition-colors text-sm font-medium"
+                        >
+                          เพิ่ม
+                        </button>
+                      </div>
+                    </div>
+
+                    <StatusConfigList
+                      statusConfigs={statusConfigs}
+                      onReorder={reorderStatusConfigs}
+                      onEdit={updateStatusConfig}
+                      onDelete={deleteStatusConfig}
+                      title=""
+                    />
+                  </div>
+                </div>
+                </div>
+              </div>
+
+              {/* Footer - Frozen */}
+              <div className="sticky bottom-0 bg-white/95 backdrop-blur-md border-t border-gray-200 p-6 pt-4 z-10">
+                <div className="flex justify-end gap-3">
                 <button
                   onClick={cancelConfigChanges}
-                  className="px-4 py-2 text-gray-700 hover:bg-gray-100 rounded-lg transition-colors"
+                  disabled={cancelLoading || saveLoading}
+                  className={`px-4 py-2 rounded-lg transition-colors flex items-center gap-2 ${
+                    cancelLoading || saveLoading 
+                      ? 'text-gray-400 bg-gray-100 cursor-not-allowed' 
+                      : 'text-gray-700 hover:bg-gray-100'
+                  }`}
                 >
+                  {cancelLoading && (
+                    <div className="w-4 h-4 border-2 border-gray-400/30 border-t-gray-400 rounded-full animate-spin" />
+                  )}
                   {hasUnsavedChanges ? 'ยกเลิกการเปลี่ยนแปลง' : 'ปิด'}
                 </button>
                 <button
                   onClick={saveConfig}
-                  disabled={!hasUnsavedChanges}
-                  className={`px-4 py-2 rounded-lg transition-colors font-medium ${
-                    hasUnsavedChanges 
+                  disabled={!hasUnsavedChanges || saveLoading || cancelLoading}
+                  className={`px-4 py-2 rounded-lg transition-colors font-medium flex items-center gap-2 ${
+                    hasUnsavedChanges && !saveLoading && !cancelLoading
                       ? 'bg-blue-600 hover:bg-blue-700 text-white' 
                       : 'bg-gray-300 text-gray-500 cursor-not-allowed'
                   }`}
                 >
+                  {saveLoading && (
+                    <div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />
+                  )}
                   บันทึกการเปลี่ยนแปลง
                 </button>
+                </div>
               </div>
             </div>
           </div>
         )}
+
+        {/* Status Delete Confirmation Modal */}
+        <StatusDeleteConfirmModal
+          isOpen={showStatusDeleteConfirm}
+          status={deletingStatus}
+          onConfirm={confirmDeleteStatus}
+          onCancel={cancelDeleteStatus}
+          isLoading={statusDeleteLoading}
+        />
 
         {/* Category Delete Confirmation Modal */}
         <CategoryDeleteConfirmModal
