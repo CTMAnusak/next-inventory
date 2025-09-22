@@ -85,8 +85,8 @@ export async function GET(request: NextRequest) {
     const formattedItems = itemsWithCategoryName.map(item => ({
       _id: item._id,
       itemName: item.itemName,
-      categoryId: item.categoryId,
-      category: item.categoryName, // Use enriched category name for backward compatibility
+      categoryId: item.categoryId, // ใช้ categoryId เป็นหลัก
+      // ไม่ส่ง category name ใน API response - ให้ frontend ใช้ categoryId ในการ lookup
       quantity: item.availableQuantity, // จำนวนที่เหลือให้เบิก
       totalQuantity: item.totalQuantity,
       serialNumbers: [], // Will be populated from InventoryItem if needed

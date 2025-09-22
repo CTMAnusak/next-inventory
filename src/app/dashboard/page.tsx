@@ -829,7 +829,7 @@ export default function DashboardPage() {
                       .sort((a, b) => a.order - b.order)
                       .map((config) => (
                       <option key={config.id} value={config.id}>
-                        {config.name} {config.isSpecial ? '(พิเศษ)' : ''}
+                        {config.name}
                       </option>
                     ))}
                     <option value="new">+ เพิ่มหมวดหมู่ใหม่</option>

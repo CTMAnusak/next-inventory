@@ -3,10 +3,9 @@ import mongoose, { Document, Schema } from 'mongoose';
 export interface IInventoryItem extends Document {
   itemName: string;
   categoryId: string;  // ใช้ ID แทน string เพื่อ relational integrity
-  readonly category?: string;   // เก็บไว้ชั่วคราวสำหรับ backward compatibility (readonly)
   serialNumber?: string;        // SN เฉพาะของชิ้นนี้ (ถ้ามี)
   numberPhone?: string;         // เบอร์โทรศัพท์ (สำหรับอุปกรณ์หมวดหมู่ซิมการ์ด)
-  status: 'active' | 'maintenance' | 'damaged' | 'retired' | 'deleted';
+  statusId: string;  // ใช้ ID แทน string เพื่อ relational integrity
   
   // Ownership ปัจจุบัน
   currentOwnership: {
@@ -54,11 +53,6 @@ const InventoryItemSchema = new Schema<IInventoryItem>({
     required: true,
     index: true
   },
-  category: { 
-    type: String, 
-    required: false,  // Optional for backward compatibility
-    index: true
-  },
   serialNumber: { 
     type: String,
     sparse: true   // อนุญาตให้เป็น null/undefined แต่ไม่ enforce unique constraint
@@ -78,10 +72,9 @@ const InventoryItemSchema = new Schema<IInventoryItem>({
       message: 'เบอร์โทรศัพท์ต้องเป็นตัวเลข 10 หลักเท่านั้น'
     }
   },
-  status: { 
+  statusId: { 
     type: String, 
-    enum: ['active', 'maintenance', 'damaged', 'retired', 'deleted'], 
-    default: 'active',
+    required: true,
     index: true
   },
   
@@ -204,11 +197,11 @@ InventoryItemSchema.pre('save', function(next) {
 
 // Static methods สำหรับ common queries
 InventoryItemSchema.statics.findAvailableByName = function(itemName: string) {
-  // 🔧 CRITICAL FIX: Use consistent status filtering
+  // 🔧 CRITICAL FIX: Use statusId for filtering
   return this.find({
     itemName: itemName,
     'currentOwnership.ownerType': 'admin_stock',
-    status: { $in: ['active', 'maintenance', 'damaged'] } // ✅ Exclude soft-deleted items
+    statusId: { $ne: 'deleted' } // ✅ Exclude soft-deleted items using statusId
   });
 };
 
@@ -216,7 +209,7 @@ InventoryItemSchema.statics.findUserOwned = function(userId: string) {
   return this.find({
     'currentOwnership.ownerType': 'user_owned',
     'currentOwnership.userId': userId,
-    status: { $ne: 'retired' }
+    statusId: { $ne: 'retired' } // ใช้ statusId แทน status
   });
 };
 

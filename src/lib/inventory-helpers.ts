@@ -12,7 +12,8 @@ import { INVENTORY_CATEGORIES, isSIMCard } from './inventory-constants';
 // Types
 export interface CreateItemParams {
   itemName: string;
-  category: string;
+  category?: string; // เก็บไว้เพื่อ backward compatibility
+  categoryId?: string; // ใช้ categoryId เป็นหลัก
   serialNumber?: string;
   numberPhone?: string;
   status?: 'active' | 'maintenance' | 'damaged' | 'retired';
@@ -54,6 +55,7 @@ export async function createInventoryItem(params: CreateItemParams) {
   const {
     itemName,
     category,
+    categoryId,
     serialNumber,
     numberPhone,
     status = 'active',
@@ -64,6 +66,10 @@ export async function createInventoryItem(params: CreateItemParams) {
     assignedBy,
     notes
   } = params;
+  
+  // ใช้ categoryId เป็นหลัก แต่ถ้าไม่มีให้ใช้ category name
+  const finalCategory = categoryId || category;
+  console.log('🔍 createInventoryItem - Using category:', finalCategory);
 
   // Enhanced Serial Number validation with Recycle Bin check
   if (serialNumber && serialNumber.trim() !== '') {
@@ -136,7 +142,7 @@ export async function createInventoryItem(params: CreateItemParams) {
   
   console.log('🏗️ Creating new InventoryItem with data:', {
     itemName,
-    category,
+    category: finalCategory,
     serialNumber: cleanSerialNumber,
     numberPhone: cleanNumberPhone,
     status,
@@ -144,29 +150,30 @@ export async function createInventoryItem(params: CreateItemParams) {
     addedBy
   });
   
-  const newItem = new InventoryItem({
-    itemName,
-    category,
-    serialNumber: cleanSerialNumber,
-    numberPhone: cleanNumberPhone,
-    status,
-    
-    currentOwnership: {
-      ownerType: initialOwnerType,
-      userId: userId,
-      ownedSince: new Date(),
-      assignedBy: assignedBy
-    },
-    
-    sourceInfo: {
-      addedBy,
-      addedByUserId,
-      dateAdded: new Date(),
-      initialOwnerType,
-      acquisitionMethod: addedBy === 'user' ? 'self_reported' : 'admin_purchased',
-      notes
-    }
-  });
+   const newItem = new InventoryItem({
+     itemName,
+     categoryId: finalCategory, // ใช้ categoryId เป็นหลัก
+     category: finalCategory, // เก็บ category name ไว้ด้วย
+     serialNumber: cleanSerialNumber,
+     numberPhone: cleanNumberPhone,
+     status,
+     
+     currentOwnership: {
+       ownerType: initialOwnerType,
+       userId: userId,
+       ownedSince: new Date(),
+       assignedBy: assignedBy
+     },
+     
+     sourceInfo: {
+       addedBy,
+       addedByUserId,
+       dateAdded: new Date(),
+       initialOwnerType,
+       acquisitionMethod: addedBy === 'user' ? 'self_reported' : 'admin_purchased',
+       notes
+     }
+   });
   
   console.log('✅ InventoryItem instance created successfully');
 
@@ -178,7 +185,7 @@ export async function createInventoryItem(params: CreateItemParams) {
     // Update InventoryMaster
     console.log('📊 Updating InventoryMaster...');
     try {
-      await updateInventoryMaster(itemName, category);
+      await updateInventoryMaster(itemName, finalCategory);
       console.log('✅ InventoryMaster updated successfully');
     } catch (masterError) {
       console.error('❌ Failed to update InventoryMaster:', masterError);
@@ -341,7 +348,7 @@ export async function refreshAllMasterSummaries() {
       $group: {
         _id: {
           itemName: '$itemName',
-          category: '$category'
+          category: '$categoryId' // ใช้ categoryId แทน category
         }
       }
     }
@@ -360,24 +367,31 @@ export async function refreshAllMasterSummaries() {
  * อัปเดต InventoryMaster สำหรับ item เดียว
  */
 export async function updateInventoryMaster(itemName: string, category: string, options: { skipAutoDetection?: boolean } = {}) {
-  // Find or create the master record
-  let updatedMaster = await InventoryMaster.findOne({ itemName, category });
-  if (!updatedMaster) {
-    updatedMaster = new InventoryMaster({ 
-      itemName, 
-      category,
-      totalQuantity: 0,
-      availableQuantity: 0,
-      userOwnedQuantity: 0
-    });
-  }
+  console.log('🔍 updateInventoryMaster called with:', { itemName, category });
   
-  // Calculate quantities from actual InventoryItems
-  const allItems = await InventoryItem.find({
-    itemName,
-    category,
-    status: { $ne: 'deleted' }
-  });
+  try {
+    // Find or create the master record
+    let updatedMaster = await InventoryMaster.findOne({ itemName, categoryId: category });
+    if (!updatedMaster) {
+      console.log('📦 Creating new InventoryMaster for:', { itemName, category });
+      updatedMaster = new InventoryMaster({ 
+        itemName, 
+        categoryId: category, // ใช้ categoryId แทน category
+        category: category, // เก็บชื่อไว้ด้วย
+        totalQuantity: 0,
+        availableQuantity: 0,
+        userOwnedQuantity: 0
+      });
+    }
+  
+   // Calculate quantities from actual InventoryItems
+   console.log('🔍 Finding InventoryItems for:', { itemName, category });
+   const allItems = await InventoryItem.find({
+     itemName,
+     categoryId: category, // ใช้ categoryId เท่านั้น
+     statusId: { $ne: 'deleted' } // ใช้ statusId เท่านั้น
+   });
+  console.log('📦 Found InventoryItems:', allItems.length);
   
   const adminStockItems = allItems.filter(item => item.currentOwnership.ownerType === 'admin_stock');
   const userOwnedItems = allItems.filter(item => item.currentOwnership.ownerType === 'user_owned');
@@ -396,35 +410,35 @@ export async function updateInventoryMaster(itemName: string, category: string, 
     };
   }
   
-  // Count user-contributed items (items added by users initially)
-  const userContributedItems = await InventoryItem.find({
-    itemName,
-    category,
-    'sourceInfo.addedBy': 'user'
-  });
+   // Count user-contributed items (items added by users initially)
+   const userContributedItems = await InventoryItem.find({
+     itemName,
+     categoryId: category, // ใช้ categoryId
+     'sourceInfo.addedBy': 'user'
+   });
   
   updatedMaster.stockManagement.userContributedCount = userContributedItems.length;
   
-  // Calculate currently allocated (items transferred from admin_stock to user_owned)
-  const allocatedItems = await InventoryItem.find({
-    itemName,
-    category,
-    'currentOwnership.ownerType': 'user_owned',
-    'sourceInfo.addedBy': 'admin' // Only count admin-added items that are now with users
-  });
+   // Calculate currently allocated (items transferred from admin_stock to user_owned)
+   const allocatedItems = await InventoryItem.find({
+     itemName,
+     categoryId: category, // ใช้ categoryId
+     'currentOwnership.ownerType': 'user_owned',
+     'sourceInfo.addedBy': 'admin' // Only count admin-added items that are now with users
+   });
   
   updatedMaster.stockManagement.currentlyAllocated = allocatedItems.length;
   
-  // 🆕 Enhanced Auto-detect admin stock with comprehensive checks
-  // Check actual admin items in stock vs recorded adminDefinedStock
-  // 🔧 CRITICAL FIX: Exclude deleted items from count
-  const actualAdminStockItems = await InventoryItem.find({
-    itemName,
-    category,
-    'sourceInfo.addedBy': 'admin',
-    'currentOwnership.ownerType': 'admin_stock',
-    status: { $ne: 'deleted' } // ✅ Exclude soft-deleted items
-  });
+   // 🆕 Enhanced Auto-detect admin stock with comprehensive checks
+   // Check actual admin items in stock vs recorded adminDefinedStock
+   // 🔧 CRITICAL FIX: Exclude deleted items from count
+   const actualAdminStockItems = await InventoryItem.find({
+     itemName,
+     categoryId: category, // ใช้ categoryId
+     'sourceInfo.addedBy': 'admin',
+     'currentOwnership.ownerType': 'admin_stock',
+     status: { $ne: 'deleted' } // ✅ Exclude soft-deleted items
+   });
   
   const actualAdminStockCount = actualAdminStockItems.length;
   const recordedAdminStock = updatedMaster.stockManagement.adminDefinedStock;
@@ -480,6 +494,11 @@ export async function updateInventoryMaster(itemName: string, category: string, 
   await updatedMaster.save();
   
   return updatedMaster;
+  } catch (error) {
+    console.error('❌ updateInventoryMaster failed:', error);
+    console.error('❌ Error stack:', error instanceof Error ? error.stack : 'No stack trace');
+    throw error;
+  }
 }
 
 /**

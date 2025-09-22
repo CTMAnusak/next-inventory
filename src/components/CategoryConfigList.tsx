@@ -45,6 +45,7 @@ interface CategoryItemProps {
   onEditValueChange: (value: string) => void;
   onEditSpecialChange: (isSpecial: boolean) => void;
   index: number;
+  showBackgroundColors?: boolean;
 }
 
 function CategoryItem({
@@ -60,6 +61,7 @@ function CategoryItem({
   onEditValueChange,
   onEditSpecialChange,
   index,
+  showBackgroundColors = false,
 }: CategoryItemProps) {
   const {
     attributes,
@@ -79,12 +81,14 @@ function CategoryItem({
 
   // Determine background color
   const getBackgroundColor = () => {
+    if (!showBackgroundColors) return '#ffffff'; // Always white when background colors are disabled
     if (config.isSystemCategory) return '#fef3c7'; // Yellow for system categories
     if (config.isSpecial) return '#fed7aa'; // Orange for special categories
     return '#ffffff'; // White for normal categories
   };
 
   const getBorderColor = () => {
+    if (!showBackgroundColors) return 'border-gray-200'; // Always gray when background colors are disabled
     if (config.isSystemCategory) return 'border-yellow-200';
     if (config.isSpecial) return 'border-orange-200';
     return 'border-gray-200';
@@ -155,11 +159,6 @@ function CategoryItem({
              }`}>
                {String(config.name || '')}
              </span>
-            {config.isSpecial && !config.isSystemCategory && (
-              <span className="text-xs bg-orange-200 text-orange-800 px-2 py-1 rounded">
-                พิเศษ
-              </span>
-            )}
             {config.isSystemCategory && (
               <span className="text-xs bg-yellow-200 text-yellow-800 px-2 py-1 rounded">
                 ระบบ
@@ -232,6 +231,7 @@ interface CategoryConfigListProps {
   onStartEdit: (index: number) => void;
   onSaveEdit: (index: number) => void;
   onCancelEdit: () => void;
+  showBackgroundColors?: boolean;
 }
 
 export default function CategoryConfigList({
@@ -253,6 +253,7 @@ export default function CategoryConfigList({
   onStartEdit,
   onSaveEdit,
   onCancelEdit,
+  showBackgroundColors = false,
 }: CategoryConfigListProps) {
   const sensors = useSensors(
     useSensor(PointerSensor, {
@@ -390,6 +391,7 @@ export default function CategoryConfigList({
                     onDelete={onDelete}
                     onEditValueChange={onEditingValueChange}
                     onEditSpecialChange={onEditingSpecialChange}
+                    showBackgroundColors={showBackgroundColors}
                   />
                 );
               })}

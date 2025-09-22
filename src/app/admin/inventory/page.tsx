@@ -2510,6 +2510,7 @@ export default function AdminInventoryPage() {
                         setEditingCategoryValue('');
                         setEditingCategoryIsSpecial(false);
                       }}
+                      showBackgroundColors={true}
                     />
                   </div>
                 </div>

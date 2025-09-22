@@ -95,16 +95,23 @@ export default function EquipmentRequestPage() {
          console.log('🔍 Equipment Request - Inventory items:', items);
          console.log('🔍 Equipment Request - Items with quantity > 0:', items.filter((i: InventoryItem) => i.quantity > 0));
          
-         // Group items by categoryId (not category name)
+         // Group items by categoryId ONLY - ไม่ใช้ category name
          const grouped: {[key: string]: string[]} = {};
          items.forEach((item: InventoryItem) => {
            if (item.quantity > 0) { // Only show items with available stock
-             const categoryId = item.categoryId || item.category; // Use categoryId if available, fallback to category
-             if (!grouped[categoryId]) {
-               grouped[categoryId] = [];
-             }
-             if (!grouped[categoryId].includes(item.itemName)) {
-               grouped[categoryId].push(item.itemName);
+             // ใช้ categoryId เท่านั้น - ไม่ fallback ไป category name
+             const categoryId = item.categoryId;
+             console.log(`🔍 Equipment Request - Item: ${item.itemName}, categoryId: ${categoryId}`);
+             
+             if (categoryId) {
+               if (!grouped[categoryId]) {
+                 grouped[categoryId] = [];
+               }
+               if (!grouped[categoryId].includes(item.itemName)) {
+                 grouped[categoryId].push(item.itemName);
+               }
+             } else {
+               console.warn(`⚠️ Equipment Request - Item ${item.itemName} has no categoryId - ข้อมูลไม่ถูกต้อง`);
              }
            }
          });
@@ -137,6 +144,8 @@ export default function EquipmentRequestPage() {
 
   // Function to handle category selection for item
   const handleCategorySelect = (categoryId: string) => {
+    console.log(`🔍 Equipment Request - Category selected: ${categoryId}`);
+    console.log(`🔍 Equipment Request - Available items for this category:`, itemsByCategory[categoryId]);
     setSelectedCategoryId(categoryId);
     // Clear item ID when category changes
     handleItemChange('itemId', '');
@@ -403,18 +412,24 @@ export default function EquipmentRequestPage() {
                         {categoryConfigs
                           .filter(config => !config.isSystemCategory) // ไม่แสดง "ไม่ระบุ"
                           .sort((a, b) => a.order - b.order)
-                          .map((config) => (
-                          <div
-                            key={config.id}
-                            onClick={() => handleCategorySelect(config.id)}
-                            className={`px-3 py-2 hover:bg-blue-50 cursor-pointer border-b border-gray-100 text-gray-900 ${
-                              config.isSpecial ? 'bg-orange-50 border-orange-200' : ''
-                            }`}
-                          >
-                            {config.name}
-                            {config.isSpecial && <span className="ml-2 text-xs text-orange-600">(พิเศษ)</span>}
-                          </div>
-                        ))}
+                          .map((config) => {
+                            // ตรวจสอบว่ามีอุปกรณ์ในหมวดหมู่นี้หรือไม่ (ใช้ categoryId เท่านั้น)
+                            const hasItems = itemsByCategory[config.id] && itemsByCategory[config.id].length > 0;
+                            
+                            console.log(`🔍 Category ${config.name} (${config.id}): hasItems=${hasItems}, count=${itemsByCategory[config.id]?.length || 0}`);
+                            
+                            return (
+                              <div
+                                key={config.id}
+                                onClick={() => handleCategorySelect(config.id)}
+                                className={`px-3 py-2 hover:bg-blue-50 cursor-pointer border-b border-gray-100 text-gray-900 ${
+                                  !hasItems ? 'opacity-50' : ''
+                                }`}
+                              >
+                                {config.name} {!hasItems ? '(ไม่มีอุปกรณ์)' : `(${itemsByCategory[config.id].length} รายการ)`}
+                              </div>
+                            );
+                          })}
                       </div>
                     )}
                   </div>
@@ -426,35 +441,53 @@ export default function EquipmentRequestPage() {
                     <label className="block text-sm font-medium text-gray-700 mb-1">
                       อุปกรณ์ *
                     </label>
-                    {itemsByCategory[selectedCategoryId] && itemsByCategory[selectedCategoryId].length > 0 ? (
-                      <select
-                        value={getItemDisplayName(requestItem.itemId)}
-                        onChange={(e) => {
-                          const selectedItem = inventoryItems.find(i => i.itemName === e.target.value);
-                          if (selectedItem) {
-                            handleItemSelect(String(selectedItem._id));
-                          }
-                        }}
-                        className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 text-gray-900"
-                        required
-                      >
-                        <option value="">-- เลือกอุปกรณ์ --</option>
-                        {itemsByCategory[selectedCategoryId].map((itemName) => {
-                          const availableQty = inventoryItems
-                            .filter(i => i.itemName === itemName && i.quantity > 0)
-                            .reduce((sum, i) => sum + i.quantity, 0);
-                          return (
-                            <option key={itemName} value={itemName}>
-                              {itemName} (คงเหลือ: {availableQty > 0 ? availableQty : 0} ชิ้น)
-                            </option>
-                          );
-                        })}
-                      </select>
-                    ) : (
-                      <div className="w-full px-3 py-2 border border-gray-300 rounded-md bg-gray-50 text-gray-500 text-sm">
-                        ตอนนี้ยังไม่มีอุปกรณ์ในหมวดหมู่นี้ โปรดติดต่อทีม IT
-                      </div>
-                    )}
+                    {(() => {
+                      console.log(`🔍 Equipment Request - Rendering items for categoryId: ${selectedCategoryId}`);
+                      console.log(`🔍 Equipment Request - itemsByCategory[${selectedCategoryId}]:`, itemsByCategory[selectedCategoryId]);
+                      return null;
+                    })()}
+                    {(() => {
+                      // ใช้ categoryId เท่านั้น - ไม่ใช้ category name
+                      const selectedCategory = categoryConfigs.find(c => c.id === selectedCategoryId);
+                      const availableItems = itemsByCategory[selectedCategoryId];
+                      
+                      console.log(`🔍 Equipment Request - Selected category: ${selectedCategory?.name} (${selectedCategoryId})`);
+                      console.log(`🔍 Equipment Request - Available items:`, availableItems);
+                      
+                      if (availableItems && availableItems.length > 0) {
+                        return (
+                          <select
+                            value={getItemDisplayName(requestItem.itemId)}
+                            onChange={(e) => {
+                              const selectedItem = inventoryItems.find(i => i.itemName === e.target.value);
+                              if (selectedItem) {
+                                handleItemSelect(String(selectedItem._id));
+                              }
+                            }}
+                            className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 text-gray-900"
+                            required
+                          >
+                            <option value="">-- เลือกอุปกรณ์ --</option>
+                            {availableItems.map((itemName) => {
+                              const availableQty = inventoryItems
+                                .filter(i => i.itemName === itemName && i.quantity > 0)
+                                .reduce((sum, i) => sum + i.quantity, 0);
+                              return (
+                                <option key={itemName} value={itemName}>
+                                  {itemName} (คงเหลือ: {availableQty > 0 ? availableQty : 0} ชิ้น)
+                                </option>
+                              );
+                            })}
+                          </select>
+                        );
+                      } else {
+                        return (
+                          <div className="w-full px-3 py-2 border border-gray-300 rounded-md bg-gray-50 text-gray-500 text-sm">
+                            ตอนนี้ยังไม่มีอุปกรณ์ในหมวดหมู่นี้ โปรดติดต่อทีม IT
+                          </div>
+                        );
+                      }
+                    })()}
                   </div>
                 )}
 

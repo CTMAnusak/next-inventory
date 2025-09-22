@@ -82,11 +82,6 @@ export default function CategoryDeleteConfirmModal({
           <span className="font-medium text-gray-900">
             หมวดหมู่: {category.name}
           </span>
-          {category.isSpecial && (
-            <span className="text-xs bg-orange-200 text-orange-800 px-2 py-1 rounded">
-              พิเศษ
-            </span>
-          )}
         </div>
         
         {itemsCount > 0 && (

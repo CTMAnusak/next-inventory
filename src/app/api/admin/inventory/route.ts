@@ -70,7 +70,9 @@ export async function POST(request: NextRequest) {
     await dbConnect();
     
     const body = await request.json();
-    const { itemName, category, quantity, totalQuantity, serialNumber, numberPhone, status } = body;
+    const { itemName, category, categoryId, quantity, totalQuantity, serialNumber, numberPhone, status } = body;
+    
+    console.log('🔍 Admin Inventory API - Request body:', body);
     
     // Get user info from token
     const token = request.cookies.get('auth-token')?.value;
@@ -84,12 +86,16 @@ export async function POST(request: NextRequest) {
     }
 
     // Validate required fields
-    if (!itemName || !category || quantity <= 0) {
+    if (!itemName || (!category && !categoryId) || quantity <= 0) {
       return NextResponse.json(
         { error: 'กรุณากรอกข้อมูลให้ครบถ้วน' },
         { status: 400 }
       );
     }
+    
+    // ใช้ categoryId เป็นหลัก แต่ถ้าไม่มีให้ใช้ category name
+    const finalCategoryId = categoryId || category;
+    console.log('🔍 Admin Inventory API - Using categoryId:', finalCategoryId);
 
     // Check for duplicate serial number or phone number if provided
     // 🔧 CRITICAL FIX: Exclude soft-deleted items from duplicate check
@@ -107,10 +113,10 @@ export async function POST(request: NextRequest) {
     }
     
     // Check for duplicate phone number for SIM cards
-    if (numberPhone && category === 'ซิมการ์ด') {
+    if (numberPhone && (finalCategoryId === 'ซิมการ์ด' || finalCategoryId.includes('ซิม'))) {
       const existingItem = await InventoryItem.findOne({ 
         numberPhone: numberPhone,
-        category: 'ซิมการ์ด',
+        categoryId: finalCategoryId,
         status: { $ne: 'deleted' } // ✅ Exclude soft-deleted items
       });
       if (existingItem) {
@@ -137,7 +143,7 @@ export async function POST(request: NextRequest) {
       // Create single item with serial number or phone number
       itemsToCreate.push({
         itemName,
-        category,
+        categoryId: finalCategoryId, // ใช้ categoryId แทน category
         serialNumber: serialNumber || undefined,
         numberPhone: numberPhone || undefined,
         addedBy: 'admin' as const,
@@ -150,7 +156,7 @@ export async function POST(request: NextRequest) {
       for (let i = 0; i < actualQuantity; i++) {
         itemsToCreate.push({
           itemName,
-          category,
+          categoryId: finalCategoryId, // ใช้ categoryId แทน category
           addedBy: 'admin' as const,
           initialOwnerType: 'admin_stock' as const,
           notes: `Added by admin via inventory management (${i + 1}/${actualQuantity})`
@@ -174,14 +180,16 @@ export async function POST(request: NextRequest) {
       items: createdItems,
       summary: {
         itemName,
-        category,
+        categoryId: finalCategoryId, // ส่ง categoryId แทน category
         quantity: createdItems.length,
         withSerialNumber: createdItems.filter(item => item.serialNumber).length,
         withoutSerialNumber: createdItems.filter(item => !item.serialNumber).length
       }
     }, { status: 201 });
   } catch (error) {
-    console.error('Error creating inventory item:', error);
+    console.error('❌ Error creating inventory item:', error);
+    console.error('❌ Error stack:', error instanceof Error ? error.stack : 'No stack trace');
+    console.error('❌ Error details:', JSON.stringify(error, null, 2));
     
     // Handle enhanced Serial Number and Phone Number validation errors
     if (error instanceof Error) {
