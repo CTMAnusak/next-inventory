@@ -6,7 +6,6 @@ import { X, AlertTriangle, Shield, Trash2 } from 'lucide-react';
 interface ICategoryConfig {
   id: string;
   name: string;
-  isSpecial: boolean;
   isSystemCategory: boolean;
   order: number;
   createdAt: Date;
@@ -36,14 +35,10 @@ export default function CategoryDeleteConfirmModal({
   if (!isOpen || !category) return null;
 
   const isConfirmTextValid = confirmText === 'DELETE';
-  const canProceed = category.isSpecial ? (step === 2 && isConfirmTextValid) : (step === 1);
+  const canProceed = step === 1;
 
   const handleFirstConfirm = () => {
-    if (category.isSpecial) {
-      setStep(2);
-    } else {
-      onConfirm();
-    }
+    onConfirm();
   };
 
   const handleFinalConfirm = () => {
@@ -76,9 +71,6 @@ export default function CategoryDeleteConfirmModal({
 
       <div className="bg-gray-50 rounded-lg p-4 space-y-3">
         <div className="flex items-center gap-2">
-          {category.isSpecial ? (
-            <Shield className="w-4 h-4 text-orange-600" />
-          ) : null}
           <span className="font-medium text-gray-900">
             หมวดหมู่: {category.name}
           </span>
@@ -95,10 +87,7 @@ export default function CategoryDeleteConfirmModal({
       </div>
 
       <p className="text-sm text-gray-600">
-        {category.isSpecial 
-          ? 'นี่เป็นหมวดหมู่พิเศษ คุณแน่ใจหรือไม่ที่ต้องการลบ?'
-          : 'คุณแน่ใจหรือไม่ที่ต้องการลบหมวดหมู่นี้?'
-        }
+        คุณแน่ใจหรือไม่ที่ต้องการลบหมวดหมู่นี้?
       </p>
     </div>
   );
@@ -171,11 +160,6 @@ export default function CategoryDeleteConfirmModal({
             <span className="text-lg font-semibold text-gray-900">
               {step === 1 ? 'ยืนยันการลบ' : 'ยืนยันขั้นสุดท้าย'}
             </span>
-            {category.isSpecial && step === 2 && (
-              <span className="text-xs bg-red-200 text-red-800 px-2 py-1 rounded">
-                ขั้นตอนที่ 2/2
-              </span>
-            )}
           </div>
           <button
             onClick={handleCancel}

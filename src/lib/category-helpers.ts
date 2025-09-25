@@ -18,7 +18,7 @@ export async function getAllCategoryConfigs(): Promise<ICategoryConfig[]> {
   const config = await InventoryConfig.findOne({});
   const categoryConfigs = config?.categoryConfigs || [];
   
-  setCachedData(cacheKey, categoryConfigs, CATEGORY_CACHE_DURATION);
+  setCachedData(cacheKey, categoryConfigs);
   return categoryConfigs;
 }
 
@@ -88,4 +88,16 @@ export async function enrichItemsWithCategoryName<T extends { categoryId: string
 export async function validateCategoryId(categoryId: string): Promise<boolean> {
   const config = await getCategoryConfigById(categoryId);
   return config !== null;
+}
+
+/**
+ * ตรวจสอบว่า categoryId เป็นหมวดหมู่ซิมการ์ดหรือไม่
+ * ใช้ระบบใหม่เท่านั้น (Reference-based system)
+ */
+export async function isSIMCard(categoryId: string): Promise<boolean> {
+  if (!categoryId) return false;
+  
+  // ตรวจสอบจากระบบใหม่ (categoryId)
+  const categoryConfig = await getCategoryConfigById(categoryId);
+  return categoryConfig?.name === 'ซิมการ์ด' || false;
 }

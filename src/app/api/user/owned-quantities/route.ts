@@ -42,13 +42,13 @@ export async function GET(request: NextRequest) {
     const itemGroups = new Map();
     
     for (const item of userOwnedItems) {
-      const key = `${item.itemName}-${item.category}`;
+      const key = `${item.itemName}-${item.categoryId}`;
       
       if (!itemGroups.has(key)) {
         itemGroups.set(key, {
           _id: item._id,
           itemName: item.itemName,
-          category: item.category,
+          categoryId: item.categoryId,
           quantity: 0,
           serialNumbers: [],
           status: item.status,

@@ -38,7 +38,7 @@ export async function POST(request: NextRequest) {
   try {
     await dbConnect();
     const body = await request.json();
-    const { name, isSpecial } = body as { name: string; isSpecial?: boolean };
+    const { name } = body as { name: string };
     
     if (!name || !name.trim()) {
       return NextResponse.json({ error: 'ชื่อหมวดหมู่จำเป็นต้องระบุ' }, { status: 400 });
@@ -60,8 +60,6 @@ export async function POST(request: NextRequest) {
     const newCategory: ICategoryConfig = {
       id: generateCategoryId(),
       name: name.trim(),
-      isSpecial: Boolean(isSpecial),
-      backgroundColor: isSpecial ? '#fed7aa' : '#ffffff', // Orange for special, white for normal
       isSystemCategory: false,
       order: nextOrder,
       createdAt: new Date(),
@@ -76,7 +74,7 @@ export async function POST(request: NextRequest) {
     
     await config.save();
     
-    console.log(`✅ Created new category: ${name} (special: ${isSpecial})`);
+    console.log(`✅ Created new category: ${name}`);
     
     return NextResponse.json({ 
       success: true, 

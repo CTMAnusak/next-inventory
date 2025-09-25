@@ -58,7 +58,7 @@ export async function POST(request: NextRequest) {
     } else if (itemName && category) {
       // Refresh specific item
       console.log(`🔄 Refreshing InventoryMaster for: ${itemName} (${category})`);
-      const result = await updateInventoryMaster(itemName, category);
+      const result = await updateInventoryMaster(itemName, category); // category is actually categoryId here
       
       console.log(`✅ Refreshed InventoryMaster for ${itemName}:`, {
         totalQuantity: result.totalQuantity,

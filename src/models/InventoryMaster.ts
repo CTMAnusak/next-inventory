@@ -3,7 +3,6 @@ import mongoose, { Document, Schema } from 'mongoose';
 export interface IInventoryMaster extends Document {
   itemName: string;
   categoryId: string;  // ใช้ ID แทน string เพื่อ relational integrity
-  readonly category?: string;   // เก็บไว้ชั่วคราวสำหรับ backward compatibility (readonly)
   hasSerialNumber: boolean;     // บอกว่าประเภทนี้มี SN หรือไม่
   
   // สถิติรวม
@@ -56,11 +55,6 @@ const InventoryMasterSchema = new Schema<IInventoryMaster>({
   categoryId: { 
     type: String, 
     required: true,
-    index: true
-  },
-  category: { 
-    type: String, 
-    required: false,  // Optional for backward compatibility
     index: true
   },
   hasSerialNumber: {

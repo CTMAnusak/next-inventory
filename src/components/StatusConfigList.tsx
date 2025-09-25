@@ -26,6 +26,7 @@ interface IStatusConfig {
   id: string;
   name: string;
   order: number;
+  isSystemConfig?: boolean;
   createdAt: Date;
   updatedAt: Date;
 }
@@ -102,10 +103,15 @@ function StatusItem({
             />
           </div>
         ) : (
-          <div className="flex items-center gap-2">
+          <div className="flex items-center justify-between">
             <span className="text-sm font-medium text-gray-900 truncate">
-              {config.name}
+              {index + 1}. {config.name}
             </span>
+            {config.isSystemConfig && (
+              <span className="text-xs bg-blue-100 text-blue-800 px-2 py-1 rounded ml-2">
+                ระบบ
+              </span>
+            )}
           </div>
         )}
       </div>
@@ -133,18 +139,20 @@ function StatusItem({
           <>
             <button
               onClick={() => onEdit(index)}
-              className="p-1 text-blue-600 hover:text-blue-800 hover:bg-blue-50 rounded transition-colors opacity-0 group-hover:opacity-100"
+              className="p-1 text-blue-600 hover:text-blue-800 hover:bg-blue-50 rounded transition-colors"
               title="แก้ไข"
             >
               <Edit3 size={16} />
             </button>
-            <button
-              onClick={() => onDelete(index)}
-              className="p-1 text-red-600 hover:text-red-800 hover:bg-red-50 rounded transition-colors opacity-0 group-hover:opacity-100"
-              title="ลบ"
-            >
-              <Trash2 size={16} />
-            </button>
+            {!config.isSystemConfig && (
+              <button
+                onClick={() => onDelete(index)}
+                className="p-1 text-red-600 hover:text-red-800 hover:bg-red-50 rounded transition-colors"
+                title="ลบ"
+              >
+                <Trash2 size={16} />
+              </button>
+            )}
           </>
         )}
       </div>
@@ -259,22 +267,50 @@ export default function StatusConfigList({
             items={sortedConfigs.map(config => config.id)} 
             strategy={verticalListSortingStrategy}
           >
-            <div className="space-y-1">
-              {sortedConfigs.map((config, index) => (
-                <StatusItem
-                  key={config.id}
-                  id={config.id}
-                  config={config}
-                  index={index}
-                  isEditing={editingIndex === index}
-                  editValue={editValue}
-                  onEdit={handleEdit}
-                  onSave={handleSave}
-                  onCancel={handleCancel}
-                  onDelete={handleDelete}
-                  onEditValueChange={setEditValue}
-                />
-              ))}
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              {/* First Column */}
+              <div className="space-y-1">
+                {sortedConfigs.slice(0, Math.ceil(sortedConfigs.length / 2)).map((config, index) => {
+                  const actualIndex = index; // First column uses direct index
+                  return (
+                    <StatusItem
+                      key={config.id}
+                      id={config.id}
+                      config={config}
+                      index={actualIndex}
+                      isEditing={editingIndex === actualIndex}
+                      editValue={editValue}
+                      onEdit={handleEdit}
+                      onSave={handleSave}
+                      onCancel={handleCancel}
+                      onDelete={handleDelete}
+                      onEditValueChange={setEditValue}
+                    />
+                  );
+                })}
+              </div>
+              
+              {/* Second Column */}
+              <div className="space-y-1">
+                {sortedConfigs.slice(Math.ceil(sortedConfigs.length / 2)).map((config, index) => {
+                  const actualIndex = Math.ceil(sortedConfigs.length / 2) + index;
+                  return (
+                    <StatusItem
+                      key={config.id}
+                      id={config.id}
+                      config={config}
+                      index={actualIndex}
+                      isEditing={editingIndex === actualIndex}
+                      editValue={editValue}
+                      onEdit={handleEdit}
+                      onSave={handleSave}
+                      onCancel={handleCancel}
+                      onDelete={handleDelete}
+                      onEditValueChange={setEditValue}
+                    />
+                  );
+                })}
+              </div>
             </div>
           </SortableContext>
         </DndContext>

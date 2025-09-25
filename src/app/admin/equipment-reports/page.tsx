@@ -53,6 +53,9 @@ interface RequestLog {
     category?: string;     // Item category
     serialNumbers?: string[];
     assignedSerialNumbers?: string[]; // Serial numbers assigned by admin
+    statusOnRequest?: string; // เพิ่ม statusOnRequest property
+    conditionOnRequest?: string; // เพิ่ม conditionOnRequest property
+    assignedPhoneNumbers?: string[]; // เพิ่ม assignedPhoneNumbers property
   }>;
   submittedAt: string;
   status?: 'pending' | 'completed'; // เพิ่ม status
@@ -65,14 +68,19 @@ interface ReturnLog {
   nickname: string;
   department: string;
   office: string;
+  phoneNumber?: string; // เพิ่ม phoneNumber property
   returnDate: string;
   items: Array<{
     itemId: string;        // Primary reference to inventory
     itemName: string;      // Current name from inventory
     quantity: number;
+    category?: string;     // เพิ่ม category property
     serialNumber?: string; // Single serial number (แก้ไขจาก serialNumbers)
     assetNumber?: string;
     image?: string;
+    statusOnReturn?: string; // เพิ่ม statusOnReturn property
+    conditionOnReturn?: string; // เพิ่ม conditionOnReturn property
+    numberPhone?: string; // เพิ่ม numberPhone property
   }>;
   submittedAt: string;
   status?: 'pending' | 'completed'; // เพิ่ม status สำหรับการแสดงสถานะ
@@ -414,12 +422,17 @@ export default function AdminEquipmentReportsPage() {
     setCurrentPage(1);
   };
 
-  // Get current item name from inventory or fallback to stored name
+  // Get item name prioritizing stored name (historical accuracy)
   const getCurrentItemName = (item: any) => {
+    // Use stored itemName if available (historical record)
+    if (item.itemName) {
+      return item.itemName;
+    }
+    // Fallback to current inventory name if no stored name
     if (item.itemId && inventoryItems[item.itemId]) {
       return inventoryItems[item.itemId];
     }
-    return item.itemName || 'Unknown Item';
+    return 'Unknown Item';
   };
 
   const exportToExcel = () => {
@@ -445,7 +458,7 @@ export default function AdminEquipmentReportsPage() {
 
   return (
     <Layout>
-      <div className="max-w-7xl mx-auto">
+      <div className="w-full max-w-9/10 mx-auto">
         <div className="bg-white/90 backdrop-blur-sm rounded-2xl shadow-xl p-8 border border-white/50">
           {/* Header */}
           <div className="flex flex-col justify-between items-center mb-7 xl:flex-row">
@@ -598,28 +611,43 @@ export default function AdminEquipmentReportsPage() {
                 <thead className="bg-blue-600">
                   <tr>
                     <th className="px-6 py-3 text-center text-xs font-medium text-white uppercase tracking-wider">
-                      วันที่
+                      วันที่เบิก
                     </th>
                     <th className="px-6 py-3 text-center text-xs font-medium text-white uppercase tracking-wider">
-                      ชื่ออุปกรณ์
+                      ชื่อผู้เบิก
                     </th>
                     <th className="px-6 py-3 text-center text-xs font-medium text-white uppercase tracking-wider">
-                      จำนวน
-                    </th>
-                    <th className="px-6 py-3 text-center text-xs font-medium text-white uppercase tracking-wider">
-                      Serial Numbers
-                    </th>
-                    <th className="px-6 py-3 text-center text-xs font-medium text-white uppercase tracking-wider">
-                      ชื่อ
+                      ชื่อเล่น
                     </th>
                     <th className="px-6 py-3 text-center text-xs font-medium text-white uppercase tracking-wider">
                       แผนก
                     </th>
                     <th className="px-6 py-3 text-center text-xs font-medium text-white uppercase tracking-wider">
-                      สาขา
+                      ออฟฟิศ/สาขา
                     </th>
                     <th className="px-6 py-3 text-center text-xs font-medium text-white uppercase tracking-wider">
-                      เหตุผล
+                      เบอร์โทร
+                    </th>
+                    <th className="px-6 py-3 text-center text-xs font-medium text-white uppercase tracking-wider">
+                      ชื่ออุปกรณ์
+                    </th>
+                    <th className="px-6 py-3 text-center text-xs font-medium text-white uppercase tracking-wider">
+                      หมวดหมู่
+                    </th>
+                    <th className="px-6 py-3 text-center text-xs font-medium text-white uppercase tracking-wider">
+                      สภาพ
+                    </th>
+                    <th className="px-6 py-3 text-center text-xs font-medium text-white uppercase tracking-wider">
+                      สถานะ
+                    </th>
+                    <th className="px-6 py-3 text-center text-xs font-medium text-white uppercase tracking-wider">
+                      Serial Number
+                    </th>
+                    <th className="px-6 py-3 text-center text-xs font-medium text-white uppercase tracking-wider">
+                      Phone Number
+                    </th>
+                    <th className="px-6 py-3 text-center text-xs font-medium text-white uppercase tracking-wider">
+                      จำนวน
                     </th>
                     <th className="px-6 py-3 text-center text-xs font-medium text-white uppercase tracking-wider">
                       ความเร่งด่วน
@@ -628,17 +656,17 @@ export default function AdminEquipmentReportsPage() {
                       สถานที่จัดส่ง
                     </th>
                     <th className="px-6 py-3 text-center text-xs font-medium text-white uppercase tracking-wider">
-                      เบอร์โทร
+                      เหตุผลการเบิก
                     </th>
                     <th className="px-6 py-3 text-center text-xs font-medium text-white uppercase tracking-wider">
-                      ดำเนินการ
+                      การดำเนินการ
                     </th>
                   </tr>
                 </thead>
                 <tbody className="bg-white divide-y divide-gray-200">
                   {loading && (
                     <tr>
-                      <td colSpan={12} className="px-6 py-8 text-center text-gray-500">
+                      <td colSpan={17} className="px-6 py-8 text-center text-gray-500">
                         <RefreshCw className="inline-block w-4 h-4 mr-2 animate-spin text-gray-400" />
                         กำลังโหลดข้อมูล
                       </td>
@@ -646,7 +674,7 @@ export default function AdminEquipmentReportsPage() {
                   )}
                   {!loading && currentItems.length === 0 && (
                     <tr>
-                      <td colSpan={12} className="px-6 py-8 text-center text-gray-500">ไม่พบข้อมูล</td>
+                      <td colSpan={17} className="px-6 py-8 text-center text-gray-500">ไม่พบข้อมูล</td>
                     </tr>
                   )}
                   {currentItems.map((log, logIndex) => {
@@ -655,66 +683,11 @@ export default function AdminEquipmentReportsPage() {
                       <tr key={`${requestLog._id}-${itemIndex}`} className={logIndex % 2 === 0 ? 'bg-white' : 'bg-blue-50'}>
                         {itemIndex === 0 && (
                           <>
+                            {/* วันที่เบิก */}
                             <td rowSpan={requestLog.items.length} className="px-6 py-4 text-sm text-gray-500 text-center text-selectable">
                               {new Date(requestLog.requestDate).toLocaleDateString('th-TH')}
                             </td>
-                          </>
-                        )}
-                        <td className="px-6 py-4 text-sm font-medium text-gray-900 text-center text-selectable">
-                          {getCurrentItemName(item)}
-                        </td>
-                        <td className="px-6 py-4 text-sm text-gray-500 text-center text-selectable">
-                          {item.quantity}
-                        </td>
-                        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500 text-center">
-                          <div className="flex flex-col gap-2">
-                            {/* Serial Numbers ที่ user ขอมา */}
-                            {Array.isArray(item.serialNumbers) && item.serialNumbers.length > 0 && (
-                              <div>
-                                <div className="text-xs text-gray-600 font-medium mb-1">ที่ user ขอ:</div>
-                                <div className="flex flex-col gap-1">
-                                  {item.serialNumbers.slice(0, 2).map((sn, idx) => (
-                                    <span key={idx} className="text-xs bg-orange-100 text-orange-800 px-2 py-1 rounded">
-                                      {sn}
-                                    </span>
-                                  ))}
-                                  {item.serialNumbers.length > 2 && (
-                                    <span className="text-xs text-gray-500">
-                                      +{item.serialNumbers.length - 2} อื่นๆ
-                                    </span>
-                                  )}
-                                </div>
-                              </div>
-                            )}
-                            
-                            {/* Serial Numbers ที่ admin assign ให้ */}
-                            {Array.isArray(item.assignedSerialNumbers) && item.assignedSerialNumbers.length > 0 && (
-                              <div>
-                                <div className="text-xs text-gray-600 font-medium mb-1">ที่ admin ให้:</div>
-                                <div className="flex flex-col gap-1">
-                                  {item.assignedSerialNumbers.slice(0, 2).map((sn, idx) => (
-                                    <span key={idx} className="text-xs bg-green-100 text-green-800 px-2 py-1 rounded">
-                                      {sn}
-                                    </span>
-                                  ))}
-                                  {item.assignedSerialNumbers.length > 2 && (
-                                    <span className="text-xs text-gray-500">
-                                      +{item.assignedSerialNumbers.length - 2} อื่นๆ
-                                    </span>
-                                  )}
-                                </div>
-                              </div>
-                            )}
-
-                            {/* ถ้าไม่มี SN ทั้งคู่ */}
-                            {!((Array.isArray(item.serialNumbers) && item.serialNumbers.length > 0) ||
-                                (Array.isArray(item.assignedSerialNumbers) && item.assignedSerialNumbers.length > 0)) && (
-                              <span>-</span>
-                            )}
-                          </div>
-                        </td>
-                        {itemIndex === 0 && (
-                          <>
+                            {/* ชื่อผู้เบิก */}
                             <td rowSpan={requestLog.items.length} className="px-6 py-4 text-sm text-center text-selectable">
                               <div className={
                                 (requestLog as any).userId?.pendingDeletion 
@@ -726,7 +699,6 @@ export default function AdminEquipmentReportsPage() {
                                 {requestLog.firstName && requestLog.lastName ? (
                                   <>
                                     {requestLog.firstName} {requestLog.lastName}
-                                    {requestLog.nickname && ` (${requestLog.nickname})`}
                                     {(requestLog as any).userId?.pendingDeletion && ' (รอลบ)'}
                                   </>
                                 ) : (
@@ -734,17 +706,82 @@ export default function AdminEquipmentReportsPage() {
                                 )}
                               </div>
                             </td>
+                            {/* ชื่อเล่น */}
                             <td rowSpan={requestLog.items.length} className="px-6 py-4 text-sm text-gray-500 text-center text-selectable">
-                              {requestLog.department}
+                              {requestLog.nickname || '-'}
                             </td>
+                            {/* แผนก */}
                             <td rowSpan={requestLog.items.length} className="px-6 py-4 text-sm text-gray-500 text-center text-selectable">
-                              {requestLog.office}
+                              {requestLog.department || '-'}
                             </td>
-                            <td rowSpan={requestLog.items.length} className="px-6 py-4 text-sm text-gray-500 text-center">
-                              <div className="max-w-xs truncate" title={requestLog.reason}>
-                                {requestLog.reason}
-                              </div>
+                            {/* ออฟฟิศ/สาขา */}
+                            <td rowSpan={requestLog.items.length} className="px-6 py-4 text-sm text-gray-500 text-center text-selectable">
+                              {requestLog.office || '-'}
                             </td>
+                            {/* เบอร์โทร */}
+                            <td rowSpan={requestLog.items.length} className="px-6 py-4 text-sm text-gray-500 text-center text-selectable">
+                              {requestLog.phone || '-'}
+                            </td>
+                          </>
+                        )}
+                        {/* ชื่ออุปกรณ์ */}
+                        <td className="px-6 py-4 text-sm font-medium text-gray-900 text-center text-selectable">
+                          {getCurrentItemName(item)}
+                        </td>
+                        {/* หมวดหมู่ */}
+                        <td className="px-6 py-4 text-sm text-gray-500 text-center text-selectable">
+                          {item.category || '-'}
+                        </td>
+                        {/* สภาพ */}
+                        <td className="px-6 py-4 text-sm text-gray-500 text-center text-selectable">
+                          {item.statusOnRequest || '-'}
+                        </td>
+                        {/* สถานะ */}
+                        <td className="px-6 py-4 text-sm text-gray-500 text-center text-selectable">
+                          {item.conditionOnRequest || '-'}
+                        </td>
+                        {/* Serial Number */}
+                        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500 text-center">
+                          <div className="flex flex-col gap-1">
+                            {/* Serial Numbers ที่ admin assign ให้ (รวมกับที่ user ขอ) */}
+                            {Array.isArray(item.assignedSerialNumbers) && item.assignedSerialNumbers.length > 0 ? (
+                              item.assignedSerialNumbers.map((sn, idx) => (
+                                <span key={idx} className="text-xs bg-green-100 text-green-800 px-2 py-1 rounded">
+                                  {sn}
+                                </span>
+                              ))
+                            ) : Array.isArray(item.serialNumbers) && item.serialNumbers.length > 0 ? (
+                              item.serialNumbers.map((sn, idx) => (
+                                <span key={idx} className="text-xs bg-orange-100 text-orange-800 px-2 py-1 rounded">
+                                  {sn}
+                                </span>
+                              ))
+                            ) : (
+                              <span>-</span>
+                            )}
+                          </div>
+                        </td>
+                        {/* Phone Number */}
+                        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500 text-center">
+                          <div className="flex flex-col gap-1">
+                            {Array.isArray(item.assignedPhoneNumbers) && item.assignedPhoneNumbers.length > 0 ? (
+                              item.assignedPhoneNumbers.map((phone, idx) => (
+                                <span key={idx} className="text-xs bg-blue-100 text-blue-800 px-2 py-1 rounded">
+                                  {phone}
+                                </span>
+                              ))
+                            ) : (
+                              <span>-</span>
+                            )}
+                          </div>
+                        </td>
+                        {/* จำนวน */}
+                        <td className="px-6 py-4 text-sm text-gray-500 text-center text-selectable">
+                          {item.quantity}
+                        </td>
+                        {itemIndex === 0 && (
+                          <>
+                            {/* ความเร่งด่วน */}
                             <td rowSpan={requestLog.items.length} className="px-6 py-4 whitespace-nowrap text-center">
                               <span className={`inline-flex px-2 py-1 text-xs font-semibold rounded-full ${
                                 requestLog.urgency === 'very_urgent' 
@@ -754,12 +791,17 @@ export default function AdminEquipmentReportsPage() {
                                 {requestLog.urgency === 'very_urgent' ? 'ด่วนมาก' : 'ปกติ'}
                               </span>
                             </td>
+                            {/* สถานที่จัดส่ง */}
                             <td rowSpan={requestLog.items.length} className="px-6 py-4 text-sm text-gray-500 text-center text-selectable">
-                              {requestLog.deliveryLocation}
+                              {requestLog.deliveryLocation || '-'}
                             </td>
-                            <td rowSpan={requestLog.items.length} className="px-6 py-4 text-sm text-gray-500 text-center text-selectable">
-                              {requestLog.phone}
+                            {/* เหตุผลการเบิก */}
+                            <td rowSpan={requestLog.items.length} className="px-6 py-4 text-sm text-gray-500 text-center">
+                              <div className="max-w-xs truncate" title={requestLog.reason}>
+                                {requestLog.reason || '-'}
+                              </div>
                             </td>
+                            {/* การดำเนินการ */}
                             <td rowSpan={requestLog.items.length} className="px-6 py-4 whitespace-nowrap text-center">
                               {requestLog.status === 'completed' ? (
                                 <span className="inline-flex items-center px-3 py-1 rounded-full text-xs font-medium bg-green-100 text-green-800">
@@ -791,38 +833,56 @@ export default function AdminEquipmentReportsPage() {
                       วันที่คืน
                     </th>
                     <th className="px-6 py-3 text-center text-xs font-medium text-white uppercase tracking-wider">
-                      ชื่อ
+                      ชื่อผู้คืน
+                    </th>
+                    <th className="px-6 py-3 text-center text-xs font-medium text-white uppercase tracking-wider">
+                      ชื่อเล่น
                     </th>
                     <th className="px-6 py-3 text-center text-xs font-medium text-white uppercase tracking-wider">
                       แผนก
                     </th>
-                                          <th className="px-6 py-3 text-center text-xs font-medium text-white uppercase tracking-wider">
-                        ออฟฟิศ/สาขา
-                      </th>
-                      <th className="px-6 py-3 text-center text-xs font-medium text-white uppercase tracking-wider">
-                        ชื่ออุปกรณ์
-                      </th>
-                      <th className="px-6 py-3 text-center text-xs font-medium text-white uppercase tracking-wider">
-                        Serial Numbers
-                      </th>
-                      <th className="px-6 py-3 text-center text-xs font-medium text-white uppercase tracking-wider">
-                        เลขทรัพย์สิน
-                      </th>
-                      <th className="px-6 py-3 text-center text-xs font-medium text-white uppercase tracking-wider">
-                        จำนวน
-                      </th>
-                      <th className="px-6 py-3 text-center text-xs font-medium text-white uppercase tracking-wider">
-                        รูปภาพ
-                      </th>
-                      <th className="px-6 py-3 text-center text-xs font-medium text-white uppercase tracking-wider">
-                        การดำเนินการ
-                      </th>
+                    <th className="px-6 py-3 text-center text-xs font-medium text-white uppercase tracking-wider">
+                      ออฟฟิศ/สาขา
+                    </th>
+                    <th className="px-6 py-3 text-center text-xs font-medium text-white uppercase tracking-wider">
+                      เบอร์โทร
+                    </th>
+                    <th className="px-6 py-3 text-center text-xs font-medium text-white uppercase tracking-wider">
+                      ชื่ออุปกรณ์
+                    </th>
+                    <th className="px-6 py-3 text-center text-xs font-medium text-white uppercase tracking-wider">
+                      หมวดหมู่
+                    </th>
+                    <th className="px-6 py-3 text-center text-xs font-medium text-white uppercase tracking-wider">
+                      สภาพ
+                    </th>
+                    <th className="px-6 py-3 text-center text-xs font-medium text-white uppercase tracking-wider">
+                      สถานะ
+                    </th>
+                    <th className="px-6 py-3 text-center text-xs font-medium text-white uppercase tracking-wider">
+                      Serial Number
+                    </th>
+                    <th className="px-6 py-3 text-center text-xs font-medium text-white uppercase tracking-wider">
+                      Phone Number
+                    </th>
+                    <th className="px-6 py-3 text-center text-xs font-medium text-white uppercase tracking-wider">
+                      เลขทรัพย์สิน
+                    </th>
+                    <th className="px-6 py-3 text-center text-xs font-medium text-white uppercase tracking-wider">
+                      จำนวน
+                    </th>
+                    <th className="px-6 py-3 text-center text-xs font-medium text-white uppercase tracking-wider">
+                      รูปภาพ
+                    </th>
+                    <th className="px-6 py-3 text-center text-xs font-medium text-white uppercase tracking-wider">
+                      การดำเนินการ
+                    </th>
                   </tr>
                 </thead>
                 <tbody className="bg-white divide-y divide-gray-200">
                   {loading && (
                     <tr>
-                      <td colSpan={10} className="px-6 py-8 text-center text-gray-500">
+                      <td colSpan={16} className="px-6 py-8 text-center text-gray-500">
                         <RefreshCw className="inline-block w-4 h-4 mr-2 animate-spin text-gray-400" />
                         กำลังโหลดข้อมูล
                       </td>
@@ -830,7 +890,7 @@ export default function AdminEquipmentReportsPage() {
                   )}
                   {!loading && currentItems.length === 0 && (
                     <tr>
-                      <td colSpan={10} className="px-6 py-8 text-center text-gray-500">ไม่พบข้อมูล</td>
+                      <td colSpan={16} className="px-6 py-8 text-center text-gray-500">ไม่พบข้อมูล</td>
                     </tr>
                   )}
                   {currentItems.map((log, logIndex) => {
@@ -839,9 +899,11 @@ export default function AdminEquipmentReportsPage() {
                       <tr key={`${returnLog._id}-${itemIndex}`} className={logIndex % 2 === 0 ? 'bg-white' : 'bg-blue-50'}>
                         {itemIndex === 0 && (
                           <>
+                            {/* วันที่คืน */}
                             <td rowSpan={returnLog.items.length} className="px-6 py-4 text-sm text-gray-500 text-center text-selectable">
                               {new Date(returnLog.returnDate).toLocaleDateString('th-TH')}
                             </td>
+                            {/* ชื่อผู้คืน */}
                             <td rowSpan={returnLog.items.length} className="px-6 py-4 text-sm text-center text-selectable">
                               <div className={
                                 (returnLog as any).userId?.pendingDeletion 
@@ -853,7 +915,6 @@ export default function AdminEquipmentReportsPage() {
                                 {returnLog.firstName && returnLog.lastName ? (
                                   <>
                                     {returnLog.firstName} {returnLog.lastName}
-                                    {returnLog.nickname && ` (${returnLog.nickname})`}
                                     {(returnLog as any).userId?.pendingDeletion && ' (รอลบ)'}
                                   </>
                                 ) : (
@@ -861,17 +922,41 @@ export default function AdminEquipmentReportsPage() {
                                 )}
                               </div>
                             </td>
+                            {/* ชื่อเล่น */}
+                            <td rowSpan={returnLog.items.length} className="px-6 py-4 text-sm text-gray-500 text-center text-selectable">
+                              {returnLog.nickname || '-'}
+                            </td>
+                            {/* แผนก */}
                             <td rowSpan={returnLog.items.length} className="px-6 py-4 text-sm text-gray-500 text-center text-selectable">
                               {returnLog.department || '-'}
                             </td>
+                            {/* ออฟฟิศ/สาขา */}
                             <td rowSpan={returnLog.items.length} className="px-6 py-4 text-sm text-gray-500 text-center text-selectable">
-                              {returnLog.office}
+                              {returnLog.office || '-'}
+                            </td>
+                            {/* เบอร์โทร */}
+                            <td rowSpan={returnLog.items.length} className="px-6 py-4 text-sm text-gray-500 text-center text-selectable">
+                              {returnLog.phoneNumber || '-'}
                             </td>
                           </>
                         )}
+                        {/* ชื่ออุปกรณ์ */}
                         <td className="px-6 py-4 text-sm font-medium text-gray-900 text-center text-selectable">
                           {getCurrentItemName(item)}
                         </td>
+                        {/* หมวดหมู่ */}
+                        <td className="px-6 py-4 text-sm text-gray-500 text-center text-selectable">
+                          {item.category || '-'}
+                        </td>
+                        {/* สภาพ */}
+                        <td className="px-6 py-4 text-sm text-gray-500 text-center text-selectable">
+                          {item.statusOnReturn || '-'}
+                        </td>
+                        {/* สถานะ */}
+                        <td className="px-6 py-4 text-sm text-gray-500 text-center text-selectable">
+                          {item.conditionOnReturn || '-'}
+                        </td>
+                        {/* Serial Number */}
                         <td className="px-6 py-4 text-sm text-gray-500 text-center text-selectable">
                           {item.serialNumber ? (
                             <span className="text-xs bg-blue-100 text-blue-800 px-2 py-1 rounded">
@@ -881,12 +966,25 @@ export default function AdminEquipmentReportsPage() {
                             '-'
                           )}
                         </td>
+                        {/* Phone Number */}
+                        <td className="px-6 py-4 text-sm text-gray-500 text-center text-selectable">
+                          {item.numberPhone ? (
+                            <span className="text-xs bg-green-100 text-green-800 px-2 py-1 rounded">
+                              {item.numberPhone}
+                            </span>
+                          ) : (
+                            '-'
+                          )}
+                        </td>
+                        {/* เลขทรัพย์สิน */}
                         <td className="px-6 py-4 text-sm text-gray-500 text-center text-selectable">
                           {item.assetNumber || '-'}
                         </td>
+                        {/* จำนวน */}
                         <td className="px-6 py-4 text-sm text-gray-500 text-center text-selectable">
                           {item.quantity}
                         </td>
+                        {/* รูปภาพ */}
                         <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500 text-center">
                           {item.image ? (
                             <button

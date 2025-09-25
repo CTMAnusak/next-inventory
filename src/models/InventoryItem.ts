@@ -166,7 +166,6 @@ const InventoryItemSchema = new Schema<IInventoryItem>({
 
 // Indexes สำหรับ performance
 InventoryItemSchema.index({ itemName: 1, categoryId: 1 });
-InventoryItemSchema.index({ itemName: 1, category: 1 }); // Keep for backward compatibility
 InventoryItemSchema.index({ 'currentOwnership.ownerType': 1, 'currentOwnership.userId': 1 });
 InventoryItemSchema.index({ 'sourceInfo.addedBy': 1, 'sourceInfo.addedByUserId': 1 });
 

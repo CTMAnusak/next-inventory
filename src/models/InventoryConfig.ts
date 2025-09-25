@@ -3,7 +3,6 @@ import mongoose, { Schema, Document } from 'mongoose';
 export interface ICategoryConfig {
   id: string;                    // Unique identifier for the category
   name: string;                  // Display name of the category
-  isSpecial: boolean;            // Whether this is a special category (requires 2-step deletion)
   isSystemCategory: boolean;     // System categories cannot be deleted (e.g., "ไม่ระบุ")
   order: number;                 // Display order
   createdAt: Date;
@@ -11,83 +10,84 @@ export interface ICategoryConfig {
 }
 
 export interface IStatusConfig {
-  id: string;                    // Unique identifier for the status
+  id: string;                    // Unique identifier for the status (สภาพอุปกรณ์: มี/หาย)
   name: string;                  // Display name of the status
   order: number;                 // Display order for drag & drop
+  isSystemConfig: boolean;       // System configs cannot be deleted
+  createdAt: Date;
+  updatedAt: Date;
+}
+
+export interface IConditionConfig {
+  id: string;                    // Unique identifier for the condition (สถานะอุปกรณ์: ใช้งานได้/ชำรุด)
+  name: string;                  // Display name of the condition
+  order: number;                 // Display order for drag & drop
+  isSystemConfig: boolean;       // System configs cannot be deleted
   createdAt: Date;
   updatedAt: Date;
 }
 
 export interface IInventoryConfig extends Document {
-  // ✅ เหลือแค่ 2 fields หลัก - แต่ละ config มี timestamps แล้ว
-  statusConfigs: IStatusConfig[];   // New status system with ID support
-  categoryConfigs: ICategoryConfig[];
+  statusConfigs: IStatusConfig[];      // สภาพอุปกรณ์ (มี/หาย)
+  conditionConfigs: IConditionConfig[]; // สถานะอุปกรณ์ (ใช้งานได้/ชำรุด)
+  categoryConfigs: ICategoryConfig[];   // หมวดหมู่อุปกรณ์
 }
 
-// ❌ ลบ DEFAULT_STATUSES - ไม่ใช้แล้ว
+// Default status configurations (สภาพอุปกรณ์)
+export const DEFAULT_STATUS_CONFIGS: IStatusConfig[] = [
+  {
+    id: 'status_available',
+    name: 'มี',
+    order: 1,
+    isSystemConfig: true,
+    createdAt: new Date(),
+    updatedAt: new Date()
+  },
+  {
+    id: 'status_missing',
+    name: 'หาย',
+    order: 2,
+    isSystemConfig: true,
+    createdAt: new Date(),
+    updatedAt: new Date()
+  }
+];
 
-// Default category configurations
+// Default condition configurations (สถานะอุปกรณ์)
+const DEFAULT_CONDITION_CONFIGS: IConditionConfig[] = [
+  {
+    id: 'cond_working',
+    name: 'ใช้งานได้',
+    order: 1,
+    isSystemConfig: true,
+    createdAt: new Date(),
+    updatedAt: new Date()
+  },
+  {
+    id: 'cond_damaged',
+    name: 'ชำรุด',
+    order: 2,
+    isSystemConfig: true,
+    createdAt: new Date(),
+    updatedAt: new Date()
+  }
+];
+
+// Default category configurations - มี "ซิมการ์ด" และ "ไม่ระบุ"
 const DEFAULT_CATEGORY_CONFIGS: ICategoryConfig[] = [
   {
-    id: 'cat_computer',
-    name: 'คอมพิวเตอร์และแล็ปท็อป',
-    isSpecial: false,
-    isSystemCategory: false,
-    order: 1,
-    createdAt: new Date(),
-    updatedAt: new Date()
-  },
-  {
-    id: 'cat_network',
-    name: 'อุปกรณ์เครือข่าย',
-    isSpecial: false,
-    isSystemCategory: false,
-    order: 2,
-    createdAt: new Date(),
-    updatedAt: new Date()
-  },
-  {
-    id: 'cat_printer',
-    name: 'ปริ้นเตอร์และสแกนเนอร์',
-    isSpecial: false,
-    isSystemCategory: false,
-    order: 3,
-    createdAt: new Date(),
-    updatedAt: new Date()
-  },
-  {
-    id: 'cat_accessories',
-    name: 'อุปกรณ์เสริม',
-    isSpecial: false,
-    isSystemCategory: false,
-    order: 4,
-    createdAt: new Date(),
-    updatedAt: new Date()
-  },
-  {
-    id: 'cat_software',
-    name: 'ซอฟต์แวร์',
-    isSpecial: false,
-    isSystemCategory: false,
-    order: 5,
-    createdAt: new Date(),
-    updatedAt: new Date()
-  },
-  {
-    id: 'cat_other',
-    name: 'อื่นๆ',
-    isSpecial: false,
-    isSystemCategory: false,
-    order: 6,
+    id: 'cat_sim_card',
+    name: 'ซิมการ์ด',
+    isSystemCategory: true, // Cannot be deleted
+    order: 1, // Top priority (can be reordered)
     createdAt: new Date(),
     updatedAt: new Date()
   },
   {
     id: 'cat_unassigned',
     name: 'ไม่ระบุ',
-    isSpecial: false,
     isSystemCategory: true, // Cannot be deleted
-    order: 999, // Always at the bottom
+    order: 999, // Always at the bottom (cannot be reordered)
     createdAt: new Date(),
     updatedAt: new Date()
   }
@@ -104,10 +104,6 @@ const CategoryConfigSchema = new Schema<ICategoryConfig>({
     type: String, 
     required: true 
   },
-  isSpecial: { 
-    type: Boolean, 
-    default: false 
-  },
   isSystemCategory: { 
     type: Boolean, 
     default: false 
@@ -118,12 +114,12 @@ const CategoryConfigSchema = new Schema<ICategoryConfig>({
   }
 }, { timestamps: true });
 
-// Schema for status configuration
+// Schema for status configuration (สภาพอุปกรณ์)
 const StatusConfigSchema = new Schema<IStatusConfig>({
   id: { 
     type: String, 
     required: true,
-    unique: false // Will be unique within the parent document
+    unique: false
   },
   name: { 
     type: String, 
@@ -132,22 +128,49 @@ const StatusConfigSchema = new Schema<IStatusConfig>({
   order: { 
     type: Number, 
     required: true 
+  },
+  isSystemConfig: {
+    type: Boolean,
+    default: false
+  }
+}, { timestamps: true });
+
+// Schema for condition configuration (สถานะอุปกรณ์)
+const ConditionConfigSchema = new Schema<IConditionConfig>({
+  id: { 
+    type: String, 
+    required: true,
+    unique: false
+  },
+  name: { 
+    type: String, 
+    required: true 
+  },
+  order: { 
+    type: Number, 
+    required: true 
+  },
+  isSystemConfig: {
+    type: Boolean,
+    default: false
   }
 }, { timestamps: true });
 
 const InventoryConfigSchema = new Schema<IInventoryConfig>(
   {
-    // ✅ เหลือแค่ 2 fields หลัก - ไม่มี timestamps, ไม่มี statuses เก่า
     statusConfigs: {
       type: [StatusConfigSchema],
-      default: [] // No default - will be populated from database only
+      default: DEFAULT_STATUS_CONFIGS
+    },
+    conditionConfigs: {
+      type: [ConditionConfigSchema], 
+      default: DEFAULT_CONDITION_CONFIGS
     },
     categoryConfigs: {
       type: [CategoryConfigSchema],
       default: DEFAULT_CATEGORY_CONFIGS
     }
   }
-  // ❌ ลบ { timestamps: true } - แต่ละ config มี timestamps แล้ว
 );
 
 // Helper functions for category management
@@ -155,11 +178,10 @@ export const generateCategoryId = (): string => {
   return `cat_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
 };
 
-export const createDefaultCategoryConfig = (name: string, order: number, isSpecial: boolean = false): ICategoryConfig => {
+export const createDefaultCategoryConfig = (name: string, order: number): ICategoryConfig => {
   return {
     id: generateCategoryId(),
     name,
-    isSpecial,
     isSystemCategory: false,
     order,
     createdAt: new Date(),
@@ -167,7 +189,7 @@ export const createDefaultCategoryConfig = (name: string, order: number, isSpeci
   };
 };
 
-// Helper functions for status management
+// Helper functions for status management (สภาพอุปกรณ์)
 export const generateStatusId = (): string => {
   return `status_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
 };
@@ -177,6 +199,23 @@ export const createStatusConfig = (name: string, order: number): IStatusConfig =
     id: generateStatusId(),
     name,
     order,
+    isSystemConfig: false,
+    createdAt: new Date(),
+    updatedAt: new Date()
+  };
+};
+
+// Helper functions for condition management (สถานะอุปกรณ์)
+export const generateConditionId = (): string => {
+  return `cond_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
+};
+
+export const createConditionConfig = (name: string, order: number): IConditionConfig => {
+  return {
+    id: generateConditionId(),
+    name,
+    order,
+    isSystemConfig: false,
     createdAt: new Date(),
     updatedAt: new Date()
   };
@@ -195,7 +234,7 @@ InventoryConfigSchema.statics.getCategoryConfig = function(categoryId: string) {
   ]);
 };
 
-// Static methods for status management
+// Static methods for status management (สภาพอุปกรณ์)
 InventoryConfigSchema.statics.findStatusById = function(statusId: string) {
   return this.findOne({ 'statusConfigs.id': statusId });
 };
@@ -208,6 +247,19 @@ InventoryConfigSchema.statics.getStatusConfig = function(statusId: string) {
   ]);
 };
 
+// Static methods for condition management (สถานะอุปกรณ์)
+InventoryConfigSchema.statics.findConditionById = function(conditionId: string) {
+  return this.findOne({ 'conditionConfigs.id': conditionId });
+};
+
+InventoryConfigSchema.statics.getConditionConfig = function(conditionId: string) {
+  return this.aggregate([
+    { $unwind: '$conditionConfigs' },
+    { $match: { 'conditionConfigs.id': conditionId } },
+    { $replaceRoot: { newRoot: '$conditionConfigs' } }
+  ]);
+};
+
 // Export the model
 const InventoryConfig = mongoose.models.InventoryConfig ||
   mongoose.model<IInventoryConfig>('InventoryConfig', InventoryConfigSchema);
@@ -215,6 +267,9 @@ const InventoryConfig = mongoose.models.InventoryConfig ||
 export default InventoryConfig;
 
 // Export constants for use in other parts of the application
-export { DEFAULT_CATEGORY_CONFIGS };
+export { 
+  DEFAULT_CATEGORY_CONFIGS, 
+  DEFAULT_CONDITION_CONFIGS 
+};
 
 

@@ -27,7 +27,6 @@ interface InventoryItem {
 interface ICategoryConfig {
   id: string;
   name: string;
-  isSpecial: boolean;
   isSystemCategory: boolean;
   order: number;
   createdAt: Date;

@@ -1,160 +1,16 @@
 import { NextRequest, NextResponse } from 'next/server';
 import dbConnect from '@/lib/mongodb';
-import RequestLog from '@/models/RequestLog';
-import ReturnLog from '@/models/ReturnLog';
-import { InventoryItem } from '@/models/InventoryItem';
-import InventoryMaster from '@/models/InventoryMaster';
-import Inventory from '@/models/Inventory';
+import { InventoryItem } from '@/models/InventoryItemNew';
+import ItemMaster from '@/models/ItemMaster';
+import InventoryConfig from '@/models/InventoryConfig';
 import { verifyToken } from '@/lib/auth';
-import { createInventoryItem } from '@/lib/inventory-helpers';
 
-// GET: list owned equipment for a user (from InventoryItem only)
+// GET - ดึงอุปกรณ์ที่ User เป็นเจ้าของ
 export async function GET(request: NextRequest) {
   try {
-    const { searchParams } = new URL(request.url);
-    const userId = searchParams.get('userId') || '';
-    const firstName = searchParams.get('firstName') || '';
-    const lastName = searchParams.get('lastName') || '';
-    const office = searchParams.get('office') || '';
-
     await dbConnect();
-
-    // ตรวจสอบว่า user อยู่ในสถานะ pendingDeletion หรือไม่
-    if (userId) {
-      const { default: User } = await import('@/models/User');
-      const user = await User.findOne({ user_id: userId });
-      if (user && user.pendingDeletion) {
-        console.log(`🚫 User ${userId} is pending deletion, blocking owned equipment access`);
-        return NextResponse.json(
-          { error: 'บัญชีของคุณอยู่ในสถานะรอลบ ไม่สามารถเข้าถึงข้อมูลได้' },
-          { status: 403 }
-        );
-      }
-    }
-
-    // Build filter for RequestLog
-    const requestFilter: any = {};
     
-    if (userId) {
-      requestFilter.userId = userId;
-    } else if (firstName && lastName) {
-      requestFilter.firstName = firstName;
-      requestFilter.lastName = lastName;
-      if (office) {
-        requestFilter.office = office;
-      }
-    } else {
-      return NextResponse.json({ items: [] });
-    }
-
-    // Determine userId to search for
-    const userIdToFind = userId || `${firstName}-${lastName}`;
-
-    // Get current user-owned items from InventoryItem (single source of truth)
-    // Use lean() for better performance and limit fields
-    const userOwnedInventoryItems = await InventoryItem.find({
-      'currentOwnership.ownerType': 'user_owned',
-      'currentOwnership.userId': userIdToFind
-    })
-    .select('itemName category serialNumber numberPhone currentOwnership _id')
-    .lean();
-
-    console.log(`🔍 Found ${userOwnedInventoryItems.length} user-owned InventoryItems for user: ${userIdToFind}`);
-
-    // Always use InventoryItem as the source of truth (new system)
-    console.log('✅ Using InventoryItem data (new system) as source of truth');
-    
-    if (userOwnedInventoryItems.length > 0) {
-      console.log(`📦 Found ${userOwnedInventoryItems.length} user-owned InventoryItems - building response`);
-      
-      // Build list from InventoryItem only
-      const inventoryItemGroups: { [key: string]: any } = {};
-      
-      userOwnedInventoryItems.forEach(item => {
-        // Skip corrupted items
-        if (!item.itemName || item.itemName === 'Unknown Item' || !item.category || item.category === 'ไม่ระบุ') {
-          console.warn(`⚠️ Skipping corrupted InventoryItem: ${item._id}`);
-          return;
-        }
-        
-        const groupKey = `${item.itemName}-${item.category}`;
-        
-        if (!inventoryItemGroups[groupKey]) {
-          inventoryItemGroups[groupKey] = {
-            _id: item._id.toString(),
-            itemId: item._id.toString(),
-            itemName: item.itemName,
-            category: item.category,
-            displayName: item.itemName,
-            displayCategory: item.category,
-            totalQuantity: 0,
-            serialNumbers: [],
-            phoneNumbers: [], // สำหรับซิมการ์ด
-            items: [],
-            itemIdMap: {}, // Map serial number to actual itemId
-            phoneIdMap: {}, // Map phone number to actual itemId
-            requestDate: item.currentOwnership.ownedSince,
-            searchText: `${item.itemName} ${item.category} ${item.serialNumber || ''} ${item.numberPhone || ''}`.toLowerCase()
-          };
-        }
-        
-        // Store itemId mapping for each serial number, phone number, or no-SN items BEFORE incrementing totalQuantity
-        if (item.serialNumber) {
-          inventoryItemGroups[groupKey].serialNumbers.push(item.serialNumber);
-          inventoryItemGroups[groupKey].itemIdMap[item.serialNumber] = item._id.toString();
-        } else if (item.numberPhone) {
-          inventoryItemGroups[groupKey].phoneNumbers.push(item.numberPhone);
-          inventoryItemGroups[groupKey].phoneIdMap[item.numberPhone] = item._id.toString();
-        } else {
-          // For items without serial numbers or phone numbers, store directly in the group
-          // Since there's no SN to distinguish, we'll store the first item's ID as default
-          if (!inventoryItemGroups[groupKey].defaultItemId) {
-            inventoryItemGroups[groupKey].defaultItemId = item._id.toString();
-          }
-          // Use current totalQuantity as counter for proper indexing (starts from 0)
-          const currentNoSnCount = inventoryItemGroups[groupKey].totalQuantity || 0;
-          const noSnKey = `no_sn_${currentNoSnCount}`;
-          inventoryItemGroups[groupKey].itemIdMap[noSnKey] = item._id.toString();
-          
-          console.log(`🔍 Mapping no-SN item: ${noSnKey} -> ${item._id.toString()}`);
-        }
-        
-        inventoryItemGroups[groupKey].totalQuantity = (inventoryItemGroups[groupKey].totalQuantity || 0) + 1;
-        
-        inventoryItemGroups[groupKey].items.push({
-          requestId: 'inventory-item',
-          quantity: 1,
-          serialNumbers: item.serialNumber ? [item.serialNumber] : [],
-          requestDate: item.currentOwnership.ownedSince,
-          source: 'inventory-item',
-          actualItemId: item._id.toString() // Store actual itemId for each item
-        });
-        
-        console.log(`🔍 Added InventoryItem: ${item.itemName} (${item.serialNumber || 'No SN'}) with itemId: ${item._id}`);
-      });
-      
-      const finalEquipment = Object.values(inventoryItemGroups);
-      console.log('📤 Returning InventoryItem-based equipment:', finalEquipment);
-      
-      return NextResponse.json({ items: finalEquipment });
-    } else {
-      // No InventoryItems found - user has no equipment
-      console.log('📤 No InventoryItems found - user has no equipment');
-      return NextResponse.json({ items: [] });
-    }
-
-  } catch (error) {
-    console.error('Fetch owned equipment error:', error);
-    return NextResponse.json({ items: [] }, { status: 200 });
-  }
-}
-
-// POST: add equipment as "owned" (creates InventoryItem directly)
-export async function POST(request: NextRequest) {
-  try {
-    const equipmentData = await request.json();
-    
-    // Get user info from token
+    // Verify user token
     const token = request.cookies.get('auth-token')?.value;
     const payload: any = token ? verifyToken(token) : null;
     
@@ -164,101 +20,164 @@ export async function POST(request: NextRequest) {
         { status: 401 }
       );
     }
-
-    console.log('🔍 POST /api/user/owned-equipment - Received data:', equipmentData);
-
-    // Check if we have itemName and category, or need to resolve from itemId
-    let itemName = equipmentData.itemName;
-    let category = equipmentData.category;
     
-    if (!itemName || !category) {
-      if (!equipmentData.itemId) {
-        return NextResponse.json(
-          { error: 'กรุณาระบุข้อมูลอุปกรณ์ (itemName + category หรือ itemId)' },
-          { status: 400 }
-        );
-      }
-      
-      // Try to find item details from InventoryMaster using itemId
-      try {
-        const inventoryMaster = await InventoryMaster.findById(equipmentData.itemId);
-        if (inventoryMaster) {
-          itemName = inventoryMaster.itemName;
-          category = inventoryMaster.category;
-          console.log('🔍 Resolved from InventoryMaster:', { itemName, category });
-        } else {
-          return NextResponse.json(
-            { error: 'ไม่พบข้อมูลอุปกรณ์ที่ระบุ' },
-            { status: 400 }
-          );
-        }
-      } catch (error) {
-        console.error('Error finding InventoryMaster:', error);
-        return NextResponse.json(
-          { error: 'เกิดข้อผิดพลาดในการค้นหาข้อมูลอุปกรณ์' },
-          { status: 500 }
-        );
-      }
-    }
+    const userId = payload.userId;
+    
+    // Get user's owned items
+    const ownedItems = await InventoryItem.find({
+      'currentOwnership.ownerType': 'user_owned',
+      'currentOwnership.userId': userId,
+      deletedAt: { $exists: false }
+    }).sort({ 'currentOwnership.ownedSince': -1 });
+    
+    // Get configurations for display
+    const config = await InventoryConfig.findOne({});
+    const statusConfigs = config?.statusConfigs || [];
+    const conditionConfigs = config?.conditionConfigs || [];
+    const categoryConfigs = config?.categoryConfigs || [];
+    
+    // Populate item data with ItemMaster and configuration info
+    const populatedItems = await Promise.all(
+      ownedItems.map(async (item) => {
+        const itemMaster = await ItemMaster.findById(item.itemMasterId);
+        const statusConfig = statusConfigs.find(s => s.id === item.statusId);
+        const conditionConfig = conditionConfigs.find(c => c.id === item.conditionId);
+        const categoryConfig = categoryConfigs.find(c => c.id === itemMaster?.categoryId);
+        
+        return {
+          _id: item._id,
+          itemMasterId: item.itemMasterId,
+          itemName: itemMaster?.itemName || 'ไม่ระบุ',
+          categoryId: itemMaster?.categoryId || 'ไม่ระบุ',
+          categoryName: categoryConfig?.name || 'ไม่ระบุ',
+          serialNumber: item.serialNumber,
+          numberPhone: item.numberPhone,
+          statusId: item.statusId,
+          statusName: statusConfig?.name || 'ไม่ระบุ',
+          statusColor: statusConfig?.color || '#6B7280',
+          conditionId: item.conditionId,
+          conditionName: conditionConfig?.name || 'ไม่ระบุ',
+          conditionColor: conditionConfig?.color || '#6B7280',
+          currentOwnership: item.currentOwnership,
+          sourceInfo: item.sourceInfo,
+          createdAt: item.createdAt,
+          updatedAt: item.updatedAt
+        };
+      })
+    );
+    
+    return NextResponse.json({
+      items: populatedItems,
+      totalCount: populatedItems.length
+    });
+    
+  } catch (error) {
+    console.error('Error fetching owned equipment:', error);
+    return NextResponse.json(
+      { error: 'เกิดข้อผิดพลาดในการดึงข้อมูลอุปกรณ์' },
+      { status: 500 }
+    );
+  }
+}
 
+// POST - เพิ่มอุปกรณ์ที่มี (User)
+export async function POST(request: NextRequest) {
+  try {
+    // Verify user token
+    const token = request.cookies.get('auth-token')?.value;
+    const payload: any = token ? verifyToken(token) : null;
+    
+    if (!payload) {
+      return NextResponse.json(
+        { error: 'กรุณาเข้าสู่ระบบ' },
+        { status: 401 }
+      );
+    }
+    
+    await dbConnect();
+    
+    const equipmentData = await request.json();
+    const {
+      itemName,
+      categoryId,
+      serialNumber,
+      numberPhone,
+      statusId = 'status_available',
+      conditionId = 'cond_working',
+      quantity = 1,
+      notes
+    } = equipmentData;
+    
     // Validate required fields
-    if (!equipmentData.quantity || parseInt(equipmentData.quantity) <= 0) {
+    if (!itemName || !categoryId) {
+      return NextResponse.json(
+        { error: 'กรุณาระบุชื่ออุปกรณ์และหมวดหมู่' },
+        { status: 400 }
+      );
+    }
+    
+    if (!quantity || quantity <= 0) {
       return NextResponse.json(
         { error: 'กรุณาระบุจำนวนที่ถูกต้อง' },
         { status: 400 }
       );
     }
-
-    await dbConnect();
-
-    const quantity = parseInt(equipmentData.quantity) || 1;
+    
+    // Use the new inventory helper
+    const { createInventoryItem } = await import('@/lib/inventory-helpers');
+    
     const createdItems = [];
-
-    // Create InventoryItems for each quantity
+    
+    // Create multiple items if quantity > 1
     for (let i = 0; i < quantity; i++) {
-      const serialNumber = equipmentData.serialNumber && equipmentData.serialNumber.trim() !== '' 
-        ? equipmentData.serialNumber.trim() 
-        : undefined;
-      
-      console.log(`🔄 Creating InventoryItem ${i + 1}/${quantity}:`, {
+      const itemData = {
         itemName,
-        category,
-        serialNumber,
-        userId: payload.userId
-      });
-
-      try {
-        const inventoryItem = await createInventoryItem({
-          itemName,
-          category,
-          serialNumber,
-          initialOwnerType: 'user_owned',
-          userId: payload.userId,
-          addedBy: 'user',
-          addedByUserId: payload.userId,
-          notes: 'อุปกรณ์ที่ผู้ใช้เพิ่มเอง'
-        });
-
-        createdItems.push(inventoryItem);
-        console.log(`✅ Created InventoryItem: ${inventoryItem._id} for ${itemName}`);
-      } catch (error) {
-        console.error(`❌ Error creating InventoryItem ${i + 1}:`, error);
-        throw error;
-      }
+        categoryId,
+        serialNumber: i === 0 ? serialNumber : undefined, // Only first item gets serial number
+        numberPhone: i === 0 ? numberPhone : undefined,   // Only first item gets phone number
+        statusId,
+        conditionId,
+        addedBy: 'user' as const,
+        addedByUserId: payload.userId,
+        initialOwnerType: 'user_owned' as const,
+        userId: payload.userId,
+        notes: notes || undefined
+      };
+      
+      const newItem = await createInventoryItem(itemData);
+      createdItems.push(newItem);
     }
-
-    console.log(`🎉 Successfully created ${createdItems.length} InventoryItems for user ${payload.userId}`);
-
+    
     return NextResponse.json({
       message: `เพิ่มอุปกรณ์เรียบร้อยแล้ว ${quantity} ชิ้น`,
       createdItems: createdItems.length,
       itemIds: createdItems.map(item => item._id.toString())
     });
-
+    
   } catch (error) {
     console.error('Add owned equipment error:', error);
+    
+    // Handle specific error types
+    if (error instanceof Error) {
+      if (error.message.includes('Serial Number')) {
+        return NextResponse.json(
+          { error: error.message },
+          { status: 400 }
+        );
+      }
+      if (error.message.includes('Phone Number')) {
+        return NextResponse.json(
+          { error: error.message },
+          { status: 400 }
+        );
+      }
+    }
+    
     return NextResponse.json(
-      { error: 'เกิดข้อผิดพลาดในระบบ: ' + (error instanceof Error ? error.message : 'Unknown error') },
+      { 
+        error: 'เกิดข้อผิดพลาดในการเพิ่มอุปกรณ์', 
+        details: process.env.NODE_ENV === 'development' ? String(error) : undefined 
+      },
       { status: 500 }
     );
   }

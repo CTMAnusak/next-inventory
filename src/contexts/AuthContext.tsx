@@ -47,7 +47,9 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       }
 
       // ใช้ API auth check ที่แก้ไขแล้ว
-      const response = await fetch('/api/auth/check');
+      const response = await fetch('/api/auth/check', {
+        credentials: 'include' // เพิ่ม credentials เพื่อส่ง cookies
+      });
       
       if (response.ok) {
         const data = await response.json();
@@ -75,6 +77,10 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       }
     } catch (error) {
       // Silent fail - this is normal when not authenticated
+      // Only log errors that are not 401 (unauthorized)
+      if (error instanceof Error && !error.message.includes('401')) {
+        console.error('Auth check error:', error);
+      }
       setUser(null);
     } finally {
       setLoading(false);

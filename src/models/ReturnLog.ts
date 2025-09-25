@@ -4,12 +4,16 @@ export interface IReturnItem {
   itemId: string;       // Primary reference to inventory item (legacy)
   inventoryItemId?: string; // Reference to InventoryItem._id (new system)
   quantity: number;
+  itemName?: string;    // Item name when returned
+  category?: string;    // Category when returned
   masterItemId?: string; // Reference to InventoryMaster._id for consistency
   serialNumber?: string; // Serial Number (ถ้ามี)
   numberPhone?: string; // Phone Number (สำหรับซิมการ์ด)
   assetNumber?: string; // เลขทรัพย์สิน
   image?: string; // รูปภาพ
-  condition?: 'good' | 'damaged' | 'needs_repair'; // สภาพของที่คืน
+  condition?: 'good' | 'damaged' | 'needs_repair'; // สภาพของที่คืน (legacy)
+  statusOnReturn?: string; // สภาพเมื่อคืน (มี/หาย) - ระบบใหม่
+  conditionOnReturn?: string; // สถานะเมื่อคืน (ใช้งานได้/ชำรุด) - ระบบใหม่
 }
 
 export interface IReturnLog extends Document {
@@ -39,16 +43,20 @@ const ReturnItemSchema = new Schema<IReturnItem>({
   itemId: { type: String, required: true },         // Primary reference to inventory (legacy)
   inventoryItemId: { type: String },                // Reference to InventoryItem._id (new system)
   quantity: { type: Number, required: true, min: 1 },
+  itemName: { type: String },                       // Item name when returned
+  category: { type: String },                       // Category when returned
   masterItemId: { type: String },                   // Reference to InventoryMaster._id
   serialNumber: { type: String },                   // Serial Number
   numberPhone: { type: String },                    // Phone Number (สำหรับซิมการ์ด)
   assetNumber: { type: String },
   image: { type: String },                          // path ของรูปภาพ
-  condition: { 
+  condition: {                                      // Legacy field
     type: String, 
     enum: ['good', 'damaged', 'needs_repair'],
     default: 'good'
-  }
+  },
+  statusOnReturn: { type: String },                 // สภาพเมื่อคืน (มี/หาย) - ระบบใหม่
+  conditionOnReturn: { type: String }               // สถานะเมื่อคืน (ใช้งานได้/ชำรุด) - ระบบใหม่
 });
 
 const ReturnLogSchema = new Schema<IReturnLog>({

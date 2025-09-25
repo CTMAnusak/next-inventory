@@ -120,7 +120,7 @@ export async function restoreFromRecycleBin(params: RestoreFromRecycleBinParams)
     }
     
     // อัปเดต InventoryMaster (ข้าม auto-detection เพื่อป้องกันการสร้างรายการเพิ่ม)
-    await updateInventoryMaster(recycleBinItem.itemName, recycleBinItem.category, { skipAutoDetection: true });
+    await updateInventoryMaster(recycleBinItem.itemName, recycleBinItem.categoryId, { skipAutoDetection: true });
     
     // ลบข้อมูลออกจากถังขยะ (เนื่องจากกู้คืนเสร็จแล้ว)
     await RecycleBin.findByIdAndDelete(recycleBinId);
@@ -187,7 +187,7 @@ export async function restoreFromRecycleBin(params: RestoreFromRecycleBinParams)
     }
     
     // อัปเดต InventoryMaster (ข้าม auto-detection เพื่อป้องกันการสร้างรายการเพิ่ม)
-    await updateInventoryMaster(recycleBinItem.itemName, recycleBinItem.category, { skipAutoDetection: true });
+    await updateInventoryMaster(recycleBinItem.itemName, recycleBinItem.categoryId, { skipAutoDetection: true });
     
     // ลบข้อมูลทั้งหมดของ category นี้ออกจากถังขยะ (เนื่องจากกู้คืนเสร็จแล้ว)
     const deleteResult = await RecycleBin.deleteMany({

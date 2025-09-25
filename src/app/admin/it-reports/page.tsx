@@ -337,7 +337,7 @@ export default function AdminITReportsPage() {
 
   return (
     <Layout>
-      <div className="max-w-7xl mx-auto">
+      <div className="max-w-full mx-auto">
         <div className="bg-white/90 backdrop-blur-sm rounded-2xl shadow-xl p-8 border border-white/50">
           {/* Header */}
           <div className="flex flex-col justify-between items-center mb-7 xl:flex-row">

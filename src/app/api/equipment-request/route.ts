@@ -1,11 +1,10 @@
 import { NextRequest, NextResponse } from 'next/server';
 import dbConnect from '@/lib/mongodb';
-import mongoose from 'mongoose';
-
 import RequestLog from '@/models/RequestLog';
 import { verifyToken } from '@/lib/auth';
-import InventoryMaster from '@/models/InventoryMaster';
-// Removed unused cache import
+import { InventoryMaster } from '@/models/InventoryMasterNew';
+import ItemMaster from '@/models/ItemMaster';
+import { findAvailableItems } from '@/lib/inventory-helpers';
 
 export async function POST(request: NextRequest) {
   try {
@@ -15,7 +14,7 @@ export async function POST(request: NextRequest) {
     console.log('🔍 Equipment Request API - Received data:', JSON.stringify(requestData, null, 2));
 
     // Validate required fields
-    const requiredFields = ['firstName', 'lastName', 'requestDate', 'urgency', 'deliveryLocation', 'reason', 'items'];
+    const requiredFields = ['firstName', 'lastName', 'requestDate', 'urgency', 'deliveryLocation', 'notes', 'items'];
     
     for (const field of requiredFields) {
       if (!requestData[field]) {
@@ -41,8 +40,8 @@ export async function POST(request: NextRequest) {
     for (const item of requestData.items) {
       console.log('🔍 API - Validating item:', JSON.stringify(item, null, 2));
       
-      if (!item.itemId) {
-        console.error('🔍 API - Missing itemId:', item);
+      if (!item.itemMasterId) {
+        console.error('🔍 API - Missing itemMasterId:', item);
         return NextResponse.json(
           { error: 'ข้อมูลอุปกรณ์ไม่ครบถ้วน: ไม่มี ID อุปกรณ์' },
           { status: 400 }
@@ -52,7 +51,7 @@ export async function POST(request: NextRequest) {
       if (!item.quantity || item.quantity <= 0) {
         console.error('🔍 API - Invalid quantity:', item);
         return NextResponse.json(
-          { error: 'ข้อมูลอุปกรณ์ไม่ครบถ้วน: จำนวนไม่ถูกต้อง' },
+          { error: 'จำนวนอุปกรณ์ต้องมากกว่า 0' },
           { status: 400 }
         );
       }
@@ -60,102 +59,73 @@ export async function POST(request: NextRequest) {
 
     await dbConnect();
 
-    // Authentication check - ต้องมี valid token เท่านั้น
+    // Get user ID for personal item updates
     const token = request.cookies.get('auth-token')?.value;
-    let tokenUserId = null;
+    const payload: any = token ? verifyToken(token) : null;
+    const currentUserId = payload?.userId;
 
-    if (token) {
-      try {
-        const payload = verifyToken(token);
-        tokenUserId = payload.userId;
-        console.log('✅ Valid token found for user:', tokenUserId);
-      } catch (error) {
-        console.log('❌ Invalid token detected:', error);
-        return NextResponse.json(
-          { error: 'กรุณาเข้าสู่ระบบใหม่' },
-          { status: 401 }
-        );
-      }
-    } else {
+    if (!currentUserId) {
       return NextResponse.json(
         { error: 'กรุณาเข้าสู่ระบบ' },
         { status: 401 }
       );
     }
 
-    const userId: string | undefined = requestData.userId || tokenUserId;
-
-    // Validate inventory availability BEFORE doing anything (use itemId as primary key)
-    for (const item of requestData.items) {
-      // For non-serial items, check if we have enough quantity using itemId
-      if (!item.serialNumber || String(item.serialNumber).trim() === '') {
-        // Get inventory record by itemId
-        const inventoryItem = await InventoryMaster.findById(item.itemId);
-        
-        if (!inventoryItem) {
-          return NextResponse.json(
-            { error: `ไม่พบข้อมูลอุปกรณ์สำหรับ ID: ${item.itemId}` },
-            { status: 400 }
-          );
-        }
-        
-        const availableQuantity = inventoryItem.availableQuantity || 0;
-        
-        console.log(`🔍 Inventory validation: ${inventoryItem.itemName}, Available: ${availableQuantity}, Requested: ${item.quantity}`);
-        
-        if (availableQuantity < item.quantity) {
-          console.log(`❌ Not enough inventory: ${inventoryItem.itemName}, Available: ${availableQuantity}, Requested: ${item.quantity}`);
-          return NextResponse.json(
-            { error: `อุปกรณ์ "${inventoryItem.itemName}" มีไม่เพียงพอ (คงเหลือ: ${availableQuantity})` },
-            { status: 400 }
-          );
-        }
-        
-        console.log(`✅ Inventory validation passed: ${inventoryItem.itemName}`);
-        
-        // Also populate item details for the request
-        item.itemName = inventoryItem.itemName;
-        item.category = inventoryItem.category;
-        
-        console.log(`📝 Item populated: ${item.itemName} (${item.category})`);
-      }
-    }
-
-    // Get user profile data for complete information
-    let userProfile = null;
-    if (userId) {
-      try {
-        // Import User model dynamically to avoid circular dependencies
-        const User = mongoose.model('User') || require('@/models/User').default;
-        userProfile = await User.findOne({ user_id: userId });
-        
-        if (userProfile) {
-          // ตรวจสอบว่า user อยู่ในสถานะ pendingDeletion หรือไม่
-          if (userProfile.pendingDeletion) {
-            console.log(`🚫 User ${userId} is pending deletion, blocking equipment request`);
-            return NextResponse.json(
-              { error: 'บัญชีของคุณอยู่ในสถานะรอลบ ไม่สามารถเบิกอุปกรณ์ได้' },
-              { status: 403 }
-            );
-          }
-          console.log(`✅ User profile found: ${userProfile.firstName} ${userProfile.lastName}`);
-        }
-      } catch (error) {
-        console.log('Could not fetch user profile for additional data:', error);
-      }
-    }
-
-    // Create RequestLog including itemName, category, and serialNumbers for admin interface
-    const cleanItems = requestData.items.map((item: any) => ({
-      itemId: item.itemId,
-      quantity: item.quantity,
-      itemName: item.itemName,
-      category: item.category,
-      serialNumbers: item.serialNumber ? [item.serialNumber] : [] // Convert single SN to array
-    }));
+    // Validate that requested items are available
+    const validatedItems = [];
     
-    console.log(`📋 CleanItems prepared:`, JSON.stringify(cleanItems, null, 2));
+    for (const item of requestData.items) {
+      console.log('🔍 Validating availability for itemMasterId:', item.itemMasterId);
+      
+      try {
+        // Check if ItemMaster exists
+        const itemMaster = await ItemMaster.findById(item.itemMasterId);
+        if (!itemMaster) {
+          return NextResponse.json(
+            { error: `ไม่พบอุปกรณ์ ID: ${item.itemMasterId}` },
+            { status: 400 }
+          );
+        }
 
+        // Check availability
+        const availableItems = await findAvailableItems(item.itemMasterId, item.quantity);
+        
+        if (availableItems.length < item.quantity) {
+          return NextResponse.json(
+            { 
+              error: `อุปกรณ์ "${itemMaster.itemName}" มีไม่เพียงพอ (ต้องการ: ${item.quantity}, มี: ${availableItems.length})`,
+              itemName: itemMaster.itemName,
+              requested: item.quantity,
+              available: availableItems.length
+            },
+            { status: 400 }
+          );
+        }
+
+        // Prepare item data for request log
+        const cleanItems = {
+          itemMasterId: item.itemMasterId,
+          itemName: itemMaster.itemName,
+          categoryId: itemMaster.categoryId,
+          quantity: item.quantity,
+          serialNumber: item.serialNumber || undefined,
+          // Store available items for admin selection
+          availableItemIds: availableItems.map(item => item._id.toString())
+        };
+
+        validatedItems.push(cleanItems);
+        console.log(`✅ Item validated: ${itemMaster.itemName} (${item.quantity} units)`);
+        
+      } catch (error) {
+        console.error('❌ Error validating item:', error);
+        return NextResponse.json(
+          { error: `เกิดข้อผิดพลาดในการตรวจสอบอุปกรณ์: ${error}` },
+          { status: 500 }
+        );
+      }
+    }
+
+    // Create new request log with enhanced item data
     const requestLogData = {
       firstName: requestData.firstName,
       lastName: requestData.lastName,
@@ -166,11 +136,11 @@ export async function POST(request: NextRequest) {
       urgency: requestData.urgency,
       deliveryLocation: requestData.deliveryLocation,
       phone: requestData.phone || '',
-      reason: requestData.reason,
-      items: cleanItems,
+      notes: requestData.notes, // ใช้ notes แทน reason
+      items: validatedItems,
       status: 'pending',
       requestType: 'request', // การเบิกอุปกรณ์
-      userId
+      userId: currentUserId
     };
 
     console.log('🔍 Creating request log with data:', requestLogData);
@@ -181,12 +151,10 @@ export async function POST(request: NextRequest) {
     // NOTE: ไม่ต้อง deduct inventory ที่นี่ เพราะจะ deduct เมื่อ Admin อนุมัติแล้วเท่านั้น
     // การ deduct จะเกิดขึ้นใน approve-with-selection API แทน
 
-    // Cache clearing removed - data is now dynamically fetched
-
     return NextResponse.json({
       message: 'บันทึกการเบิกอุปกรณ์เรียบร้อยแล้ว',
       requestId: newRequestId,
-      userIdSaved: userId
+      userIdSaved: currentUserId
     });
 
   } catch (error) {
@@ -211,17 +179,34 @@ export async function POST(request: NextRequest) {
 export async function GET(request: NextRequest) {
   try {
     await dbConnect();
-
-    const requests = await RequestLog.find({})
-      .sort({ createdAt: -1 })
-      .limit(50);
-
-    return NextResponse.json(requests);
-
+    
+    // Get query parameters for filtering
+    const { searchParams } = new URL(request.url);
+    const userId = searchParams.get('userId');
+    const status = searchParams.get('status');
+    
+    // Build filter object
+    const filter: any = { requestType: 'request' };
+    
+    if (userId) {
+      filter.userId = userId;
+    }
+    
+    if (status) {
+      filter.status = status;
+    }
+    
+    // Fetch request logs with user data
+    const requests = await RequestLog.find(filter)
+      .populate('userId', 'firstName lastName nickname department office phone pendingDeletion')
+      .sort({ requestDate: -1 });
+    
+    return NextResponse.json({ requests });
+    
   } catch (error) {
-    console.error('Fetch equipment requests error:', error);
+    console.error('Error fetching request logs:', error);
     return NextResponse.json(
-      { error: 'เกิดข้อผิดพลาดในระบบ' },
+      { error: 'เกิดข้อผิดพลาดในการดึงข้อมูล' },
       { status: 500 }
     );
   }

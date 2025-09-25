@@ -5,7 +5,7 @@ import InventoryMaster from '@/models/InventoryMaster';
 import User from '@/models/User';
 import jwt from 'jsonwebtoken';
 import { moveToRecycleBin } from '@/lib/recycle-bin-helpers';
-import { INVENTORY_CATEGORIES, isSIMCard } from '@/lib/inventory-constants';
+import { isSIMCardSync } from '@/lib/sim-card-helpers';
 
 export async function POST(request: NextRequest) {
   try {
@@ -89,7 +89,7 @@ export async function POST(request: NextRequest) {
 
     if (operation === 'edit') {
       // Edit operation - update serial number or phone number
-      const isSimCard = isSIMCard(category);
+      const isSimCard = isSIMCardSync(category);
       
       if (isSimCard) {
         // For SIM cards, update phone number

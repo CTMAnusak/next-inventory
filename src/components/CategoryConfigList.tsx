@@ -20,12 +20,11 @@ import {
   useSortable,
 } from '@dnd-kit/sortable';
 import { CSS } from '@dnd-kit/utilities';
-import { GripVertical, Edit3, Trash2, Check, X, Shield, AlertTriangle } from 'lucide-react';
+import { GripVertical, Edit3, Trash2, Check, X } from 'lucide-react';
 
 interface ICategoryConfig {
   id: string;
   name: string;
-  isSpecial: boolean;
   isSystemCategory: boolean;
   order: number;
   createdAt: Date;
@@ -37,13 +36,11 @@ interface CategoryItemProps {
   config: ICategoryConfig;
   isEditing: boolean;
   editValue: string;
-  editIsSpecial: boolean;
-  onEdit: (index: number) => void;
-  onSave: (index: number) => void;
+  onEdit: (categoryId: string) => void;
+  onSave: (categoryId: string) => void;
   onCancel: () => void;
-  onDelete: (index: number) => void;
+  onDelete: (categoryId: string) => void;
   onEditValueChange: (value: string) => void;
-  onEditSpecialChange: (isSpecial: boolean) => void;
   index: number;
   showBackgroundColors?: boolean;
 }
@@ -53,13 +50,11 @@ function CategoryItem({
   config,
   isEditing,
   editValue,
-  editIsSpecial,
   onEdit,
   onSave,
   onCancel,
   onDelete,
   onEditValueChange,
-  onEditSpecialChange,
   index,
   showBackgroundColors = false,
 }: CategoryItemProps) {
@@ -79,20 +74,9 @@ function CategoryItem({
     zIndex: isDragging ? 1000 : 'auto',
   };
 
-  // Determine background color
-  const getBackgroundColor = () => {
-    if (!showBackgroundColors) return '#ffffff'; // Always white when background colors are disabled
-    if (config.isSystemCategory) return '#fef3c7'; // Yellow for system categories
-    if (config.isSpecial) return '#fed7aa'; // Orange for special categories
-    return '#ffffff'; // White for normal categories
-  };
-
-  const getBorderColor = () => {
-    if (!showBackgroundColors) return 'border-gray-200'; // Always gray when background colors are disabled
-    if (config.isSystemCategory) return 'border-yellow-200';
-    if (config.isSpecial) return 'border-orange-200';
-    return 'border-gray-200';
-  };
+  // Always use white background and gray border
+  const getBackgroundColor = () => '#ffffff';
+  const getBorderColor = () => 'border-gray-200';
 
   return (
     <div
@@ -100,26 +84,19 @@ function CategoryItem({
       style={{ ...style, backgroundColor: getBackgroundColor() }}
       className={`border ${getBorderColor()} rounded-lg p-3 mb-1 flex items-center gap-3 group hover:shadow-sm transition-all duration-200 ${
         isDragging ? 'shadow-lg border-blue-300' : ''
-      } ${config.isSystemCategory ? 'border-dashed' : ''}`}
+      }`}
     >
       {/* Drag Handle */}
       <div
-        {...attributes}
-        {...listeners}
-        className="flex-shrink-0 cursor-grab active:cursor-grabbing text-gray-400 hover:text-gray-600 transition-colors"
+        {...(config.id !== 'cat_unassigned' && config.id !== 'cat_sim_card' ? attributes : {})}
+        {...(config.id !== 'cat_unassigned' && config.id !== 'cat_sim_card' ? listeners : {})}
+        className={`flex-shrink-0 transition-colors ${
+          (config.id === 'cat_unassigned' || config.id === 'cat_sim_card')
+            ? 'cursor-not-allowed text-gray-300' 
+            : 'cursor-grab active:cursor-grabbing text-gray-400 hover:text-gray-600'
+        }`}
       >
         <GripVertical size={18} />
-      </div>
-
-      {/* Icon */}
-      <div className="flex-shrink-0">
-        {config.isSystemCategory ? (
-          <AlertTriangle className="w-4 h-4 text-yellow-600" />
-        ) : config.isSpecial ? (
-          <Shield className="w-4 h-4 text-orange-600" />
-        ) : (
-          <div className="w-4 h-4" /> // Placeholder for alignment
-        )}
       </div>
 
       {/* Content */}
@@ -132,36 +109,21 @@ function CategoryItem({
               onChange={(e) => onEditValueChange(e.target.value)}
               className="w-full px-2 py-1 border border-gray-300 rounded focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm"
               onKeyDown={(e) => {
-                if (e.key === 'Enter') onSave(index);
+                if (e.key === 'Enter') onSave(id);
                 if (e.key === 'Escape') onCancel();
               }}
               autoFocus
               disabled={config.isSystemCategory}
             />
-            {!config.isSystemCategory && (
-              <label className="flex items-center gap-2 text-sm">
-                <input
-                  type="checkbox"
-                  checked={editIsSpecial}
-                  onChange={(e) => onEditSpecialChange(e.target.checked)}
-                  className="rounded"
-                />
-                <span className="text-gray-700">หมวดหมู่พิเศษ</span>
-                <span className="text-xs text-gray-500">(ต้องยืนยันการลบ 2 ขั้นตอน)</span>
-              </label>
-            )}
           </div>
         ) : (
-          <div className="flex items-center gap-2">
-             <span className={`text-sm font-medium ${
-               config.isSystemCategory ? 'text-yellow-800' : 
-               config.isSpecial ? 'text-orange-800' : 'text-gray-700'
-             }`}>
-               {String(config.name || '')}
-             </span>
+          <div className="flex items-center justify-between">
+            <span className="text-sm font-medium text-gray-700">
+              {index + 1}. {String(config.name || '')}
+            </span>
             {config.isSystemCategory && (
-              <span className="text-xs bg-yellow-200 text-yellow-800 px-2 py-1 rounded">
-                ระบบ
+              <span className="text-xs bg-blue-100 text-blue-800 px-2 py-1 rounded ml-2">
+                {config.id === 'cat_unassigned' || config.id === 'cat_sim_card' ? 'ระบบ (ไม่สามารถย้ายได้)' : 'ระบบ'}
               </span>
             )}
           </div>
@@ -173,7 +135,7 @@ function CategoryItem({
         {isEditing ? (
           <>
             <button
-              onClick={() => onSave(index)}
+              onClick={() => onSave(id)}
               className="p-1 text-green-600 hover:text-green-700 hover:bg-green-50 rounded transition-all"
               title="บันทึก"
             >
@@ -190,21 +152,21 @@ function CategoryItem({
         ) : (
           <>
             <button
-              onClick={() => onEdit(index)}
-              className="p-1 text-blue-600 hover:text-blue-700 hover:bg-blue-50 rounded opacity-0 group-hover:opacity-100 transition-all"
+              onClick={() => onEdit(id)}
+              className="p-1 text-blue-600 hover:text-blue-700 hover:bg-blue-50 rounded transition-all"
               title="แก้ไข"
-              disabled={config.isSystemCategory && config.name === 'ไม่ระบุ'}
             >
               <Edit3 size={16} />
             </button>
-            <button
-              onClick={() => onDelete(index)}
-              className="p-1 text-red-600 hover:text-red-700 hover:bg-red-50 rounded opacity-0 group-hover:opacity-100 transition-all"
-              title="ลบ"
-              disabled={config.isSystemCategory}
-            >
-              <Trash2 size={16} />
-            </button>
+            {!config.isSystemCategory && (
+              <button
+                onClick={() => onDelete(id)}
+                className="p-1 text-red-600 hover:text-red-700 hover:bg-red-50 rounded transition-all"
+                title="ลบ"
+              >
+                <Trash2 size={16} />
+              </button>
+            )}
           </>
         )}
       </div>
@@ -219,15 +181,11 @@ interface CategoryConfigListProps {
   onDelete: (index: number) => void;
   title: string;
   newItemValue: string;
-  newItemIsSpecial: boolean;
   onNewItemValueChange: (value: string) => void;
-  onNewItemSpecialChange: (isSpecial: boolean) => void;
   onAddNewItem: () => void;
   editingIndex: number | null;
   editingValue: string;
-  editingIsSpecial: boolean;
   onEditingValueChange: (value: string) => void;
-  onEditingSpecialChange: (isSpecial: boolean) => void;
   onStartEdit: (index: number) => void;
   onSaveEdit: (index: number) => void;
   onCancelEdit: () => void;
@@ -241,15 +199,11 @@ export default function CategoryConfigList({
   onDelete,
   title,
   newItemValue,
-  newItemIsSpecial,
   onNewItemValueChange,
-  onNewItemSpecialChange,
   onAddNewItem,
   editingIndex,
   editingValue,
-  editingIsSpecial,
   onEditingValueChange,
-  onEditingSpecialChange,
   onStartEdit,
   onSaveEdit,
   onCancelEdit,
@@ -266,42 +220,63 @@ export default function CategoryConfigList({
     })
   );
 
-   function handleDragEnd(event: DragEndEvent) {
-     const { active, over } = event;
- 
-     if (over && active.id !== over.id) {
-       const oldIndex = categoryConfigs.findIndex(config => config.id === active.id);
-       const newIndex = categoryConfigs.findIndex(config => config.id === over.id);
-       const newConfigs = arrayMove(categoryConfigs, oldIndex, newIndex);
-       
-       // Update order values and ensure proper serialization
-       const reorderedConfigs = newConfigs.map((config, index) => ({
-         id: String(config.id),
-         name: String(config.name || ''),
-         isSpecial: Boolean(config.isSpecial),
-         isSystemCategory: Boolean(config.isSystemCategory),
-         order: index + 1,
-         createdAt: config.createdAt ? new Date(config.createdAt) : new Date(),
-         updatedAt: new Date()
-       }));
-       
-       onReorder(reorderedConfigs);
-     }
-   }
+  function handleDragEnd(event: DragEndEvent) {
+    const { active, over } = event;
 
-  // Sort categories by order, with system categories at the bottom
+    if (over && active.id !== over.id) {
+      // Work with the same list used for rendering to keep indices aligned
+      const sourceList = sortedConfigs;
+      const oldIndex = sourceList.findIndex(config => config.id === active.id);
+      const newIndex = sourceList.findIndex(config => config.id === over.id);
+      
+      // Prevent moving locked categories from their position
+      if (active.id === 'cat_unassigned' || active.id === 'cat_sim_card') {
+        return; // Don't allow moving "ไม่ระบุ"
+      }
+      
+      // Prevent moving other items to the position of locked categories
+      if (over.id === 'cat_unassigned' || over.id === 'cat_sim_card') {
+        return; // Don't allow moving to locked positions
+      }
+      
+      const newConfigsSorted = arrayMove(sourceList, oldIndex, newIndex);
+      
+      // Update order values and ensure proper serialization
+      const reorderedConfigs = newConfigsSorted.map((config, index) => ({
+        id: String(config.id),
+        name: String(config.name || ''),
+        isSystemCategory: Boolean(config.isSystemCategory),
+        order: config.id === 'cat_unassigned' ? 999 : index + 1, // Keep "ไม่ระบุ" at order 999
+        createdAt: config.createdAt ? new Date(config.createdAt) : new Date(),
+        updatedAt: new Date()
+      }));
+      
+      onReorder(reorderedConfigs);
+    }
+  }
+
+  // Sort categories by order, with "ไม่ระบุ" always at the bottom
   const sortedConfigs = categoryConfigs && Array.isArray(categoryConfigs) 
     ? [...categoryConfigs]
         .filter(config => config && typeof config === 'object' && config.id)
         .sort((a, b) => {
-          if (a.isSystemCategory && !b.isSystemCategory) return 1;
-          if (!a.isSystemCategory && b.isSystemCategory) return -1;
+          // "ไม่ระบุ" (cat_unassigned) always goes to the bottom
+          if (a.id === 'cat_unassigned' && b.id !== 'cat_unassigned') return 1;
+          if (a.id !== 'cat_unassigned' && b.id === 'cat_unassigned') return -1;
+          
+          // "ซิมการ์ด" (cat_sim_card) is always just above "ไม่ระบุ"
+          if (a.id === 'cat_sim_card' && b.id !== 'cat_unassigned') return 1;
+          if (a.id !== 'cat_unassigned' && b.id === 'cat_sim_card') return -1;
+          
+          // Other system categories go after regular categories
+          if (a.isSystemCategory && !b.isSystemCategory && a.id !== 'cat_unassigned') return 1;
+          if (!a.isSystemCategory && b.isSystemCategory && b.id !== 'cat_unassigned') return -1;
+          
           return (a.order || 0) - (b.order || 0);
         })
         .map(config => ({
           id: String(config.id),
           name: String(config.name || ''),
-          isSpecial: Boolean(config.isSpecial),
           isSystemCategory: Boolean(config.isSystemCategory),
           order: Number(config.order || 0),
           createdAt: config.createdAt ? new Date(config.createdAt) : new Date(),
@@ -344,16 +319,6 @@ export default function CategoryConfigList({
           </button>
         </div>
         
-        <label className="flex items-center gap-2 text-sm pl-1">
-          <input
-            type="checkbox"
-            checked={newItemIsSpecial}
-            onChange={(e) => onNewItemSpecialChange(e.target.checked)}
-            className="rounded"
-          />
-          <span className="text-gray-700">หมวดหมู่พิเศษ</span>
-          <span className="text-xs text-gray-500">(ต้องยืนยันการลบ 2 ขั้นตอน)</span>
-        </label>
       </div>
 
       {/* Category List */}
@@ -371,30 +336,58 @@ export default function CategoryConfigList({
             items={sortedConfigs.map(config => config.id)} 
             strategy={verticalListSortingStrategy}
           >
-            <div className="space-y-1">
-              {sortedConfigs.map((config, index) => {
-                 if (!config || !config.id) {
-                   return null;
-                 }
-                return (
-                  <CategoryItem
-                    key={config.id}
-                    id={config.id}
-                    config={config}
-                    index={index}
-                    isEditing={editingIndex === index}
-                    editValue={editingValue}
-                    editIsSpecial={editingIsSpecial}
-                    onEdit={onStartEdit}
-                    onSave={onSaveEdit}
-                    onCancel={onCancelEdit}
-                    onDelete={onDelete}
-                    onEditValueChange={onEditingValueChange}
-                    onEditSpecialChange={onEditingSpecialChange}
-                    showBackgroundColors={showBackgroundColors}
-                  />
-                );
-              })}
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              {/* First Column */}
+              <div className="space-y-1">
+                {sortedConfigs.slice(0, Math.ceil(sortedConfigs.length / 2)).map((config, index) => {
+                  if (!config || !config.id) {
+                    return null;
+                  }
+                  const actualIndex = index; // First column uses direct index
+                  return (
+                    <CategoryItem
+                      key={config.id}
+                      id={config.id}
+                      config={config}
+                      index={actualIndex}
+                      isEditing={editingIndex === actualIndex}
+                      editValue={editingValue}
+                      onEdit={onStartEdit}
+                      onSave={onSaveEdit}
+                      onCancel={onCancelEdit}
+                      onDelete={onDelete}
+                      onEditValueChange={onEditingValueChange}
+                      showBackgroundColors={showBackgroundColors}
+                    />
+                  );
+                })}
+              </div>
+              
+              {/* Second Column */}
+              <div className="space-y-1">
+                {sortedConfigs.slice(Math.ceil(sortedConfigs.length / 2)).map((config, index) => {
+                  if (!config || !config.id) {
+                    return null;
+                  }
+                  const actualIndex = Math.ceil(sortedConfigs.length / 2) + index;
+                  return (
+                    <CategoryItem
+                      key={config.id}
+                      id={config.id}
+                      config={config}
+                      index={actualIndex}
+                      isEditing={editingIndex === actualIndex}
+                      editValue={editingValue}
+                      onEdit={onStartEdit}
+                      onSave={onSaveEdit}
+                      onCancel={onCancelEdit}
+                      onDelete={onDelete}
+                      onEditValueChange={onEditingValueChange}
+                      showBackgroundColors={showBackgroundColors}
+                    />
+                  );
+                })}
+              </div>
             </div>
           </SortableContext>
         </DndContext>

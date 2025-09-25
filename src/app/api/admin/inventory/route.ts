@@ -29,7 +29,7 @@ export async function GET() {
     const aggregatedItems = allItems.map(item => ({
       _id: item._id,
       itemName: item.itemName,
-      category: item.category,
+      categoryId: item.categoryId,
       totalQuantity: item.totalQuantity,
       quantity: item.availableQuantity, // จำนวนที่เหลือให้เบิก
       serialNumbers: [], // จะต้องดึงจาก InventoryItem ถ้าต้องการ
@@ -113,7 +113,7 @@ export async function POST(request: NextRequest) {
     }
     
     // Check for duplicate phone number for SIM cards
-    if (numberPhone && (finalCategoryId === 'ซิมการ์ด' || finalCategoryId.includes('ซิม'))) {
+    if (numberPhone && finalCategoryId === 'cat_sim_card') {
       const existingItem = await InventoryItem.findOne({ 
         numberPhone: numberPhone,
         categoryId: finalCategoryId,
@@ -338,7 +338,7 @@ export async function DELETE(request: NextRequest) {
       // Create simple backup records in a separate collection for now
       const backupData = itemsToDelete.map(item => ({
         itemName: item.itemName,
-        category: item.category,
+        categoryId: item.categoryId,
         serialNumber: item.serialNumber,
         deletedAt: new Date(),
         deleteReason: reason,

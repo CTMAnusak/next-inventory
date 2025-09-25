@@ -439,7 +439,7 @@ export default function AdminUsersPage() {
 
   return (
     <Layout>
-      <div className="max-w-7xl mx-auto">
+      <div className="max-w-full mx-auto">
         <div className="bg-white/90 backdrop-blur-sm rounded-2xl shadow-xl p-8 border border-white/50">
           {/* Header */}
           <div className="flex justify-between items-center mb-6 flex-col md:flex-row ">

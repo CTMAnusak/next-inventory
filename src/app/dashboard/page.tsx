@@ -635,7 +635,7 @@ export default function DashboardPage() {
                           const totalQuantity = (row as any).totalQuantity || row.quantity || 1;
                           const serialNumbers = (row as any).serialNumbers || [];
                           const phoneNumbers = (row as any).phoneNumbers || [];
-                          const isSimCard = row.category === 'ซิมการ์ด';
+                          const isSimCard = row.categoryId === 'cat_sim_card';
                           
                           // ถ้ามีชิ้นเดียว
                           if (totalQuantity === 1) {

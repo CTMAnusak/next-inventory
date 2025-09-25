@@ -233,7 +233,7 @@ export async function POST(request: NextRequest) {
       
       // Update InventoryMaster to reflect the synced items
       console.log(`🔄 Updating InventoryMaster after item sync...`);
-      await updateInventoryMaster(itemName, category);
+      await updateInventoryMaster(itemName, category); // category is actually categoryId here
       
       // Clear all caches to ensure fresh data in UI
       clearAllCaches();

@@ -19,7 +19,11 @@
     "minimal": "node minimal.js",
     "backup": "node backup_migration/backup-script.js",
     "health-check": "node backup_migration/health-check.js",
-    "create-indexes": "node backup_migration/create-indexes-safe.js"
+    "create-indexes": "node backup_migration/create-indexes-safe.js",
+    "migrate-reference-dry-run": "tsx src/scripts/migrate-to-reference-system.ts --dry-run",
+    "migrate-reference-execute": "tsx src/scripts/migrate-to-reference-system.ts --force",
+    "test-new-system": "tsx src/scripts/test-reference-system.ts",
+    "test-complete-system": "tsx src/scripts/test-complete-system.ts"
   },
   "dependencies": {
     "@dnd-kit/core": "^6.3.1",
@@ -55,6 +59,7 @@
     "autoprefixer": "^10.4.21",
     "eslint": "^9",
     "eslint-config-next": "15.4.6",
+    "lightningcss": "^1.30.1",
     "postcss": "^8.5.6",
     "tailwindcss": "^4.1.12",
     "tsx": "^4.19.2",

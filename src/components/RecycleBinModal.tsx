@@ -485,7 +485,7 @@ function IndividualItemsTab({
               <div className="ml-4 flex space-x-2">
                 <button
                   onClick={() => {
-                    const identifier = item.category === 'ซิมการ์ด' && item.numberPhone 
+                    const identifier = item.categoryId === 'cat_sim_card' && item.numberPhone 
                       ? `${item.itemName} (เบอร์: ${item.numberPhone})`
                       : item.serialNumber 
                         ? `${item.itemName} (SN: ${item.serialNumber})`
@@ -509,7 +509,7 @@ function IndividualItemsTab({
                 </button>
                 <button
                   onClick={() => {
-                    const identifier = item.category === 'ซิมการ์ด' && item.numberPhone 
+                    const identifier = item.categoryId === 'cat_sim_card' && item.numberPhone 
                       ? `${item.itemName} (เบอร์: ${item.numberPhone})`
                       : item.serialNumber 
                         ? `${item.itemName} (SN: ${item.serialNumber})`

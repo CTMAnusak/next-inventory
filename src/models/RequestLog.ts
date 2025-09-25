@@ -5,6 +5,8 @@ export interface IRequestItem {
   quantity: number;
   itemName?: string;    // Item name for display purposes
   category?: string;    // Category for display
+  statusOnRequest?: string; // สภาพเมื่อเบิก (มี/หาย)
+  conditionOnRequest?: string; // สถานะเมื่อเบิก (ใช้งานได้/ชำรุด)
   serialNumbers?: string[]; // Serial numbers if applicable (user request)
   assignedSerialNumbers?: string[]; // SN ที่ Admin assign ให้เมื่อ approve
   assignedItemIds?: string[]; // IDs ของ InventoryItem ที่ assign ให้
@@ -35,6 +37,8 @@ const RequestItemSchema = new Schema<IRequestItem>({
   quantity: { type: Number, required: true, min: 1 },
   itemName: { type: String, required: false },      // Item name for display
   category: { type: String, required: false },      // Category for display
+  statusOnRequest: { type: String, required: false }, // สภาพเมื่อเบิก (มี/หาย)
+  conditionOnRequest: { type: String, required: false }, // สถานะเมื่อเบิก (ใช้งานได้/ชำรุด)
   serialNumbers: [{ type: String, required: false }],   // Serial numbers if available (user request)
   assignedSerialNumbers: [{ type: String, required: false }], // SN ที่ Admin assign ให้
   assignedItemIds: [{ type: String, required: false }],  // InventoryItem IDs ที่ assign ให้

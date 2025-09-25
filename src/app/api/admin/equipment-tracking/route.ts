@@ -2,11 +2,12 @@ import { NextRequest, NextResponse } from 'next/server';
 import dbConnect from '@/lib/mongodb';
 import RequestLog from '@/models/RequestLog';
 import ReturnLog from '@/models/ReturnLog';
-import Inventory from '@/models/Inventory';
-import InventoryItem from '@/models/InventoryItem';
+import { InventoryItem } from '@/models/InventoryItemNew';
+import ItemMaster from '@/models/ItemMaster';
 import User from '@/models/User';
+import InventoryConfig from '@/models/InventoryConfig';
 
-// GET - Fetch all equipment tracking data (including user-owned items and request logs minus returns)
+// GET - ดึงข้อมูลการติดตามอุปกรณ์ทั้งหมด
 export async function GET(request: NextRequest) {
   try {
     await dbConnect();
@@ -14,154 +15,246 @@ export async function GET(request: NextRequest) {
     // Get query parameters for filtering
     const { searchParams } = new URL(request.url);
     const userId = searchParams.get('userId');
-    const itemId = searchParams.get('itemId');
+    const itemMasterId = searchParams.get('itemMasterId');
+    const categoryId = searchParams.get('categoryId');
     const department = searchParams.get('department');
     const office = searchParams.get('office');
+    const status = searchParams.get('status');
+    const dateFrom = searchParams.get('dateFrom');
+    const dateTo = searchParams.get('dateTo');
+    const search = searchParams.get('search');
+    const page = parseInt(searchParams.get('page') || '1');
+    const limit = parseInt(searchParams.get('limit') || '50');
     
-    // Build filter object for request logs
-    const requestFilter: any = {};
+    // Build filter objects
+    const requestFilter: any = { requestType: 'request' };
+    const returnFilter: any = {};
+    const itemFilter: any = { deletedAt: { $exists: false } };
     
     if (userId) {
       requestFilter.userId = userId;
+      returnFilter.userId = userId;
+      itemFilter['currentOwnership.userId'] = userId;
     }
     
     if (department) {
       requestFilter.department = department;
+      returnFilter.department = department;
     }
     
     if (office) {
       requestFilter.office = office;
+      returnFilter.office = office;
     }
     
-    // Fetch request logs with filters and populate user data (only actual requests, not user-owned)
-    let requests = await RequestLog.find({ ...requestFilter, requestType: 'request' })
-      .populate('userId', 'firstName lastName nickname department office phone pendingDeletion')
-      .sort({ requestDate: -1 });
-    
-    // Filter by itemId if provided
-    if (itemId) {
-      requests = requests.filter(request => 
-        request.items.some((item: any) => item.itemId === itemId)
-      );
+    if (status) {
+      requestFilter.status = status;
+      returnFilter.status = status;
     }
     
-    // Fetch all return logs with user data to exclude returned items
-    const returnLogs = await ReturnLog.find({})
-      .populate('userId', 'firstName lastName nickname department office phone pendingDeletion');
+    if (dateFrom) {
+      const fromDate = new Date(dateFrom);
+      requestFilter.requestDate = { $gte: fromDate };
+      returnFilter.returnDate = { $gte: fromDate };
+    }
     
-    // Create a map of returned items (userId + itemId + serialNumber)
-    const returnedItems = new Set();
-    returnLogs.forEach(returnLog => {
-      returnLog.items.forEach((item: any) => {
-        const key = `${returnLog.userId}-${item.itemId}-${item.serialNumber || ''}`;
-        returnedItems.add(key);
-      });
+    if (dateTo) {
+      const toDate = new Date(dateTo);
+      if (requestFilter.requestDate) {
+        requestFilter.requestDate.$lte = toDate;
+      } else {
+        requestFilter.requestDate = { $lte: toDate };
+      }
+      if (returnFilter.returnDate) {
+        returnFilter.returnDate.$lte = toDate;
+      } else {
+        returnFilter.returnDate = { $lte: toDate };
+      }
+    }
+    
+    if (itemMasterId) {
+      itemFilter.itemMasterId = itemMasterId;
+    }
+    
+    if (categoryId) {
+      itemFilter.categoryId = categoryId;
+    }
+    
+    // Get configurations for display
+    const config = await InventoryConfig.findOne({});
+    const statusConfigs = config?.statusConfigs || [];
+    const conditionConfigs = config?.conditionConfigs || [];
+    const categoryConfigs = config?.categoryConfigs || [];
+    
+    // Fetch data in parallel
+    const [requestLogs, returnLogs, ownedItems, itemMasters] = await Promise.all([
+      // Request logs
+      RequestLog.find(requestFilter)
+        .populate('userId', 'firstName lastName nickname department office phone pendingDeletion')
+        .sort({ requestDate: -1 })
+        .skip((page - 1) * limit)
+        .limit(limit),
+      
+      // Return logs
+      ReturnLog.find(returnFilter)
+        .populate('userId', 'firstName lastName nickname department office phone pendingDeletion')
+        .sort({ returnDate: -1 })
+        .skip((page - 1) * limit)
+        .limit(limit),
+      
+      // Currently owned items
+      InventoryItem.find(itemFilter)
+        .populate('itemMasterId', 'itemName categoryId hasSerialNumber')
+        .sort({ 'currentOwnership.ownedSince': -1 }),
+      
+      // Item masters for reference
+      ItemMaster.find({ isActive: true })
+        .sort({ itemName: 1 })
+    ]);
+    
+    // Create item master lookup
+    const itemMasterLookup = new Map();
+    itemMasters.forEach(master => {
+      itemMasterLookup.set(master._id.toString(), master);
     });
     
-    // Transform request logs data and filter out returned items
-    const trackingDataFromRequests: any[] = [];
-    requests.forEach(request => {
-      request.items.forEach((item: any) => {
-        const key = `${request.userId}-${item.itemId}-${item.serialNumber || ''}`;
-        if (!returnedItems.has(key)) {
-          // Use populated user data or fallback to stored data
-          const user = request.userId as any;
-          const userData = user && typeof user === 'object' ? {
-            firstName: user.firstName,
-            lastName: user.lastName,
-            nickname: user.nickname,
-            department: user.department,
-            office: user.office,
-            phone: user.phone,
-            pendingDeletion: user.pendingDeletion
-          } : {
-            firstName: request.firstName,
-            lastName: request.lastName,
-            nickname: request.nickname,
-            department: request.department,
-            office: request.office,
-            phone: request.phone,
-            pendingDeletion: false
-          };
-
-          trackingDataFromRequests.push({
-            _id: `${request._id}-${item.itemId}`,
-            requestId: request._id.toString(),
-            firstName: userData.firstName,
-            lastName: userData.lastName,
-            nickname: userData.nickname,
-            department: userData.department,
-            office: userData.office,
-            phone: userData.phone,
-            pendingDeletion: userData.pendingDeletion,
-            requestDate: request.requestDate,
-            deliveryLocation: request.deliveryLocation,
-            urgency: request.urgency,
-            reason: request.reason,
-            userId: typeof user === 'object' ? user._id : request.userId,
-            itemId: item.itemId,
-            itemName: item.itemName,
-            quantity: item.quantity,
-            serialNumber: item.serialNumber || item.assignedSerialNumbers?.[0] || null,
-            submittedAt: request.submittedAt || request.createdAt,
-            source: 'request'
-          });
-        }
-      });
-    });
-    
-    // No need for separate user-owned items - all data comes from RequestLog now
-    // Items added via dashboard are stored as special RequestLog entries
-    
-    // Use only tracking data from requests
-    const combinedData = trackingDataFromRequests;
-    
-    // Get inventory data for categories and serial numbers
-    const inventoryItems = await Inventory.find({});
-    const inventoryMap: {[key: string]: any} = {};
-    inventoryItems.forEach((item: any) => {
-      inventoryMap[item._id.toString()] = {
-        itemName: item.itemName,
-        category: item.category || 'ไม่ระบุ'
+    // Process request logs
+    const processedRequests = requestLogs.map(request => {
+      const user = request.userId as any;
+      return {
+        id: request._id,
+        type: 'request',
+        user: user ? {
+          id: user._id,
+          name: `${user.firstName} ${user.lastName}`,
+          nickname: user.nickname,
+          department: user.department,
+          office: user.office,
+          phone: user.phone
+        } : null,
+        date: request.requestDate,
+        status: request.status,
+        urgency: request.urgency,
+        deliveryLocation: request.deliveryLocation,
+        notes: request.notes,
+        items: request.items.map((item: any) => ({
+          itemMasterId: item.itemMasterId,
+          itemName: item.itemName,
+          categoryId: item.categoryId,
+          quantity: item.quantity,
+          serialNumber: item.serialNumber
+        }))
       };
     });
-
-    // Get actual serial numbers from InventoryItem for each tracking record
-    const inventoryItemIds = trackingDataFromRequests.map(item => item.itemId);
-    const actualInventoryItems = await InventoryItem.find({
-      _id: { $in: inventoryItemIds },
-      status: { $in: ['active', 'maintenance', 'damaged'] }
+    
+    // Process return logs
+    const processedReturns = returnLogs.map(returnLog => {
+      const user = returnLog.userId as any;
+      return {
+        id: returnLog._id,
+        type: 'return',
+        user: user ? {
+          id: user._id,
+          name: `${user.firstName} ${user.lastName}`,
+          nickname: user.nickname,
+          department: user.department,
+          office: user.office,
+          phone: user.phone
+        } : null,
+        date: returnLog.returnDate,
+        status: returnLog.status,
+        notes: returnLog.notes,
+        items: returnLog.items.map((item: any) => ({
+          itemId: item.itemId,
+          quantity: item.quantity,
+          serialNumber: item.serialNumber,
+          conditionOnReturn: item.conditionOnReturn,
+          itemNotes: item.itemNotes
+        }))
+      };
     });
-
-    // Create a map of actual serial numbers
-    const serialNumberMap: {[key: string]: string} = {};
-    actualInventoryItems.forEach((item: any) => {
-      if (item.serialNumber) {
-        serialNumberMap[item._id.toString()] = item.serialNumber;
+    
+    // Process currently owned items
+    const processedOwnedItems = ownedItems.map(item => {
+      const itemMaster = itemMasterLookup.get(item.itemMasterId.toString());
+      const statusConfig = statusConfigs.find(s => s.id === item.statusId);
+      const conditionConfig = conditionConfigs.find(c => c.id === item.conditionId);
+      const categoryConfig = categoryConfigs.find(c => c.id === itemMaster?.categoryId);
+      
+      return {
+        id: item._id,
+        type: 'owned',
+        itemMasterId: item.itemMasterId,
+        itemName: itemMaster?.itemName || 'ไม่ระบุ',
+        categoryId: itemMaster?.categoryId || 'ไม่ระบุ',
+        categoryName: categoryConfig?.name || 'ไม่ระบุ',
+        serialNumber: item.serialNumber,
+        numberPhone: item.numberPhone,
+        statusId: item.statusId,
+        statusName: statusConfig?.name || 'ไม่ระบุ',
+        statusColor: statusConfig?.color || '#6B7280',
+        conditionId: item.conditionId,
+        conditionName: conditionConfig?.name || 'ไม่ระบุ',
+        conditionColor: conditionConfig?.color || '#6B7280',
+        ownedSince: item.currentOwnership.ownedSince,
+        sourceInfo: item.sourceInfo,
+        createdAt: item.createdAt
+      };
+    });
+    
+    // Combine and sort all activities
+    const allActivities = [
+      ...processedRequests,
+      ...processedReturns,
+      ...processedOwnedItems
+    ].sort((a, b) => new Date(b.date || b.ownedSince || b.createdAt).getTime() - new Date(a.date || a.ownedSince || a.createdAt).getTime());
+    
+    // Apply search filter if provided
+    let filteredActivities = allActivities;
+    if (search) {
+      const searchLower = search.toLowerCase();
+      filteredActivities = allActivities.filter(activity => {
+        if (activity.type === 'owned') {
+          return activity.itemName.toLowerCase().includes(searchLower) ||
+                 activity.serialNumber?.toLowerCase().includes(searchLower) ||
+                 activity.numberPhone?.includes(search) ||
+                 activity.categoryName.toLowerCase().includes(searchLower);
+        } else {
+          return activity.user?.name.toLowerCase().includes(searchLower) ||
+                 activity.user?.department.toLowerCase().includes(searchLower) ||
+                 activity.user?.office.toLowerCase().includes(searchLower) ||
+                 activity.items?.some((item: any) => 
+                   item.itemName?.toLowerCase().includes(searchLower) ||
+                   item.serialNumber?.toLowerCase().includes(searchLower)
+                 );
+        }
+      });
+    }
+    
+    // Get total count for pagination
+    const totalCount = filteredActivities.length;
+    const paginatedActivities = filteredActivities.slice((page - 1) * limit, page * limit);
+    
+    return NextResponse.json({
+      activities: paginatedActivities,
+      pagination: {
+        page,
+        limit,
+        totalCount,
+        totalPages: Math.ceil(totalCount / limit)
+      },
+      summary: {
+        totalRequests: processedRequests.length,
+        totalReturns: processedReturns.length,
+        totalOwnedItems: processedOwnedItems.length,
+        totalActivities: allActivities.length
       }
     });
     
-    // Add category information and actual serial numbers to tracking data
-    const trackingDataWithCategories = combinedData.map(item => ({
-      ...item,
-      category: inventoryMap[item.itemId]?.category || 'ไม่ระบุ',
-      currentItemName: inventoryMap[item.itemId]?.itemName || item.itemName,
-      serialNumber: serialNumberMap[item.itemId] || item.serialNumber || null
-    }));
-    
-    // Sort by category first, then by item name
-    trackingDataWithCategories.sort((a, b) => {
-      if (a.category !== b.category) {
-        return a.category.localeCompare(b.category, 'th');
-      }
-      return a.currentItemName.localeCompare(b.currentItemName, 'th');
-    });
-    
-    return NextResponse.json(trackingDataWithCategories);
   } catch (error) {
     console.error('Error fetching equipment tracking data:', error);
     return NextResponse.json(
-      { error: 'เกิดข้อผิดพลาดในการโหลดข้อมูล' },
+      { error: 'เกิดข้อผิดพลาดในการดึงข้อมูลการติดตามอุปกรณ์' },
       { status: 500 }
     );
   }

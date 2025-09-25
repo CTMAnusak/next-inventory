@@ -288,10 +288,10 @@ export async function POST(
     
     for (const item of returnLog.items) {
       try {
-        const masterResult = await updateInventoryMaster(item.itemName, item.category);
+        const masterResult = await updateInventoryMaster(item.itemName, item.categoryId);
         masterUpdateResults.push({
           itemName: item.itemName,
-          category: item.category,
+          categoryId: item.categoryId,
           success: true,
           result: masterResult
         });

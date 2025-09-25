@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect, useRef, useMemo } from 'react';
 import { enableDragScroll } from '@/lib/drag-scroll';
 import Layout from '@/components/Layout';
 import { 
@@ -113,6 +113,7 @@ export default function AdminEquipmentTrackingPage() {
 
 
     const applyFilters = () => {
+    if (!Array.isArray(trackingData)) return; // Ensure trackingData is an array
     let filtered = trackingData.filter(record => {
       // Search filter (general search across multiple fields)
       const matchesSearch = !searchTerm || 
@@ -177,10 +178,25 @@ export default function AdminEquipmentTrackingPage() {
   };
 
   // Get unique values for filters
-  const users = [...new Set(trackingData.map(record => `${record.firstName} ${record.lastName} (${record.nickname})`))];
-  const items = [...new Set(trackingData.map(record => record.currentItemName))];
-  const departments = [...new Set(trackingData.map(record => record.department))];
-  const offices = [...new Set(trackingData.map(record => record.office))];
+  const users = useMemo(() => {
+    if (!Array.isArray(trackingData)) return [];
+    return [...new Set(trackingData.map(record => `${record.firstName} ${record.lastName} (${record.nickname})`))];
+  }, [trackingData]);
+
+  const items = useMemo(() => {
+    if (!Array.isArray(trackingData)) return [];
+    return [...new Set(trackingData.map(record => record.currentItemName))];
+  }, [trackingData]);
+
+  const departments = useMemo(() => {
+    if (!Array.isArray(trackingData)) return [];
+    return [...new Set(trackingData.map(record => record.department))];
+  }, [trackingData]);
+
+  const offices = useMemo(() => {
+    if (!Array.isArray(trackingData)) return [];
+    return [...new Set(trackingData.map(record => record.office))];
+  }, [trackingData]);
 
   // Pagination
   const totalPages = Math.ceil(filteredData.length / itemsPerPage);
@@ -190,7 +206,7 @@ export default function AdminEquipmentTrackingPage() {
 
   return (
     <Layout>
-      <div className="max-w-7xl mx-auto">
+      <div className="max-w-full mx-auto">
         <div className="bg-white/90 backdrop-blur-sm rounded-2xl shadow-xl p-8 border border-white/50">
           {/* Header */}
           <div className="flex justify-between items-center mb-6  flex-col md:flex-row ">
