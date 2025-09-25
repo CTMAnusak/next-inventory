@@ -27,7 +27,9 @@ export default function DashboardPage() {
   const [detailData, setDetailData] = useState<any>(null);
   const [ownedItems, setOwnedItems] = useState<Array<{ _id?: string; itemName: string; category: string; serialNumber?: string; quantity: number; firstName?: string; lastName?: string; nickname?: string; department?: string; phone?: string; source?: string; editable?: boolean }>>([]);
   const [categoryConfigs, setCategoryConfigs] = useState<ICategoryConfig[]>([]);
-  const [form, setForm] = useState({ itemName: '', categoryId: '', serialNumber: '', quantity: 1, firstName: '', lastName: '', nickname: '', department: '', phone: '' });
+  const [statusConfigs, setStatusConfigs] = useState<any[]>([]);
+  const [conditionConfigs, setConditionConfigs] = useState<any[]>([]);
+  const [form, setForm] = useState({ itemName: '', categoryId: '', serialNumber: '', quantity: 1, firstName: '', lastName: '', nickname: '', department: '', phone: '', status: '', condition: '', notes: '' });
   
   // Category-first flow states
   const [selectedCategoryId, setSelectedCategoryId] = useState('');
@@ -157,7 +159,11 @@ export default function DashboardPage() {
       if (res.ok) {
         const data = await res.json();
         setCategoryConfigs(data.categoryConfigs || []);
+        setStatusConfigs(data.statusConfigs || []);
+        setConditionConfigs(data.conditionConfigs || []);
         console.log(`📦 Dashboard - Loaded ${data.categoryConfigs?.length || 0} admin categoryConfigs`);
+        console.log(`📦 Dashboard - Loaded ${data.statusConfigs?.length || 0} status configs`);
+        console.log(`📦 Dashboard - Loaded ${data.conditionConfigs?.length || 0} condition configs`);
       }
     } catch (error) {
       console.error('Failed to load admin categories:', error);
@@ -180,7 +186,7 @@ export default function DashboardPage() {
   };
 
   const resetAddModal = () => {
-    setForm({ itemName: '', categoryId: '', serialNumber: '', quantity: 1, firstName: '', lastName: '', nickname: '', department: '', phone: '' });
+    setForm({ itemName: '', categoryId: '', serialNumber: '', quantity: 1, firstName: '', lastName: '', nickname: '', department: '', phone: '', status: '', condition: '', notes: '' });
     setSelectedCategoryId('');
     setAvailableItems([]);
     setShowNewItemInput(false);
@@ -300,6 +306,8 @@ export default function DashboardPage() {
           price: 0,
           quantity: Number(form.quantity) || 1, // Use the quantity from form
           status: 'active',
+          condition: form.condition || undefined,
+          notes: form.notes || undefined,
           dateAdded: new Date().toISOString(),
           user_id: user?.id || undefined,
           userRole: 'user'
@@ -390,6 +398,9 @@ export default function DashboardPage() {
           itemId: itemId,
           quantity: Number(form.quantity) || 1,
           serialNumber: form.serialNumber || undefined,
+          status: form.status || undefined,
+          condition: form.condition || undefined,
+          notes: form.notes || undefined,
         };
         
         const res = await fetch('/api/user/owned-equipment', { 
@@ -825,8 +836,14 @@ export default function DashboardPage() {
                   >
                     <option value="">เลือกหมวดหมู่</option>
                     {categoryConfigs
-                      .filter(config => !config.isSystemCategory) // ไม่แสดง "ไม่ระบุ"
-                      .sort((a, b) => a.order - b.order)
+                      .filter(config => !config.isSystemCategory || config.id !== 'cat_unassigned') // ไม่แสดง "ไม่ระบุ"
+                      .sort((a, b) => {
+                        // ใช้การเรียงลำดับแบบเดียวกับ CategoryConfigList
+                        // หมวดหมู่ปกติมาก่อน ซิมการ์ดมาหลัง
+                        if (a.id === 'cat_sim_card' && b.id !== 'cat_sim_card') return 1;
+                        if (a.id !== 'cat_sim_card' && b.id === 'cat_sim_card') return -1;
+                        return (a.order || 0) - (b.order || 0);
+                      })
                       .map((config) => (
                       <option key={config.id} value={config.id}>
                         {config.name}
@@ -900,6 +917,49 @@ export default function DashboardPage() {
                     <div>
                       <label className="block text-sm font-medium text-gray-700 mb-1">จำนวน *</label>
                       <input type="number" min={1} value={form.quantity} onChange={(e) => setForm({ ...form, quantity: Number(e.target.value) })} className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500" required />
+                    </div>
+                    
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-1">สถานะ</label>
+                      <select
+                        value={form.status}
+                        onChange={(e) => setForm({ ...form, status: e.target.value })}
+                        className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                      >
+                        <option value="">เลือกสถานะ</option>
+                        {statusConfigs.map((config) => (
+                          <option key={config.id} value={config.id}>
+                            {config.name}
+                          </option>
+                        ))}
+                      </select>
+                    </div>
+                    
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-1">สภาพอุปกรณ์</label>
+                      <select
+                        value={form.condition}
+                        onChange={(e) => setForm({ ...form, condition: e.target.value })}
+                        className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                      >
+                        <option value="">เลือกสภาพอุปกรณ์</option>
+                        {conditionConfigs.map((config) => (
+                          <option key={config.id} value={config.id}>
+                            {config.name}
+                          </option>
+                        ))}
+                      </select>
+                    </div>
+                    
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-1">หมายเหตุ</label>
+                      <textarea
+                        value={form.notes}
+                        onChange={(e) => setForm({ ...form, notes: e.target.value })}
+                        className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                        rows={3}
+                        placeholder="ระบุหมายเหตุเพิ่มเติม (ถ้ามี)"
+                      />
                     </div>
                   </>
                 )}

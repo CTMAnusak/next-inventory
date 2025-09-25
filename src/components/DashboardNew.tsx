@@ -464,11 +464,20 @@ export default function DashboardNew() {
                       required
                     >
                       <option value="">เลือกหมวดหมู่</option>
-                      {categoryConfigs.map((category) => (
-                        <option key={category.id} value={category.id}>
-                          {category.name}
-                        </option>
-                      ))}
+                      {categoryConfigs
+                        .filter(config => !config.isSystemCategory || config.id !== 'cat_unassigned') // ไม่แสดง "ไม่ระบุ"
+                        .sort((a, b) => {
+                          // ใช้การเรียงลำดับแบบเดียวกับ CategoryConfigList
+                          // หมวดหมู่ปกติมาก่อน ซิมการ์ดมาหลัง
+                          if (a.id === 'cat_sim_card' && b.id !== 'cat_sim_card') return 1;
+                          if (a.id !== 'cat_sim_card' && b.id === 'cat_sim_card') return -1;
+                          return (a.order || 0) - (b.order || 0);
+                        })
+                        .map((category) => (
+                          <option key={category.id} value={category.id}>
+                            {category.name}
+                          </option>
+                        ))}
                     </select>
                   </div>
 

@@ -6,6 +6,8 @@ export interface IInventoryItem extends Document {
   serialNumber?: string;        // SN เฉพาะของชิ้นนี้ (ถ้ามี)
   numberPhone?: string;         // เบอร์โทรศัพท์ (สำหรับอุปกรณ์หมวดหมู่ซิมการ์ด)
   statusId: string;  // ใช้ ID แทน string เพื่อ relational integrity
+  conditionId?: string;  // ใช้ ID แทน string เพื่อ relational integrity
+  notes?: string;  // หมายเหตุเพิ่มเติม
   
   // Ownership ปัจจุบัน
   currentOwnership: {
@@ -76,6 +78,14 @@ const InventoryItemSchema = new Schema<IInventoryItem>({
     type: String, 
     required: true,
     index: true
+  },
+  conditionId: { 
+    type: String, 
+    sparse: true,
+    index: true
+  },
+  notes: { 
+    type: String 
   },
   
   // Ownership ปัจจุบัน
@@ -192,6 +202,36 @@ InventoryItemSchema.pre('save', function(next) {
   }
   
   next();
+});
+
+// Post-save hook เพื่อ auto-sync InventoryMaster
+InventoryItemSchema.post('save', async function(doc) {
+  try {
+    // Import ที่จำเป็น
+    const { updateInventoryMaster } = await import('../lib/inventory-helpers');
+    
+    console.log(`🔄 Auto-syncing InventoryMaster for: ${doc.itemName} (${doc.categoryId})`);
+    await updateInventoryMaster(doc.itemName, doc.categoryId);
+    console.log(`✅ Auto-sync completed for: ${doc.itemName}`);
+  } catch (error) {
+    console.error(`❌ Auto-sync failed for ${doc.itemName}:`, error);
+    // Don't throw error - just log it
+  }
+});
+
+// Post-findOneAndUpdate hook เพื่อ auto-sync InventoryMaster
+InventoryItemSchema.post('findOneAndUpdate', async function(doc) {
+  if (doc) {
+    try {
+      const { updateInventoryMaster } = await import('../lib/inventory-helpers');
+      
+      console.log(`🔄 Auto-syncing InventoryMaster after update: ${doc.itemName} (${doc.categoryId})`);
+      await updateInventoryMaster(doc.itemName, doc.categoryId);
+      console.log(`✅ Auto-sync completed for: ${doc.itemName}`);
+    } catch (error) {
+      console.error(`❌ Auto-sync failed for ${doc.itemName}:`, error);
+    }
+  }
 });
 
 // Static methods สำหรับ common queries

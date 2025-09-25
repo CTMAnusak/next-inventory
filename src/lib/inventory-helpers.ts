@@ -1,11 +1,11 @@
 /**
  * Helper functions for the new Reference-based inventory system
- * These functions provide common operations for ItemMaster, InventoryItem, and InventoryMaster
+ * These functions provide common operations for InventoryItem and InventoryMaster
  */
 
-import ItemMaster from '../models/ItemMaster';
-import { InventoryItem } from '../models/InventoryItemNew';
-import { InventoryMaster } from '../models/InventoryMasterNew';
+// ItemMaster removed - no longer needed
+import InventoryItem from '../models/InventoryItem';
+import InventoryMaster from '../models/InventoryMaster';
 import InventoryConfig from '../models/InventoryConfig';
 import TransferLog from '../models/TransferLog';
 import dbConnect from './mongodb';
@@ -69,7 +69,9 @@ export async function createInventoryItem(params: CreateItemParams) {
   } = params;
 
   // Validate categoryId exists
+  console.log('🔍 Validating categoryId:', categoryId);
   const config = await InventoryConfig.findOne({ 'categoryConfigs.id': categoryId });
+  console.log('🔍 Category config found:', config ? 'Yes' : 'No');
   if (!config) {
     throw new Error(`Invalid categoryId: ${categoryId}`);
   }
@@ -81,7 +83,9 @@ export async function createInventoryItem(params: CreateItemParams) {
   }
 
   // Validate conditionId exists
+  console.log('🔍 Validating conditionId:', conditionId);
   const conditionExists = await InventoryConfig.findOne({ 'conditionConfigs.id': conditionId });
+  console.log('🔍 Condition config found:', conditionExists ? 'Yes' : 'No');
   if (!conditionExists) {
     throw new Error(`Invalid conditionId: ${conditionId}`);
   }
@@ -107,7 +111,7 @@ export async function createInventoryItem(params: CreateItemParams) {
     // Check for duplicate phone number in SIM card category
     const existingPhoneItem = await InventoryItem.findOne({ 
       numberPhone: trimmedNumberPhone,
-      categoryId: finalCategory,
+      categoryId: categoryId,
       deletedAt: { $exists: false }
     });
     
@@ -116,19 +120,7 @@ export async function createInventoryItem(params: CreateItemParams) {
     }
   }
 
-  // Find or create ItemMaster
-  let itemMaster = await ItemMaster.findOne({ itemName, categoryId });
-  if (!itemMaster) {
-    console.log('📦 Creating new ItemMaster for:', { itemName, categoryId });
-    itemMaster = new ItemMaster({
-      itemName,
-      categoryId,
-      hasSerialNumber: !!serialNumber,
-      isActive: true,
-      createdBy: addedByUserId || 'system'
-    });
-    await itemMaster.save();
-  }
+  // ItemMaster removed - InventoryMaster will be created/updated automatically
 
   // Validate parameters
   if (addedBy === 'user' && !addedByUserId) {
@@ -145,7 +137,8 @@ export async function createInventoryItem(params: CreateItemParams) {
   const cleanNotes = notes && notes.trim() !== '' ? notes.trim() : undefined;
   
   console.log('🏗️ Creating new InventoryItem with data:', {
-    itemMasterId: itemMaster._id,
+    itemName,
+    categoryId,
     serialNumber: cleanSerialNumber,
     statusId,
     conditionId,
@@ -154,7 +147,8 @@ export async function createInventoryItem(params: CreateItemParams) {
   });
   
   const newItem = new InventoryItem({
-    itemMasterId: itemMaster._id.toString(),
+    itemName,
+    categoryId,
     serialNumber: cleanSerialNumber,
     numberPhone: cleanNumberPhone,
     statusId,
@@ -187,7 +181,7 @@ export async function createInventoryItem(params: CreateItemParams) {
     // Update InventoryMaster
     console.log('📊 Updating InventoryMaster...');
     try {
-      await updateInventoryMaster(itemMaster._id.toString());
+      await updateInventoryMasterLegacy(itemName, categoryId);
       console.log('✅ InventoryMaster updated successfully');
     } catch (masterError) {
       console.error('❌ Failed to update InventoryMaster:', masterError);
@@ -251,12 +245,6 @@ export async function transferInventoryItem(params: TransferItemParams) {
     throw new Error(`InventoryItem not found: ${itemId}`);
   }
 
-  // Get ItemMaster for logging
-  const itemMaster = await ItemMaster.findById(item.itemMasterId);
-  if (!itemMaster) {
-    throw new Error(`ItemMaster not found: ${item.itemMasterId}`);
-  }
-
   // Validate current ownership
   if (item.currentOwnership.ownerType !== fromOwnerType) {
     throw new Error(`Item ownership mismatch. Expected: ${fromOwnerType}, Actual: ${item.currentOwnership.ownerType}`);
@@ -286,13 +274,13 @@ export async function transferInventoryItem(params: TransferItemParams) {
   const savedItem = await item.save();
 
   // Update InventoryMaster quantities
-  await updateInventoryMaster(item.itemMasterId);
+  await updateInventoryMaster(item.itemName, item.categoryId);
 
-  // Create TransferLog
+  // Create TransferLog (use item data directly - no ItemMaster needed)
   await TransferLog.create({
     itemId: savedItem._id.toString(),
-    itemName: itemMaster.itemName,
-    category: itemMaster.categoryId,
+    itemName: item.itemName,          // จาก InventoryItem โดยตรง
+    category: item.categoryId,        // จาก InventoryItem โดยตรง
     serialNumber: savedItem.serialNumber,
     transferType,
     fromOwnership: {
@@ -315,10 +303,12 @@ export async function transferInventoryItem(params: TransferItemParams) {
 
 /**
  * หา InventoryItem ที่ว่างสำหรับการเบิก
+ * Updated: ใช้ itemName และ categoryId แทน itemMasterId
  */
-export async function findAvailableItems(itemMasterId: string, quantity: number = 1) {
+export async function findAvailableItems(itemName: string, categoryId: string, quantity: number = 10) {
   return await InventoryItem.find({
-    itemMasterId,
+    itemName,
+    categoryId,
     'currentOwnership.ownerType': 'admin_stock',
     statusId: 'status_available',    // มี
     conditionId: 'cond_working',     // ใช้งานได้
@@ -340,26 +330,28 @@ export async function findUserOwnedItems(userId: string) {
 /**
  * อัปเดต InventoryMaster สำหรับ item เดียว
  */
-export async function updateInventoryMaster(itemMasterId: string, options: { skipAutoDetection?: boolean } = {}) {
-  console.log('🔍 updateInventoryMaster called with:', { itemMasterId });
+export async function updateInventoryMaster(itemName: string, categoryId: string, options: { skipAutoDetection?: boolean } = {}) {
+  console.log('🔍 updateInventoryMaster called with:', { itemName, categoryId });
   
   try {
     // Find or create the master record
-    let updatedMaster = await InventoryMaster.findOne({ itemMasterId });
+    let updatedMaster = await InventoryMaster.findOne({ itemName, categoryId });
     if (!updatedMaster) {
-      console.log('📦 Creating new InventoryMaster for:', { itemMasterId });
+      console.log('📦 Creating new InventoryMaster for:', { itemName, categoryId });
       updatedMaster = new InventoryMaster({ 
-        itemMasterId,
+        itemName,
+        categoryId,
         totalQuantity: 0,
         availableQuantity: 0,
         userOwnedQuantity: 0
       });
     }
-  
+
     // Calculate quantities from actual InventoryItems
-    console.log('🔍 Finding InventoryItems for:', { itemMasterId });
+    console.log('🔍 Finding InventoryItems for:', { itemName, categoryId });
     const allItems = await InventoryItem.find({
-      itemMasterId,
+      itemName,
+      categoryId,
       deletedAt: { $exists: false }
     });
     console.log('📦 Found InventoryItems:', allItems.length);
@@ -371,24 +363,51 @@ export async function updateInventoryMaster(itemMasterId: string, options: { ski
     updatedMaster.availableQuantity = adminStockItems.length;
     updatedMaster.userOwnedQuantity = userOwnedItems.length;
     
-    // Calculate status breakdown
-    const statusCounts: { [key: string]: number } = {};
-    const conditionCounts: { [key: string]: number } = {};
+    // Calculate status breakdown based on model structure
+    const statusCounts = {
+      active: 0,
+      maintenance: 0,
+      damaged: 0,
+      retired: 0
+    };
     
+    // Count items by status mapping
     allItems.forEach(item => {
-      statusCounts[item.statusId] = (statusCounts[item.statusId] || 0) + 1;
-      conditionCounts[item.conditionId] = (conditionCounts[item.conditionId] || 0) + 1;
+      // Map statusId to statusBreakdown structure
+      switch (item.statusId) {
+        case 'status_available':
+        case 'status_in_use':
+          statusCounts.active++;
+          break;
+        case 'status_maintenance':
+          statusCounts.maintenance++;
+          break;
+        case 'status_damaged':
+          statusCounts.damaged++;
+          break;
+        case 'status_retired':
+          statusCounts.retired++;
+          break;
+        default:
+          statusCounts.active++; // Default to active for unknown status
+      }
     });
     
-    updatedMaster.statusBreakdown = Object.entries(statusCounts).map(([statusId, count]) => ({
-      statusId,
-      count
-    }));
+    updatedMaster.statusBreakdown = statusCounts;
     
-    updatedMaster.conditionBreakdown = Object.entries(conditionCounts).map(([conditionId, count]) => ({
-      conditionId,
-      count
-    }));
+    // Calculate item details breakdown
+    const itemsWithSerialNumber = allItems.filter(item => item.serialNumber && item.serialNumber.trim() !== '');
+    const itemsWithPhoneNumber = allItems.filter(item => item.numberPhone && item.numberPhone.trim() !== '');
+    const otherItems = allItems.filter(item => 
+      (!item.serialNumber || item.serialNumber.trim() === '') && 
+      (!item.numberPhone || item.numberPhone.trim() === '')
+    );
+    
+    updatedMaster.itemDetails = {
+      withSerialNumber: itemsWithSerialNumber.length,
+      withPhoneNumber: itemsWithPhoneNumber.length,
+      other: otherItems.length
+    };
     
     // Initialize stock management if not exists
     if (!updatedMaster.stockManagement) {
@@ -402,7 +421,8 @@ export async function updateInventoryMaster(itemMasterId: string, options: { ski
     
     // Count user-contributed items
     const userContributedItems = await InventoryItem.find({
-      itemMasterId,
+      itemName,
+      categoryId,
       'sourceInfo.addedBy': 'user',
       deletedAt: { $exists: false }
     });
@@ -411,7 +431,8 @@ export async function updateInventoryMaster(itemMasterId: string, options: { ski
     
     // Calculate currently allocated
     const allocatedItems = await InventoryItem.find({
-      itemMasterId,
+      itemName,
+      categoryId,
       'currentOwnership.ownerType': 'user_owned',
       'sourceInfo.addedBy': 'admin',
       deletedAt: { $exists: false }
@@ -443,28 +464,24 @@ export async function changeItemStatus(
     throw new Error(`InventoryItem not found: ${itemId}`);
   }
 
-  // Get ItemMaster for logging
-  const itemMaster = await ItemMaster.findById(item.itemMasterId);
-  if (!itemMaster) {
-    throw new Error(`ItemMaster not found: ${item.itemMasterId}`);
-  }
-
+  // Store old values before change
   const oldStatusId = item.statusId;
   const oldConditionId = item.conditionId;
   
+  // Update status and condition
   item.statusId = newStatusId;
   item.conditionId = newConditionId;
   
   const savedItem = await item.save();
 
   // Update InventoryMaster
-  await updateInventoryMaster(item.itemMasterId);
+  await updateInventoryMaster(item.itemName, item.categoryId);
 
-  // Log the status change
+  // Log the status change (use item data directly - no ItemMaster needed)
   await TransferLog.create({
     itemId: savedItem._id.toString(),
-    itemName: itemMaster.itemName,
-    category: itemMaster.categoryId,
+    itemName: item.itemName,          // จาก InventoryItem โดยตรง
+    category: item.categoryId,        // จาก InventoryItem โดยตรง
     serialNumber: savedItem.serialNumber,
     transferType: 'status_change',
     fromOwnership: {
@@ -498,7 +515,7 @@ export async function softDeleteInventoryItem(itemId: string, deletedBy: string,
   const savedItem = await item.save();
 
   // Update InventoryMaster
-  await updateInventoryMaster(item.itemMasterId);
+  await updateInventoryMaster(item.itemName, item.categoryId);
 
   return savedItem;
 }
@@ -519,37 +536,9 @@ export async function getInventoryConfigs() {
   };
 }
 
-/**
- * Get ItemMaster by category
- */
-export async function getItemMastersByCategory(categoryId: string) {
-  return await ItemMaster.find({
-    categoryId,
-    isActive: true
-  }).sort({ itemName: 1 });
-}
+// getItemMastersByCategory removed - ItemMaster no longer exists
 
-/**
- * Get InventoryMaster with populated ItemMaster data
- */
-export async function getInventoryMastersWithDetails() {
-  const masters = await InventoryMaster.find({}).sort({ lastUpdated: -1 });
-  
-  const result = [];
-  for (const master of masters) {
-    const itemMaster = await ItemMaster.findById(master.itemMasterId);
-    if (itemMaster) {
-      result.push({
-        ...master.toObject(),
-        itemName: itemMaster.itemName,
-        categoryId: itemMaster.categoryId,
-        hasSerialNumber: itemMaster.hasSerialNumber
-      });
-    }
-  }
-  
-  return result;
-}
+// getInventoryMastersWithDetails removed - InventoryMaster already has itemName and categoryId
 
 /**
  * Legacy compatibility functions
@@ -579,12 +568,126 @@ export async function createInventoryItemLegacy(params: any) {
 
 // Backward compatibility for old updateInventoryMaster calls
 export async function updateInventoryMasterLegacy(itemName: string, categoryId: string) {
-  // Find ItemMaster by name and category
-  const itemMaster = await ItemMaster.findOne({ itemName, categoryId });
-  if (!itemMaster) {
-    console.log(`ItemMaster not found for ${itemName} (${categoryId})`);
-    return null;
+  return await updateInventoryMaster(itemName, categoryId);
+}
+
+/**
+ * อัปเดต InventoryMaster summary สำหรับ item ทั้งหมด
+ */
+export async function refreshAllMasterSummaries() {
+  console.log('🔄 refreshAllMasterSummaries called');
+  
+  // Get all unique combinations of itemName and categoryId from InventoryItems
+  const combinations = await InventoryItem.aggregate([
+    {
+      $match: {
+        deletedAt: { $exists: false } // ไม่นับรายการที่ถูกลบ
+      }
+    },
+    {
+      $group: {
+        _id: {
+          itemName: '$itemName',
+          categoryId: '$categoryId'
+        }
+      }
+    }
+  ]);
+  
+  console.log(`🔍 Found ${combinations.length} unique item combinations`);
+  
+  const results = [];
+  for (const combo of combinations) {
+    try {
+      console.log(`🔄 Updating InventoryMaster for: ${combo._id.itemName} (${combo._id.categoryId})`);
+      const result = await updateInventoryMaster(combo._id.itemName, combo._id.categoryId);
+      results.push(result);
+    } catch (error) {
+      console.error(`❌ Failed to update InventoryMaster for ${combo._id.itemName}:`, error);
+      // Continue with other items even if one fails
+    }
   }
   
-  return await updateInventoryMaster(itemMaster._id.toString());
+  console.log(`✅ Successfully updated ${results.length} InventoryMaster records`);
+  return results;
+}
+
+/**
+ * 🆕 Helper functions สำหรับดึงข้อมูล real-time จาก InventoryItems
+ */
+
+/**
+ * ดึงรายการ Serial Numbers ที่มีจริง
+ */
+export async function getSerialNumbers(itemName: string, categoryId: string): Promise<string[]> {
+  const items = await InventoryItem.find({
+    itemName,
+    categoryId,
+    serialNumber: { $exists: true, $ne: '', $ne: null },
+    deletedAt: { $exists: false }
+  }, { serialNumber: 1 }).lean();
+  
+  return items.map(item => item.serialNumber).filter(Boolean);
+}
+
+/**
+ * ดึงรายการ Phone Numbers ที่มีจริง
+ */
+export async function getPhoneNumbers(itemName: string, categoryId: string): Promise<string[]> {
+  const items = await InventoryItem.find({
+    itemName,
+    categoryId,
+    numberPhone: { $exists: true, $ne: '', $ne: null },
+    deletedAt: { $exists: false }
+  }, { numberPhone: 1 }).lean();
+  
+  return items.map(item => item.numberPhone).filter(Boolean);
+}
+
+/**
+ * ตรวจสอบว่าอุปกรณ์ประเภทนี้มี Serial Number หรือไม่
+ */
+export async function itemTypeHasSerialNumber(itemName: string, categoryId: string): Promise<boolean> {
+  const master = await InventoryMaster.findOne({ itemName, categoryId });
+  return master ? master.itemDetails.withSerialNumber > 0 : false;
+}
+
+/**
+ * ตรวจสอบว่าอุปกรณ์ประเภทนี้มี Phone Number หรือไม่
+ */
+export async function itemTypeHasPhoneNumber(itemName: string, categoryId: string): Promise<boolean> {
+  const master = await InventoryMaster.findOne({ itemName, categoryId });
+  return master ? master.itemDetails.withPhoneNumber > 0 : false;
+}
+
+/**
+ * ดึงรายละเอียดอุปกรณ์ที่มีทั้ง Serial Number และ Phone Number
+ */
+export async function getItemsWithDetails(itemName: string, categoryId: string) {
+  const items = await InventoryItem.find({
+    itemName,
+    categoryId,
+    deletedAt: { $exists: false }
+  }).lean();
+  
+  const withSerial = items.filter(item => item.serialNumber && item.serialNumber.trim() !== '');
+  const withPhone = items.filter(item => item.numberPhone && item.numberPhone.trim() !== '');
+  const other = items.filter(item => 
+    (!item.serialNumber || item.serialNumber.trim() === '') && 
+    (!item.numberPhone || item.numberPhone.trim() === '')
+  );
+  
+  return {
+    total: items.length,
+    withSerial,
+    withPhone,
+    other,
+    breakdown: {
+      withSerialNumber: withSerial.length,
+      withPhoneNumber: withPhone.length,
+      other: other.length
+    },
+    serialNumbers: items.map(item => item.serialNumber).filter(Boolean),
+    phoneNumbers: items.map(item => item.numberPhone).filter(Boolean)
+  };
 }

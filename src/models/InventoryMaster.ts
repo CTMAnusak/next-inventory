@@ -5,6 +5,13 @@ export interface IInventoryMaster extends Document {
   categoryId: string;  // ใช้ ID แทน string เพื่อ relational integrity
   hasSerialNumber: boolean;     // บอกว่าประเภทนี้มี SN หรือไม่
   
+  // รายละเอียดแต่ละชิ้น
+  itemDetails: {
+    withSerialNumber: number;   // จำนวนที่มี Serial Number
+    withPhoneNumber: number;    // จำนวนที่มี Phone Number
+    other: number;              // อุปกรณ์อื่นๆ ที่ไม่มีทั้ง SN และ Phone
+  };
+  
   // สถิติรวม
   totalQuantity: number;        // จำนวนรวมทั้งหมด (admin_stock + user_owned)
   availableQuantity: number;    // จำนวนที่เหลือให้ยืม (admin_stock เท่านั้น)
@@ -61,6 +68,25 @@ const InventoryMasterSchema = new Schema<IInventoryMaster>({
     type: Boolean,
     required: true,
     default: false
+  },
+  
+  // รายละเอียดแต่ละชิ้น
+  itemDetails: {
+    withSerialNumber: {
+      type: Number,
+      min: 0,
+      default: 0
+    },
+    withPhoneNumber: {
+      type: Number,
+      min: 0,
+      default: 0
+    },
+    other: {
+      type: Number,
+      min: 0,
+      default: 0
+    }
   },
   
   // สถิติรวม

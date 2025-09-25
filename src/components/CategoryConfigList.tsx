@@ -177,17 +177,17 @@ function CategoryItem({
 interface CategoryConfigListProps {
   categoryConfigs: ICategoryConfig[];
   onReorder: (newConfigs: ICategoryConfig[]) => void;
-  onEdit: (index: number, updates: Partial<ICategoryConfig>) => void;
-  onDelete: (index: number) => void;
+  onEdit: (categoryId: string, updates: Partial<ICategoryConfig>) => void;
+  onDelete: (categoryId: string) => void;
   title: string;
   newItemValue: string;
   onNewItemValueChange: (value: string) => void;
   onAddNewItem: () => void;
-  editingIndex: number | null;
+  editingCategoryId: string | null;
   editingValue: string;
   onEditingValueChange: (value: string) => void;
-  onStartEdit: (index: number) => void;
-  onSaveEdit: (index: number) => void;
+  onStartEdit: (categoryId: string) => void;
+  onSaveEdit: (categoryId: string) => void;
   onCancelEdit: () => void;
   showBackgroundColors?: boolean;
 }
@@ -201,7 +201,7 @@ export default function CategoryConfigList({
   newItemValue,
   onNewItemValueChange,
   onAddNewItem,
-  editingIndex,
+  editingCategoryId,
   editingValue,
   onEditingValueChange,
   onStartEdit,
@@ -350,12 +350,12 @@ export default function CategoryConfigList({
                       id={config.id}
                       config={config}
                       index={actualIndex}
-                      isEditing={editingIndex === actualIndex}
+                      isEditing={editingCategoryId === config.id}
                       editValue={editingValue}
-                      onEdit={onStartEdit}
-                      onSave={onSaveEdit}
+                      onEdit={(categoryId) => onStartEdit(categoryId)}
+                      onSave={(categoryId) => onSaveEdit(categoryId)}
                       onCancel={onCancelEdit}
-                      onDelete={onDelete}
+                      onDelete={(categoryId) => onDelete(categoryId)}
                       onEditValueChange={onEditingValueChange}
                       showBackgroundColors={showBackgroundColors}
                     />
@@ -376,12 +376,12 @@ export default function CategoryConfigList({
                       id={config.id}
                       config={config}
                       index={actualIndex}
-                      isEditing={editingIndex === actualIndex}
+                      isEditing={editingCategoryId === config.id}
                       editValue={editingValue}
-                      onEdit={onStartEdit}
-                      onSave={onSaveEdit}
+                      onEdit={(categoryId) => onStartEdit(categoryId)}
+                      onSave={(categoryId) => onSaveEdit(categoryId)}
                       onCancel={onCancelEdit}
-                      onDelete={onDelete}
+                      onDelete={(categoryId) => onDelete(categoryId)}
                       onEditValueChange={onEditingValueChange}
                       showBackgroundColors={showBackgroundColors}
                     />

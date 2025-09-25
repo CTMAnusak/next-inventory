@@ -66,13 +66,18 @@ export async function GET() {
 
 // POST - Create new inventory item using new system
 export async function POST(request: NextRequest) {
+  console.log('🚀 POST API called');
+  
   try {
+    console.log('🔧 Connecting to database...');
     await dbConnect();
+    console.log('✅ Database connected');
     
+    console.log('📝 Parsing request body...');
     const body = await request.json();
-    const { itemName, category, categoryId, quantity, totalQuantity, serialNumber, numberPhone, status } = body;
-    
     console.log('🔍 Admin Inventory API - Request body:', body);
+    
+    const { itemName, category, categoryId, quantity, totalQuantity, serialNumber, numberPhone, status, condition, statusId, conditionId } = body;
     
     // Get user info from token
     const token = request.cookies.get('auth-token')?.value;
@@ -139,6 +144,16 @@ export async function POST(request: NextRequest) {
     // Create items using new inventory system
     const itemsToCreate = [];
     
+    console.log('🔍 Creating items with parameters:', {
+      itemName,
+      finalCategoryId,
+      status,
+      condition,
+      serialNumber,
+      numberPhone,
+      quantity
+    });
+    
     if (serialNumber || numberPhone) {
       // Create single item with serial number or phone number
       itemsToCreate.push({
@@ -146,6 +161,8 @@ export async function POST(request: NextRequest) {
         categoryId: finalCategoryId, // ใช้ categoryId แทน category
         serialNumber: serialNumber || undefined,
         numberPhone: numberPhone || undefined,
+        statusId: statusId || status || 'status_available',
+        conditionId: conditionId || condition,
         addedBy: 'admin' as const,
         initialOwnerType: 'admin_stock' as const,
         notes: `Added by admin via inventory management${numberPhone ? ' (SIM card)' : ''}`
@@ -157,12 +174,16 @@ export async function POST(request: NextRequest) {
         itemsToCreate.push({
           itemName,
           categoryId: finalCategoryId, // ใช้ categoryId แทน category
+          statusId: statusId || status || 'status_available',
+          conditionId: conditionId || condition,
           addedBy: 'admin' as const,
           initialOwnerType: 'admin_stock' as const,
           notes: `Added by admin via inventory management (${i + 1}/${actualQuantity})`
         });
       }
     }
+    
+    console.log('🔍 Items to create:', itemsToCreate);
 
     // Create all items
     const createdItems = [];
@@ -278,7 +299,7 @@ export async function DELETE(request: NextRequest) {
     }
 
     // Find all items to delete
-    const itemsToDelete = await InventoryItem.find({ itemName, category });
+    const itemsToDelete = await InventoryItem.find({ itemName, categoryId: category });
     
     if (itemsToDelete.length === 0) {
       return NextResponse.json(
@@ -298,8 +319,8 @@ export async function DELETE(request: NextRequest) {
           error: `มีอุปกรณ์ ${userOwnedItems.length} ชิ้นที่ถูกเบิกไปอยู่ ไม่สามารถลบได้`,
           userOwnedItems: userOwnedItems.map(item => ({
             serialNumber: item.serialNumber,
-            ownerId: item.currentOwnership.ownerId,
-            ownerName: item.currentOwnership.ownerName
+            ownerId: item.currentOwnership.userId,
+            ownerName: item.currentOwnership.userId
           }))
         },
         { status: 400 }
@@ -361,7 +382,7 @@ export async function DELETE(request: NextRequest) {
         
         const recycleBinItems = backupData.map(backup => ({
           itemName: backup.itemName,
-          category: backup.category,
+          categoryId: backup.categoryId,
           serialNumber: backup.serialNumber,
           deleteType: 'category_bulk',
           deleteReason: backup.deleteReason,
@@ -379,9 +400,9 @@ export async function DELETE(request: NextRequest) {
       } catch (recycleBinSaveError) {
         console.error('❌ RecycleBin save failed, but continuing with deletion:', recycleBinSaveError);
         console.error('❌ RecycleBin error details:', {
-          name: recycleBinSaveError.name,
-          message: recycleBinSaveError.message,
-          stack: recycleBinSaveError.stack
+          name: recycleBinSaveError instanceof Error ? recycleBinSaveError.name : 'Unknown',
+          message: recycleBinSaveError instanceof Error ? recycleBinSaveError.message : 'Unknown error',
+          stack: recycleBinSaveError instanceof Error ? recycleBinSaveError.stack : 'No stack trace'
         });
       }
       
@@ -392,10 +413,10 @@ export async function DELETE(request: NextRequest) {
     
     // Now delete all related data
     // 1. Delete all InventoryItems
-    await InventoryItem.deleteMany({ itemName, category });
+    await InventoryItem.deleteMany({ itemName, categoryId: category });
     
     // 2. Delete InventoryMaster
-    await InventoryMaster.deleteOne({ itemName, category });
+    await InventoryMaster.deleteOne({ itemName, categoryId: category });
     
     // 3. Delete related logs (optional - for cleanup)
     // Note: We keep TransferLog and other logs for audit trail

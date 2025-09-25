@@ -409,8 +409,14 @@ export default function EquipmentRequestPage() {
                     {showCategorySelector && (
                       <div className="absolute z-10 w-full mt-1 bg-white border border-gray-300 rounded-md shadow-lg max-h-60 overflow-auto">
                         {categoryConfigs
-                          .filter(config => !config.isSystemCategory) // ไม่แสดง "ไม่ระบุ"
-                          .sort((a, b) => a.order - b.order)
+                          .filter(config => !config.isSystemCategory || config.id !== 'cat_unassigned') // ไม่แสดง "ไม่ระบุ"
+                          .sort((a, b) => {
+                            // ใช้การเรียงลำดับแบบเดียวกับ CategoryConfigList
+                            // หมวดหมู่ปกติมาก่อน ซิมการ์ดมาหลัง
+                            if (a.id === 'cat_sim_card' && b.id !== 'cat_sim_card') return 1;
+                            if (a.id !== 'cat_sim_card' && b.id === 'cat_sim_card') return -1;
+                            return (a.order || 0) - (b.order || 0);
+                          })
                           .map((config) => {
                             // ตรวจสอบว่ามีอุปกรณ์ในหมวดหมู่นี้หรือไม่ (ใช้ categoryId เท่านั้น)
                             const hasItems = itemsByCategory[config.id] && itemsByCategory[config.id].length > 0;

@@ -61,6 +61,7 @@ interface InventoryItem {
   serialNumbers?: string[]; // แก้ไขจาก serialNumber เป็น serialNumbers
   status: string; // Deprecated - will be removed
   statusId?: string; // New field for status reference
+  condition?: string; // New field for condition reference
   dateAdded: string;
 }
 
@@ -89,6 +90,7 @@ interface InventoryFormData {
   totalQuantity: number;
   serialNumber: string;
   status: string;
+  condition: string;
 }
 
 export default function AdminInventoryPage() {
@@ -163,8 +165,12 @@ export default function AdminInventoryPage() {
     quantity: 0,
     totalQuantity: 0,
     serialNumber: '',
-    status: 'active'
+    status: '', // ใช้ empty string แล้วจะ set ใน useEffect
+    condition: ''
   });
+  
+  // Add missing addFromSN state
+  const [addFromSN, setAddFromSN] = useState(false);
 
   // Pagination
   const [currentPage, setCurrentPage] = useState(1);
@@ -193,7 +199,7 @@ export default function AdminInventoryPage() {
   
   // Condition management states
   const [newConditionConfig, setNewConditionConfig] = useState('');
-  const [editingCategoryIndex, setEditingCategoryIndex] = useState<number | null>(null);
+  const [editingCategoryId, setEditingCategoryId] = useState<string | null>(null);
   const [editingCategoryValue, setEditingCategoryValue] = useState('');
   const [editingStatusIndex, setEditingStatusIndex] = useState<number | null>(null);
   const [editingStatusValue, setEditingStatusValue] = useState('');
@@ -277,6 +283,18 @@ export default function AdminInventoryPage() {
     fetchInventory();
     fetchConfig();
   }, []);
+  
+  // Set default status and condition values when configs are loaded
+  useEffect(() => {
+    if (statusConfigs.length > 0 && !formData.status) {
+      const defaultStatus = statusConfigs.find(s => s.name === 'มี') || statusConfigs[0];
+      setFormData(prev => ({ ...prev, status: defaultStatus.id }));
+    }
+    if (conditionConfigs.length > 0 && !formData.condition) {
+      const defaultCondition = conditionConfigs.find(c => c.name === 'ใช้งานได้') || conditionConfigs[0];
+      setFormData(prev => ({ ...prev, condition: defaultCondition.id }));
+    }
+  }, [statusConfigs, conditionConfigs, formData.status, formData.condition]);
 
   // Initialize drag scrolling
   useEffect(() => {
@@ -372,11 +390,14 @@ export default function AdminInventoryPage() {
 
   const fetchConfig = async () => {
     try {
-      const response = await fetch('/api/admin/inventory/config');
+      console.log('🔍 Fetching configs from /api/configs...');
+      const response = await fetch('/api/configs');
+      console.log('🔍 Configs response status:', response.status);
       const handledResponse = await handleApiResponse(response, 'ไม่สามารถโหลดการตั้งค่าได้ - เซสชันหมดอายุ');
       
       if (handledResponse && handledResponse.ok) {
         const data = await handledResponse.json();
+        console.log('🔍 Configs data received:', data);
         
         // Handle categoryConfigs format only
         if (Array.isArray(data.categoryConfigs) && data.categoryConfigs.length > 0) {
@@ -544,7 +565,7 @@ export default function AdminInventoryPage() {
 
     try {
       // Validate required fields
-      if (!formData.itemName || !formData.categoryId || formData.quantity <= 0) {
+      if (!formData.itemName || !formData.categoryId || formData.quantity <= 0 || !formData.condition) {
         toast.error('กรุณากรอกข้อมูลให้ครบถ้วน');
         setLoading(false);
         return;
@@ -559,13 +580,21 @@ export default function AdminInventoryPage() {
             ...formData, 
             quantity: 1, 
             totalQuantity: 1,
+            // แปลง status และ condition เป็น statusId และ conditionId
+            statusId: formData.status,
+            conditionId: formData.condition,
             // สำหรับซิมการ์ด ส่ง numberPhone แทน serialNumber
             ...(isSIMCardSync(formData.categoryId) && formData.serialNumber && {
               numberPhone: formData.serialNumber,
               serialNumber: '' // ล้าง serialNumber สำหรับซิมการ์ด
             })
           }
-        : formData;
+        : {
+            ...formData,
+            // แปลง status และ condition เป็น statusId และ conditionId
+            statusId: formData.status,
+            conditionId: formData.condition
+          };
 
       const response = await fetch(url, {
         method,
@@ -612,7 +641,8 @@ export default function AdminInventoryPage() {
       quantity: item.quantity,
       totalQuantity: item.totalQuantity ?? item.quantity,
       serialNumber: item.serialNumbers && item.serialNumbers.length > 0 ? item.serialNumbers[0] : '',
-      status: item.status
+      status: item.status,
+      condition: item.condition || ''
     });
     setShowEditModal(true);
   };
@@ -1364,18 +1394,28 @@ export default function AdminInventoryPage() {
 
 
   const resetForm = () => {
+    // Set default status and condition based on loaded configs
+    const defaultStatus = statusConfigs.length > 0 
+      ? (statusConfigs.find(s => s.name === 'มี') || statusConfigs[0]).id
+      : '';
+    const defaultCondition = conditionConfigs.length > 0 
+      ? (conditionConfigs.find(c => c.name === 'ใช้งานได้') || conditionConfigs[0]).id
+      : '';
+    
     setFormData({
       itemName: '',
       categoryId: '',
       quantity: 0,
       totalQuantity: 0,
       serialNumber: '',
-      status: 'active'
+      status: defaultStatus,
+      condition: defaultCondition
     });
     setEditingItem(null);
     setAddFromSN(false);
     
     // Reset new states
+    setSelectedCategory(''); // Reset selectedCategory ด้วย
     setSelectedCategoryId('');
     setExistingItemsInCategory([]);
     setSelectedExistingItem('');
@@ -1790,7 +1830,6 @@ export default function AdminInventoryPage() {
   const startIndex = (currentPage - 1) * itemsPerPage;
   const endIndex = startIndex + itemsPerPage;
   const currentItems = filteredItems.slice(startIndex, endIndex);
-  const [addFromSN, setAddFromSN] = useState(false);
 
 
   const findNonSerialDocForGroup = (groupItem: any): InventoryItem | undefined => {
@@ -1881,11 +1920,20 @@ export default function AdminInventoryPage() {
                     className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 text-gray-900"
                   >
                     <option value="">ทั้งหมด</option>
-                    {categoryConfigs.map((config: any) => (
-                      <option key={config.id} value={config.id}>
-                        {config.name}
-                      </option>
-                    ))}
+                    {categoryConfigs
+                      .filter(config => !config.isSystemCategory || config.id !== 'cat_unassigned') // ซ่อน "ไม่ระบุ"
+                      .sort((a, b) => {
+                        // ใช้การเรียงลำดับแบบเดียวกับ CategoryConfigList
+                        // หมวดหมู่ปกติมาก่อน ซิมการ์ดมาหลัง
+                        if (a.id === 'cat_sim_card' && b.id !== 'cat_sim_card') return 1;
+                        if (a.id !== 'cat_sim_card' && b.id === 'cat_sim_card') return -1;
+                        return (a.order || 0) - (b.order || 0);
+                      })
+                      .map((config: any) => (
+                        <option key={config.id} value={config.id}>
+                          {config.name}
+                        </option>
+                      ))}
                   </select>
                 </div>
                 <div>
@@ -1963,7 +2011,7 @@ export default function AdminInventoryPage() {
                   </th>
                 </tr>
               </thead>
-              <tbody className="bg-white divide-y divide-gray-200">
+              <tbody className="bg-gray-50  divide-y divide-gray-200">
                 {loading && (
                   <tr>
                     <td colSpan={7} className="px-6 py-8 text-center text-gray-500">
@@ -2113,11 +2161,20 @@ export default function AdminInventoryPage() {
                     required
                   >
                     <option value="">-- เลือกหมวดหมู่ --</option>
-                    {categoryConfigs.map((config: any) => (
-                      <option key={config.id} value={config.id}>
-                        {config.name}
-                      </option>
-                    ))}
+                    {categoryConfigs
+                      .filter(config => !config.isSystemCategory || config.id !== 'cat_unassigned') // ซ่อน "ไม่ระบุ"
+                      .sort((a, b) => {
+                        // ใช้การเรียงลำดับแบบเดียวกับ CategoryConfigList
+                        // หมวดหมู่ปกติมาก่อน ซิมการ์ดมาหลัง
+                        if (a.id === 'cat_sim_card' && b.id !== 'cat_sim_card') return 1;
+                        if (a.id !== 'cat_sim_card' && b.id === 'cat_sim_card') return -1;
+                        return (a.order || 0) - (b.order || 0);
+                      })
+                      .map((config: any) => (
+                        <option key={config.id} value={config.id}>
+                          {config.name}
+                        </option>
+                      ))}
                   </select>
                 </div>
 
@@ -2256,6 +2313,26 @@ export default function AdminInventoryPage() {
                         ) : (
                           <option value="" disabled>ไม่มีสถานะในระบบ</option>
                         )}
+                      </select>
+                    </div>
+
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-1">
+                        สภาพอุปกรณ์
+                      </label>
+                      <select
+                        name="condition"
+                        value={formData.condition}
+                        onChange={handleInputChange}
+                        className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 text-gray-900"
+                        required
+                      >
+                        <option value="">เลือกสภาพอุปกรณ์</option>
+                        {conditionConfigs.map((config) => (
+                          <option key={config.id} value={config.id}>
+                            {config.name}
+                          </option>
+                        ))}
                       </select>
                     </div>
 
@@ -2459,11 +2536,20 @@ export default function AdminInventoryPage() {
                     required
                   >
                     <option value="">-- เลือกหมวดหมู่ --</option>
-                    {categoryConfigs.map((config: any) => (
-                      <option key={config.id} value={config.id}>
-                        {config.name}
-                      </option>
-                    ))}
+                    {categoryConfigs
+                      .filter(config => !config.isSystemCategory || config.id !== 'cat_unassigned') // ซ่อน "ไม่ระบุ"
+                      .sort((a, b) => {
+                        // ใช้การเรียงลำดับแบบเดียวกับ CategoryConfigList
+                        // หมวดหมู่ปกติมาก่อน ซิมการ์ดมาหลัง
+                        if (a.id === 'cat_sim_card' && b.id !== 'cat_sim_card') return 1;
+                        if (a.id !== 'cat_sim_card' && b.id === 'cat_sim_card') return -1;
+                        return (a.order || 0) - (b.order || 0);
+                      })
+                      .map((config: any) => (
+                        <option key={config.id} value={config.id}>
+                          {config.name}
+                        </option>
+                      ))}
                   </select>
                 </div>
                 
@@ -2661,30 +2747,40 @@ export default function AdminInventoryPage() {
                       <CategoryConfigList
                         categoryConfigs={categoryConfigs}
                         onReorder={reorderCategoryConfigs}
-                        onEdit={updateCategoryConfig}
-                        onDelete={deleteCategoryConfig}
+                        onEdit={(categoryId, updates) => {
+                          const index = categoryConfigs.findIndex(cat => cat.id === categoryId);
+                          updateCategoryConfig(index, updates);
+                        }}
+                        onDelete={(categoryId) => {
+                          const index = categoryConfigs.findIndex(cat => cat.id === categoryId);
+                          deleteCategoryConfig(index);
+                        }}
                         title=""
                         newItemValue={newCategory}
                         onNewItemValueChange={setNewCategory}
                         onAddNewItem={addNewCategoryConfig}
-                        editingIndex={editingCategoryIndex}
+                        editingCategoryId={editingCategoryId}
                         editingValue={editingCategoryValue}
                         onEditingValueChange={setEditingCategoryValue}
-                        onStartEdit={(index) => {
-                          setEditingCategoryIndex(index);
+                        onStartEdit={(categoryId) => {
+                          setEditingCategoryId(categoryId);
+                          // หา index จาก categoryId
+                          const index = categoryConfigs.findIndex(cat => cat.id === categoryId);
                           // ใช้ชื่อจาก categoryConfigs ที่เป็นข้อมูลปัจจุบัน
                           const categoryName = categoryConfigs[index]?.name || '';
                           setEditingCategoryValue(categoryName);
                         }}
-                        onSaveEdit={(index) => {
+                        onSaveEdit={(categoryId) => {
+                          // หา index จาก categoryId
+                          const index = categoryConfigs.findIndex(cat => cat.id === categoryId);
                           updateCategoryConfig(index, {
                             name: editingCategoryValue.trim() || categoryConfigs[index].name
                           });
-                          setEditingCategoryIndex(null);
+                          setEditingCategoryId(null);
                           setEditingCategoryValue('');
                         }}
                         onCancelEdit={() => {
-                          setEditingCategoryIndex(null);
+                          setEditingCategoryId(null);
                           setEditingCategoryValue('');
                         }}
                         showBackgroundColors={true}

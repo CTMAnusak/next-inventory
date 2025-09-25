@@ -204,7 +204,9 @@ export async function POST(request: NextRequest) {
         addedByUserId: currentUser.user_id,
         initialOwnerType: 'user_owned' as const,
         userId: currentUser.user_id,
-        notes: 'Added by user via dashboard'
+        statusId: itemData.status || 'status_available',
+        conditionId: itemData.condition,
+        notes: itemData.notes || 'Added by user via dashboard'
       });
     } else {
       // Create multiple items without serial numbers
@@ -217,7 +219,9 @@ export async function POST(request: NextRequest) {
           addedByUserId: currentUser.user_id,
           initialOwnerType: 'user_owned' as const,
           userId: currentUser.user_id,
-          notes: `Added by user via dashboard (${i + 1}/${quantity})`
+          statusId: itemData.status || 'status_available',
+          conditionId: itemData.condition,
+          notes: itemData.notes || `Added by user via dashboard (${i + 1}/${quantity})`
         });
       }
     }
