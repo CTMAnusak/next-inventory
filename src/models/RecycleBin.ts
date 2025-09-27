@@ -4,11 +4,13 @@ export interface IRecycleBin extends Document {
   // ข้อมูลอุปกรณ์ที่ถูกลบ
   itemName: string;
   category: string;
-  serialNumber?: string;        // SN ของอุปกรณ์ (ถ้ามี)
-  numberPhone?: string;         // เบอร์โทรศัพท์ (สำหรับซิมการ์ด)
+  categoryId: string;               // เพิ่มเพื่อความชัดเจน
+  inventoryMasterId: string;        // 🆕 ID ของ InventoryMaster สำหรับจัดกลุ่ม
+  serialNumber?: string;            // SN ของอุปกรณ์ (ถ้ามี)
+  numberPhone?: string;             // เบอร์โทรศัพท์ (สำหรับซิมการ์ด)
   
   // ข้อมูลการลบ
-  deleteType: 'individual_item' | 'category_bulk';  // ประเภทการลบ
+  deleteType: 'individual_item' | 'bulk_delete';    // เปลี่ยนชื่อให้ชัดเจน
   deletedAt: Date;                                  // วันที่ลบ
   deleteReason: string;                             // เหตุผลการลบ
   deletedBy: string;                                // ผู้ลบ (user_id)
@@ -39,6 +41,16 @@ const RecycleBinSchema = new Schema<IRecycleBin>({
     required: true,
     index: true
   },
+  categoryId: {
+    type: String,
+    required: true,
+    index: true
+  },
+  inventoryMasterId: {
+    type: String,
+    required: true,
+    index: true  // 🆕 สำหรับจัดกลุ่มและค้นหา
+  },
   serialNumber: { 
     type: String,
     sparse: true,
@@ -52,7 +64,7 @@ const RecycleBinSchema = new Schema<IRecycleBin>({
   
   deleteType: {
     type: String,
-    enum: ['individual_item', 'category_bulk'],
+    enum: ['individual_item', 'bulk_delete'],  // เปลี่ยนชื่อ
     required: true,
     index: true
   },
@@ -102,7 +114,8 @@ const RecycleBinSchema = new Schema<IRecycleBin>({
 RecycleBinSchema.index({ serialNumber: 1, isRestored: 1 }); // สำหรับตรวจสอบ SN ซ้ำ
 RecycleBinSchema.index({ numberPhone: 1, isRestored: 1 }); // สำหรับตรวจสอบเบอร์โทรศัพท์ซ้ำ
 RecycleBinSchema.index({ deletedAt: 1, isRestored: 1 });    // สำหรับ auto-cleanup
-RecycleBinSchema.index({ itemName: 1, category: 1, deleteType: 1 }); // สำหรับ UI listing
+RecycleBinSchema.index({ inventoryMasterId: 1, isRestored: 1 }); // 🆕 สำหรับจัดกลุ่ม
+RecycleBinSchema.index({ itemName: 1, categoryId: 1, deleteType: 1 }); // สำหรับ UI listing
 
 // Pre-save middleware: คำนวณ permanentDeleteAt
 RecycleBinSchema.pre('save', function(next) {
@@ -121,10 +134,57 @@ RecycleBinSchema.statics.findBySerialNumber = function(serialNumber: string) {
   });
 };
 
+// 🆕 ใหม่: จัดกลุ่มตาม inventoryMasterId
+RecycleBinSchema.statics.findGroupedDeletedItems = function(page: number = 1, limit: number = 50) {
+  const skip = (page - 1) * limit;
+  
+  return this.aggregate([
+    {
+      $match: {
+        isRestored: { $ne: true }
+      }
+    },
+    {
+      $group: {
+        _id: '$inventoryMasterId',
+        itemName: { $first: '$itemName' },
+        category: { $first: '$category' },
+        categoryId: { $first: '$categoryId' },
+        deleteType: { $first: '$deleteType' },
+        deletedAt: { $first: '$deletedAt' },
+        deleteReason: { $first: '$deleteReason' },
+        deletedBy: { $first: '$deletedBy' },
+        deletedByName: { $first: '$deletedByName' },
+        permanentDeleteAt: { $first: '$permanentDeleteAt' },
+        totalItems: { $sum: 1 },
+        items: {
+          $push: {
+            _id: '$_id',
+            serialNumber: '$serialNumber',
+            numberPhone: '$numberPhone',
+            originalData: '$originalData'
+          }
+        }
+      }
+    },
+    {
+      $sort: { deletedAt: -1 }
+    },
+    {
+      $skip: skip
+    },
+    {
+      $limit: limit
+    }
+  ]);
+};
+
+// เก็บไว้สำหรับ backward compatibility
 RecycleBinSchema.statics.findDeletedItems = function(page: number = 1, limit: number = 50) {
   const skip = (page - 1) * limit;
   return this.find({ 
-    deleteType: 'individual_item'
+    deleteType: 'individual_item',
+    isRestored: { $ne: true }
   })
   .sort({ deletedAt: -1 })
   .skip(skip)
@@ -134,7 +194,8 @@ RecycleBinSchema.statics.findDeletedItems = function(page: number = 1, limit: nu
 RecycleBinSchema.statics.findDeletedCategories = function(page: number = 1, limit: number = 50) {
   const skip = (page - 1) * limit;
   return this.find({ 
-    deleteType: 'category_bulk'
+    deleteType: 'bulk_delete',
+    isRestored: { $ne: true }
   })
   .sort({ deletedAt: -1 })
   .skip(skip)

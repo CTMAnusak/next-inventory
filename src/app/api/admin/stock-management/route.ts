@@ -215,13 +215,22 @@ export async function POST(request: NextRequest) {
       );
     }
     
-    // For adjust_stock operation, value is required
-    if (operationType === 'adjust_stock' && value === undefined) {
-      console.error('❌ Missing value for adjust_stock operation');
-      return NextResponse.json(
-        { error: 'กรุณาระบุจำนวนที่ต้องการปรับ' },
-        { status: 400 }
-      );
+    // For adjust_stock operation, value is required and cannot be 0
+    if (operationType === 'adjust_stock') {
+      if (value === undefined) {
+        console.error('❌ Missing value for adjust_stock operation');
+        return NextResponse.json(
+          { error: 'กรุณาระบุจำนวนที่ต้องการปรับ' },
+          { status: 400 }
+        );
+      }
+      if (value === 0) {
+        console.error('❌ Cannot adjust stock to 0');
+        return NextResponse.json(
+          { error: 'ไม่สามารถปรับจำนวนเป็น 0 ได้ (ใช้สำหรับการปรับจำนวน ไม่ใช่การลบ)' },
+          { status: 400 }
+        );
+      }
     }
     
     // For change_status_condition operation, at least one change field is required

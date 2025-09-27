@@ -30,13 +30,36 @@ export async function GET(request: NextRequest) {
     }
 
     const { searchParams } = new URL(request.url);
-    const type = searchParams.get('type') as 'individual' | 'category' || 'individual';
+    const grouped = searchParams.get('grouped') === 'true'; // 🆕 ใหม่: ใช้ grouped แทน type
+    const type = searchParams.get('type') as 'individual' | 'category' || 'individual'; // เก็บไว้ backward compatibility
     const page = parseInt(searchParams.get('page') || '1');
     const limit = parseInt(searchParams.get('limit') || '50');
 
-    console.log(`🗑️ Fetching recycle bin items: type=${type}, page=${page}, limit=${limit}`);
+    console.log(`🗑️ Fetching recycle bin items: grouped=${grouped}, type=${type}, page=${page}, limit=${limit}`);
 
-    const result = await getRecycleBinItems(type, page, limit);
+    let result;
+    if (grouped) {
+      // 🆕 ใช้ grouped data จาก RecycleBin model
+      const RecycleBin = (await import('@/models/RecycleBin')).default;
+      const groupedItems = await RecycleBin.findGroupedDeletedItems(page, limit);
+      
+      // คำนวณ total สำหรับ pagination
+      const totalGroups = await RecycleBin.aggregate([
+        { $match: { isRestored: { $ne: true } } },
+        { $group: { _id: '$inventoryMasterId' } },
+        { $count: 'total' }
+      ]);
+      
+      result = {
+        items: groupedItems,
+        page,
+        limit,
+        total: totalGroups[0]?.total || 0
+      };
+    } else {
+      // เก็บ logic เดิมไว้ backward compatibility
+      result = await getRecycleBinItems(type, page, limit);
+    }
 
     return NextResponse.json({
       success: true,

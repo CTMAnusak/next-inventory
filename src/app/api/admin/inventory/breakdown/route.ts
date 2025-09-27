@@ -29,6 +29,13 @@ export async function GET(request: NextRequest) {
     
     console.log(`🔍 Fetching breakdown for: ${itemName} (${categoryId})`);
     
+    // ดึงข้อมูล items ทั้งหมดเพื่อใช้คำนวณ
+    const allItems = await InventoryItem.find({
+      itemName,
+      categoryId,
+      status: { $ne: 'deleted' }
+    }).lean();
+    
     // คำนวณ status breakdown - ใช้ชื่อเดียวกับในจัดการ Stock
     const statusBreakdown = await InventoryItem.aggregate([
       { 
@@ -63,69 +70,23 @@ export async function GET(request: NextRequest) {
       }
     ]);
     
-    // คำนวณ type breakdown - แยกแยะ serialNumber และ numberPhone
-    const typeBreakdown = await InventoryItem.aggregate([
-      { 
-        $match: { 
-          itemName, 
-          categoryId, 
-          status: { $ne: 'deleted' } 
-        } 
-      },
-      {
-        $group: {
-          _id: null,
-          withoutSN: { 
-            $sum: { 
-              $cond: [
-                { $and: [
-                  { $or: [
-                    { $eq: ['$serialNumber', null] },
-                    { $eq: ['$serialNumber', ''] },
-                    { $eq: [{ $type: '$serialNumber' }, 'missing'] }
-                  ]},
-                  { $or: [
-                    { $eq: ['$numberPhone', null] },
-                    { $eq: ['$numberPhone', ''] },
-                    { $eq: [{ $type: '$numberPhone' }, 'missing'] }
-                  ]}
-                ]}, 
-                1, 
-                0
-              ] 
-            } 
-          },
-          withSN: { 
-            $sum: { 
-              $cond: [
-                { $and: [
-                  { $ne: [{ $type: '$serialNumber' }, 'missing'] },
-                  { $ne: [{ $type: '$serialNumber' }, 'null'] },
-                  { $ne: [{ $type: '$serialNumber' }, 'undefined'] },
-                  { $gt: [{ $ifNull: ['$serialNumber', ''] }, ''] }
-                ]}, 
-                1, 
-                0
-              ] 
-            } 
-          },
-          withPhone: { 
-            $sum: { 
-              $cond: [
-                { $and: [
-                  { $ne: [{ $type: '$numberPhone' }, 'missing'] },
-                  { $ne: [{ $type: '$numberPhone' }, 'null'] },
-                  { $ne: [{ $type: '$numberPhone' }, 'undefined'] },
-                  { $gt: [{ $ifNull: ['$numberPhone', ''] }, ''] }
-                ]}, 
-                1, 
-                0
-              ] 
-            } 
-          }
-        }
-      }
-    ]);
+    // คำนวณ type breakdown - ใช้ JavaScript แทน aggregation เพื่อความแม่นยำ
+    const withSN = allItems.filter(item => 
+      item.serialNumber && item.serialNumber.trim() !== ''
+    );
+    const withPhone = allItems.filter(item => 
+      item.numberPhone && item.numberPhone.trim() !== ''
+    );
+    const withoutSN = allItems.filter(item => 
+      (!item.serialNumber || item.serialNumber.trim() === '') && 
+      (!item.numberPhone || item.numberPhone.trim() === '')
+    );
+    
+    const typeResult = {
+      withoutSN: withoutSN.length,
+      withSN: withSN.length,
+      withPhone: withPhone.length
+    };
     
     // แปลงผลลัพธ์เป็น object - ใช้ชื่อเดียวกับในจัดการ Stock
     const statusResult = statusBreakdown.reduce((acc, item) => {
@@ -138,12 +99,18 @@ export async function GET(request: NextRequest) {
       return acc;
     }, {} as Record<string, number>);
     
-    const typeResult = typeBreakdown[0] || { withoutSN: 0, withSN: 0, withPhone: 0 };
-    
-    console.log(`📊 Breakdown results:`, {
+    console.log(`📊 Breakdown results for ${itemName}:`, {
+      totalItems: allItems.length,
+      type: typeResult,
       status: statusResult,
-      condition: conditionResult,
-      type: typeResult
+      condition: conditionResult
+    });
+    
+    // Debug: แสดงรายละเอียด items ที่ถูกจัดหมวดหมู่
+    console.log(`🔍 Items categorization:`, {
+      withSN: withSN.map(item => ({ id: item._id.toString(), sn: item.serialNumber })),
+      withPhone: withPhone.map(item => ({ id: item._id.toString(), phone: item.numberPhone })),
+      withoutSN: withoutSN.map(item => ({ id: item._id.toString(), sn: item.serialNumber, phone: item.numberPhone }))
     });
     
     return NextResponse.json({

@@ -1269,9 +1269,13 @@ export async function syncAdminStockItems(itemName: string, categoryId: string, 
     const itemsToDelete = itemsWithoutSN.slice(0, itemsToRemove);
     
     for (const item of itemsToDelete) {
-      item.status = 'deleted';
-      item.deletedAt = new Date();
-      await item.save();
+      // 🔧 CRITICAL FIX: Use hard delete for non-SN items to prevent count discrepancy
+      // Only non-SN items should be deleted during stock adjustment
+      console.log(`🗑️ Hard deleting non-SN item: ${item._id} (no serial number)`);
+      
+      // Hard delete the item to prevent count discrepancy
+      await InventoryItem.findByIdAndDelete(item._id);
+      console.log(`✅ Permanently deleted non-SN item: ${item._id}`);
     }
   }
   

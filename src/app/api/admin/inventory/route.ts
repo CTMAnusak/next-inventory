@@ -315,6 +315,10 @@ export async function DELETE(request: NextRequest) {
       );
     }
 
+    // 🆕 Find InventoryMaster for the group
+    const inventoryMaster = await InventoryMaster.findOne({ itemName, categoryId: category });
+    const inventoryMasterId = inventoryMaster?._id?.toString() || `${itemName}_${category}_${Date.now()}`;
+
     // Check if any items are currently owned by users
     const userOwnedItems = itemsToDelete.filter(item => 
       item.currentOwnership.ownerType === 'user_owned'
@@ -389,9 +393,11 @@ export async function DELETE(request: NextRequest) {
         
         const recycleBinItems = backupData.map(backup => ({
           itemName: backup.itemName,
+          category: category, // เก็บ category name เดิม
           categoryId: backup.categoryId,
+          inventoryMasterId: inventoryMasterId, // 🆕 เพิ่ม inventoryMasterId
           serialNumber: backup.serialNumber,
-          deleteType: 'category_bulk',
+          deleteType: 'bulk_delete', // เปลี่ยนชื่อ
           deleteReason: backup.deleteReason,
           deletedBy: backup.deletedBy,
           deletedByName: backup.deletedByName,

@@ -130,8 +130,26 @@ export async function GET(request: NextRequest) {
 
     console.log(`⚠️  Data mismatch check: InventoryMaster.availableQuantity=${inventoryMaster.availableQuantity} vs InventoryItem.count=${availableItems.length}`);
 
-    // ✅ Use InventoryMaster.availableQuantity as the source of truth (same as main inventory)
-    const totalAvailable = inventoryMaster.availableQuantity;
+    // 🔧 FIX: ถ้าข้อมูลไม่ตรงกัน ให้ sync InventoryMaster ก่อน
+    if (inventoryMaster.availableQuantity !== availableItems.length) {
+      console.log(`🔄 Syncing InventoryMaster data due to mismatch...`);
+      try {
+        const { updateInventoryMaster } = require('@/lib/inventory-helpers');
+        await updateInventoryMaster(itemName, actualCategoryId);
+        
+        // Refresh InventoryMaster data after sync
+        inventoryMaster = await InventoryMaster.findOne({
+          itemName: itemName,
+          categoryId: actualCategoryId
+        });
+        console.log(`✅ InventoryMaster synced. New availableQuantity: ${inventoryMaster?.availableQuantity}`);
+      } catch (syncError) {
+        console.error(`❌ Failed to sync InventoryMaster:`, syncError);
+      }
+    }
+
+    // ✅ Use actual InventoryItem count as the source of truth (more accurate)
+    const totalAvailable = availableItems.length;
 
     if (totalAvailable === 0) {
       return NextResponse.json({
@@ -165,46 +183,8 @@ export async function GET(request: NextRequest) {
     let itemsWithoutSN = availableItems.filter(item => (!item.serialNumber || item.serialNumber.trim() === '') && !item.numberPhone);
     let itemsWithPhoneNumber = availableItems.filter(item => item.numberPhone);
 
-    // ✅ Handle data mismatch case - Create virtual items if needed
-    let actualAvailableItems = [...availableItems];
-    if (availableItems.length !== totalAvailable) {
-      console.log(`⚠️  WARNING: Data inconsistency detected!`);
-      console.log(`📊 InventoryMaster.availableQuantity: ${totalAvailable}`);
-      console.log(`📦 Actual InventoryItem count: ${availableItems.length}`);
-      
-      if (availableItems.length < totalAvailable) {
-        const missingCount = totalAvailable - availableItems.length;
-        console.log(`🔧 Creating ${missingCount} virtual items to match InventoryMaster count`);
-        
-        // Create virtual items to fill the gap
-        for (let i = 0; i < missingCount; i++) {
-          const virtualItem = {
-            _id: `virtual_${itemName}_${category}_${i + 1}`,
-            itemName: itemName,
-            category: category,
-            serialNumber: null,
-            status: 'active',
-            currentOwnership: {
-              ownerType: 'admin_stock',
-              ownedSince: new Date()
-            },
-            sourceInfo: {
-              addedBy: 'system',
-              dateAdded: new Date(),
-              acquisitionMethod: 'virtual_placeholder'
-            },
-            isVirtual: true // Flag to identify virtual items
-          };
-          actualAvailableItems.push(virtualItem as any);
-        }
-        console.log(`✅ Total items after adding virtual: ${actualAvailableItems.length}`);
-        
-        // Re-group items after adding virtual items
-        itemsWithSN = actualAvailableItems.filter(item => item.serialNumber);
-        itemsWithoutSN = actualAvailableItems.filter(item => !item.serialNumber && !item.numberPhone);
-        itemsWithPhoneNumber = actualAvailableItems.filter(item => item.numberPhone);
-      }
-    }
+    // ✅ No need for virtual items - use actual data from database
+    const actualAvailableItems = [...availableItems];
 
     console.log(`📊 Final response data:`, {
       totalAvailable: totalAvailable,
@@ -224,8 +204,7 @@ export async function GET(request: NextRequest) {
         statusId: item.statusId,
         conditionId: item.conditionId,
         dateAdded: item.sourceInfo?.dateAdded || new Date(),
-        addedBy: item.sourceInfo?.addedBy || 'system',
-        isVirtual: item.isVirtual || false // ✅ Mark virtual items
+        addedBy: item.sourceInfo?.addedBy || 'system'
       })),
       withPhoneNumber: itemsWithPhoneNumber.map(item => ({
         itemId: item._id,
@@ -233,18 +212,16 @@ export async function GET(request: NextRequest) {
         statusId: item.statusId,
         conditionId: item.conditionId,
         dateAdded: item.sourceInfo?.dateAdded || new Date(),
-        addedBy: item.sourceInfo?.addedBy || 'system',
-        isVirtual: item.isVirtual || false // ✅ Mark virtual items
+        addedBy: item.sourceInfo?.addedBy || 'system'
       })),
       withoutSerialNumber: {
         count: itemsWithoutSN.length, // ✅ Use actual count of items without SN
-        items: itemsWithoutSN.map(item => ({ // ✅ Show ALL items (including virtual)
+        items: itemsWithoutSN.map(item => ({ // ✅ Show actual items only
           itemId: item._id,
           statusId: item.statusId,
           conditionId: item.conditionId,
           dateAdded: item.sourceInfo?.dateAdded || new Date(),
-          addedBy: item.sourceInfo?.addedBy || 'system',
-          isVirtual: item.isVirtual || false // ✅ Mark virtual items
+          addedBy: item.sourceInfo?.addedBy || 'system'
         })),
         hasMore: false // ✅ No pagination needed since we show all items
       }

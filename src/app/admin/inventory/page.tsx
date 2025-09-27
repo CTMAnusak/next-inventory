@@ -48,7 +48,7 @@ import {
 import { useTokenWarning } from '@/hooks/useTokenWarning';
 import TokenExpiryModal from '@/components/TokenExpiryModal';
 import { handleTokenExpiry } from '@/lib/auth-utils';
-import RecycleBinModal from '@/components/RecycleBinModal';
+import GroupedRecycleBinModal from '@/components/GroupedRecycleBinModal';
 import RecycleBinWarningModal from '@/components/RecycleBinWarningModal';
 import StatusCell from '@/components/StatusCell';
 
@@ -1429,7 +1429,7 @@ export default function AdminInventoryPage() {
         },
         body: JSON.stringify({
           itemName: stockItem.itemName,
-          categoryId: stockItem.categoryId,
+          category: stockItem.categoryId,  // ✅ เปลี่ยนจาก categoryId เป็น category
           deleteAll: true,
           reason: stockReason || 'Complete item deletion via admin management'
         }),
@@ -1461,7 +1461,7 @@ export default function AdminInventoryPage() {
 
     // Validation for delete operation
     if (stockOperation === 'delete_item') {
-      // Show delete confirmation modal instead of browser confirm
+      // Show delete confirmation modal (validation จะทำภายใน modal)
       setShowDeleteConfirmModal(true);
       setStockLoading(false);
       return;
@@ -4603,7 +4603,7 @@ export default function AdminInventoryPage() {
                 )}
               </div>
 
-              {/* Hidden reason input */}
+              {/* Hidden reason input - ใช้ค่าเริ่มต้น "ลบรายการทั้งหมด" */}
               <input
                 type="hidden"
                 value={stockReason}
@@ -4749,8 +4749,8 @@ export default function AdminInventoryPage() {
         </button>
       </div>
 
-      {/* Recycle Bin Modal */}
-      <RecycleBinModal
+      {/* Grouped Recycle Bin Modal */}
+      <GroupedRecycleBinModal
         isOpen={showRecycleBin}
         onClose={() => setShowRecycleBin(false)}
         onInventoryRefresh={fetchInventory}

@@ -287,6 +287,10 @@ export async function POST(request: NextRequest) {
       const payload: any = token ? jwt.verify(token, process.env.JWT_SECRET || 'fallback-secret') : null;
       const currentUser = await User.findOne({ user_id: payload?.userId });
       
+      // 🆕 Find InventoryMaster for the group
+      const inventoryMaster = await InventoryMaster.findOne({ itemName, categoryId: category });
+      const inventoryMasterId = inventoryMaster?._id?.toString() || `${itemName}_${category}_${Date.now()}`;
+
       // Try to move to recycle bin using direct MongoDB, but continue if it fails
       try {
         console.log(`🗑️ Moving individual item to recycle bin: ${existingItem.itemName} (SN: ${existingItem.serialNumber || 'null'}, Phone: ${existingItem.numberPhone || 'null'})`);
@@ -302,6 +306,8 @@ export async function POST(request: NextRequest) {
         const recycleBinData = {
           itemName: existingItem.itemName,
           category: existingItem.category,
+          categoryId: category, // 🆕 เพิ่ม categoryId
+          inventoryMasterId: inventoryMasterId, // 🆕 เพิ่ม inventoryMasterId
           serialNumber: existingItem.serialNumber,
           numberPhone: existingItem.numberPhone, // เพิ่มเบอร์โทรศัพท์
           deleteType: 'individual_item',
