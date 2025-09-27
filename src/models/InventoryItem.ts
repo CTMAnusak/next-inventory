@@ -253,10 +253,10 @@ InventoryItemSchema.statics.findUserOwned = function(userId: string) {
 };
 
 // Force recreation of model to ensure schema updates
-if (mongoose.models.InventoryItem) {
-  delete mongoose.models.InventoryItem;
+if (mongoose.models.InventoryItems) {
+  delete mongoose.models.InventoryItems;
 }
 
-const InventoryItem = mongoose.model<IInventoryItem>('InventoryItem', InventoryItemSchema);
+const InventoryItem = mongoose.model<IInventoryItem>('InventoryItems', InventoryItemSchema);
 export { InventoryItem };
 export default InventoryItem;

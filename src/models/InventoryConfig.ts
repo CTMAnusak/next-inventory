@@ -261,8 +261,8 @@ InventoryConfigSchema.statics.getConditionConfig = function(conditionId: string)
 };
 
 // Export the model
-const InventoryConfig = mongoose.models.InventoryConfig ||
-  mongoose.model<IInventoryConfig>('InventoryConfig', InventoryConfigSchema);
+const InventoryConfig = mongoose.models.InventoryConfigs ||
+  mongoose.model<IInventoryConfig>('InventoryConfigs', InventoryConfigSchema);
 
 export default InventoryConfig;
 

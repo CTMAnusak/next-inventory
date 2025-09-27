@@ -2,9 +2,8 @@ import { NextRequest, NextResponse } from 'next/server';
 import dbConnect from '@/lib/mongodb';
 import ReturnLog from '@/models/ReturnLog';
 import { verifyToken } from '@/lib/auth';
-import { InventoryItem } from '@/models/InventoryItemNew';
+import InventoryItem from '@/models/InventoryItem';
 import { InventoryMaster } from '@/models/InventoryMasterNew';
-import ItemMaster from '@/models/ItemMaster';
 import { transferInventoryItem, updateInventoryMaster } from '@/lib/inventory-helpers';
 
 export async function POST(request: NextRequest) {
@@ -15,7 +14,7 @@ export async function POST(request: NextRequest) {
     console.log('🔍 Equipment Return API - Received data:', JSON.stringify(returnData, null, 2));
 
     // Validate required fields
-    const requiredFields = ['firstName', 'lastName', 'nickname', 'department', 'office', 'returnDate', 'items'];
+    const requiredFields = ['returnDate', 'items'];
     
     for (const field of requiredFields) {
       if (!returnData[field]) {
@@ -110,7 +109,7 @@ export async function POST(request: NextRequest) {
         
         console.log('✅ Item ownership validated:', {
           itemId: inventoryItem._id,
-          itemName: inventoryItem.itemMasterId,
+          itemName: (inventoryItem as any).itemName,
           ownedBy: inventoryItem.currentOwnership.userId
         });
         
@@ -123,28 +122,23 @@ export async function POST(request: NextRequest) {
       }
     }
 
-    // Create new return log with enhanced item data
+    // Create new return log with new structure (real-time lookup)
     const cleanItems = returnData.items.map((item: any) => ({
       itemId: item.itemId,
       quantity: item.quantity,
       serialNumber: item.serialNumber || undefined,
       assetNumber: item.assetNumber || undefined,
       image: item.image || undefined,
-      conditionOnReturn: item.conditionOnReturn || 'cond_working', // Default: ใช้งานได้
-      itemNotes: item.itemNotes || undefined // หมายเหตุเฉพาะรายการ
+      conditionOnReturn: item.conditionOnReturn || 'cond_working',
+      itemNotes: item.itemNotes || undefined
     }));
 
     const returnLogData = {
-      firstName: returnData.firstName,
-      lastName: returnData.lastName,
-      nickname: returnData.nickname,
-      department: returnData.department,
-      office: returnData.office,
+      userId: currentUserId,
       returnDate: new Date(returnData.returnDate),
       items: cleanItems,
       status: 'pending',
-      notes: returnData.notes || undefined, // หมายเหตุรวมการคืน
-      userId: currentUserId
+      notes: returnData.notes || undefined
     };
 
     console.log('🔍 Creating return log with data:', returnLogData);

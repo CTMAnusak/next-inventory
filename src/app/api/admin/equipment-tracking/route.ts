@@ -2,8 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import dbConnect from '@/lib/mongodb';
 import RequestLog from '@/models/RequestLog';
 import ReturnLog from '@/models/ReturnLog';
-import { InventoryItem } from '@/models/InventoryItemNew';
-import ItemMaster from '@/models/ItemMaster';
+import InventoryItem from '@/models/InventoryItem';
 import User from '@/models/User';
 import InventoryConfig from '@/models/InventoryConfig';
 
@@ -87,7 +86,7 @@ export async function GET(request: NextRequest) {
     const categoryConfigs = config?.categoryConfigs || [];
     
     // Fetch data in parallel
-    const [requestLogs, returnLogs, ownedItems, itemMasters] = await Promise.all([
+    const [requestLogs, returnLogs, ownedItems] = await Promise.all([
       // Request logs
       RequestLog.find(requestFilter)
         .populate('userId', 'firstName lastName nickname department office phone pendingDeletion')
@@ -104,19 +103,8 @@ export async function GET(request: NextRequest) {
       
       // Currently owned items
       InventoryItem.find(itemFilter)
-        .populate('itemMasterId', 'itemName categoryId hasSerialNumber')
         .sort({ 'currentOwnership.ownedSince': -1 }),
-      
-      // Item masters for reference
-      ItemMaster.find({ isActive: true })
-        .sort({ itemName: 1 })
     ]);
-    
-    // Create item master lookup
-    const itemMasterLookup = new Map();
-    itemMasters.forEach(master => {
-      itemMasterLookup.set(master._id.toString(), master);
-    });
     
     // Process request logs
     const processedRequests = requestLogs.map(request => {
@@ -176,26 +164,23 @@ export async function GET(request: NextRequest) {
     
     // Process currently owned items
     const processedOwnedItems = ownedItems.map(item => {
-      const itemMaster = itemMasterLookup.get(item.itemMasterId.toString());
       const statusConfig = statusConfigs.find(s => s.id === item.statusId);
       const conditionConfig = conditionConfigs.find(c => c.id === item.conditionId);
-      const categoryConfig = categoryConfigs.find(c => c.id === itemMaster?.categoryId);
+      const categoryConfig = categoryConfigs.find(c => c.id === (item as any).categoryId);
       
       return {
         id: item._id,
         type: 'owned',
-        itemMasterId: item.itemMasterId,
-        itemName: itemMaster?.itemName || 'ไม่ระบุ',
-        categoryId: itemMaster?.categoryId || 'ไม่ระบุ',
+        itemMasterId: (item as any).itemMasterId,
+        itemName: (item as any).itemName || 'ไม่ระบุ',
+        categoryId: (item as any).categoryId || 'ไม่ระบุ',
         categoryName: categoryConfig?.name || 'ไม่ระบุ',
         serialNumber: item.serialNumber,
         numberPhone: item.numberPhone,
         statusId: item.statusId,
         statusName: statusConfig?.name || 'ไม่ระบุ',
-        statusColor: statusConfig?.color || '#6B7280',
         conditionId: item.conditionId,
         conditionName: conditionConfig?.name || 'ไม่ระบุ',
-        conditionColor: conditionConfig?.color || '#6B7280',
         ownedSince: item.currentOwnership.ownedSince,
         sourceInfo: item.sourceInfo,
         createdAt: item.createdAt

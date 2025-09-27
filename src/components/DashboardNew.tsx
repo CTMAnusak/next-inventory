@@ -37,7 +37,7 @@ interface IItemMaster {
   _id: string;
   itemName: string;
   categoryId: string;
-  hasSerialNumber: boolean;
+  // hasSerialNumber removed - use itemDetails.withSerialNumber > 0 instead
   isActive: boolean;
   createdBy: string;
   createdAt: Date;

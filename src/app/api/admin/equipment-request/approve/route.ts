@@ -1,9 +1,8 @@
 import { NextRequest, NextResponse } from 'next/server';
 import dbConnect from '@/lib/mongodb';
 import RequestLog from '@/models/RequestLog';
-import { InventoryItem } from '@/models/InventoryItemNew';
+import InventoryItem from '@/models/InventoryItem';
 import { InventoryMaster } from '@/models/InventoryMasterNew';
-import ItemMaster from '@/models/ItemMaster';
 import { transferInventoryItem, updateInventoryMaster } from '@/lib/inventory-helpers';
 import { verifyToken } from '@/lib/auth';
 
@@ -52,11 +51,18 @@ export async function POST(request: NextRequest) {
     const transferredItems = [];
     
     for (const selectedItem of selectedItems) {
-      const { itemMasterId, quantity, selectedItemIds } = selectedItem;
+      const { quantity, selectedItemIds } = selectedItem;
       
-      if (!itemMasterId || !quantity || !selectedItemIds || !Array.isArray(selectedItemIds)) {
+      if (!quantity || !selectedItemIds || !Array.isArray(selectedItemIds)) {
         return NextResponse.json(
           { error: 'ข้อมูลอุปกรณ์ไม่ครบถ้วน' },
+          { status: 400 }
+        );
+      }
+      
+      if (selectedItemIds.length !== quantity) {
+        return NextResponse.json(
+          { error: 'จำนวนรายการที่เลือกไม่ตรงกับจำนวนที่ร้องขอ' },
           { status: 400 }
         );
       }
@@ -64,7 +70,6 @@ export async function POST(request: NextRequest) {
       // Verify that the selected items are actually available
       const availableItems = await InventoryItem.find({
         _id: { $in: selectedItemIds },
-        itemMasterId,
         'currentOwnership.ownerType': 'admin_stock',
         statusId: 'status_available',
         conditionId: 'cond_working',

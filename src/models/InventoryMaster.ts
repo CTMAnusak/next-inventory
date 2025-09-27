@@ -1,15 +1,26 @@
 import mongoose, { Document, Schema } from 'mongoose';
 
 export interface IInventoryMaster extends Document {
-  itemName: string;
-  categoryId: string;  // ใช้ ID แทน string เพื่อ relational integrity
-  hasSerialNumber: boolean;     // บอกว่าประเภทนี้มี SN หรือไม่
+  masterItemId: string;         // 🆕 อ้างอิง InventoryItem._id แรกที่สร้าง (เป็น master reference)
+  itemName: string;             // ชื่ออุปกรณ์
+  categoryId: string;           // หมวดหมู่
+  relatedItemIds: string[];     // 🆕 รายการ InventoryItem._id ทั้งหมดที่เป็นกลุ่มเดียวกัน
+  // hasSerialNumber removed - use itemDetails.withSerialNumber > 0 instead
   
-  // รายละเอียดแต่ละชิ้น
+  // รายละเอียดแต่ละชิ้น (เก็บทั้งจำนวนและ ID ของแต่ละรายการ)
   itemDetails: {
-    withSerialNumber: number;   // จำนวนที่มี Serial Number
-    withPhoneNumber: number;    // จำนวนที่มี Phone Number
-    other: number;              // อุปกรณ์อื่นๆ ที่ไม่มีทั้ง SN และ Phone
+    withSerialNumber: {
+      count: number;        // จำนวนที่มี Serial Number
+      itemIds: string[];    // ID ของรายการที่มี SN
+    };
+    withPhoneNumber: {
+      count: number;        // จำนวนที่มี Phone Number
+      itemIds: string[];      // ID ของรายการที่มี Phone
+    };
+    other: {
+      count: number;          // อุปกรณ์อื่นๆ ที่ไม่มีทั้ง SN และ Phone
+      itemIds: string[];      // ID ของรายการอื่นๆ
+    };
   };
   
   // สถิติรวม
@@ -54,6 +65,11 @@ export interface IInventoryMaster extends Document {
 }
 
 const InventoryMasterSchema = new Schema<IInventoryMaster>({
+  masterItemId: { 
+    type: String, 
+    required: true,
+    index: true
+  },
   itemName: { 
     type: String, 
     required: true,
@@ -64,28 +80,46 @@ const InventoryMasterSchema = new Schema<IInventoryMaster>({
     required: true,
     index: true
   },
-  hasSerialNumber: {
-    type: Boolean,
-    required: true,
-    default: false
-  },
+  relatedItemIds: [{
+    type: String,
+    required: true
+  }],
+  // hasSerialNumber field removed - use itemDetails.withSerialNumber > 0 instead
   
-  // รายละเอียดแต่ละชิ้น
+  // รายละเอียดแต่ละชิ้น (เก็บทั้งจำนวนและ ID ของแต่ละรายการ)
   itemDetails: {
     withSerialNumber: {
-      type: Number,
-      min: 0,
-      default: 0
+      count: {
+        type: Number,
+        min: 0,
+        default: 0
+      },
+      itemIds: [{
+        type: String,
+        required: true
+      }]
     },
     withPhoneNumber: {
-      type: Number,
-      min: 0,
-      default: 0
+      count: {
+        type: Number,
+        min: 0,
+        default: 0
+      },
+      itemIds: [{
+        type: String,
+        required: true
+      }]
     },
     other: {
-      type: Number,
-      min: 0,
-      default: 0
+      count: {
+        type: Number,
+        min: 0,
+        default: 0
+      },
+      itemIds: [{
+        type: String,
+        required: true
+      }]
     }
   },
   
@@ -207,7 +241,6 @@ const InventoryMasterSchema = new Schema<IInventoryMaster>({
 
 // Unique index สำหรับ itemName + categoryId
 InventoryMasterSchema.index({ itemName: 1, categoryId: 1 }, { unique: true });
-InventoryMasterSchema.index({ itemName: 1, category: 1 }); // Keep for backward compatibility
 
 // Pre-save validation
 InventoryMasterSchema.pre('save', function(next) {
@@ -239,7 +272,7 @@ InventoryMasterSchema.pre('save', function(next) {
 
 // Static methods สำหรับ common operations
 InventoryMasterSchema.statics.updateSummary = async function(itemName: string, category: string) {
-  const InventoryItem = mongoose.model('InventoryItem');
+  const InventoryItem = mongoose.model('InventoryItems');
   
   // คำนวณสถิติจาก InventoryItem
   // 🔧 CRITICAL FIX: Exclude soft-deleted items from aggregation
@@ -274,14 +307,7 @@ InventoryMasterSchema.statics.updateSummary = async function(itemName: string, c
         statusBreakdown: {
           $push: '$status'
         },
-        hasSerialNumber: {
-          $max: {
-            $cond: [
-              { $ne: ['$serialNumber', null] },
-              true, false
-            ]
-          }
-        }
+        // hasSerialNumber calculation removed - use itemDetails.withSerialNumber > 0 instead
       }
     }
   ]);
@@ -314,7 +340,7 @@ InventoryMasterSchema.statics.updateSummary = async function(itemName: string, c
     {
       itemName,
       category,
-      hasSerialNumber: stat.hasSerialNumber || false,
+      // hasSerialNumber removed - use itemDetails.withSerialNumber > 0 instead
       totalQuantity: stat.totalQuantity,
       availableQuantity: stat.availableQuantity,
       userOwnedQuantity: stat.userOwnedQuantity,
@@ -365,7 +391,7 @@ InventoryMasterSchema.statics.incrementQuantity = async function(
 
 // Static methods สำหรับ Admin Stock Management
 InventoryMasterSchema.statics.setAdminStock = async function(itemName: string, category: string, newStock: number, reason: string, adminId: string, adminName: string) {
-  const item = await this.findOne({ itemName, category });
+  const item = await this.findOne({ itemName, categoryId: category });
   if (!item) {
     throw new Error(`ไม่พบรายการ ${itemName} ในหมวดหมู่ ${category}`);
   }
@@ -409,7 +435,7 @@ InventoryMasterSchema.statics.setAdminStock = async function(itemName: string, c
 };
 
 InventoryMasterSchema.statics.adjustAdminStock = async function(itemName: string, category: string, adjustment: number, reason: string, adminId: string, adminName: string) {
-  const item = await this.findOne({ itemName, category });
+  const item = await this.findOne({ itemName, categoryId: category });
   if (!item) {
     throw new Error(`ไม่พบรายการ ${itemName} ในหมวดหมู่ ${category}`);
   }
@@ -454,8 +480,8 @@ InventoryMasterSchema.statics.adjustAdminStock = async function(itemName: string
 };
 
 // Force recreation of model to ensure schema updates
-if (mongoose.models.InventoryMaster) {
-  delete mongoose.models.InventoryMaster;
+if (mongoose.models.InventoryMasters) {
+  delete mongoose.models.InventoryMasters;
 }
 
-export default mongoose.model<IInventoryMaster>('InventoryMaster', InventoryMasterSchema);
+export default mongoose.model<IInventoryMaster>('InventoryMasters', InventoryMasterSchema);

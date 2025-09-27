@@ -30,6 +30,79 @@ body {
   font-family: Arial, Helvetica, sans-serif;
 }
 
+/* StatusCell Component Styles */
+.status-cell {
+  position: relative;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  width: 100%;
+}
+
+.status-main {
+  font-size: 14px;
+  font-weight: 500;
+  color: #374151;
+  text-align: center;
+}
+
+.info-button {
+  background: none;
+  border: none;
+  cursor: pointer;
+  font-size: 16px;
+  padding: 4px;
+  border-radius: 50%;
+  transition: background-color 0.2s;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 24px;
+  height: 24px;
+}
+
+.info-button:hover {
+  background-color: #f0f0f0;
+}
+
+.tooltip {
+  position: fixed;
+  z-index: 9999;
+  background: white;
+  border: 1px solid #ddd;
+  border-radius: 8px;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+  padding: 16px;
+  min-width: 300px;
+  max-width: 400px;
+  pointer-events: none;
+}
+
+.tooltip-content h4 {
+  margin: 0 0 8px 0;
+  font-size: 14px;
+  font-weight: 600;
+  color: #333;
+}
+
+.tooltip-content .breakdown-item {
+  margin: 4px 0;
+  font-size: 13px;
+  color: #666;
+}
+
+.tooltip-content .loading {
+  font-size: 13px;
+  color: #666;
+  font-style: italic;
+}
+
+.tooltip-content .error {
+  font-size: 13px;
+  color: #dc2626;
+}
+
 /* Custom input styles for better visibility */
 input[type="text"],
 input[type="email"], 
@@ -309,4 +382,129 @@ a,
   .sidebar-scrollbar {
     scrollbar-width: none; /* Firefox */
   }
+}
+
+/* Force dropdown to open below by using CSS positioning */
+select.admin-inventory-dropdown {
+  position: relative !important;
+  z-index: 1 !important;
+  transform: translateZ(0) !important;
+  will-change: transform !important;
+  -webkit-appearance: none !important;
+  -moz-appearance: none !important;
+  appearance: none !important;
+  background-image: url("data:image/svg+xml;charset=UTF-8,%3csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='currentColor' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3e%3cpolyline points='6,9 12,15 18,9'%3e%3c/polyline%3e%3c/svg%3e") !important;
+  background-repeat: no-repeat !important;
+  background-position: right 12px center !important;
+  background-size: 16px !important;
+  padding-right: 40px !important;
+}
+
+/* Force dropdown to open below by using CSS positioning */
+select.admin-inventory-dropdown:focus {
+  position: relative !important;
+  z-index: 10 !important;
+  transform: translateZ(0) translateY(0) !important;
+  will-change: transform !important;
+}
+
+/* Force dropdown options to appear below */
+select.admin-inventory-dropdown option {
+  position: relative !important;
+  z-index: 10 !important;
+  transform: translateZ(0) !important;
+}
+
+/* Ensure proper stacking context for all dropdowns */
+.dropdown-container {
+  position: relative !important;
+  z-index: 10 !important;
+}
+
+/* Additional fix for dropdown positioning in modals and containers */
+.modal select,
+.fixed select,
+.absolute select,
+.relative select {
+  position: relative !important;
+  z-index: 10 !important;
+}
+
+/* Force dropdown to open downward */
+select[multiple] {
+  position: relative !important;
+  z-index: 10 !important;
+}
+
+/* Mobile and small screen fixes */
+@media (max-height: 600px) {
+  select.admin-inventory-dropdown {
+    position: relative !important;
+    z-index: 10 !important;
+    transform: translateZ(0) !important;
+  }
+}
+
+/* Override any conflicting styles */
+select.admin-inventory-dropdown * {
+  position: relative !important;
+  z-index: 10 !important;
+}
+
+/* Force dropdown to open below by using CSS positioning */
+select.admin-inventory-dropdown {
+  position: relative !important;
+  z-index: 1 !important;
+  transform: translateZ(0) !important;
+  will-change: transform !important;
+}
+
+/* Force dropdown to open below by using CSS positioning */
+select.admin-inventory-dropdown:focus {
+  position: relative !important;
+  z-index: 10 !important;
+  transform: translateZ(0) translateY(0) !important;
+  will-change: transform !important;
+}
+
+/* Force dropdown options to appear below */
+select.admin-inventory-dropdown option {
+  position: relative !important;
+  z-index: 10 !important;
+  transform: translateZ(0) !important;
+}
+
+/* Additional CSS to force dropdown direction */
+select.admin-inventory-dropdown {
+  -webkit-appearance: none !important;
+  -moz-appearance: none !important;
+  appearance: none !important;
+  background-image: url("data:image/svg+xml;charset=UTF-8,%3csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='currentColor' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3e%3cpolyline points='6,9 12,15 18,9'%3e%3c/polyline%3e%3c/svg%3e") !important;
+  background-repeat: no-repeat !important;
+  background-position: right 12px center !important;
+  background-size: 16px !important;
+  padding-right: 40px !important;
+}
+
+/* Force dropdown to open downward */
+select.admin-inventory-dropdown:focus {
+  position: relative !important;
+  z-index: 10 !important;
+  transform: translateZ(0) translateY(0) !important;
+  will-change: transform !important;
+}
+
+/* Ensure dropdown opens in correct direction */
+@media (max-height: 600px) {
+  select.admin-inventory-dropdown {
+    position: relative !important;
+    z-index: 10 !important;
+    transform: translateZ(0) !important;
+  }
+}
+
+/* Override any conflicting styles */
+select.admin-inventory-dropdown * {
+  position: relative !important;
+  z-index: 10 !important;
 }

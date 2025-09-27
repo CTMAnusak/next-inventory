@@ -39,6 +39,7 @@ interface EquipmentTracking {
   quantity: number;
   serialNumber?: string;
   category: string;
+  categoryName?: string;
   submittedAt: string;
   source: 'request' | 'user-owned';
 }
@@ -515,15 +516,15 @@ export default function AdminEquipmentTrackingPage() {
                         </td>
                         <td className="px-6 py-4 whitespace-nowrap">
                           <span className={`inline-flex px-2 py-1 text-xs font-semibold rounded-full ${
-                            record.category === 'ไม่ระบุ' 
+                            (record.categoryName || record.category) === 'ไม่ระบุ' 
                               ? 'bg-gray-100 text-gray-800' 
-                              : record.category === 'คอมพิวเตอร์และแล็ปท็อป'
+                              : (record.categoryName || record.category) === 'คอมพิวเตอร์และแล็ปท็อป'
                               ? 'bg-red-100 text-red-800'
-                              : record.category === 'อุปกรณ์เสริม'
+                              : (record.categoryName || record.category) === 'อุปกรณ์เสริม'
                               ? 'bg-yellow-100 text-yellow-800'
                               : 'bg-blue-100 text-blue-800'
                           }`}>
-                            {record.category}
+                            {record.categoryName || record.category}
                           </span>
                         </td>
                         <td className="px-6 py-4 whitespace-nowrap">

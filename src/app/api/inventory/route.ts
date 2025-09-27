@@ -92,7 +92,7 @@ export async function GET(request: NextRequest) {
       serialNumbers: [], // Will be populated from InventoryItem if needed
       status: 'active',
       dateAdded: item.updatedAt,
-      hasSerialNumber: item.hasSerialNumber,
+      hasSerialNumber: item.itemDetails.withSerialNumber > 0,
       userOwnedQuantity: item.userOwnedQuantity
     }));
 

@@ -16,13 +16,19 @@ export async function GET() {
   try {
     await dbConnect();
     
-    // Get all InventoryMaster items for summary view
-    const allItems = await InventoryMaster.find({});
+    // Get all InventoryMaster items for summary view (only items with quantity > 0)
+    const allItems = await InventoryMaster.find({
+      $or: [
+        { totalQuantity: { $gt: 0 } },
+        { availableQuantity: { $gt: 0 } },
+        { userOwnedQuantity: { $gt: 0 } }
+      ]
+    });
     
     // Debug: Log raw InventoryMaster data
     console.log('🔍 Raw InventoryMaster data:');
     allItems.forEach(item => {
-      console.log(`📦 ${item.itemName}: Total=${item.totalQuantity}, Available=${item.availableQuantity}, UserOwned=${item.userOwnedQuantity}, HasSN=${item.hasSerialNumber}`);
+      console.log(`📦 ${item.itemName}: Total=${item.totalQuantity}, Available=${item.availableQuantity}, UserOwned=${item.userOwnedQuantity}, HasSN=${item.itemDetails.withSerialNumber > 0}`);
     });
     
     // Convert InventoryMaster to expected format
@@ -35,7 +41,7 @@ export async function GET() {
       serialNumbers: [], // จะต้องดึงจาก InventoryItem ถ้าต้องการ
       dateAdded: item.lastUpdated,
       status: 'active', // Default status
-      hasSerialNumber: item.hasSerialNumber,
+      hasSerialNumber: item.itemDetails.withSerialNumber > 0,
       userOwnedQuantity: item.userOwnedQuantity
     }));
     
@@ -103,15 +109,16 @@ export async function POST(request: NextRequest) {
     console.log('🔍 Admin Inventory API - Using categoryId:', finalCategoryId);
 
     // Check for duplicate serial number or phone number if provided
-    // 🔧 CRITICAL FIX: Exclude soft-deleted items from duplicate check
+    // 🔧 CRITICAL FIX: Allow duplicate serial numbers across different categories
     if (serialNumber) {
       const existingItem = await InventoryItem.findOne({ 
         serialNumber: serialNumber,
+        categoryId: finalCategoryId, // ตรวจสอบเฉพาะในหมวดหมู่เดียวกัน
         status: { $ne: 'deleted' } // ✅ Exclude soft-deleted items
       });
       if (existingItem) {
         return NextResponse.json(
-          { error: 'Serial Number นี้มีอยู่ในระบบแล้ว' },
+          { error: 'Serial Number นี้มีอยู่ในหมวดหมู่นี้แล้ว' },
           { status: 400 }
         );
       }

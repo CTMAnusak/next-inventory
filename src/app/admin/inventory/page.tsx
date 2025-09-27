@@ -50,6 +50,7 @@ import TokenExpiryModal from '@/components/TokenExpiryModal';
 import { handleTokenExpiry } from '@/lib/auth-utils';
 import RecycleBinModal from '@/components/RecycleBinModal';
 import RecycleBinWarningModal from '@/components/RecycleBinWarningModal';
+import StatusCell from '@/components/StatusCell';
 
 
 interface InventoryItem {
@@ -97,6 +98,8 @@ export default function AdminInventoryPage() {
   const [items, setItems] = useState<InventoryItem[]>([]);
   const [filteredItems, setFilteredItems] = useState<any[]>([]);
   const [loading, setLoading] = useState(false);
+  const [breakdownData, setBreakdownData] = useState<Record<string, any>>({});
+  const [breakdownRefreshCounter, setBreakdownRefreshCounter] = useState(0);
   const [showAddModal, setShowAddModal] = useState(false);
   const [showEditModal, setShowEditModal] = useState(false);
   const [editingItem, setEditingItem] = useState<InventoryItem | null>(null);
@@ -152,6 +155,8 @@ export default function AdminInventoryPage() {
   const [searchTerm, setSearchTerm] = useState('');
   const [categoryFilter, setCategoryFilter] = useState('');
   const [statusFilter, setStatusFilter] = useState('');
+  const [conditionFilter, setConditionFilter] = useState('');
+  const [typeFilter, setTypeFilter] = useState('');
   const [lowStockFilter, setLowStockFilter] = useState<number | null>(null);
   
   // Drag scroll ref
@@ -239,12 +244,25 @@ export default function AdminInventoryPage() {
   
   // Stock Management state
   const [showStockModal, setShowStockModal] = useState(false);
-  const [stockItem, setStockItem] = useState<{itemName: string, categoryId: string} | null>(null);
-  const [stockOperation, setStockOperation] = useState<'view_current_info' | 'adjust_stock' | 'delete_item' | 'edit_items'>('view_current_info');
+  const [stockItem, setStockItem] = useState<{itemId: string, itemName: string, categoryId: string} | null>(null);
+  const [stockOperation, setStockOperation] = useState<'view_current_info' | 'adjust_stock' | 'change_status_condition' | 'delete_item' | 'edit_items'>('view_current_info');
   const [stockValue, setStockValue] = useState<number>(0);
   const [stockReason, setStockReason] = useState<string>('');
   const [stockLoading, setStockLoading] = useState(false);
   const [stockInfo, setStockInfo] = useState<any>(null);
+  
+  // Adjust Stock state
+  const [newStatusId, setNewStatusId] = useState<string>('');
+  const [newConditionId, setNewConditionId] = useState<string>('');
+  const [changeQuantity, setChangeQuantity] = useState<number>(0); // จำนวนที่ต้องการเปลี่ยน
+  
+  // New UI state for status/condition changes
+  const [currentStatusId, setCurrentStatusId] = useState<string>('');
+  const [currentConditionId, setCurrentConditionId] = useState<string>('');
+  const [statusChangeQuantity, setStatusChangeQuantity] = useState<number>(0);
+  const [conditionChangeQuantity, setConditionChangeQuantity] = useState<number>(0);
+  const [targetStatusId, setTargetStatusId] = useState<string>('');
+  const [targetConditionId, setTargetConditionId] = useState<string>('');
 
   // Edit Items state
   const [availableItems, setAvailableItems] = useState<{
@@ -259,6 +277,12 @@ export default function AdminInventoryPage() {
   const [editItemLoading, setEditItemLoading] = useState(false);
   const [availableItemsLoading, setAvailableItemsLoading] = useState(false);
   
+  // New state variables for editing status and condition
+  const [editingNewStatusId, setEditingNewStatusId] = useState<string>('');
+  const [editingNewConditionId, setEditingNewConditionId] = useState<string>('');
+  const [editingCurrentStatusId, setEditingCurrentStatusId] = useState<string>('');
+  const [editingCurrentConditionId, setEditingCurrentConditionId] = useState<string>('');
+  
   // Search and filter for edit items
   const [itemSearchTerm, setItemSearchTerm] = useState('');
   const [itemFilterBy, setItemFilterBy] = useState<'all' | 'admin' | 'user'>('all');
@@ -270,6 +294,48 @@ export default function AdminInventoryPage() {
   const getCategoryName = (categoryId: string): string => {
     const category = categoryConfigs.find(cat => cat.id === categoryId);
     return category ? category.name : categoryId;
+  };
+
+  const getConditionText = (conditionId: string): string => {
+    const condition = conditionConfigs.find(cond => cond.id === conditionId);
+    return condition ? condition.name : conditionId;
+  };
+
+  // Helper function to get status name by ID
+  const getStatusName = (statusId: string): string => {
+    const status = statusConfigs.find(s => s.id === statusId);
+    return status ? status.name : statusId;
+  };
+
+  // Helper function to generate reason text based on operation type
+  const generateReasonText = (operation: string, currentValues?: any, newValues?: any): string => {
+    if (operation === 'change_status_condition') {
+      const changes = [];
+      
+      // Check for status change
+      if (currentStatusId && targetStatusId && statusChangeQuantity > 0) {
+        const currentStatusName = getStatusName(currentStatusId);
+        const targetStatusName = getStatusName(targetStatusId);
+        changes.push(`เปลี่ยนสถานะ จาก ${currentStatusName} เป็น ${targetStatusName} จำนวน ${statusChangeQuantity} ชิ้น`);
+      }
+      
+      // Check for condition change
+      if (currentConditionId && targetConditionId && conditionChangeQuantity > 0) {
+        const currentConditionName = getConditionText(currentConditionId);
+        const targetConditionName = getConditionText(targetConditionId);
+        changes.push(`เปลี่ยนสภาพ จาก ${currentConditionName} เป็น ${targetConditionName} จำนวน ${conditionChangeQuantity} ชิ้น`);
+      }
+      
+      if (changes.length > 0) {
+        return `${changes.join(', ')} (Admin Stock)`;
+      }
+      return 'เปลี่ยนสถานะ/สภาพ ของ Admin Stock';
+    } else if (operation === 'adjust_stock') {
+      const currentStock = currentValues?.currentStock || 0;
+      const newStock = newValues?.newStock || 0;
+      return `ปรับจำนวน จาก ${currentStock} ชิ้น เป็น ${newStock} ชิ้น ของ Admin Stock`;
+    }
+    return 'ปรับจำนวน Admin Stock';
   };
   const statuses = statusConfigs.map(s => s.id); // ใช้ statusId แทน statusName
 
@@ -296,6 +362,23 @@ export default function AdminInventoryPage() {
     }
   }, [statusConfigs, conditionConfigs, formData.status, formData.condition]);
 
+  // Update reason text when status/condition/category changes for change_status_condition operation
+  useEffect(() => {
+    if (stockOperation === 'change_status_condition') {
+      const newReason = generateReasonText('change_status_condition', null, null);
+      setStockReason(newReason);
+    }
+  }, [stockOperation, currentStatusId, targetStatusId, statusChangeQuantity, currentConditionId, targetConditionId, conditionChangeQuantity, statusConfigs, conditionConfigs]);
+
+  // Update reason text when stock value changes for adjust_stock operation
+  useEffect(() => {
+    if (stockOperation === 'adjust_stock' && stockInfo?.stockManagement?.adminDefinedStock !== undefined) {
+      const currentStock = stockInfo.stockManagement.adminDefinedStock;
+      const newReason = `ปรับจำนวน จาก ${currentStock} ชิ้น เป็น ${stockValue} ชิ้น ของ Admin Stock`;
+      setStockReason(newReason);
+    }
+  }, [stockOperation, stockValue, stockInfo]);
+
   // Initialize drag scrolling
   useEffect(() => {
     const element = tableContainerRef.current;
@@ -321,7 +404,7 @@ export default function AdminInventoryPage() {
 
   useEffect(() => {
     applyFilters();
-  }, [items, searchTerm, categoryFilter, statusFilter, lowStockFilter, serialNumberFilter]); // เพิ่ม serialNumberFilter
+  }, [items, searchTerm, categoryFilter, statusFilter, conditionFilter, typeFilter, lowStockFilter, serialNumberFilter]);
 
   // Update stockValue when availableItems changes for adjust_stock operation
   useEffect(() => {
@@ -351,13 +434,45 @@ export default function AdminInventoryPage() {
     }
   };
 
+  // Fetch breakdown data for a specific item
+  const fetchBreakdown = async (itemName: string, categoryId: string) => {
+    const cacheKey = `${itemName}_${categoryId}`;
+    
+    try {
+      // Always fetch fresh data to ensure accuracy
+      const response = await fetch(`/api/admin/inventory/breakdown?itemName=${encodeURIComponent(itemName)}&categoryId=${encodeURIComponent(categoryId)}&t=${Date.now()}`);
+      
+      if (response.ok) {
+        const data = await response.json();
+        console.log('🔍 fetchBreakdown - Raw data for', itemName, categoryId, ':', data);
+        console.log('🔍 Status breakdown:', data.statusBreakdown);
+        console.log('🔍 Condition breakdown:', data.conditionBreakdown);
+        setBreakdownData(prev => ({
+          ...prev,
+          [cacheKey]: data
+        }));
+        return data;
+      } else {
+        console.error('Failed to fetch breakdown data:', response.status);
+        return null;
+      }
+    } catch (error) {
+      console.error('Error fetching breakdown data:', error);
+      return null;
+    }
+  };
+
   // Function to refresh data and clear all caches
   const refreshAndClearCache = async () => {
     try {
       setLoading(true);
       toast.loading('รีเฟรชและ Sync ข้อมูล...', { id: 'refresh-sync' });
 
-      // 1. Sync master data first
+      // 1. Clear local breakdownData cache first
+      setBreakdownData({});
+      console.log('🧹 Cleared breakdownData cache');
+
+      // 2. Sync master data
       const syncResponse = await fetch('/api/admin/refresh-master-data', {
         method: 'POST',
         headers: {
@@ -366,7 +481,7 @@ export default function AdminInventoryPage() {
         body: JSON.stringify({ refreshAll: true }),
       });
 
-      // 2. Clear all caches in the system
+      // 3. Clear all caches in the system
       const cacheResponse = await fetch('/api/admin/clear-all-caches', { method: 'POST' });
       const handledCacheResponse = await handleApiResponse(cacheResponse, 'ไม่สามารถล้าง cache ได้ - เซสชันหมดอายุ');
       
@@ -435,10 +550,16 @@ export default function AdminInventoryPage() {
   };
 
   const applyFilters = () => {
+    const term = (searchTerm || '').toLowerCase();
     let filtered = items.filter(item => {
-      const matchesSearch = item.itemName.toLowerCase().includes(searchTerm.toLowerCase()) ||
-                          getCategoryName(item.categoryId).toLowerCase().includes(searchTerm.toLowerCase()) ||
-                          (item.serialNumbers && Array.isArray(item.serialNumbers) && item.serialNumbers.some(sn => sn.toLowerCase().includes(searchTerm.toLowerCase())));
+      const itemNameSafe = String((item as any)?.itemName || '').toLowerCase();
+      const categoryNameSafe = String(getCategoryName((item as any)?.categoryId) || '').toLowerCase();
+      const serialNumbersSafe = Array.isArray((item as any)?.serialNumbers) ? (item as any).serialNumbers : [];
+      const matchesSearch =
+        !term ||
+        itemNameSafe.includes(term) ||
+        categoryNameSafe.includes(term) ||
+        serialNumbersSafe.some((sn: any) => String(sn || '').toLowerCase().includes(term));
       
       const matchesCategory = !categoryFilter || item.categoryId === categoryFilter;
       const matchesStatus = matchesStatusFilter(item.status, statusFilter, statusConfigs);
@@ -449,7 +570,17 @@ export default function AdminInventoryPage() {
                                   (serialNumberFilter === 'with' && hasSerials) ||
                                   (serialNumberFilter === 'without' && !hasSerials);
       
-      return matchesSearch && matchesCategory && matchesStatus && matchesSerialNumber;
+      // เพิ่มฟิลเตอร์ Condition
+      const matchesCondition = !conditionFilter || (item as any).conditionId === conditionFilter;
+      
+      // เพิ่มฟิลเตอร์ Type
+      const hasPhone = (item as any).numberPhone && (item as any).numberPhone.trim() !== '';
+      const matchesType = !typeFilter || 
+                         (typeFilter === 'withoutSN' && !hasSerials && !hasPhone) ||
+                         (typeFilter === 'withSN' && hasSerials) ||
+                         (typeFilter === 'withPhone' && hasPhone);
+      
+      return matchesSearch && matchesCategory && matchesStatus && matchesSerialNumber && matchesCondition && matchesType;
     });
 
     // Group by itemName + category
@@ -649,7 +780,11 @@ export default function AdminInventoryPage() {
 
   // Stock Modal functions
   const openStockModal = async (item: any) => {
-    setStockItem({ itemName: item.itemName, categoryId: item.categoryId });
+    setStockItem({ 
+      itemId: item._id, // ใช้ ID แทนชื่อ
+      itemName: item.itemName, // เก็บชื่อไว้สำหรับแสดงผล
+      categoryId: item.categoryId 
+    });
     setStockOperation('view_current_info');
     setStockValue(0);
     setStockReason('');
@@ -658,6 +793,14 @@ export default function AdminInventoryPage() {
     setStockRenameNewName('');
     setShowRenameConfirm(false);
     setStockLoading(true);
+    
+    // Reset new UI state
+    setCurrentStatusId('');
+    setCurrentConditionId('');
+    setStatusChangeQuantity(0);
+    setConditionChangeQuantity(0);
+    setTargetStatusId('');
+    setTargetConditionId('');
     
     try {
       console.log(`📱 Frontend: Fetching stock info for ${item.itemName} (${item.categoryId})`);
@@ -686,6 +829,9 @@ export default function AdminInventoryPage() {
         setStockValue(adminStock);
         
         console.log(`📊 Frontend: Set default stock value to ${adminStock}`);
+        
+        // Set default values for new UI - keep as empty for user selection
+        // Don't auto-select any status or condition, let user choose
         
       } else {
         const errorData = await response.json();
@@ -717,7 +863,7 @@ export default function AdminInventoryPage() {
     }
   };
 
-  const closeStockModal = () => {
+  const closeStockModal = async () => {
     setShowStockModal(false);
     setStockItem(null);
     setStockOperation('view_current_info');
@@ -728,6 +874,11 @@ export default function AdminInventoryPage() {
     setStockRenameNewName('');
     setShowRenameConfirm(false);
     
+    // Reset adjust stock fields
+    setNewStatusId('');
+    setNewConditionId('');
+    setChangeQuantity(0);
+    
     // Reset additional states
     setStockInfo(null);
     setAvailableItems(null);
@@ -737,6 +888,14 @@ export default function AdminInventoryPage() {
     setItemOperation('edit');
     setItemSearchTerm('');
     setItemFilterBy('all');
+    
+    // Refresh table after modal closes
+    console.log('🔄 Refreshing table after modal closes...');
+    await fetchInventory();
+    
+    // Clear breakdown cache to ensure fresh data
+    setBreakdownData({});
+    console.log('🧹 Cleared breakdownData cache after modal closes');
   };
 
   // Stock Rename functions
@@ -921,14 +1080,19 @@ export default function AdminInventoryPage() {
       
       const params = new URLSearchParams({
         itemName: itemToFetch.itemName,
-        categoryId: itemToFetch.categoryId
+        category: itemToFetch.categoryId
       });
 
       // Debug: Check if we have auth cookies
       console.log('🍪 Document cookies:', document.cookie);
-      console.log('🔗 Full URL:', `/api/admin/equipment-reports/available-items?${params}`);
+      // Use different API based on operation type
+      const apiEndpoint = stockOperation === 'edit_items' 
+        ? `/api/admin/equipment-reports/all-items?${params}`  // All items for editing (all status/condition)
+        : `/api/admin/equipment-reports/available-items?${params}`; // Available items only for other operations
+      
+      console.log('🔗 Full URL:', apiEndpoint);
 
-      const response = await fetch(`/api/admin/equipment-reports/available-items?${params}`, {
+      const response = await fetch(apiEndpoint, {
         method: 'GET',
         credentials: 'include',
         headers: {
@@ -939,6 +1103,9 @@ export default function AdminInventoryPage() {
       if (response.ok) {
         const data = await response.json();
         console.log(`📊 Available items response:`, data);
+        console.log(`🔍 withSerialNumber:`, data.withSerialNumber);
+        console.log(`🔍 withSerialNumber length:`, data.withSerialNumber?.length);
+        console.log(`🔍 withoutSerialNumber:`, data.withoutSerialNumber);
         setAvailableItems(data);
       } else {
         let errorData;
@@ -981,6 +1148,13 @@ export default function AdminInventoryPage() {
     } else {
       setEditingSerialNum(item.serialNumber || '');
     }
+    
+    // Set current status and condition for editing
+    setEditingCurrentStatusId(item.statusId || '');
+    setEditingCurrentConditionId(item.conditionId || '');
+    setEditingNewStatusId(''); // Default to empty (will show "-- เลือกสถานะใหม่ --")
+    setEditingNewConditionId(''); // Default to empty (will show "-- เลือกสภาพใหม่ --")
+    
     setItemOperation('edit');
     setShowEditItemModal(true);
   };
@@ -999,13 +1173,23 @@ export default function AdminInventoryPage() {
 
   // Filter and search functions for edit items
   const getFilteredSerialNumberItems = () => {
-    if (!availableItems?.withSerialNumber) return [];
+    console.log('🔍 getFilteredSerialNumberItems called');
+    console.log('🔍 availableItems:', availableItems);
+    console.log('🔍 withSerialNumber:', availableItems?.withSerialNumber);
+    console.log('🔍 withSerialNumber length:', availableItems?.withSerialNumber?.length);
+    
+    if (!availableItems?.withSerialNumber) {
+      console.log('❌ No withSerialNumber data available');
+      return [];
+    }
     
     let filtered = availableItems.withSerialNumber;
+    console.log('🔍 Initial filtered items:', filtered);
     
     // Filter by source (admin/user)
     if (itemFilterBy !== 'all') {
       filtered = filtered.filter(item => item.addedBy === itemFilterBy);
+      console.log('🔍 After source filter:', filtered);
     }
     
     // Search by serial number
@@ -1013,8 +1197,10 @@ export default function AdminInventoryPage() {
       filtered = filtered.filter(item => 
         item.serialNumber?.toLowerCase().includes(itemSearchTerm.toLowerCase())
       );
+      console.log('🔍 After search filter:', filtered);
     }
     
+    console.log('🔍 Final filtered items:', filtered);
     return filtered;
   };
 
@@ -1037,14 +1223,12 @@ export default function AdminInventoryPage() {
       
       const isSimCard = isSIMCardSync(stockItem.categoryId);
       
-      if (!isDelete && !editingSerialNum.trim()) {
-        toast.error(isSimCard ? 'กรุณาระบุเบอร์โทรศัพท์' : 'กรุณาระบุ Serial Number');
-        setEditItemLoading(false);
-        return;
-      }
-      
-      // เพิ่ม validation สำหรับเบอร์โทรศัพท์
-      if (!isDelete && isSimCard) {
+      // Find old value from availableItems first
+      const oldSerialNumber = availableItems?.withSerialNumber?.find(item => item.itemId === editingItemId)?.serialNumber;
+      const oldPhoneNumber = availableItems?.withPhoneNumber?.find(item => item.itemId === editingItemId)?.numberPhone;
+
+      // เพิ่ม validation สำหรับเบอร์โทรศัพท์ (เฉพาะเมื่อมีการเปลี่ยนแปลง)
+      if (!isDelete && isSimCard && editingSerialNum.trim() && editingSerialNum.trim() !== oldPhoneNumber) {
         const phoneNumber = editingSerialNum.trim();
         if (phoneNumber.length !== 10) {
           toast.error('เบอร์โทรศัพท์ต้องเป็น 10 หลักเท่านั้น');
@@ -1058,28 +1242,59 @@ export default function AdminInventoryPage() {
         }
       }
 
-      // Find old value from availableItems
-      const oldSerialNumber = availableItems?.withSerialNumber?.find(item => item.itemId === editingItemId)?.serialNumber;
-      const oldPhoneNumber = availableItems?.withPhoneNumber?.find(item => item.itemId === editingItemId)?.numberPhone;
-
       const requestBody: any = {
         itemId: editingItemId,
         itemName: stockItem.itemName,
-        categoryId: stockItem.categoryId,
+        category: stockItem.categoryId, // API expects 'category' not 'categoryId'
         operation: itemOperation,
         reason: stockReason
       };
 
-      // Add appropriate fields based on item type
+      // Add appropriate fields based on item type (only if changed)
       if (isSimCard) {
-        requestBody.newPhoneNumber = editingSerialNum;
-        requestBody.oldPhoneNumber = oldPhoneNumber || editingSerialNum;
+        if (editingSerialNum.trim() && editingSerialNum.trim() !== oldPhoneNumber) {
+          requestBody.newPhoneNumber = editingSerialNum;
+          requestBody.oldPhoneNumber = oldPhoneNumber || editingSerialNum;
+        }
       } else {
-        requestBody.newSerialNumber = editingSerialNum;
-        requestBody.oldSerialNumber = oldSerialNumber || editingSerialNum;
+        if (editingSerialNum.trim() && editingSerialNum.trim() !== oldSerialNumber) {
+          requestBody.newSerialNumber = editingSerialNum;
+          requestBody.oldSerialNumber = oldSerialNumber || editingSerialNum;
+        }
+      }
+
+      // Add status and condition changes for edit operations (only if changed)
+      if (!isDelete) {
+        // Only send if there are actual changes
+        if (editingNewStatusId && editingNewStatusId !== editingCurrentStatusId) {
+          requestBody.newStatusId = editingNewStatusId;
+          requestBody.currentStatusId = editingCurrentStatusId;
+        }
+        
+        if (editingNewConditionId && editingNewConditionId !== editingCurrentConditionId) {
+          requestBody.newConditionId = editingNewConditionId;
+          requestBody.currentConditionId = editingCurrentConditionId;
+        }
       }
 
       console.log('🔍 Frontend - Sending edit item request:', requestBody);
+      console.log('🔍 Frontend - Available data:', {
+        editingItemId,
+        stockItem,
+        editingSerialNum,
+        editingNewStatusId,
+        editingNewConditionId,
+        editingCurrentStatusId,
+        editingCurrentConditionId,
+        oldSerialNumber,
+        oldPhoneNumber
+      });
+      
+      console.log('🔍 Frontend - Change detection:', {
+        hasSerialNumberChange: editingSerialNum.trim() && editingSerialNum.trim() !== (isSimCard ? oldPhoneNumber : oldSerialNumber),
+        hasStatusChange: editingNewStatusId && editingNewStatusId !== editingCurrentStatusId,
+        hasConditionChange: editingNewConditionId && editingNewConditionId !== editingCurrentConditionId
+      });
 
       const response = await fetch('/api/admin/inventory/edit-item', {
         method: 'POST',
@@ -1117,6 +1332,29 @@ export default function AdminInventoryPage() {
       setEditingItemId(null);
       setEditingSerialNum('');
       setStockReason('');
+      
+      // Reset status and condition editing states
+      setEditingNewStatusId('');
+      setEditingNewConditionId('');
+      setEditingCurrentStatusId('');
+      setEditingCurrentConditionId('');
+
+      // Close stock modal after edit item operation
+      console.log('🔄 Closing stock modal after edit item...');
+      closeStockModal();
+      
+      // Clear cache and refresh table like clicking refresh button
+      setTimeout(async () => {
+        try {
+          console.log('🔄 Refreshing table after edit item (like refresh button)...');
+          setBreakdownData({});
+          setBreakdownRefreshCounter(prev => prev + 1);
+          await fetchInventory();
+          console.log('✅ Table refreshed successfully after edit item');
+        } catch (error) {
+          console.warn('⚠️ Failed to refresh table after edit item:', error);
+        }
+      }, 100); // Quick refresh after modal closes
 
       // If this was a delete operation, close the entire stock modal and refresh main inventory
       if (isDelete) {
@@ -1142,16 +1380,8 @@ export default function AdminInventoryPage() {
           toast.error('ข้อมูลอาจไม่เป็นปัจจุบัน กรุณารีเฟรชหน้า');
         }
       } else {
-        // For edit operations, just refresh available items in the modal
-        if (stockItem) {
-          try {
-            console.log('🔄 Refreshing available items after edit operation...');
-            await fetchAvailableItems(stockItem);
-          } catch (refreshError) {
-            console.warn('⚠️ Failed to refresh items after operation, but operation was successful:', refreshError);
-            // Don't throw error here - the main operation was successful
-          }
-        }
+        // For edit operations, just show success - modal will close and refresh automatically
+        console.log('✅ Edit operation completed successfully');
       }
 
     } catch (error) {
@@ -1242,6 +1472,43 @@ export default function AdminInventoryPage() {
         return;
       }
 
+      // Validation for change_status_condition operation
+      if (stockOperation === 'change_status_condition') {
+        // Check if at least one change is being made
+        const hasStatusChange = currentStatusId && targetStatusId && statusChangeQuantity > 0;
+        const hasConditionChange = currentConditionId && targetConditionId && conditionChangeQuantity > 0;
+        
+        if (!hasStatusChange && !hasConditionChange) {
+          toast.error('กรุณาเลือกอย่างน้อยหนึ่งรายการที่ต้องการเปลี่ยน');
+          return;
+        }
+        
+        // Validate status change
+        if (hasStatusChange) {
+          if (statusChangeQuantity < 0) {
+            toast.error('จำนวนที่ต้องการเปลี่ยนสถานะต้องเป็นจำนวนบวก');
+            return;
+          }
+          if (statusChangeQuantity > (stockInfo?.statusBreakdown?.[currentStatusId] || 0)) {
+            toast.error(`จำนวนที่ต้องการเปลี่ยนสถานะ (${statusChangeQuantity}) ต้องไม่เกินจำนวนที่มี (${stockInfo?.statusBreakdown?.[currentStatusId] || 0})`);
+            return;
+          }
+        }
+        
+        // Validate condition change
+        if (hasConditionChange) {
+          if (conditionChangeQuantity < 0) {
+            toast.error('จำนวนที่ต้องการเปลี่ยนสภาพต้องเป็นจำนวนบวก');
+            return;
+          }
+          if (conditionChangeQuantity > (stockInfo?.conditionBreakdown?.[currentConditionId] || 0)) {
+            toast.error(`จำนวนที่ต้องการเปลี่ยนสภาพ (${conditionChangeQuantity}) ต้องไม่เกินจำนวนที่มี (${stockInfo?.conditionBreakdown?.[currentConditionId] || 0})`);
+            return;
+          }
+        }
+      }
+      
+      // Only validate stockValue for adjust_stock operation
       if (stockOperation === 'adjust_stock' && stockValue < 0) {
         toast.error('จำนวน stock ต้องเป็นจำนวนบวก');
         return;
@@ -1251,20 +1518,28 @@ export default function AdminInventoryPage() {
     setStockLoading(true);
 
     try {
-      // Handle stock management operations (adjust_stock only)
+      // Handle stock management operations
       const currentStock = stockInfo?.stockManagement?.adminDefinedStock || 0;
-      const operationType = 'adjust_stock';
+      const operationType = stockOperation === 'change_status_condition' ? 'change_status_condition' : 'adjust_stock';
+      
+      // For change_status_condition, use changeQuantity
+      // For adjust_stock, use stockValue
+      const finalStockValue = stockOperation === 'change_status_condition' 
+        ? changeQuantity 
+        : stockValue;
 
       console.log(`📱 Frontend: Submitting stock adjustment:`, {
         itemName: stockItem.itemName,
-        categoryId: stockItem.categoryId,
+        category: stockItem.categoryId, // เปลี่ยนจาก categoryId เป็น category
         operationType,
         currentStock,
-        newStockValue: stockValue,  // This is the absolute value we want
-        reason: stockReason
+        newStockValue: finalStockValue,  // This is the absolute value we want
+        reason: stockReason,
+        newStatusId,
+        newConditionId
       });
       
-      console.log(`🎯 Expected result: Admin stock should change from ${currentStock} to ${stockValue}`);
+      console.log(`🎯 Expected result: Admin stock should change from ${currentStock} to ${finalStockValue}`);
 
       const response = await fetch('/api/admin/stock-management', {
         method: 'POST',
@@ -1272,11 +1547,20 @@ export default function AdminInventoryPage() {
           'Content-Type': 'application/json',
         },
         body: JSON.stringify({
-          itemName: stockItem.itemName,
-          categoryId: stockItem.categoryId,
+          itemId: stockItem.itemId, // ใช้ ID แทนชื่อ
+          itemName: stockItem.itemName, // เก็บชื่อไว้สำหรับ logging
+          category: stockItem.categoryId,
           operationType: operationType,
-          value: stockValue,  // ✅ Send absolute value (API will calculate adjustment)
-          reason: stockReason
+          value: finalStockValue,  // ✅ Send absolute value (API will calculate adjustment)
+          reason: stockReason,
+          // ส่งข้อมูลใหม่ (หากไม่กรอก จะใช้ค่าเดิม)
+          newStatusId: targetStatusId && targetStatusId.trim() !== '' ? targetStatusId : undefined,     // undefined = ใช้ค่าเดิม
+          newConditionId: targetConditionId && targetConditionId.trim() !== '' ? targetConditionId : undefined, // undefined = ใช้ค่าเดิม
+          // ส่งข้อมูลเพิ่มเติมสำหรับการเปลี่ยนสถานะ/สภาพ
+          currentStatusId: currentStatusId,
+          statusChangeQuantity: statusChangeQuantity,
+          currentConditionId: currentConditionId,
+          conditionChangeQuantity: conditionChangeQuantity
         }),
       });
 
@@ -1294,6 +1578,10 @@ export default function AdminInventoryPage() {
         // Clear any cached data to ensure fresh information
         setStockInfo(null);
         
+        // Clear breakdown data cache to force fresh data fetch
+        setBreakdownData({});
+        console.log('🧹 Cleared breakdownData cache after stock operation');
+        
         // Add small delay to ensure backend sync is complete
         await new Promise(resolve => setTimeout(resolve, 500));
         
@@ -1304,11 +1592,9 @@ export default function AdminInventoryPage() {
           console.log('Cache clear failed, continuing with refresh...');
         }
         
-        // Refresh both main inventory and stock modal data with force refresh
-        console.log('🔄 Force refreshing inventory data after stock operation...');
-        await fetchInventory();
+        // Note: Table refresh will be done after modal closes
         
-        // Also refresh the stock info
+        // Also refresh the stock info for all operations
         if (stockItem) {
           const stockResponse = await fetch(`/api/admin/stock-management?itemName=${encodeURIComponent(stockItem.itemName)}&category=${encodeURIComponent(stockItem.categoryId)}&t=${Date.now()}`);
           if (stockResponse.ok) {
@@ -1318,33 +1604,126 @@ export default function AdminInventoryPage() {
           }
         }
         
-        // Re-fetch available items to update stock modal data
-        if (stockOperation === 'adjust_stock') {
-                  // Fetch fresh data and update state directly
-        try {
-          const params = new URLSearchParams({
-            itemName: stockItem.itemName,
-            categoryId: stockItem.categoryId
-          });
+        // Additional refresh for change_status_condition to ensure UI updates
+        if (stockOperation === 'change_status_condition') {
+          console.log('🔄 Additional refresh for status/condition change...');
           
-          console.log(`🔄 Fetching fresh available items for: ${stockItem.itemName} (${stockItem.categoryId})`);
-          const availableResponse = await fetch(`/api/admin/equipment-reports/available-items?${params}`, {
-            credentials: 'include'
-          });
-          if (availableResponse.ok) {
-            const freshData = await availableResponse.json();
-            console.log(`📊 Fresh available items data:`, freshData);
-            setAvailableItems(freshData);
-            
-            // Update stockValue with fresh data
-            if (freshData?.withoutSerialNumber?.count !== undefined) {
-              console.log(`🔄 Updating stockValue from ${stockValue} to ${freshData.withoutSerialNumber.count}`);
-              setStockValue(freshData.withoutSerialNumber.count);
+          // Clear breakdown cache again for status/condition changes
+          setBreakdownData({});
+          console.log('🧹 Cleared breakdownData cache for status/condition change');
+          
+          // Note: Table refresh will be done after modal closes
+          
+          // Force fetch breakdown data for the specific item to update StatusCell immediately
+          if (stockItem) {
+            console.log('🔄 Force fetching breakdown data for immediate update...');
+            try {
+              const breakdownResponse = await fetch(`/api/admin/inventory/breakdown?itemName=${encodeURIComponent(stockItem.itemName)}&categoryId=${encodeURIComponent(stockItem.categoryId)}&t=${Date.now()}`);
+              if (breakdownResponse.ok) {
+                const freshBreakdownData = await breakdownResponse.json();
+                const cacheKey = `${stockItem.itemName}_${stockItem.categoryId}`;
+                setBreakdownData(prev => ({
+                  ...prev,
+                  [cacheKey]: freshBreakdownData
+                }));
+                console.log('✅ Fresh breakdown data loaded for immediate update:', freshBreakdownData);
+              }
+            } catch (error) {
+              console.error('Error fetching fresh breakdown data:', error);
             }
           }
-        } catch (error) {
-          console.log('Failed to fetch fresh available items, using existing data');
+          
+          // Clear and refetch stock info
+          setStockInfo(null);
+          if (stockItem) {
+            const stockResponse = await fetch(`/api/admin/stock-management?itemName=${encodeURIComponent(stockItem.itemName)}&category=${encodeURIComponent(stockItem.categoryId)}&t=${Date.now()}`);
+            if (stockResponse.ok) {
+              const freshStockData = await stockResponse.json();
+              setStockInfo(freshStockData);
+              console.log('🔄 Final refreshed stock info:', freshStockData);
+            }
+          }
+          
+          // Note: Final table refresh will be done after modal closes
+          
+          // Final breakdown cache clear to ensure fresh data
+          setBreakdownData({});
+          console.log('🧹 Final breakdownData cache clear');
+          
+          // Final force fetch breakdown data for immediate UI update
+          if (stockItem) {
+            console.log('🔄 Final force fetch breakdown data...');
+            try {
+              const breakdownResponse = await fetch(`/api/admin/inventory/breakdown?itemName=${encodeURIComponent(stockItem.itemName)}&categoryId=${encodeURIComponent(stockItem.categoryId)}&t=${Date.now()}`);
+              if (breakdownResponse.ok) {
+                const freshBreakdownData = await breakdownResponse.json();
+                const cacheKey = `${stockItem.itemName}_${stockItem.categoryId}`;
+                setBreakdownData(prev => ({
+                  ...prev,
+                  [cacheKey]: freshBreakdownData
+                }));
+                console.log('✅ Final fresh breakdown data loaded:', freshBreakdownData);
+              }
+            } catch (error) {
+              console.error('Error fetching final breakdown data:', error);
+            }
+          }
         }
+        
+        // Re-fetch available items to update stock modal data for all operations
+        if (stockOperation === 'adjust_stock' || stockOperation === 'change_status_condition') {
+          // Fetch fresh data and update state directly
+          try {
+            const params = new URLSearchParams({
+              itemName: stockItem.itemName,
+              category: stockItem.categoryId
+            });
+            
+            console.log(`🔄 Fetching fresh available items for: ${stockItem.itemName} (${stockItem.categoryId})`);
+            // Use different API based on operation type for refresh too
+            const refreshApiEndpoint = stockOperation === 'edit_items' 
+              ? `/api/admin/equipment-reports/all-items?${params}`
+              : `/api/admin/equipment-reports/available-items?${params}`;
+            const availableResponse = await fetch(refreshApiEndpoint, {
+              credentials: 'include'
+            });
+            if (availableResponse.ok) {
+              const freshData = await availableResponse.json();
+              console.log(`📊 Fresh available items data:`, freshData);
+              setAvailableItems(freshData);
+              
+              // Update stockValue with fresh data
+              if (freshData?.withoutSerialNumber?.count !== undefined) {
+                console.log(`🔄 Updating stockValue from ${stockValue} to ${freshData.withoutSerialNumber.count}`);
+                setStockValue(freshData.withoutSerialNumber.count);
+              }
+            }
+          } catch (error) {
+            console.log('Failed to fetch fresh available items, using existing data');
+          }
+        }
+        
+        // Final refresh before closing modal
+        console.log('🔄 Final refresh before closing modal...');
+        
+        // Clear breakdown cache for final refresh
+        setBreakdownData({});
+        setBreakdownRefreshCounter(prev => prev + 1);
+        console.log('🧹 Final breakdown cache clear before closing modal');
+        
+        await fetchInventory();
+        
+        // Additional delay and refresh for change_status_condition and edit_items
+        if (stockOperation === 'change_status_condition' || stockOperation === 'edit_items') {
+          console.log(`🔄 Additional delay and refresh for ${stockOperation}...`);
+          
+          // Clear cache again for these operations
+          setBreakdownData({});
+          setBreakdownRefreshCounter(prev => prev + 1);
+          console.log(`🧹 Additional breakdown cache clear for ${stockOperation}`);
+          
+          await new Promise(resolve => setTimeout(resolve, 500)); // Longer delay
+          await fetchInventory();
         }
         
         closeStockModal();
@@ -1921,13 +2300,19 @@ export default function AdminInventoryPage() {
                   >
                     <option value="">ทั้งหมด</option>
                     {categoryConfigs
-                      .filter(config => !config.isSystemCategory || config.id !== 'cat_unassigned') // ซ่อน "ไม่ระบุ"
+                      .filter(config => {
+                        // ซ่อน "ไม่ระบุ"
+                        if (config.isSystemCategory && config.id === 'cat_unassigned') return false;
+                        
+                        // แสดงหมวดหมู่ทั้งหมดรวมถึงซิมการ์ด (ลบเงื่อนไขที่ป้องกันการเพิ่มรายการใหม่)
+                        
+                        return true;
+                      })
                       .sort((a, b) => {
-                        // ใช้การเรียงลำดับแบบเดียวกับ CategoryConfigList
-                        // หมวดหมู่ปกติมาก่อน ซิมการ์ดมาหลัง
-                        if (a.id === 'cat_sim_card' && b.id !== 'cat_sim_card') return 1;
-                        if (a.id !== 'cat_sim_card' && b.id === 'cat_sim_card') return -1;
-                        return (a.order || 0) - (b.order || 0);
+                        // จัดเรียงตาม order โดยให้ซิมการ์ดอยู่รองจากสุดท้าย (ก่อนไม่ระบุที่ถูกซ่อน)
+                        const aOrder = a.id === 'cat_sim_card' ? 998 : (a.order || 0);
+                        const bOrder = b.id === 'cat_sim_card' ? 998 : (b.order || 0);
+                        return aOrder - bOrder;
                       })
                       .map((config: any) => (
                         <option key={config.id} value={config.id}>
@@ -1963,6 +2348,36 @@ export default function AdminInventoryPage() {
                     <option value="all">ทั้งหมด</option>
                     <option value="with">มี Serial Number</option>
                     <option value="without">ไม่มี Serial Number</option>
+                  </select>
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">
+                    สภาพอุปกรณ์
+                  </label>
+                  <select
+                    value={conditionFilter}
+                    onChange={(e) => setConditionFilter(e.target.value)}
+                    className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 text-gray-900"
+                  >
+                    <option value="">ทั้งหมด</option>
+                    {conditionConfigs.map((config) => (
+                      <option key={config.id} value={config.id}>{config.name}</option>
+                    ))}
+                  </select>
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">
+                    ประเภทอุปกรณ์
+                  </label>
+                  <select
+                    value={typeFilter}
+                    onChange={(e) => setTypeFilter(e.target.value)}
+                    className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 text-gray-900"
+                  >
+                    <option value="">ทั้งหมด</option>
+                    <option value="withoutSN">ไม่มี SN</option>
+                    <option value="withSN">มี SN</option>
+                    <option value="withPhone">มีเบอร์</option>
                   </select>
                 </div>
               </div>
@@ -2001,7 +2416,7 @@ export default function AdminInventoryPage() {
                     จำนวนทั้งหมด
                   </th>
                   <th className="px-6 py-3 text-center text-xs font-medium text-white uppercase tracking-wider">
-                    สถานะ
+                    รายละเอียด
                   </th>
                   <th className="px-6 py-3 text-center text-xs font-medium text-white uppercase tracking-wider">
                     วันที่เพิ่ม
@@ -2046,26 +2461,28 @@ export default function AdminInventoryPage() {
                         {item.totalQuantity ?? item.quantity}
                       </td>
                       <td className="px-6 py-4 whitespace-nowrap text-center">
-                        {(() => {
-                          // ✅ ใช้ statusId หากมี ไม่งั้นใช้ status เก่า (backward compatibility)
+                        <StatusCell 
+                          key={`${item.itemName}_${item.categoryId}_${breakdownRefreshCounter}`} // Force re-render when data changes
+                          item={{
+                            _id: item._id,
+                            itemName: item.itemName,
+                            categoryId: item.categoryId,
+                            statusMain: (() => {
                           const statusIdOrName = item.statusId || item.status;
                           const statusName = getStatusText(statusIdOrName);
                           
-                          // ถ้าไม่มี statusConfigs หรือไม่พบสถานะ ให้แสดง "-"
                           if (statusConfigs.length === 0 || !statusName || statusName === statusIdOrName) {
-                            return (
-                              <span className="inline-flex px-2 py-1 text-xs font-semibold rounded-full bg-gray-100 text-gray-500">
-                                -
-                        </span>
-                            );
-                          }
-                          
-                          return (
-                            <span className={`inline-flex px-2 py-1 text-xs font-semibold rounded-full ${getStatusClass(statusIdOrName)}`}>
-                              {item.hasMixedStatus ? 'หลากหลาย' : statusName}
-                            </span>
-                          );
-                        })()}
+                                return '-';
+                              }
+                              
+                              return item.hasMixedStatus ? 'หลากหลาย' : statusName;
+                            })()
+                          }}
+                          breakdown={breakdownData[`${item.itemName}_${item.categoryId}`]}
+                          onFetchBreakdown={() => fetchBreakdown(item.itemName, item.categoryId)}
+                          statusConfigs={statusConfigs}
+                          conditionConfigs={conditionConfigs}
+                        />
                       </td>
                       <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500 text-center">
                         {new Date(item.dateAdded).toLocaleDateString('th-TH')}
@@ -2162,13 +2579,19 @@ export default function AdminInventoryPage() {
                   >
                     <option value="">-- เลือกหมวดหมู่ --</option>
                     {categoryConfigs
-                      .filter(config => !config.isSystemCategory || config.id !== 'cat_unassigned') // ซ่อน "ไม่ระบุ"
+                      .filter(config => {
+                        // ซ่อน "ไม่ระบุ"
+                        if (config.isSystemCategory && config.id === 'cat_unassigned') return false;
+                        
+                        // แสดงหมวดหมู่ทั้งหมดรวมถึงซิมการ์ด (ลบเงื่อนไขที่ป้องกันการเพิ่มรายการใหม่)
+                        
+                        return true;
+                      })
                       .sort((a, b) => {
-                        // ใช้การเรียงลำดับแบบเดียวกับ CategoryConfigList
-                        // หมวดหมู่ปกติมาก่อน ซิมการ์ดมาหลัง
-                        if (a.id === 'cat_sim_card' && b.id !== 'cat_sim_card') return 1;
-                        if (a.id !== 'cat_sim_card' && b.id === 'cat_sim_card') return -1;
-                        return (a.order || 0) - (b.order || 0);
+                        // จัดเรียงตาม order โดยให้ซิมการ์ดอยู่รองจากสุดท้าย (ก่อนไม่ระบุที่ถูกซ่อน)
+                        const aOrder = a.id === 'cat_sim_card' ? 998 : (a.order || 0);
+                        const bOrder = b.id === 'cat_sim_card' ? 998 : (b.order || 0);
+                        return aOrder - bOrder;
                       })
                       .map((config: any) => (
                         <option key={config.id} value={config.id}>
@@ -2187,7 +2610,6 @@ export default function AdminInventoryPage() {
                     
                     {existingItemsInCategory.length > 0 && (
                       <div className="mb-3">
-                        <div className="text-sm text-gray-600 mb-2">รายการที่มีอยู่ในหมวดหมู่ "{selectedCategory}":</div>
                         <div className="space-y-2 max-h-32 overflow-y-auto border border-gray-200 rounded-md p-2">
                           {existingItemsInCategory.map((itemName) => (
                             <label key={itemName} className="flex items-center space-x-2 cursor-pointer hover:bg-gray-50 p-1 rounded">
@@ -2537,13 +2959,19 @@ export default function AdminInventoryPage() {
                   >
                     <option value="">-- เลือกหมวดหมู่ --</option>
                     {categoryConfigs
-                      .filter(config => !config.isSystemCategory || config.id !== 'cat_unassigned') // ซ่อน "ไม่ระบุ"
+                      .filter(config => {
+                        // ซ่อน "ไม่ระบุ"
+                        if (config.isSystemCategory && config.id === 'cat_unassigned') return false;
+                        
+                        // แสดงหมวดหมู่ทั้งหมดรวมถึงซิมการ์ด (ลบเงื่อนไขที่ป้องกันการเพิ่มรายการใหม่)
+                        
+                        return true;
+                      })
                       .sort((a, b) => {
-                        // ใช้การเรียงลำดับแบบเดียวกับ CategoryConfigList
-                        // หมวดหมู่ปกติมาก่อน ซิมการ์ดมาหลัง
-                        if (a.id === 'cat_sim_card' && b.id !== 'cat_sim_card') return 1;
-                        if (a.id !== 'cat_sim_card' && b.id === 'cat_sim_card') return -1;
-                        return (a.order || 0) - (b.order || 0);
+                        // จัดเรียงตาม order โดยให้ซิมการ์ดอยู่รองจากสุดท้าย (ก่อนไม่ระบุที่ถูกซ่อน)
+                        const aOrder = a.id === 'cat_sim_card' ? 998 : (a.order || 0);
+                        const bOrder = b.id === 'cat_sim_card' ? 998 : (b.order || 0);
+                        return aOrder - bOrder;
                       })
                       .map((config: any) => (
                         <option key={config.id} value={config.id}>
@@ -2971,8 +3399,13 @@ export default function AdminInventoryPage() {
                   <select
                     value={stockOperation}
                     onChange={(e) => {
-                      const newOperation = e.target.value as 'view_current_info' | 'adjust_stock' | 'delete_item' | 'edit_items';
+                      const newOperation = e.target.value as 'view_current_info' | 'adjust_stock' | 'change_status_condition' | 'delete_item' | 'edit_items';
                       setStockOperation(newOperation);
+                      
+                      // Reset adjust stock fields when changing operation
+                      setNewStatusId('');
+                      setNewConditionId('');
+                      setChangeQuantity(0);
                       
                       // Set current stock as starting point for adjustment
                       if (newOperation === 'adjust_stock') {
@@ -2995,21 +3428,63 @@ export default function AdminInventoryPage() {
                       
                       // Update reason based on operation
                       if (newOperation === 'delete_item') {
-                      setStockReason('ลบรายการทั้งหมด');
-                    } else if (newOperation === 'edit_items') {
-                      setStockReason('แก้ไขรายการอุปกรณ์');
+                        setStockReason('ลบรายการทั้งหมด');
+                      } else if (newOperation === 'edit_items') {
+                        setStockReason('แก้ไขรายการอุปกรณ์');
+                      } else if (newOperation === 'change_status_condition') {
+                        setStockReason('เปลี่ยนสถานะ/สภาพ ของ Admin Stock');
+                      } else if (newOperation === 'adjust_stock') {
+                        const currentStock = stockInfo?.stockManagement?.adminDefinedStock || 0;
+                        setStockReason(`ปรับจำนวน จาก ${currentStock} ชิ้น เป็น ${stockValue} ชิ้น ของ Admin Stock`);
+                      } else {
+                        setStockReason('ปรับจำนวน Admin Stock');
+                      }
+                  }}
+                  onFocus={(e) => {
+                    // Force dropdown to open below by moving the select element down
+                    const select = e.target as HTMLSelectElement;
+                    const rect = select.getBoundingClientRect();
+                    const viewportHeight = window.innerHeight;
+                    const spaceBelow = viewportHeight - rect.bottom;
+                    
+                    // Always try to position below first
+                    if (spaceBelow < 200) {
+                      // If not enough space below, move the select up to force dropdown below
+                      select.style.position = 'relative';
+                      select.style.top = '-200px';
+                      select.style.marginBottom = '-200px';
                     } else {
-                      setStockReason('ปรับจำนวน Admin Stock');
+                      // Normal positioning below
+                      select.style.position = 'relative';
+                      select.style.top = '0';
+                      select.style.marginBottom = '0';
                     }
                   }}
-                  className="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                  onBlur={(e) => {
+                    // Reset position when losing focus
+                    const select = e.target as HTMLSelectElement;
+                    select.style.position = '';
+                    select.style.top = '';
+                    select.style.marginBottom = '';
+                  }}
+                  className="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 admin-inventory-dropdown"
                 >
                   {/* 📊 ดูข้อมูลปัจจุบัน - มีทุกหมวดหมู่ */}
                   <option value="view_current_info">📊 ดูข้อมูลปัจจุบัน</option>
                   
                   {/* 📝 ปรับจำนวน - ยกเว้นหมวดหมู่ซิมการ์ด */}
                   {!isSIMCardSync(stockItem?.categoryId || '') && (
-                    <option value="adjust_stock">📝 ปรับจำนวน (อุปกรณ์ที่ไม่มี Serial Number)</option>
+                    <option value="adjust_stock">
+                      {(availableItems?.withoutSerialNumber?.count ?? 0) > 0 
+                        ? '📝 ปรับจำนวน (อุปกรณ์ที่ไม่มี SN)' 
+                        : '📝 ปรับจำนวน - ไม่พบอุปกรณ์ที่ไม่มี SN'
+                      }
+                    </option>
+                  )}
+                  
+                  {/* 🔄 เปลี่ยนสถานะ/สภาพ - ยกเว้นหมวดหมู่ซิมการ์ด */}
+                  {!isSIMCardSync(stockItem?.categoryId || '') && (
+                    <option value="change_status_condition">🔄 เปลี่ยนสถานะ/สภาพ (อุปกรณ์ที่ไม่มี SN)</option>
                   )}
                   
                   {/* ✏️ แก้ไข/ลบ - ข้อความแตกต่างกันตามหมวดหมู่ */}
@@ -3029,95 +3504,113 @@ export default function AdminInventoryPage() {
               {stockOperation === 'view_current_info' && !stockLoading && stockInfo && (
                 <div className="bg-blue-50 p-4 rounded-lg">
                   <h4 className="font-semibold text-blue-900 mb-3">
-                    ข้อมูลปัจจุบัน:
+                    📊 ข้อมูลปัจจุบัน: {stockItem?.itemName} (หมวดหมู่ {getCategoryName(stockItem?.categoryId || '')})
                     {stockInfo.adminStockOperations?.length > 0 && (
                       <span className="ml-2 text-xs bg-green-100 text-green-800 px-2 py-1 rounded">
                         ✅ ตรวจพบแล้ว
                       </span>
                     )}
                   </h4>
-                  <div className="grid grid-cols-2 gap-6 text-sm">
-                    {/* Column 1: Admin & User Contributions */}
-                    <div className="space-y-3">
+                  <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 text-sm">
+                    {/* สถานะอุปกรณ์ */}
                       <div className="bg-white/60 p-3 rounded-lg border border-blue-200">
-                        <h5 className="font-medium text-blue-800 mb-2">🎯 การจัดการ Stock</h5>
+                      <h5 className="font-medium text-blue-800 mb-2">📊 สถานะอุปกรณ์</h5>
                         <div className="space-y-2">
-                          <div className="flex items-center justify-between">
-                            <span className="text-blue-700">Admin ตั้งไว้:</span>
-                            <span className="font-bold text-blue-900">
-                              {stockInfo.stockManagement?.adminDefinedStock || 0} ชิ้น
-                              {stockInfo.stockManagement?.adminDefinedStock === 0 && (
-                                <span className="text-xs text-orange-600 ml-1">
-                                  (ยังไม่มีการตั้งค่า)
-                                </span>
-                              )}
-                            </span>
-                          </div>
-                          <div className="flex items-center justify-between">
-                            <span className="text-blue-700">User เพิ่มมา:</span>
-                            <span className="font-bold text-purple-600">
-                              {stockInfo.stockManagement?.userContributedCount || 0} ชิ้น
-                            </span>
-                          </div>
-                        </div>
+                          {stockInfo.statusBreakdown && Object.entries(stockInfo.statusBreakdown)
+                            .filter(([_, count]) => (count as number) > 0)
+                            .map(([statusId, count]) => {
+                              const statusConfig = statusConfigs.find(config => config.id === statusId);
+                              const statusName = statusConfig?.name || statusId;
+                              return (
+                                <div key={statusId} className="flex items-center justify-between">
+                                  <span className="text-blue-700">{statusName}:</span>
+                                  <span className="font-bold text-green-700">
+                                    {count as number} ชิ้น
+                                  </span>
+                                </div>
+                              );
+                            })}
+                          {(!stockInfo.statusBreakdown || Object.values(stockInfo.statusBreakdown).every(count => count === 0)) && (
+                            <div className="text-gray-500 text-center">ไม่มีข้อมูลสถานะ</div>
+                          )}
                       </div>
                     </div>
 
-                    {/* Column 2: Device Types */}
-                    <div className="space-y-3">
+                    {/* สภาพอุปกรณ์ */}
                       <div className="bg-white/60 p-3 rounded-lg border border-blue-200">
-                        <h5 className="font-medium text-blue-800 mb-2">📱 ประเภทอุปกรณ์</h5>
+                      <h5 className="font-medium text-blue-800 mb-2">🔧 สภาพอุปกรณ์</h5>
                         <div className="space-y-2">
-                          {/* แสดงทั้ง 3 ประเภทเสมอ */}
-                          <div className="flex items-center justify-between">
-                            <span className="text-blue-700">ไม่มี Serial Number:</span>
-                            <span className="font-bold text-orange-600">
-                              {availableItems ? (
-                                isSIMCardSync(stockItem?.categoryId || '') ? 0 : (availableItems.withoutSerialNumber?.count || 0)
-                              ) : (
-                                <span className="text-gray-400 animate-pulse">กำลังโหลด...</span>
-                              )} ชิ้น
-                            </span>
-                          </div>
-                          <div className="flex items-center justify-between">
-                            <span className="text-blue-700">มี Serial Number:</span>
-                            <span className="font-bold text-green-600">
-                              {availableItems ? (
-                                isSIMCardSync(stockItem?.categoryId || '') ? 0 : (availableItems.withSerialNumber?.length || 0)
-                              ) : (
-                                <span className="text-gray-400 animate-pulse">กำลังโหลด...</span>
-                              )} ชิ้น
-                            </span>
-                          </div>
-                          <div className="flex items-center justify-between">
-                            <span className="text-blue-700">มีอุปกรณ์ซิม:</span>
-                            <span className="font-bold text-purple-600">
-                              {availableItems ? (
-                                isSIMCardSync(stockItem?.categoryId || '') ? (availableItems.withPhoneNumber?.length || 0) : 0
-                              ) : (
-                                <span className="text-gray-400 animate-pulse">กำลังโหลด...</span>
-                              )} เบอร์
-                            </span>
-                          </div>
+                          {stockInfo.conditionBreakdown && Object.entries(stockInfo.conditionBreakdown)
+                            .filter(([_, count]) => (count as number) > 0)
+                            .map(([conditionId, count]) => {
+                              const conditionConfig = conditionConfigs.find(config => config.id === conditionId);
+                              const conditionName = conditionConfig?.name || conditionId;
+                              return (
+                                <div key={conditionId} className="flex items-center justify-between">
+                                  <span className="text-blue-700">{conditionName}:</span>
+                                  <span className="font-bold text-green-700">
+                                    {count as number} ชิ้น
+                                  </span>
+                                </div>
+                              );
+                            })}
+                          {(!stockInfo.conditionBreakdown || Object.values(stockInfo.conditionBreakdown).every(count => count === 0)) && (
+                            <div className="text-gray-500 text-center">ไม่มีข้อมูลสภาพ</div>
+                          )}
                         </div>
                       </div>
+
+                    {/* ประเภทอุปกรณ์ */}
+                    <div className="bg-white/60 p-3 rounded-lg border border-blue-200">
+                      <h5 className="font-medium text-blue-800 mb-2">🏷️ ประเภทอุปกรณ์</h5>
+                      <div className="space-y-2">
+                        <div className="flex items-center justify-between">
+                          <span className="text-blue-700">ไม่มี SN:</span>
+                          <span className="font-bold text-blue-700">
+                            {stockInfo.typeBreakdown?.withoutSN || 0} ชิ้น
+                          </span>
+                        </div>
+                        <div className="flex items-center justify-between">
+                          <span className="text-blue-700">มี SN:</span>
+                          <span className="font-bold text-purple-700">
+                            {stockInfo.typeBreakdown?.withSN || 0} ชิ้น
+                          </span>
+                        </div>
+                        <div className="flex items-center justify-between">
+                          <span className="text-blue-700">มีเบอร์:</span>
+                          <span className="font-bold text-orange-700">
+                            {stockInfo.typeBreakdown?.withPhone || 0} เบอร์
+                          </span>
+                        </div>
                     </div>
                   </div>
 
-                  {/* Total Summary - Full Width */}
-                  <div className="mt-4 pt-4 border-t border-blue-200">
-                    <div className="bg-blue-100/50 p-3 rounded-lg">
-                      <div className="flex items-center justify-center">
-                        <span className="text-blue-700 font-medium">รวมทั้งหมด:</span>
-                        <span className="font-bold text-blue-900 ml-3 text-lg">
+                    {/* สรุปรวม */}
+                    <div className="bg-white/60 p-3 rounded-lg border border-blue-200">
+                      <h5 className="font-medium text-blue-800 mb-2">📈 สรุปรวม</h5>
+                      <div className="space-y-2">
+                        <div className="flex items-center justify-between">
+                          <span className="text-blue-700">รวมทั้งหมด:</span>
+                          <span className="font-bold text-blue-900 text-lg">
                           {stockInfo.currentStats?.totalQuantity || 0} ชิ้น
                         </span>
-                        <span className="text-xs text-blue-600 ml-3">
-                          (Admin: {stockInfo.stockManagement?.adminDefinedStock || 0} + User: {stockInfo.stockManagement?.userContributedCount || 0})
+                        </div>
+                        <div className="flex items-center justify-between">
+                          <span className="text-blue-700">คงเหลือ:</span>
+                          <span className="font-bold text-green-700">
+                            {stockInfo.currentStats?.availableQuantity || 0} ชิ้น
                         </span>
+                        </div>
+                        <div className="flex items-center justify-between">
+                          <span className="text-blue-700">User ถือ:</span>
+                          <span className="font-bold text-purple-700">
+                            {stockInfo.currentStats?.userOwnedQuantity || 0} ชิ้น
+                          </span>
+                        </div>
                       </div>
                     </div>
                   </div>
+
                   
                   {/* Debug Info - Show if no data detected */}
                   {(stockInfo.stockManagement?.adminDefinedStock === 0 && stockInfo.stockManagement?.userContributedCount === 0 && stockInfo.currentStats?.totalQuantity > 0) && (
@@ -3159,26 +3652,299 @@ export default function AdminInventoryPage() {
                 </div>
               )}
 
-              {/* Value Input - Hide for delete operation and edit_items */}
-              {stockOperation !== 'delete_item' && stockOperation !== 'edit_items' && stockOperation !== 'view_current_info' && (
-                 <div>
-                   <label className="block text-sm font-medium text-gray-700 mb-1">
-                     จำนวนใหม่ที่ต้องการ (อุปกรณ์ที่ไม่มี Serial Number)
-                   </label>
-                   <input
-                     type="number"
-                     value={stockValue}
-                     onChange={(e) => setStockValue(parseInt(e.target.value) || 0)}
-                     className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
-                     placeholder={`ปัจจุบัน: ${availableItems?.withoutSerialNumber?.count || 0} ชิ้น (ไม่มี SN)`}
-                     min={0}
-                   />
-                   <p className="text-sm text-blue-600 mt-1">
-                     💡 ปรับเฉพาะอุปกรณ์ที่ไม่มี Serial Number เท่านั้น - ปัจจุบัน: {availableItems ? availableItems.withoutSerialNumber?.count || 0 : 'กำลังโหลด...'} ชิ้น
-                   </p>
-                   <p className="text-sm text-gray-600 mt-1">
-                     หมายเหตุ : อุปกรณ์ที่มี Serial Number - ปัจจุบัน: {availableItems ? availableItems.withSerialNumber?.length || 0 : 'กำลังโหลด...'} ชิ้น
-                   </p>
+              {/* Change Status/Condition Interface - New Design */}
+              {stockOperation === 'change_status_condition' && (
+                <div className="space-y-6">
+                  {/* Current Data Display - Only show when not loading */}
+                  {!stockLoading && (
+                    <div className="bg-blue-50 p-4 rounded-lg">
+                      <h4 className="text-sm font-medium text-blue-800 mb-2">📊 ข้อมูลปัจจุบัน</h4>
+                      <div className="text-sm text-blue-700">
+                      {(() => {
+                        const withoutSNCount = stockInfo?.withoutSerialNumber?.count || 0;
+                        
+                        if (withoutSNCount === 0) {
+                          return (
+                            <div className="text-amber-700">
+                              <div className="mb-1">⚠️ ไม่พบอุปกรณ์ที่ไม่มี SN เนื่องจากมีจำนวน 0 ชิ้น</div>
+                              <div>สถานะ: -</div>
+                              <div>สภาพ: -</div>
+                            </div>
+                          );
+                        } else {
+                          return (
+                            <>
+                              <div className="mb-1">
+                                <span className="font-medium">สถานะ:</span>
+                                {stockInfo?.statusBreakdown && Object.entries(stockInfo.statusBreakdown).map(([statusId, count]) => {
+                                  const statusName = getStatusText(statusId);
+                                  const isPositive = statusName === 'มี';
+                                  const countNum = Number(count) || 0;
+                                  return (
+                                    <span key={statusId} className={`ml-2 ${isPositive ? 'text-green-600' : 'text-red-600'}`}>
+                                      {isPositive ? '🟢' : '🔴'} {statusName} {countNum} ชิ้น
+                                    </span>
+                                  );
+                                })}
+                              </div>
+                              <div>
+                                <span className="font-medium">สภาพ:</span>
+                                {stockInfo?.conditionBreakdown && Object.entries(stockInfo.conditionBreakdown).map(([conditionId, count]) => {
+                                  const conditionName = getConditionText(conditionId);
+                                  const isUsable = conditionName === 'ใช้งานได้';
+                                  const countNum = Number(count) || 0;
+                                  return (
+                                    <span key={conditionId} className={`ml-2 ${isUsable ? 'text-green-600' : 'text-red-600'}`}>
+                                      {isUsable ? '🟢' : '🔴'} {conditionName} {countNum} ชิ้น
+                                    </span>
+                                  );
+                                })}
+                              </div>
+                            </>
+                          );
+                        }
+                      })()}
+                      </div>
+                    </div>
+                  )}
+
+                  {/* Status Change Section - Only show if there are items without SN */}
+                  {stockInfo?.withoutSerialNumber?.count > 0 && (
+                    <div className="border border-gray-200 rounded-lg p-4">
+                    <h4 className="text-sm font-medium text-gray-800 mb-3">🔄 การเปลี่ยนสถานะ</h4>
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                      <div>
+                        <label className="block text-sm font-medium text-gray-700 mb-1">
+                          สถานะปัจจุบัน
+                        </label>
+                        <select
+                          value={currentStatusId}
+                          onChange={(e) => {
+                            setCurrentStatusId(e.target.value);
+                            setStatusChangeQuantity(0);
+                            setTargetStatusId('');
+                          }}
+                          className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                        >
+                          <option value="">-- เลือกสถานะปัจจุบัน --</option>
+                          {stockInfo?.statusBreakdown && Object.entries(stockInfo.statusBreakdown)
+                            .filter(([statusId, count]) => (Number(count) || 0) > 0)
+                            .map(([statusId, count]) => (
+                              <option key={statusId} value={statusId}>
+                                {getStatusText(statusId)} ({Number(count) || 0} ชิ้น)
+                              </option>
+                            ))}
+                        </select>
+                      </div>
+                      <div>
+                        <label className="block text-sm font-medium text-gray-700 mb-1">
+                          จำนวน
+                        </label>
+                        <input
+                          type="number"
+                          value={statusChangeQuantity}
+                          onChange={(e) => {
+                            const value = parseInt(e.target.value) || 0;
+                            const maxQuantity = currentStatusId ? (stockInfo?.statusBreakdown?.[currentStatusId] || 0) : 0;
+                            const limitedValue = Math.min(value, maxQuantity);
+                            setStatusChangeQuantity(limitedValue);
+                          }}
+                          className={`w-full px-3 py-2 border rounded-md focus:outline-none focus:ring-2 ${
+                            statusChangeQuantity > (currentStatusId ? (stockInfo?.statusBreakdown?.[currentStatusId] || 0) : 0)
+                              ? 'border-red-300 focus:ring-red-500 bg-red-50'
+                              : 'border-gray-300 focus:ring-blue-500'
+                          }`}
+                          min="0"
+                          max={currentStatusId ? (stockInfo?.statusBreakdown?.[currentStatusId] || 0) : 0}
+                        />
+                        {currentStatusId && (
+                          <p className="text-xs text-gray-500 mt-1">
+                            สูงสุด: {stockInfo?.statusBreakdown?.[currentStatusId] || 0} ชิ้น
+                          </p>
+                        )}
+                      </div>
+                    </div>
+                    <div className="mt-3">
+                      <label className="block text-sm font-medium text-gray-700 mb-1">
+                        เปลี่ยนเป็น
+                      </label>
+                      <select
+                        value={targetStatusId}
+                        onChange={(e) => setTargetStatusId(e.target.value)}
+                        className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                      >
+                        <option value="">-- เลือกสถานะใหม่ --</option>
+                        {statuses
+                          .filter((st: any) => st !== currentStatusId)
+                          .map((st: any) => (
+                            <option key={st} value={st}>{getStatusText(st)}</option>
+                          ))}
+                      </select>
+                    </div>
+                    
+                    {/* Status Change Summary */}
+                    {currentStatusId && targetStatusId && statusChangeQuantity > 0 && (
+                      <div className="mt-3 p-3 bg-blue-50 rounded-lg">
+                        <h5 className="text-sm font-medium text-blue-800 mb-2">📋 สรุปการเปลี่ยนแปลงสถานะ:</h5>
+                        <div className="text-sm text-blue-700">
+                          <div>• สถานะ "{getStatusText(currentStatusId)}" จะลดลง {statusChangeQuantity} ชิ้น (เหลือไม่เปลี่ยน {Math.max(0, (stockInfo?.statusBreakdown?.[currentStatusId] || 0) - statusChangeQuantity)} ชิ้น)</div>
+                          <div>• สถานะ "{getStatusText(targetStatusId)}" จะเพิ่มขึ้น {statusChangeQuantity} ชิ้น</div>
+                        </div>
+                      </div>
+                    )}
+                    </div>
+                  )}
+
+                  {/* Condition Change Section - Only show if there are items without SN */}
+                  {stockInfo?.withoutSerialNumber?.count > 0 && (
+                    <div className="border border-gray-200 rounded-lg p-4">
+                    <h4 className="text-sm font-medium text-gray-800 mb-3">🔧 การเปลี่ยนสภาพ</h4>
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                      <div>
+                        <label className="block text-sm font-medium text-gray-700 mb-1">
+                          สภาพปัจจุบัน
+                        </label>
+                        <select
+                          value={currentConditionId}
+                          onChange={(e) => {
+                            setCurrentConditionId(e.target.value);
+                            setConditionChangeQuantity(0);
+                            setTargetConditionId('');
+                          }}
+                          className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                        >
+                          <option value="">-- เลือกสภาพปัจจุบัน --</option>
+                          {stockInfo?.conditionBreakdown && Object.entries(stockInfo.conditionBreakdown)
+                            .filter(([conditionId, count]) => (Number(count) || 0) > 0)
+                            .map(([conditionId, count]) => (
+                              <option key={conditionId} value={conditionId}>
+                                {getConditionText(conditionId)} ({Number(count) || 0} ชิ้น)
+                              </option>
+                            ))}
+                        </select>
+                      </div>
+                      <div>
+                        <label className="block text-sm font-medium text-gray-700 mb-1">
+                          จำนวน
+                        </label>
+                        <input
+                          type="number"
+                          value={conditionChangeQuantity}
+                          onChange={(e) => {
+                            const value = parseInt(e.target.value) || 0;
+                            const maxQuantity = currentConditionId ? (stockInfo?.conditionBreakdown?.[currentConditionId] || 0) : 0;
+                            const limitedValue = Math.min(value, maxQuantity);
+                            setConditionChangeQuantity(limitedValue);
+                          }}
+                          className={`w-full px-3 py-2 border rounded-md focus:outline-none focus:ring-2 ${
+                            conditionChangeQuantity > (currentConditionId ? (stockInfo?.conditionBreakdown?.[currentConditionId] || 0) : 0)
+                              ? 'border-red-300 focus:ring-red-500 bg-red-50'
+                              : 'border-gray-300 focus:ring-blue-500'
+                          }`}
+                          min="0"
+                          max={currentConditionId ? (stockInfo?.conditionBreakdown?.[currentConditionId] || 0) : 0}
+                        />
+                        {currentConditionId && (
+                          <p className="text-xs text-gray-500 mt-1">
+                            สูงสุด: {stockInfo?.conditionBreakdown?.[currentConditionId] || 0} ชิ้น
+                          </p>
+                        )}
+                      </div>
+                    </div>
+                    <div className="mt-3">
+                      <label className="block text-sm font-medium text-gray-700 mb-1">
+                        เปลี่ยนเป็น
+                      </label>
+                      <select
+                        value={targetConditionId}
+                        onChange={(e) => setTargetConditionId(e.target.value)}
+                        className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                      >
+                        <option value="">-- เลือกสภาพใหม่ --</option>
+                        {conditionConfigs
+                          .filter((config) => config.id !== currentConditionId)
+                          .map((config) => (
+                            <option key={config.id} value={config.id}>{config.name}</option>
+                          ))}
+                      </select>
+                    </div>
+                    
+                    {/* Condition Change Summary */}
+                    {currentConditionId && targetConditionId && conditionChangeQuantity > 0 && (
+                      <div className="mt-3 p-3 bg-green-50 rounded-lg">
+                        <h5 className="text-sm font-medium text-green-800 mb-2">📋 สรุปการเปลี่ยนแปลงสภาพ:</h5>
+                        <div className="text-sm text-green-700">
+                          <div>• สภาพ "{getConditionText(currentConditionId)}" จะลดลง {conditionChangeQuantity} ชิ้น (เหลือไม่เปลี่ยน {Math.max(0, (stockInfo?.conditionBreakdown?.[currentConditionId] || 0) - conditionChangeQuantity)} ชิ้น)</div>
+                          <div>• สภาพ "{getConditionText(targetConditionId)}" จะเพิ่มขึ้น {conditionChangeQuantity} ชิ้น</div>
+                        </div>
+                      </div>
+                    )}
+                    </div>
+                  )}
+
+                  {/* หมายเหตุ - Only show if there are items without SN */}
+                  {stockInfo?.withoutSerialNumber?.count > 0 && (
+                    <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">
+                      หมายเหตุ (เหตุผลในการเปลี่ยน)
+                    </label>
+                    <textarea
+                      value={stockReason}
+                      onChange={(e) => setStockReason(e.target.value)}
+                      className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                      rows={3}
+                      placeholder="ระบุเหตุผลในการเปลี่ยนสถานะ/สภาพ"
+                    />
+                    </div>
+                  )}
+                </div>
+              )}
+
+              {/* Adjust Stock Interface */}
+              {stockOperation === 'adjust_stock' && (
+                <div className="space-y-4">
+                  {/* ตรวจสอบว่ามีอุปกรณ์ที่ไม่มี SN หรือไม่ */}
+                  {(availableItems?.withoutSerialNumber?.count ?? 0) > 0 ? (
+                    <>
+                      {/* จำนวนที่ต้องการปรับ */}
+                      <div>
+                        <label className="block text-sm font-medium text-gray-700 mb-1">
+                           จำนวนที่ต้องการปรับ (อุปกรณ์ที่ไม่มี Serial Number)
+                        </label>
+                        <input
+                          type="number"
+                          value={stockValue}
+                          onChange={(e) => setStockValue(parseInt(e.target.value) || 0)}
+                          className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 admin-inventory-dropdown"
+                          placeholder={`ปัจจุบัน: ${availableItems?.withoutSerialNumber?.count || 0} ชิ้น (ไม่มี SN)`}
+                          min={0}
+                        />
+                        <p className="text-sm text-blue-600 mt-1">
+                          💡 ปรับเฉพาะอุปกรณ์ที่ไม่มี Serial Number เท่านั้น - ปัจจุบัน: {availableItems ? availableItems.withoutSerialNumber?.count || 0 : 'กำลังโหลด...'} ชิ้น
+                        </p>
+                      </div>
+
+                      {/* หมายเหตุ */}
+                      <div>
+                        <label className="block text-sm font-medium text-gray-700 mb-1">
+                          หมายเหตุ (เหตุผลในการปรับ)
+                        </label>
+                        <textarea
+                          value={stockReason}
+                          onChange={(e) => setStockReason(e.target.value)}
+                          className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 admin-inventory-dropdown"
+                          placeholder="ระบุเหตุผลในการปรับจำนวน"
+                          rows={3}
+                        />
+                      </div>
+                    </>
+                  ) : (
+                    <div className="text-center py-8">
+                      <div className="text-gray-500 text-lg mb-2">⚠️</div>
+                      <p className="text-gray-600">ไม่พบอุปกรณ์ที่ไม่มี Serial Number</p>
+                      <p className="text-sm text-gray-500 mt-1">ไม่สามารถปรับจำนวนได้เนื่องจากไม่มีอุปกรณ์ที่ไม่มี SN</p>
+                    </div>
+                  )}
                  </div>
                )}
 
@@ -3287,9 +4053,16 @@ export default function AdminInventoryPage() {
                             </div>
                           )}
 
-                          <div className="space-y-2 max-h-64 overflow-y-auto">
-                            {availableItems?.withSerialNumber && availableItems.withSerialNumber.length > 0 ? (
-                              getFilteredSerialNumberItems().length > 0 ? (
+                            <div className="space-y-2 max-h-64 overflow-y-auto">
+                              {(() => {
+                                console.log('🔍 Render check - availableItems:', availableItems);
+                                console.log('🔍 Render check - withSerialNumber:', availableItems?.withSerialNumber);
+                                console.log('🔍 Render check - withSerialNumber length:', availableItems?.withSerialNumber?.length);
+                                console.log('🔍 Render check - getFilteredSerialNumberItems():', getFilteredSerialNumberItems());
+                                return null;
+                              })()}
+                              {availableItems?.withSerialNumber && availableItems.withSerialNumber.length > 0 ? (
+                                getFilteredSerialNumberItems().length > 0 ? (
                                 getFilteredSerialNumberItems().map((item: any) => (
                                   <div
                                     key={`${item.itemId}-${item.serialNumber}`}
@@ -3351,6 +4124,13 @@ export default function AdminInventoryPage() {
                                   <p className="text-xs text-gray-500">
                                     อุปกรณ์ประเภท "{stockItem?.itemName}" ไม่มีรายการที่มี Serial Number ในระบบ
                                   </p>
+                                  {(() => {
+                                    console.log('🔍 No SN items found - availableItems:', availableItems);
+                                    console.log('🔍 No SN items found - withSerialNumber:', availableItems?.withSerialNumber);
+                                    console.log('🔍 No SN items found - withSerialNumber length:', availableItems?.withSerialNumber?.length);
+                                    console.log('🔍 No SN items found - stockItem:', stockItem);
+                                    return null;
+                                  })()}
                                 </div>
                               </div>
                             )}
@@ -3502,10 +4282,10 @@ export default function AdminInventoryPage() {
             </div>
 
             {/* Modal Footer - Only show when there are action buttons */}
-            {(stockOperation === 'adjust_stock' || stockOperation === 'delete_item') && (
+            {(stockOperation === 'adjust_stock' || stockOperation === 'change_status_condition' || stockOperation === 'delete_item') && (
               <div className="p-6">
                 {/* Action Buttons - Show only for operations that need them */}
-                {stockOperation === 'adjust_stock' && (
+                {(stockOperation === 'adjust_stock' || stockOperation === 'change_status_condition') && (
                   <div className="flex justify-end space-x-3">
                     <button
                       onClick={closeStockModal}
@@ -3519,7 +4299,7 @@ export default function AdminInventoryPage() {
                       disabled={stockLoading || !stockReason.trim()}
                       className="px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed"
                     >
-                      {stockLoading ? 'กำลังดำเนินการ...' : 'บันทึก'}
+                      {stockLoading ? 'กำลังดำเนินการ...' : (stockOperation === 'change_status_condition' ? 'เปลี่ยนสถานะ/สภาพ' : 'บันทึก')}
                     </button>
                   </div>
                 )}
@@ -3612,6 +4392,70 @@ export default function AdminInventoryPage() {
                     </div>
                   )}
                 </div>
+
+                {/* Status Change Section */}
+                <div className="border border-gray-200 rounded-lg p-4">
+                  <h4 className="text-sm font-medium text-gray-800 mb-3">🔄 เปลี่ยนสถานะ</h4>
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-1">
+                        สถานะปัจจุบัน
+                      </label>
+                      <div className="px-3 py-2 bg-gray-100 border border-gray-300 rounded-md text-sm text-gray-600">
+                        {editingCurrentStatusId ? getStatusText(editingCurrentStatusId) : 'ไม่ระบุ'}
+                      </div>
+                    </div>
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-1">
+                        เปลี่ยนเป็น
+                      </label>
+                      <select
+                        value={editingNewStatusId}
+                        onChange={(e) => setEditingNewStatusId(e.target.value)}
+                        className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                      >
+                        <option value="">-- เลือกสถานะใหม่ --</option>
+                        {statusConfigs
+                          .filter((config) => config.id !== editingCurrentStatusId)
+                          .map((config) => (
+                            <option key={config.id} value={config.id}>{config.name}</option>
+                          ))}
+                      </select>
+                    </div>
+                  </div>
+                </div>
+
+                {/* Condition Change Section */}
+                <div className="border border-gray-200 rounded-lg p-4">
+                  <h4 className="text-sm font-medium text-gray-800 mb-3">🔧 เปลี่ยนสภาพ</h4>
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-1">
+                        สภาพปัจจุบัน
+                      </label>
+                      <div className="px-3 py-2 bg-gray-100 border border-gray-300 rounded-md text-sm text-gray-600">
+                        {editingCurrentConditionId ? getConditionText(editingCurrentConditionId) : 'ไม่ระบุ'}
+                      </div>
+                    </div>
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-1">
+                        เปลี่ยนเป็น
+                      </label>
+                      <select
+                        value={editingNewConditionId}
+                        onChange={(e) => setEditingNewConditionId(e.target.value)}
+                        className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                      >
+                        <option value="">-- เลือกสภาพใหม่ --</option>
+                        {conditionConfigs
+                          .filter((config) => config.id !== editingCurrentConditionId)
+                          .map((config) => (
+                            <option key={config.id} value={config.id}>{config.name}</option>
+                          ))}
+                      </select>
+                    </div>
+                  </div>
+                </div>
                 <div className="flex justify-end space-x-3">
                   <button
                     onClick={() => setShowEditItemModal(false)}
@@ -3623,9 +4467,8 @@ export default function AdminInventoryPage() {
                   <button
                     onClick={() => handleSaveEditItem()}
                     disabled={
-                      !editingSerialNum.trim() || 
                       editItemLoading ||
-                      (isSIMCardSync(stockItem?.categoryId || '') && editingSerialNum.length !== 10)
+                      (isSIMCardSync(stockItem?.categoryId || '') && editingSerialNum.trim() && editingSerialNum.length !== 10)
                     }
                     className="px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed flex items-center space-x-2"
                   >

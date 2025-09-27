@@ -50,7 +50,7 @@ export async function GET(request: NextRequest) {
     // Try exact match first, then fuzzy match for category
     let inventoryMaster = await InventoryMaster.findOne({
       itemName: itemName,
-      category: category
+      categoryId: category
     });
 
     // If not found and category is "ไม่ระบุ", try to find by itemName only
@@ -61,7 +61,7 @@ export async function GET(request: NextRequest) {
       });
       
       if (inventoryMaster) {
-        console.log(`✅ Found InventoryMaster with different category: ${inventoryMaster.category}`);
+        console.log(`✅ Found InventoryMaster with different categoryId: ${inventoryMaster.categoryId}`);
       }
     }
 
@@ -69,7 +69,7 @@ export async function GET(request: NextRequest) {
       // Debug: Let's see what InventoryMaster records exist for this itemName
       const allItemRecords = await InventoryMaster.find({ itemName: itemName });
       console.log(`🔍 Debug: All InventoryMaster records for ${itemName}:`, 
-        allItemRecords.map(r => ({ category: r.category, _id: r._id })));
+        allItemRecords.map(r => ({ categoryId: r.categoryId, _id: r._id })));
       
       return NextResponse.json(
         { error: `ไม่พบข้อมูลอุปกรณ์ ${itemName} ในหมวดหมู่ ${category}` },
@@ -83,27 +83,43 @@ export async function GET(request: NextRequest) {
       userOwnedQuantity: inventoryMaster.userOwnedQuantity
     });
 
-    // หาอุปกรณ์ที่ว่างทั้งหมดสำหรับ itemName + category นี้ (ยกเว้นที่ถูกลบ)
-    // Use the actual category from InventoryMaster that was found
-    const actualCategory = inventoryMaster.category;
-    console.log(`🔍 Using actual category from InventoryMaster: ${actualCategory}`);
+    // หาอุปกรณ์ที่ว่างทั้งหมดสำหรับ itemName + categoryId นี้ (ยกเว้นที่ถูกลบ)
+    // Use the actual categoryId from InventoryMaster that was found
+    const actualCategoryId = inventoryMaster.categoryId;
+    console.log(`🔍 Using actual categoryId from InventoryMaster: ${actualCategoryId}`);
+    console.log(`🔍 Searching for items with:`, {
+      itemName: itemName,
+      categoryId: actualCategoryId,
+      ownerType: 'admin_stock',
+      statusId: ['status_available', 'status_maintenance', 'status_damaged']
+    });
     
     const availableItems = await InventoryItem.find({
       itemName: itemName,
-      category: actualCategory, // Use the actual category from InventoryMaster
+      categoryId: actualCategoryId, // Use the actual categoryId from InventoryMaster
       'currentOwnership.ownerType': 'admin_stock',
-      status: { $in: ['active', 'maintenance', 'damaged'] } // ยกเว้น 'retired' และ 'deleted'
+      statusId: { $in: ['status_available', 'status_maintenance', 'status_damaged'] }, // ใช้ statusId แทน status
+      deletedAt: { $exists: false } // ยกเว้นรายการที่ถูกลบ
     }).sort({ 
       serialNumber: 1,  // เรียงตาม SN ก่อน
       createdAt: 1      // แล้วเรียงตามวันที่สร้าง
     });
+
+    console.log(`🔍 Debug: Raw availableItems from DB:`, availableItems.map(item => ({
+      _id: item._id,
+      itemName: item.itemName,
+      serialNumber: item.serialNumber,
+      numberPhone: item.numberPhone,
+      status: item.status,
+      currentOwnership: item.currentOwnership
+    })));
 
     console.log(`📦 Found ${availableItems.length} available InventoryItem records (excluding retired/deleted)`);
 
     // 🔍 Debug: Check ALL admin_stock items (regardless of status)
     const allAdminStockItems = await InventoryItem.find({
       itemName: itemName,
-      category: actualCategory,
+      categoryId: actualCategoryId,
       'currentOwnership.ownerType': 'admin_stock',
       status: { $ne: 'deleted' } // ✅ Exclude soft-deleted items for accurate debugging
     });
@@ -132,8 +148,21 @@ export async function GET(request: NextRequest) {
     }
 
     // จัดกลุ่มเป็น มี SN, ไม่มี SN, และมี Phone Number (will be updated after virtual items are added)
-    let itemsWithSN = availableItems.filter(item => item.serialNumber);
-    let itemsWithoutSN = availableItems.filter(item => !item.serialNumber && !item.numberPhone);
+    console.log(`🔍 Debug: All availableItems:`, availableItems.map(item => ({
+      _id: item._id,
+      serialNumber: item.serialNumber,
+      numberPhone: item.numberPhone,
+      statusId: item.statusId
+    })));
+    
+    let itemsWithSN = availableItems.filter(item => item.serialNumber && item.serialNumber.trim() !== '');
+    console.log(`🔍 Debug: itemsWithSN after filter:`, itemsWithSN.map(item => ({
+      _id: item._id,
+      serialNumber: item.serialNumber,
+      statusId: item.statusId
+    })));
+    
+    let itemsWithoutSN = availableItems.filter(item => (!item.serialNumber || item.serialNumber.trim() === '') && !item.numberPhone);
     let itemsWithPhoneNumber = availableItems.filter(item => item.numberPhone);
 
     // ✅ Handle data mismatch case - Create virtual items if needed
@@ -192,7 +221,8 @@ export async function GET(request: NextRequest) {
       withSerialNumber: itemsWithSN.map(item => ({
         itemId: item._id,
         serialNumber: item.serialNumber,
-        status: item.status,
+        statusId: item.statusId,
+        conditionId: item.conditionId,
         dateAdded: item.sourceInfo?.dateAdded || new Date(),
         addedBy: item.sourceInfo?.addedBy || 'system',
         isVirtual: item.isVirtual || false // ✅ Mark virtual items
@@ -200,16 +230,18 @@ export async function GET(request: NextRequest) {
       withPhoneNumber: itemsWithPhoneNumber.map(item => ({
         itemId: item._id,
         numberPhone: item.numberPhone,
-        status: item.status,
+        statusId: item.statusId,
+        conditionId: item.conditionId,
         dateAdded: item.sourceInfo?.dateAdded || new Date(),
         addedBy: item.sourceInfo?.addedBy || 'system',
         isVirtual: item.isVirtual || false // ✅ Mark virtual items
       })),
       withoutSerialNumber: {
-        count: Math.max(0, totalAvailable - itemsWithSN.length - itemsWithPhoneNumber.length), // ✅ Calculate from InventoryMaster
+        count: itemsWithoutSN.length, // ✅ Use actual count of items without SN
         items: itemsWithoutSN.map(item => ({ // ✅ Show ALL items (including virtual)
           itemId: item._id,
-          status: item.status,
+          statusId: item.statusId,
+          conditionId: item.conditionId,
           dateAdded: item.sourceInfo?.dateAdded || new Date(),
           addedBy: item.sourceInfo?.addedBy || 'system',
           isVirtual: item.isVirtual || false // ✅ Mark virtual items

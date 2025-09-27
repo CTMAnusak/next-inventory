@@ -69,18 +69,19 @@ export async function createInventoryItem(params: CreateItemParams) {
   const finalCategory = categoryId;
   console.log('🔍 createInventoryItem - Using category:', finalCategory);
 
-  // Enhanced Serial Number validation with Recycle Bin check
+  // Enhanced Serial Number validation with Recycle Bin check - allow duplicates across different categories
   if (serialNumber && serialNumber.trim() !== '') {
     const trimmedSerialNumber = serialNumber.trim();
     
-    // Check if SN exists in active items
+    // Check if SN exists in active items within the same category
     const existingActiveItem = await InventoryItem.findOne({ 
       serialNumber: trimmedSerialNumber,
+      categoryId: finalCategory, // ตรวจสอบเฉพาะในหมวดหมู่เดียวกัน
       status: { $ne: 'deleted' } // ยกเว้นรายการที่ถูกลบแล้ว
     });
     
     if (existingActiveItem) {
-      throw new Error(`ACTIVE_SN_EXISTS:Serial Number "${trimmedSerialNumber}" already exists for item: ${existingActiveItem.itemName}`);
+      throw new Error(`ACTIVE_SN_EXISTS:Serial Number "${trimmedSerialNumber}" already exists in this category for item: ${existingActiveItem.itemName}`);
     }
     
     // Check if SN exists in recycle bin

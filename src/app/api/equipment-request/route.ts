@@ -2,8 +2,8 @@ import { NextRequest, NextResponse } from 'next/server';
 import dbConnect from '@/lib/mongodb';
 import RequestLog from '@/models/RequestLog';
 import { verifyToken } from '@/lib/auth';
-import { InventoryMaster } from '@/models/InventoryMasterNew';
-import ItemMaster from '@/models/ItemMaster';
+import InventoryMaster from '@/models/InventoryMaster';
+import InventoryItem from '@/models/InventoryItem';
 import { findAvailableItems } from '@/lib/inventory-helpers';
 
 export async function POST(request: NextRequest) {
@@ -39,11 +39,11 @@ export async function POST(request: NextRequest) {
     
     for (const item of requestData.items) {
       console.log('🔍 API - Validating item:', JSON.stringify(item, null, 2));
-      
-      if (!item.itemMasterId) {
-        console.error('🔍 API - Missing itemMasterId:', item);
+      // ใช้รูปแบบใหม่: ต้องมี masterId
+      if (!item.masterId) {
+        console.error('🔍 API - Missing masterId:', item);
         return NextResponse.json(
-          { error: 'ข้อมูลอุปกรณ์ไม่ครบถ้วน: ไม่มี ID อุปกรณ์' },
+          { error: 'ข้อมูลอุปกรณ์ไม่ครบถ้วน: ต้องระบุ Master ID อุปกรณ์' },
           { status: 400 }
         );
       }
@@ -75,26 +75,38 @@ export async function POST(request: NextRequest) {
     const validatedItems = [];
     
     for (const item of requestData.items) {
-      console.log('🔍 Validating availability for itemMasterId:', item.itemMasterId);
+      console.log('🔍 Validating availability for masterId:', item.masterId);
       
       try {
-        // Check if ItemMaster exists
-        const itemMaster = await ItemMaster.findById(item.itemMasterId);
-        if (!itemMaster) {
+        // ค้นหาข้อมูลจาก InventoryMaster
+        const master = await InventoryMaster.findById(item.masterId);
+        if (!master) {
           return NextResponse.json(
-            { error: `ไม่พบอุปกรณ์ ID: ${item.itemMasterId}` },
+            { error: `ไม่พบประเภทอุปกรณ์ ID: ${item.masterId}` },
             { status: 400 }
           );
         }
 
-        // Check availability
-        const availableItems = await findAvailableItems(item.itemMasterId, item.quantity);
+        // ดึงชื่ออุปกรณ์จาก masterItem (real-time)
+        const masterItem = await InventoryItem.findById(master.masterItemId);
+        if (!masterItem) {
+          return NextResponse.json(
+            { error: `ไม่พบอุปกรณ์อ้างอิง ID: ${master.masterItemId}` },
+            { status: 400 }
+          );
+        }
+
+        const itemName = (masterItem as any).itemName;
+        const categoryId = master.categoryId;
+        
+        // ตรวจสอบความพร้อมใช้งานจาก InventoryItem โดยใช้ itemName และ categoryId
+        const availableItems = await findAvailableItems(itemName, categoryId, item.quantity);
         
         if (availableItems.length < item.quantity) {
           return NextResponse.json(
             { 
-              error: `อุปกรณ์ "${itemMaster.itemName}" มีไม่เพียงพอ (ต้องการ: ${item.quantity}, มี: ${availableItems.length})`,
-              itemName: itemMaster.itemName,
+              error: `อุปกรณ์ "${itemName}" มีไม่เพียงพอ (ต้องการ: ${item.quantity}, มี: ${availableItems.length})`,
+              itemName: itemName,
               requested: item.quantity,
               available: availableItems.length
             },
@@ -102,19 +114,18 @@ export async function POST(request: NextRequest) {
           );
         }
 
-        // Prepare item data for request log
+        // เตรียมข้อมูลสำหรับบันทึกคำขอ
         const cleanItems = {
-          itemMasterId: item.itemMasterId,
-          itemName: itemMaster.itemName,
-          categoryId: itemMaster.categoryId,
+          masterId: item.masterId,
+          itemName: itemName,
+          categoryId: categoryId,
           quantity: item.quantity,
           serialNumber: item.serialNumber || undefined,
-          // Store available items for admin selection
-          availableItemIds: availableItems.map(item => item._id.toString())
+          availableItemIds: availableItems.map(it => it._id.toString())
         };
 
         validatedItems.push(cleanItems);
-        console.log(`✅ Item validated: ${itemMaster.itemName} (${item.quantity} units)`);
+        console.log(`✅ Item validated: ${itemName} (${item.quantity} units)`);
         
       } catch (error) {
         console.error('❌ Error validating item:', error);
@@ -125,22 +136,16 @@ export async function POST(request: NextRequest) {
       }
     }
 
-    // Create new request log with enhanced item data
+    // Create new request log with new structure (real-time lookup)
     const requestLogData = {
-      firstName: requestData.firstName,
-      lastName: requestData.lastName,
-      nickname: requestData.nickname || '',
-      department: requestData.department || '',
-      office: requestData.office || '',
+      userId: currentUserId,
       requestDate: new Date(requestData.requestDate),
       urgency: requestData.urgency,
       deliveryLocation: requestData.deliveryLocation,
-      phone: requestData.phone || '',
-      notes: requestData.notes, // ใช้ notes แทน reason
+      notes: requestData.notes,
       items: validatedItems,
       status: 'pending',
-      requestType: 'request', // การเบิกอุปกรณ์
-      userId: currentUserId
+      requestType: 'request'
     };
 
     console.log('🔍 Creating request log with data:', requestLogData);

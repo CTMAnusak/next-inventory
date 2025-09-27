@@ -26,7 +26,7 @@ export async function GET(
         quantity: masterItem.availableQuantity,
         totalQuantity: masterItem.totalQuantity,
         status: 'active',
-        hasSerialNumber: masterItem.hasSerialNumber,
+        hasSerialNumber: masterItem.itemDetails.withSerialNumber > 0,
         userOwnedQuantity: masterItem.userOwnedQuantity
       });
     }

@@ -1,7 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import dbConnect from '@/lib/mongodb';
-import { InventoryItem } from '@/models/InventoryItemNew';
-import ItemMaster from '@/models/ItemMaster';
+import InventoryItem from '@/models/InventoryItem';
 import InventoryConfig from '@/models/InventoryConfig';
 import { verifyToken } from '@/lib/auth';
 
@@ -36,35 +35,30 @@ export async function GET(request: NextRequest) {
     const conditionConfigs = config?.conditionConfigs || [];
     const categoryConfigs = config?.categoryConfigs || [];
     
-    // Populate item data with ItemMaster and configuration info
-    const populatedItems = await Promise.all(
-      ownedItems.map(async (item) => {
-        const itemMaster = await ItemMaster.findById(item.itemMasterId);
-        const statusConfig = statusConfigs.find(s => s.id === item.statusId);
-        const conditionConfig = conditionConfigs.find(c => c.id === item.conditionId);
-        const categoryConfig = categoryConfigs.find(c => c.id === itemMaster?.categoryId);
-        
-        return {
-          _id: item._id,
-          itemMasterId: item.itemMasterId,
-          itemName: itemMaster?.itemName || 'ไม่ระบุ',
-          categoryId: itemMaster?.categoryId || 'ไม่ระบุ',
-          categoryName: categoryConfig?.name || 'ไม่ระบุ',
-          serialNumber: item.serialNumber,
-          numberPhone: item.numberPhone,
-          statusId: item.statusId,
-          statusName: statusConfig?.name || 'ไม่ระบุ',
-          statusColor: statusConfig?.color || '#6B7280',
-          conditionId: item.conditionId,
-          conditionName: conditionConfig?.name || 'ไม่ระบุ',
-          conditionColor: conditionConfig?.color || '#6B7280',
-          currentOwnership: item.currentOwnership,
-          sourceInfo: item.sourceInfo,
-          createdAt: item.createdAt,
-          updatedAt: item.updatedAt
-        };
-      })
-    );
+    // ประกอบข้อมูลด้วยฟิลด์จาก InventoryItem โดยตรง + mapping จาก InventoryConfig
+    const populatedItems = ownedItems.map((item) => {
+      const statusConfig = statusConfigs.find(s => s.id === item.statusId);
+      const conditionConfig = conditionConfigs.find(c => c.id === item.conditionId);
+      const categoryConfig = categoryConfigs.find(c => c.id === (item as any).categoryId);
+
+      return {
+        _id: item._id,
+        itemMasterId: (item as any).itemMasterId,
+        itemName: (item as any).itemName || 'ไม่ระบุ',
+        categoryId: (item as any).categoryId || 'ไม่ระบุ',
+        categoryName: categoryConfig?.name || 'ไม่ระบุ',
+        serialNumber: item.serialNumber,
+        numberPhone: item.numberPhone,
+        statusId: item.statusId,
+        statusName: statusConfig?.name || 'ไม่ระบุ',
+        conditionId: item.conditionId,
+        conditionName: conditionConfig?.name || 'ไม่ระบุ',
+        currentOwnership: item.currentOwnership,
+        sourceInfo: item.sourceInfo,
+        createdAt: item.createdAt,
+        updatedAt: item.updatedAt
+      };
+    });
     
     return NextResponse.json({
       items: populatedItems,

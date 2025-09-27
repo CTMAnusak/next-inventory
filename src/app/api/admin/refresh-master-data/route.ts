@@ -64,7 +64,7 @@ export async function POST(request: NextRequest) {
         totalQuantity: result.totalQuantity,
         availableQuantity: result.availableQuantity,
         userOwnedQuantity: result.userOwnedQuantity,
-        hasSerialNumber: result.hasSerialNumber
+        hasSerialNumber: result.itemDetails.withSerialNumber > 0
       });
       
       // Clear all caches
@@ -80,7 +80,7 @@ export async function POST(request: NextRequest) {
           totalQuantity: result.totalQuantity,
           availableQuantity: result.availableQuantity,
           userOwnedQuantity: result.userOwnedQuantity,
-          hasSerialNumber: result.hasSerialNumber
+          hasSerialNumber: result.itemDetails.withSerialNumber > 0
         }
       });
     } else {

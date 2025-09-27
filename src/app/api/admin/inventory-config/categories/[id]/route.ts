@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import dbConnect from '@/lib/mongodb';
 import InventoryConfig from '@/models/InventoryConfig';
-import ItemMaster from '@/models/ItemMaster';
+import InventoryItem from '@/models/InventoryItem';
 import { verifyToken } from '@/lib/auth';
 
 // GET - ดึงหมวดหมู่เดียว
@@ -186,17 +186,17 @@ export async function DELETE(
       );
     }
     
-    // ตรวจสอบว่ามีการใช้งานหรือไม่
-    const itemMasterCount = await ItemMaster.countDocuments({ 
+    // ตรวจสอบว่ามีการใช้งานหรือไม่: นับจาก InventoryItem ที่ยังไม่ถูกลบ
+    const itemInUseCount = await InventoryItem.countDocuments({ 
       categoryId: id,
-      isActive: true
+      deletedAt: { $exists: false }
     });
     
-    if (itemMasterCount > 0) {
+    if (itemInUseCount > 0) {
       return NextResponse.json(
         { 
-          error: `ไม่สามารถลบหมวดหมู่ได้ เนื่องจากมีอุปกรณ์ ${itemMasterCount} รายการที่ใช้หมวดหมู่นี้`,
-          itemCount: itemMasterCount
+          error: `ไม่สามารถลบหมวดหมู่ได้ เนื่องจากมีอุปกรณ์ ${itemInUseCount} รายการที่ใช้หมวดหมู่นี้`,
+          itemCount: itemInUseCount
         },
         { status: 400 }
       );
