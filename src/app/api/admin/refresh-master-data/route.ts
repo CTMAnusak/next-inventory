@@ -32,7 +32,7 @@ export async function POST(request: NextRequest) {
     const body = await request.json();
     const { itemName, category, refreshAll } = body;
 
-    console.log(`🔄 Refresh Master Data API called:`, {
+    console.log('🔄 Refresh master data request:', {
       itemName,
       category,
       refreshAll,
@@ -41,14 +41,11 @@ export async function POST(request: NextRequest) {
 
     if (refreshAll) {
       // Refresh all InventoryMaster records
-      console.log('🔄 Refreshing ALL InventoryMaster summaries...');
       const results = await refreshAllMasterSummaries();
       
-      console.log(`✅ Refreshed ${results.length} InventoryMaster records`);
       
       // Clear all caches
       clearAllCaches();
-      console.log('🗑️ Cleared all caches');
       
       return NextResponse.json({
         success: true,
@@ -57,30 +54,35 @@ export async function POST(request: NextRequest) {
       });
     } else if (itemName && category) {
       // Refresh specific item
-      console.log(`🔄 Refreshing InventoryMaster for: ${itemName} (${category})`);
       const result = await updateInventoryMaster(itemName, category); // category is actually categoryId here
-      
-      console.log(`✅ Refreshed InventoryMaster for ${itemName}:`, {
-        totalQuantity: result.totalQuantity,
-        availableQuantity: result.availableQuantity,
-        userOwnedQuantity: result.userOwnedQuantity,
-        hasSerialNumber: result.itemDetails.withSerialNumber > 0
-      });
+      // Debug summary
+      try {
+        const hasSN = (result as any)?.itemDetails?.withSerialNumber
+          ? (((result as any).itemDetails.withSerialNumber.count ?? (result as any).itemDetails.withSerialNumber) > 0)
+          : false;
+        console.log('ℹ️ Master summary after refresh:', {
+          itemName: (result as any)?.itemName,
+          categoryId: (result as any)?.categoryId ?? (result as any)?.category,
+          totalQuantity: (result as any)?.totalQuantity,
+          availableQuantity: (result as any)?.availableQuantity,
+          userOwnedQuantity: (result as any)?.userOwnedQuantity,
+          hasSerialNumber: hasSN
+        });
+      } catch (_e) {}
       
       // Clear all caches
       clearAllCaches();
-      console.log('🗑️ Cleared all caches');
       
       return NextResponse.json({
         success: true,
         message: `รีเฟรชข้อมูล ${itemName} เรียบร้อยแล้ว`,
         item: {
-          itemName: result.itemName,
-          category: result.category,
-          totalQuantity: result.totalQuantity,
-          availableQuantity: result.availableQuantity,
-          userOwnedQuantity: result.userOwnedQuantity,
-          hasSerialNumber: result.itemDetails.withSerialNumber > 0
+          itemName: (result as any).itemName,
+          category: (result as any).categoryId ?? (result as any).category,
+          totalQuantity: (result as any).totalQuantity,
+          availableQuantity: (result as any).availableQuantity,
+          userOwnedQuantity: (result as any).userOwnedQuantity,
+          hasSerialNumber: ((result as any)?.itemDetails?.withSerialNumber?.count ?? (result as any)?.itemDetails?.withSerialNumber ?? 0) > 0
         }
       });
     } else {

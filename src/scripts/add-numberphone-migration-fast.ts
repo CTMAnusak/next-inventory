@@ -31,14 +31,11 @@ async function addNumberPhoneMigrationFast(): Promise<MigrationResult> {
 
     await dbConnect();
     clearTimeout(connectionTimeout);
-    console.log('🔌 Connected to database');
 
     // Get total count first
     const totalItems = await InventoryItem.countDocuments({});
-    console.log(`📊 Found ${totalItems} inventory items`);
 
     // Find all SIM card items that don't have numberPhone field
-    console.log('🔍 Finding SIM card items without numberPhone field...');
     
     const simCardItemsToUpdate = await InventoryItem.find({
       category: 'ซิมการ์ด',
@@ -52,16 +49,12 @@ async function addNumberPhoneMigrationFast(): Promise<MigrationResult> {
     result.simCardItems = await InventoryItem.countDocuments({ category: 'ซิมการ์ด' });
     result.totalProcessed = totalItems;
     
-    console.log(`📱 Found ${result.simCardItems} total SIM card items`);
-    console.log(`🔧 Found ${simCardItemsToUpdate.length} SIM card items needing update`);
 
     if (simCardItemsToUpdate.length === 0) {
-      console.log('✅ No items need updating!');
       return result;
     }
 
     // Use bulk operation for better performance
-    console.log('⚡ Starting bulk update...');
     const bulkOps = simCardItemsToUpdate.map(item => ({
       updateOne: {
         filter: { _id: item._id },
@@ -73,7 +66,6 @@ async function addNumberPhoneMigrationFast(): Promise<MigrationResult> {
     const chunkSize = 1000;
     for (let i = 0; i < bulkOps.length; i += chunkSize) {
       const chunk = bulkOps.slice(i, i + chunkSize);
-      console.log(`📦 Processing chunk ${Math.floor(i / chunkSize) + 1}/${Math.ceil(bulkOps.length / chunkSize)} (${chunk.length} items)`);
       
       const bulkResult = await InventoryItem.bulkWrite(chunk, { 
         ordered: false,
@@ -81,13 +73,11 @@ async function addNumberPhoneMigrationFast(): Promise<MigrationResult> {
       });
       
       result.updated += bulkResult.modifiedCount;
-      console.log(`✅ Updated ${bulkResult.modifiedCount} items in this chunk`);
       
       // Small delay between chunks
       await new Promise(resolve => setTimeout(resolve, 50));
     }
 
-    console.log('\n📈 Migration Summary:');
     console.log(`Total items processed: ${result.totalProcessed}`);
     console.log(`SIM card items found: ${result.simCardItems}`);
     console.log(`Items updated: ${result.updated}`);
@@ -103,7 +93,6 @@ async function addNumberPhoneMigrationFast(): Promise<MigrationResult> {
     // Force close any hanging connections
     try {
       await mongoose.connection.close();
-      console.log('🔌 Database connection closed');
     } catch (closeError) {
       console.error('Error closing database:', closeError);
     }
@@ -121,8 +110,6 @@ if (require.main === module) {
   addNumberPhoneMigrationFast()
     .then((result) => {
       clearTimeout(globalTimeout);
-      console.log('\n🎉 Fast Migration completed successfully!');
-      console.log('🔄 Exiting in 2 seconds...');
       setTimeout(() => {
         process.exit(0);
       }, 2000);
@@ -130,7 +117,6 @@ if (require.main === module) {
     .catch((error) => {
       clearTimeout(globalTimeout);
       console.error('💥 Fast Migration failed:', error);
-      console.log('🔄 Exiting in 2 seconds...');
       setTimeout(() => {
         process.exit(1);
       }, 2000);

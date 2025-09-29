@@ -30,13 +30,11 @@ export async function GET(request: NextRequest) {
       ]
     });
     
-    console.log(`Found ${existingAdmins.length} admin users in system`);
     
     let superAdmin = null;
     
     // Auto-create Super Admin if enabled and no admins exist
     if (existingAdmins.length === 0 && process.env.ENABLE_AUTO_SUPER_ADMIN_CREATION === 'true') {
-      console.log('🚀 Creating Super Admin from environment variables...');
       
       const superAdminEmail = process.env.SUPER_ADMIN_EMAIL;
       const superAdminPassword = process.env.SUPER_ADMIN_PASSWORD;
@@ -81,15 +79,9 @@ export async function GET(request: NextRequest) {
         });
 
         await superAdmin.save();
-        console.log('✅ Super Admin created successfully');
       } else {
-        console.log('⚠️  WARNING: Super Admin environment variables not found');
-        console.log('⚠️  Required: SUPER_ADMIN_EMAIL, SUPER_ADMIN_PASSWORD');
       }
     } else if (existingAdmins.length === 0) {
-      console.log('⚠️  WARNING: No admin users found in system');
-      console.log('⚠️  Auto Super Admin creation is disabled');
-      console.log('⚠️  System will require manual admin creation through database or admin API');
     }
 
     console.log('Checking for demo user...');
@@ -98,7 +90,6 @@ export async function GET(request: NextRequest) {
     
     let demoUser;
     if (!existingDemo) {
-      console.log('Creating demo user...');
       // Create demo user
       const demoHashedPassword = await hashPassword('demo123');
       

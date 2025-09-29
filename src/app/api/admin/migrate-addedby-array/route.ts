@@ -15,7 +15,6 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    console.log('🔄 Admin initiated addedBy migration...');
     
     // Run the migration
     await migrateAddedByToArray();

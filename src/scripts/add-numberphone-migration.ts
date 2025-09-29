@@ -23,12 +23,10 @@ async function addNumberPhoneMigration(): Promise<MigrationResult> {
 
   try {
     await connectToDatabase();
-    console.log('🔌 Connected to database');
 
     // Find all inventory items
     const allItems = await InventoryItem.find({});
     result.totalProcessed = allItems.length;
-    console.log(`📊 Found ${result.totalProcessed} inventory items`);
 
     // Process each item
     for (const item of allItems) {
@@ -43,7 +41,6 @@ async function addNumberPhoneMigration(): Promise<MigrationResult> {
             item.numberPhone = '';
             await item.save();
             result.updated++;
-            console.log(`✅ Updated SIM card item: ${item.itemName} (ID: ${item._id})`);
           }
         }
       } catch (error) {
@@ -53,7 +50,6 @@ async function addNumberPhoneMigration(): Promise<MigrationResult> {
       }
     }
 
-    console.log('\n📈 Migration Summary:');
     console.log(`Total items processed: ${result.totalProcessed}`);
     console.log(`SIM card items found: ${result.simCardItems}`);
     console.log(`Items updated: ${result.updated}`);
@@ -76,7 +72,6 @@ async function addNumberPhoneMigration(): Promise<MigrationResult> {
 if (require.main === module) {
   addNumberPhoneMigration()
     .then((result) => {
-      console.log('\n🎉 Migration completed successfully!');
       process.exit(0);
     })
     .catch((error) => {

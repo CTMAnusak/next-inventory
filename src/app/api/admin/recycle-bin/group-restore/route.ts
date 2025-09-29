@@ -41,8 +41,6 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    console.log(`♻️ Restoring group from recycle bin: ${inventoryMasterId}`);
-    console.log(`👤 Restored by: ${currentUser.firstName} ${currentUser.lastName} (${currentUser.user_id})`);
 
     // Use direct MongoDB to handle recycle bin operations
     const { MongoClient } = require('mongodb');
@@ -107,7 +105,6 @@ export async function POST(request: NextRequest) {
           newInventoryItemId: savedItem._id
         });
 
-        console.log(`✅ Restored item: ${recycleBinItem.itemName} (SN: ${recycleBinItem.serialNumber || 'null'})`);
       } catch (error) {
         console.error(`❌ Error restoring item ${recycleBinItem._id}:`, error);
         errors.push({
@@ -124,7 +121,6 @@ export async function POST(request: NextRequest) {
     if (restoredItems.length > 0) {
       const firstItem = groupItems[0];
       try {
-        console.log(`🔄 Updating InventoryMaster for ${firstItem.itemName}`);
         const InventoryMasterModel = (await import('@/models/InventoryMaster')).default;
         await InventoryMasterModel.updateSummary(firstItem.itemName, firstItem.categoryId);
       } catch (error) {

@@ -19,7 +19,6 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    console.log('🔄 Starting duplicate merge process...');
 
     // Find all items grouped by itemName
     const duplicateGroups = await Inventory.aggregate([
@@ -35,10 +34,7 @@ export async function POST(request: NextRequest) {
           count: { $gt: 1 } // Only groups with more than 1 item
         }
       }
-    ]);
-
-    console.log(`🔍 Found ${duplicateGroups.length} groups with duplicates:`, 
-      duplicateGroups.map(g => `${g._id} (${g.count} items)`));
+    ]);
 
     const mergeResults = [];
 
@@ -46,7 +42,6 @@ export async function POST(request: NextRequest) {
       const itemName = group._id;
       const items = group.items;
       
-      console.log(`\n🔄 Merging ${itemName}:`);
       
       // Sort items by priority: warehouse stock first (quantity > 0), then personal items
       // Also by dateAdded: oldest first (to keep the original one)
@@ -64,8 +59,6 @@ export async function POST(request: NextRequest) {
       const masterItem = items[0];
       const itemsToMerge = items.slice(1);
 
-      console.log(`  📌 Master item: ${masterItem._id} (warehouse: ${(masterItem.quantity || 0) > 0 ? 'yes' : 'no'})`);
-      console.log(`  🔀 Merging ${itemsToMerge.length} items into master`);
 
       // Calculate combined totals
       let totalQuantitySum = masterItem.totalQuantity || 0;
@@ -97,8 +90,6 @@ export async function POST(request: NextRequest) {
       if (serialNumbers.length > 0) {
         updateData.serialNumber = serialNumbers[0];
         if (serialNumbers.length > 1) {
-          console.log(`  📝 Multiple serial numbers found: ${serialNumbers.join(', ')}`);
-          console.log(`  📝 Keeping: ${serialNumbers[0]}`);
         }
       }
 
@@ -111,7 +102,6 @@ export async function POST(request: NextRequest) {
       const idsToDelete = itemsToMerge.map((item: any) => item._id);
       await Inventory.deleteMany({ _id: { $in: idsToDelete } });
 
-      console.log(`  🗑️ Deleted ${idsToDelete.length} duplicate items`);
 
       mergeResults.push({
         itemName,
@@ -123,7 +113,6 @@ export async function POST(request: NextRequest) {
       });
     }
 
-    console.log('\n✅ Merge process completed!');
 
     return NextResponse.json({
       success: true,

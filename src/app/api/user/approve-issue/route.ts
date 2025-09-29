@@ -4,7 +4,6 @@ import { verifyToken } from '@/lib/auth';
 import IssueLog from '@/models/IssueLog';
 
 export async function POST(request: NextRequest) {
-  console.log('🚀 USER APPROVE/REJECT API CALLED');
   try {
     // Verify user authentication
     const token = request.cookies.get('auth-token')?.value;
@@ -24,7 +23,6 @@ export async function POST(request: NextRequest) {
     }
 
     const { issueId, action, reason } = await request.json();
-    console.log('📝 Request data:', { issueId, action, reason });
     
     if (!issueId || !action) {
       return NextResponse.json(
@@ -91,7 +89,6 @@ export async function POST(request: NextRequest) {
 
     console.log('Updating issue with data:', updateData);
     const updatedIssue = await IssueLog.findByIdAndUpdate(issueId, updateData, { new: true });
-    console.log('Updated issue:', updatedIssue);
 
     const actionText = action === 'approve' ? 'อนุมัติผลงาน' : 'ส่งกลับให้แก้ไข';
     

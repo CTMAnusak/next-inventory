@@ -9,7 +9,6 @@ import { verifyTokenFromRequest } from '@/lib/auth-utils';
  */
 export async function GET(request: NextRequest) {
   try {
-    console.log('🚀 Migration API called: Update itemDetails structure');
     
     await dbConnect();
 
@@ -30,7 +29,6 @@ export async function GET(request: NextRequest) {
       );
     }
 
-    console.log('✅ Admin authentication successful');
 
     // ตรวจสอบสถานะปัจจุบัน
     const { default: InventoryMaster } = await import('@/models/InventoryMaster');
@@ -39,8 +37,6 @@ export async function GET(request: NextRequest) {
       'itemDetails.withSerialNumber.count': { $exists: true }
     });
 
-    console.log(`📊 Found ${masterCount} master items`);
-    console.log(`📊 ${mastersWithNewStructure} already have new itemDetails structure`);
 
     if (mastersWithNewStructure === masterCount) {
       return NextResponse.json({
@@ -55,7 +51,6 @@ export async function GET(request: NextRequest) {
     }
 
     // รัน migration
-    console.log('🔄 Starting migration...');
     await updateAllItemDetails();
 
     // ตรวจสอบผลลัพธ์
@@ -63,7 +58,6 @@ export async function GET(request: NextRequest) {
       'itemDetails.withSerialNumber.count': { $exists: true }
     });
 
-    console.log(`✅ Migration completed: ${finalCount}/${masterCount} master items updated`);
 
     return NextResponse.json({
       success: true,

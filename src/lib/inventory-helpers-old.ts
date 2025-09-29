@@ -41,11 +41,9 @@ export interface TransferItemParams {
  * สร้าง InventoryItem ใหม่และอัปเดต InventoryMaster
  */
 export async function createInventoryItem(params: CreateItemParams) {
-  console.log('🏗️ createInventoryItem called with:', JSON.stringify(params, null, 2));
   
   try {
     await dbConnect();
-    console.log('✅ Database connected successfully');
   } catch (dbError) {
     console.error('❌ Database connection failed:', dbError);
     throw new Error(`Database connection failed: ${dbError}`);
@@ -67,7 +65,16 @@ export async function createInventoryItem(params: CreateItemParams) {
   
   // ใช้ categoryId เป็นหลัก แต่ถ้าไม่มีให้ใช้ category name
   const finalCategory = categoryId;
-  console.log('🔍 createInventoryItem - Using category:', finalCategory);
+
+  // Enhanced Item Name validation - check for duplicates in recycle bin
+  if (itemName && itemName.trim() !== '') {
+    const { checkItemNameInRecycleBin } = await import('./recycle-bin-helpers');
+    const recycleBinItem = await checkItemNameInRecycleBin(itemName.trim(), finalCategory);
+    
+    if (recycleBinItem) {
+      throw new Error(`เพิ่มรายการไม่ได้เพราะชื่อซ้ำกับในถังขยะ: "${itemName.trim()}" (รอกู้คืนใน 30 วัน)`);
+    }
+  }
 
   // Enhanced Serial Number validation with Recycle Bin check - allow duplicates across different categories
   if (serialNumber && serialNumber.trim() !== '') {
@@ -95,7 +102,6 @@ export async function createInventoryItem(params: CreateItemParams) {
 
   // Enhanced Phone Number validation for SIM cards
   if (numberPhone && numberPhone.trim() !== '' && isSIMCardSync(categoryId)) {
-    console.log('📱 Validating phone number for SIM card:', numberPhone.trim());
     const trimmedNumberPhone = numberPhone.trim();
     
     try {
@@ -119,7 +125,6 @@ export async function createInventoryItem(params: CreateItemParams) {
         throw new Error(`RECYCLE_PHONE_EXISTS:Phone Number "${trimmedNumberPhone}" exists in recycle bin for SIM card: ${recycleBinPhoneItem.itemName}`);
       }
       
-      console.log('✅ Phone number validation passed');
     } catch (phoneError) {
       console.error('❌ Phone number validation error:', phoneError);
       throw phoneError;
@@ -139,7 +144,6 @@ export async function createInventoryItem(params: CreateItemParams) {
   const cleanSerialNumber = serialNumber && serialNumber.trim() !== '' ? serialNumber.trim() : undefined;
   const cleanNumberPhone = numberPhone && numberPhone.trim() !== '' ? numberPhone.trim() : undefined;
   
-  console.log('🏗️ Creating new InventoryItem with data:', {
     itemName,
     categoryId: finalCategory,
     serialNumber: cleanSerialNumber,
@@ -173,25 +177,19 @@ export async function createInventoryItem(params: CreateItemParams) {
      }
    });
   
-  console.log('✅ InventoryItem instance created successfully');
 
-  console.log('💾 Saving InventoryItem to database...');
   try {
     const savedItem = await newItem.save();
-    console.log('✅ InventoryItem saved successfully:', savedItem._id);
 
     // Update InventoryMaster
-    console.log('📊 Updating InventoryMaster...');
     try {
       await updateInventoryMaster(itemName, finalCategory);
-      console.log('✅ InventoryMaster updated successfully');
     } catch (masterError) {
       console.error('❌ Failed to update InventoryMaster:', masterError);
       // Don't throw here - item is already saved
     }
 
     // Create TransferLog
-    console.log('📝 Creating TransferLog...');
     try {
       await TransferLog.create({
         itemId: (savedItem._id as any).toString(),
@@ -211,7 +209,6 @@ export async function createInventoryItem(params: CreateItemParams) {
         processedBy: addedByUserId || assignedBy || 'system',
         reason: notes || (addedBy === 'user' ? 'User reported existing equipment' : 'Admin added new equipment')
       });
-      console.log('✅ TransferLog created successfully');
     } catch (logError) {
       console.error('❌ Failed to create TransferLog:', logError);
       // Don't throw here - item is already saved
@@ -365,13 +362,11 @@ export async function refreshAllMasterSummaries() {
  * อัปเดต InventoryMaster สำหรับ item เดียว
  */
 export async function updateInventoryMaster(itemName: string, categoryId: string, options: { skipAutoDetection?: boolean } = {}) {
-  console.log('🔍 updateInventoryMaster called with:', { itemName, categoryId });
   
   try {
     // Find or create the master record
     let updatedMaster = await InventoryMaster.findOne({ itemName, categoryId });
     if (!updatedMaster) {
-      console.log('📦 Creating new InventoryMaster for:', { itemName, categoryId });
       updatedMaster = new InventoryMaster({ 
         itemName, 
         categoryId,
@@ -382,13 +377,11 @@ export async function updateInventoryMaster(itemName: string, categoryId: string
     }
   
    // Calculate quantities from actual InventoryItems
-   console.log('🔍 Finding InventoryItems for:', { itemName, categoryId });
    const allItems = await InventoryItem.find({
      itemName,
      categoryId,
      statusId: { $ne: 'deleted' }
    });
-  console.log('📦 Found InventoryItems:', allItems.length);
   
   const adminStockItems = allItems.filter(item => item.currentOwnership.ownerType === 'admin_stock');
   const userOwnedItems = allItems.filter(item => item.currentOwnership.ownerType === 'user_owned');
@@ -445,7 +438,6 @@ export async function updateInventoryMaster(itemName: string, categoryId: string
     (recordedAdminStock !== actualAdminStockCount)              // Mismatch between recorded and actual
   );
   
-  console.log(`🔍 Auto-detection check for ${itemName} (${categoryId}):`, {
     actualItemsInStock: actualAdminStockCount,
     recordedAdminStock: recordedAdminStock,
     hasOperations: updatedMaster.adminStockOperations?.length > 0,
@@ -454,11 +446,7 @@ export async function updateInventoryMaster(itemName: string, categoryId: string
   });
   
   if (options.skipAutoDetection) {
-    console.log(`⚠️ Auto-detection skipped (restore operation)`);
-    console.log(`📊 Current counts - Actual admin items: ${actualAdminStockCount}, Recorded: ${recordedAdminStock}`);
   } else if (shouldRunAutoDetection) {
-    console.log(`📊 Running auto-detection/correction for ${itemName}...`);
-    console.log(`🔄 Correcting adminDefinedStock from ${recordedAdminStock} to ${actualAdminStockCount}`);
     
     // Set adminDefinedStock to match actual items in stock
     updatedMaster.stockManagement.adminDefinedStock = actualAdminStockCount;
@@ -484,7 +472,6 @@ export async function updateInventoryMaster(itemName: string, categoryId: string
       reason: reason
     });
     
-    console.log(`✅ Auto-corrected admin stock for ${itemName}: ${recordedAdminStock} → ${actualAdminStockCount}`);
   }
   
   // realAvailable will be auto-calculated in pre-save hook
@@ -592,7 +579,6 @@ export async function getAdminStockInfo(itemName: string, categoryId: string) {
   }
   
   // 🆕 EXACTLY SAME LOGIC AS INVENTORY TABLE: Use InventoryMaster fields directly
-  console.log(`📊 Stock Info - Raw InventoryMaster data for ${itemName}:`, {
     totalQuantity: item.totalQuantity,        // Same as Inventory Table  
     availableQuantity: item.availableQuantity,// admin_stock items (จำนวนที่เหลือให้เบิก)
     userOwnedQuantity: item.userOwnedQuantity // user_owned items
@@ -637,7 +623,6 @@ export async function getItemTransferHistory(itemId: string) {
  * 🔧 FIXED: targetAdminStock represents TOTAL desired non-SN items, not total items
  */
 export async function syncAdminStockItems(itemName: string, categoryId: string, targetAdminStock: number, reason: string, adminId: string) {
-  console.log(`🔄 Syncing admin stock items for ${itemName}: target non-SN items = ${targetAdminStock}`);
   
   // Get current admin stock items (consistent with updateInventoryMaster counting)
   // 🔧 CRITICAL FIX: Count ALL admin stock items regardless of who added them originally
@@ -657,11 +642,8 @@ export async function syncAdminStockItems(itemName: string, categoryId: string, 
   const currentWithoutSNCount = itemsWithoutSN.length;
   const currentWithSNCount = itemsWithSN.length;
   
-  console.log(`📊 Current admin items breakdown: ${currentWithoutSNCount} without SN, ${currentWithSNCount} with SN, ${currentTotalCount} total`);
-  console.log(`🎯 Target non-SN items: ${targetAdminStock}, Current non-SN: ${currentWithoutSNCount} (SN items preserved: ${currentWithSNCount})`);
   
   // Debug: Log each item for verification
-  console.log(`🔍 Current admin items breakdown:`);
   currentAdminItems.forEach((item, index) => {
     console.log(`  ${index + 1}. ID: ${item._id}, Status: ${item.statusId}, SN: ${item.serialNumber || 'No SN'}`);
   });
@@ -669,10 +651,8 @@ export async function syncAdminStockItems(itemName: string, categoryId: string, 
   if (currentWithoutSNCount < targetAdminStock) {
     // Need to create more items WITHOUT serial numbers
     const itemsToCreate = targetAdminStock - currentWithoutSNCount;
-    console.log(`➕ Creating ${itemsToCreate} new non-SN admin items`);
     
     for (let i = 0; i < itemsToCreate; i++) {
-      console.log(`➕ Creating non-SN item ${i + 1}/${itemsToCreate}...`);
       const newItem = await createInventoryItem({
         itemName,
         categoryId,
@@ -682,26 +662,37 @@ export async function syncAdminStockItems(itemName: string, categoryId: string, 
         initialOwnerType: 'admin_stock',
         notes: `${reason} (Auto-created non-SN item ${i + 1}/${itemsToCreate})`
       });
-      console.log(`✅ Created non-SN item: ${newItem._id}`);
     }
   } else if (currentWithoutSNCount > targetAdminStock) {
     // Need to remove items WITHOUT serial numbers only
     const itemsToRemove = currentWithoutSNCount - targetAdminStock;
     console.log(`➖ Need to remove ${itemsToRemove} non-SN admin items (preserving all SN items)`);
     
-    console.log(`📊 Current breakdown: ${currentWithoutSNCount} without SN, ${currentWithSNCount} with SN`);
     
-    // ✅ SAFE TO REMOVE: Only remove items without SN (newest first)
-    const itemsToDelete = itemsWithoutSN
+    // 🆕 FIXED: Remove only items without SN that have status "available" AND condition "working"
+    const availableWorkingItems = itemsWithoutSN.filter(item => 
+      item.statusId === 'status_available' && 
+      item.conditionId === 'cond_working'
+    );
+    
+    
+    if (availableWorkingItems.length < itemsToRemove) {
+      console.warn(`⚠️ Warning: Only ${availableWorkingItems.length} items available for deletion, but need to remove ${itemsToRemove}`);
+      itemsWithoutSN.forEach(item => {
+        console.log(`  - ID: ${item._id}, Status: ${item.statusId}, Condition: ${item.conditionId}`);
+      });
+      throw new Error(`ไม่สามารถลดจำนวนได้ มีอุปกรณ์ที่สถานะ "มี" และสภาพ "ใช้งานได้" เพียง ${availableWorkingItems.length} ชิ้น แต่ต้องการลด ${itemsToRemove} ชิ้น`);
+    }
+    
+    // ✅ SAFE TO REMOVE: Only remove available + working items without SN (newest first)
+    const itemsToDelete = availableWorkingItems
       .sort((a, b) => new Date(b.sourceInfo.dateAdded).getTime() - new Date(a.sourceInfo.dateAdded).getTime())
       .slice(0, itemsToRemove);
     
-    console.log(`✅ Will remove ${itemsToDelete.length} non-SN items (preserving all ${currentWithSNCount} items with SN)`);
     
     for (const item of itemsToDelete) {
       // 🔧 CRITICAL FIX: Use hard delete for non-SN items to prevent count discrepancy
-      // Only non-SN items should be deleted during stock adjustment
-      console.log(`🗑️ Hard deleting non-SN item: ${item._id} (no serial number)`);
+      // Only non-SN items with "available" status and "working" condition should be deleted
       
       // Create transfer log BEFORE deletion
       await TransferLog.create({
@@ -723,7 +714,6 @@ export async function syncAdminStockItems(itemName: string, categoryId: string, 
       
       // Hard delete the item to prevent count discrepancy
       await InventoryItem.findByIdAndDelete(item._id);
-      console.log(`✅ Permanently deleted non-SN item: ${item._id}`);
     }
   }
   
@@ -732,8 +722,6 @@ export async function syncAdminStockItems(itemName: string, categoryId: string, 
   const finalWithoutSNCount = targetAdminStock; // This is what we set it to
   const finalTotalCount = finalWithSNCount + finalWithoutSNCount;
   
-  console.log(`✅ Admin stock sync completed: Non-SN items ${currentWithoutSNCount} → ${finalWithoutSNCount}, SN items preserved: ${finalWithSNCount}`);
-  console.log(`📊 Final breakdown: ${finalWithoutSNCount} without SN, ${finalWithSNCount} with SN, ${finalTotalCount} total`);
 }
 
 /**
@@ -755,7 +743,6 @@ export async function getUserTransferHistory(userId: string, limit: number = 50)
  * ใช้สำหรับแก้ไขปัญหาการนับจำนวนที่ไม่ตรงกัน
  */
 export async function cleanupSoftDeletedItems(itemName?: string, categoryId?: string) {
-  console.log('🧹 Starting cleanup of soft-deleted items...');
   
   await dbConnect();
   
@@ -764,25 +751,20 @@ export async function cleanupSoftDeletedItems(itemName?: string, categoryId?: st
   if (itemName && categoryId) {
     query.itemName = itemName;
     query.categoryId = categoryId;
-    console.log(`🎯 Cleaning up soft-deleted items for: ${itemName} (${categoryId})`);
   } else {
-    console.log('🌐 Cleaning up ALL soft-deleted items in the system');
   }
   
   // Find all soft-deleted items
   const softDeletedItems = await InventoryItem.find(query);
   
-  console.log(`🔍 Found ${softDeletedItems.length} soft-deleted items to clean up`);
   
   if (softDeletedItems.length === 0) {
-    console.log('✅ No soft-deleted items found - database is clean');
     return { cleaned: 0, message: 'No soft-deleted items found' };
   }
   
   // Hard delete all soft-deleted items
   let cleanedCount = 0;
   for (const item of softDeletedItems) {
-    console.log(`🗑️ Permanently deleting soft-deleted item: ${item._id} (${item.itemName})`);
     
     // Create cleanup log in TransferLog
     try {
@@ -811,30 +793,25 @@ export async function cleanupSoftDeletedItems(itemName?: string, categoryId?: st
     // Hard delete the item
     await InventoryItem.findByIdAndDelete(item._id);
     cleanedCount++;
-    console.log(`✅ Permanently deleted: ${item._id}`);
   }
   
   // Update InventoryMaster records for affected items
   if (itemName && categoryId) {
-    console.log(`🔄 Updating InventoryMaster for ${itemName} (${categoryId})`);
     await updateInventoryMaster(itemName, categoryId);
   } else {
     // Update all unique combinations
     const uniqueCombinations = [...new Set(softDeletedItems.map(item => `${item.itemName}|${item.categoryId}`))];
-    console.log(`🔄 Updating InventoryMaster for ${uniqueCombinations.length} unique item combinations`);
     
     for (const combo of uniqueCombinations) {
       const [name, cat] = combo.split('|');
       try {
         await updateInventoryMaster(name, cat);
-        console.log(`✅ Updated InventoryMaster: ${name} (${cat})`);
       } catch (updateError) {
         console.error(`❌ Failed to update InventoryMaster for ${name} (${cat}):`, updateError);
       }
     }
   }
   
-  console.log(`🧹 Cleanup completed: ${cleanedCount} soft-deleted items permanently removed`);
   return { 
     cleaned: cleanedCount, 
     message: `Successfully cleaned up ${cleanedCount} soft-deleted items` 

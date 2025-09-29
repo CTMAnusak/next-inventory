@@ -22,11 +22,9 @@ const removeStatusesField = async () => {
     }
 
     await mongoose.connect(process.env.MONGODB_URI);
-    console.log('✅ เชื่อมต่อ database สำเร็จ');
 
     // ตรวจสอบ document ปัจจุบัน
     const currentDoc = await InventoryConfig.findOne();
-    console.log('📋 Document ปัจจุบัน:');
     console.log('- _id:', currentDoc?._id);
     console.log('- categoryConfigs length:', currentDoc?.categoryConfigs?.length || 0);
     console.log('- statusConfigs length:', currentDoc?.statusConfigs?.length || 0);
@@ -42,7 +40,6 @@ const removeStatusesField = async () => {
       }
     );
 
-    console.log(`✅ ลบ statuses field เก่าสำเร็จ: ${result.modifiedCount} documents`);
 
     // ตรวจสอบหลังลบ
     const updatedDoc = await InventoryConfig.findOne();
@@ -54,22 +51,18 @@ const removeStatusesField = async () => {
 
     // ตรวจสอบ fields ทั้งหมด
     const allFields = Object.keys(updatedDoc?.toObject() || {});
-    console.log('📝 Fields ทั้งหมดใน document:', allFields);
 
     const expectedFields = ['_id', 'statusConfigs', 'categoryConfigs'];
     const unexpectedFields = allFields.filter(field => !expectedFields.includes(field));
     
     if (unexpectedFields.length > 0) {
-      console.log('⚠️ Fields ที่ไม่คาดหวัง:', unexpectedFields);
     } else {
-      console.log('✅ Fields ถูกต้องแล้ว! มีเฉพาะ:', expectedFields);
     }
 
   } catch (error) {
     console.error('❌ เกิดข้อผิดพลาด:', error);
   } finally {
     await mongoose.disconnect();
-    console.log('🔌 ปิดการเชื่อมต่อ database');
   }
 };
 

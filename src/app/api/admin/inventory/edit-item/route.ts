@@ -28,7 +28,6 @@ export async function POST(request: NextRequest) {
       currentConditionId
     } = await request.json();
 
-    console.log('🔧 Edit Item Request:', {
       itemId,
       itemName,
       category,
@@ -42,14 +41,12 @@ export async function POST(request: NextRequest) {
       currentStatusId,
       newConditionId,
       currentConditionId
-    });
+    };
 
-    console.log('🔍 Change Detection:', {
-      hasSerialNumberChange: newSerialNumber && newSerialNumber.trim() && newSerialNumber.trim() !== oldSerialNumber,
-      hasPhoneNumberChange: newPhoneNumber && newPhoneNumber.trim() && newPhoneNumber.trim() !== oldPhoneNumber,
-      hasStatusChange: newStatusId && newStatusId !== currentStatusId,
-      hasConditionChange: newConditionId && newConditionId !== currentConditionId
-    });
+    const hasSerialNumberChange = newSerialNumber && newSerialNumber.trim() && newSerialNumber.trim() !== oldSerialNumber;
+    const hasPhoneNumberChange = newPhoneNumber && newPhoneNumber.trim() && newPhoneNumber.trim() !== oldPhoneNumber;
+    const hasStatusChange = newStatusId && newStatusId !== currentStatusId;
+    const hasConditionChange = newConditionId && newConditionId !== currentConditionId;
 
     // Validate required fields
     if (!itemId || !itemName || !category || !operation) {
@@ -66,21 +63,7 @@ export async function POST(request: NextRequest) {
     const hasStatusChange = newStatusId && newStatusId !== currentStatusId;
     const hasConditionChange = newConditionId && newConditionId !== currentConditionId;
 
-    console.log('🔍 Change detection results:', {
-      hasSerialNumberChange,
-      hasPhoneNumberChange,
-      hasStatusChange,
-      hasConditionChange,
-      newSerialNumber,
-      oldSerialNumber,
-      newStatusId,
-      currentStatusId,
-      newConditionId,
-      currentConditionId
-    });
-
     if (operation === 'edit' && !hasSerialNumberChange && !hasPhoneNumberChange && !hasStatusChange && !hasConditionChange) {
-      console.log('⚠️ No changes detected for edit operation');
       return NextResponse.json(
         { error: 'ไม่มีการเปลี่ยนแปลงใดๆ' },
         { status: 400 }
@@ -88,7 +71,6 @@ export async function POST(request: NextRequest) {
     }
 
     // Find the item with enhanced debugging
-    console.log(`🔍 Searching for item with ID: ${itemId}`);
     const existingItem = await InventoryItem.findById(itemId);
     
     if (!existingItem) {
@@ -101,14 +83,12 @@ export async function POST(request: NextRequest) {
         status: { $ne: 'deleted' }
       }).limit(5);
       
-      console.log(`🔍 Found ${itemsByName.length} items with name "${itemName}" in category "${category}":`, 
         itemsByName.map(item => ({
           id: item._id.toString(),
           serialNumber: item.serialNumber,
           status: item.status
-        }))
-      );
-      
+        }));
+
       return NextResponse.json(
         { 
           error: 'ไม่พบรายการอุปกรณ์',
@@ -123,7 +103,6 @@ export async function POST(request: NextRequest) {
       );
     }
     
-    console.log(`✅ Found item:`, {
       id: existingItem._id.toString(),
       itemName: existingItem.itemName,
       category: existingItem.category,
@@ -160,7 +139,6 @@ export async function POST(request: NextRequest) {
           existingItem.numberPhone = newPhoneNumber.trim();
           existingItem.updatedAt = new Date();
           
-          console.log(`📱 Updated phone number: ${oldPhoneNumber} → ${newPhoneNumber.trim()}`);
         }
       } else {
         // For other items, update serial number (only if provided)
@@ -187,7 +165,6 @@ export async function POST(request: NextRequest) {
           existingItem.serialNumber = newSerialNumber.trim();
           existingItem.updatedAt = new Date();
           
-          console.log(`🔢 Updated serial number: ${oldSerialNumber} → ${newSerialNumber.trim()}`);
         }
       }
 
@@ -198,13 +175,11 @@ export async function POST(request: NextRequest) {
       if (newStatusId && newStatusId !== currentStatusId) {
         existingItem.statusId = newStatusId;
         statusChanged = true;
-        console.log(`🔄 Updated status: ${currentStatusId} → ${newStatusId}`);
       }
       
       if (newConditionId && newConditionId !== currentConditionId) {
         existingItem.conditionId = newConditionId;
         conditionChanged = true;
-        console.log(`🔧 Updated condition: ${currentConditionId} → ${newConditionId}`);
       }
       
       await existingItem.save();
@@ -221,7 +196,6 @@ export async function POST(request: NextRequest) {
         
         // If status changed from no SN to has SN, or vice versa
         if (!!hadOldSN !== !!hasNewSN) {
-          console.log('📊 Serial number status changed, updating InventoryMaster:', {
             hadOldSN: !!hadOldSN,
             hasNewSN: !!hasNewSN
           });
@@ -248,7 +222,6 @@ export async function POST(request: NextRequest) {
       const changeText = changes.length > 0 ? changes.join(', ') : 'ข้อมูล';
       const successMessage = `แก้ไข${changeText}สำเร็จ`;
 
-      console.log('✅ Item updated successfully:', {
         itemId,
         category,
         isSimCard,
@@ -293,7 +266,6 @@ export async function POST(request: NextRequest) {
 
       // Try to move to recycle bin using direct MongoDB, but continue if it fails
       try {
-        console.log(`🗑️ Moving individual item to recycle bin: ${existingItem.itemName} (SN: ${existingItem.serialNumber || 'null'}, Phone: ${existingItem.numberPhone || 'null'})`);
         
         const { MongoClient } = require('mongodb');
         const uri = process.env.MONGODB_URI;
@@ -322,7 +294,6 @@ export async function POST(request: NextRequest) {
         const result = await recycleBin.insertOne(recycleBinData);
         await client.close();
         
-        console.log(`✅ Individual item moved to recycle bin: ${result.insertedId}`);
       } catch (recycleBinError) {
         console.error('❌ Failed to move item to recycle bin, but continuing with deletion:', recycleBinError);
       }
@@ -331,25 +302,23 @@ export async function POST(request: NextRequest) {
       await InventoryItem.findByIdAndDelete(existingItem._id);
 
       // Update InventoryMaster to reflect the deletion
-      const inventoryMaster = await InventoryMaster.findOne({
+      const inventoryMasterForDeletion = await InventoryMaster.findOne({
         itemName: itemName,
         categoryId: category
       });
 
-      if (inventoryMaster) {
+      if (inventoryMasterForDeletion) {
         // Decrease available quantity by 1
-        inventoryMaster.availableQuantity = Math.max(0, inventoryMaster.availableQuantity - 1);
-        inventoryMaster.updatedAt = new Date();
-        await inventoryMaster.save();
+        inventoryMasterForDeletion.availableQuantity = Math.max(0, inventoryMasterForDeletion.availableQuantity - 1);
+        inventoryMasterForDeletion.updatedAt = new Date();
+        await inventoryMasterForDeletion.save();
 
-        console.log('📊 Updated InventoryMaster after deletion:', {
           itemName,
           category,
-          newAvailableQuantity: inventoryMaster.availableQuantity
+          newAvailableQuantity: inventoryMasterForDeletion.availableQuantity
         });
       }
 
-      console.log('🗑️ Item soft deleted successfully:', {
         itemId,
         serialNumber: existingItem.serialNumber,
         reason: reason.trim()

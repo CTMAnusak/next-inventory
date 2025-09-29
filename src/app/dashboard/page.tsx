@@ -25,7 +25,7 @@ export default function DashboardPage() {
   const [editItemId, setEditItemId] = useState<string | null>(null);
   const [showDetailModal, setShowDetailModal] = useState(false);
   const [detailData, setDetailData] = useState<any>(null);
-  const [ownedItems, setOwnedItems] = useState<Array<{ _id?: string; itemName: string; category: string; serialNumber?: string; quantity: number; firstName?: string; lastName?: string; nickname?: string; department?: string; phone?: string; source?: string; editable?: boolean }>>([]);
+  const [ownedItems, setOwnedItems] = useState<Array<{ _id?: string; itemName: string; category: string; categoryId?: string; serialNumber?: string; quantity: number; firstName?: string; lastName?: string; nickname?: string; department?: string; phone?: string; statusId?: string; conditionId?: string; statusName?: string; conditionName?: string; currentOwnership?: { ownedSince?: string | Date }; sourceInfo?: { dateAdded?: string | Date }; createdAt?: string | Date; source?: string; editable?: boolean }>>([]);
   const [categoryConfigs, setCategoryConfigs] = useState<ICategoryConfig[]>([]);
   const [statusConfigs, setStatusConfigs] = useState<any[]>([]);
   const [conditionConfigs, setConditionConfigs] = useState<any[]>([]);
@@ -59,9 +59,6 @@ export default function DashboardPage() {
   }, []);
 
   const fetchOwned = useCallback(async () => {
-    const startTime = Date.now();
-    console.log('🔄 Dashboard - Starting fetchOwned...');
-    
     try {
       setOwnedLoading(true);
       const params = new URLSearchParams({
@@ -73,9 +70,6 @@ export default function DashboardPage() {
       const withUserId = new URLSearchParams(params);
       if (user?.id) withUserId.set('userId', String(user.id));
       
-      console.log(`🔄 Dashboard - Making API calls for userId: ${user?.id}`);
-      const apiStartTime = Date.now();
-      
       // Add timeout to prevent hanging
       const controller = new AbortController();
       const timeoutId = setTimeout(() => controller.abort(), 30000); // 30 second timeout
@@ -85,45 +79,11 @@ export default function DashboardPage() {
       });
       
       clearTimeout(timeoutId);
-      
-      console.log(`⏱️ Dashboard - API call completed: ${Date.now() - apiStartTime}ms`);
-      console.log(`📡 Dashboard - API response status: ${ownedRes.status}`);
-      console.log(`📡 Dashboard - API response ok: ${ownedRes.ok}`);
-      
       const responseData = ownedRes.ok ? await ownedRes.json() : { items: [] };
       const ownedEquipment = responseData.items || [];
-      
-      console.log(`📊 Dashboard - Data received: ${ownedEquipment.length} owned equipment items`);
-      
-      // Group by itemId + serialNumber + user info and combine quantities
-      const combinedMap = new Map();
-      
-      ownedEquipment.forEach((item: any) => {
-        // Include user info in the key to separate items by different users
-        const key = `${item.itemId}||${item.serialNumber || ''}||${item.firstName || ''}||${item.lastName || ''}`;
-        const existing = combinedMap.get(key);
-        
-        if (existing) {
-          // Merge quantities - use totalQuantity from API
-          const itemQuantity = (item as any).totalQuantity || item.quantity || 0;
-          existing.quantity += Number(itemQuantity);
-        } else {
-          // Add new item - use totalQuantity from API
-          const newQuantity = Number((item as any).totalQuantity || item.quantity || 0);
-          combinedMap.set(key, {
-            ...item,
-            _id: item._id || `owned-${item.itemId}-${item.serialNumber || 'no-serial'}-${item.firstName}-${item.lastName}`,
-            quantity: newQuantity,
-            editable: false // All items are now from logs, not editable directly
-          });
-        }
-      });
-      
-      const all = Array.from(combinedMap.values());
-      setOwnedItems(all);
+      // Show each owned item as an individual row (no grouping/combining)
+      setOwnedItems(ownedEquipment);
       setDataLoaded(true); // Mark as loaded to prevent duplicate calls
-      
-      console.log(`✅ Dashboard - fetchOwned completed: ${Date.now() - startTime}ms (${all.length} total items)`);
     } catch (error) {
       if (error instanceof Error && error.name === 'AbortError') {
         toast.error('การโหลดข้อมูลใช้เวลานานเกินไป กรุณาลองใหม่');
@@ -140,30 +100,24 @@ export default function DashboardPage() {
   useEffect(() => {
     // Only fetch once when user data is available and not already loaded
     if (user && user.firstName && user.lastName && user.office && !dataLoaded && !ownedLoading) {
-      console.log('🔄 Dashboard - Triggering fetchOwned for first time');
       fetchOwned();
     }
   }, [user?.firstName, user?.lastName, user?.office, dataLoaded, ownedLoading, fetchOwned]);
 
   // Force refresh function for manual refresh
   const refreshData = useCallback(async () => {
-    console.log('🔄 Dashboard - Force refreshing data...');
     setDataLoaded(false); // Reset loaded flag
     await fetchOwned();
   }, [fetchOwned]);
 
   const fetchCategories = async () => {
     try {
-      console.log('🔄 Dashboard - Fetching admin categories...');
       const res = await fetch('/api/admin/inventory/config');
       if (res.ok) {
         const data = await res.json();
         setCategoryConfigs(data.categoryConfigs || []);
         setStatusConfigs(data.statusConfigs || []);
         setConditionConfigs(data.conditionConfigs || []);
-        console.log(`📦 Dashboard - Loaded ${data.categoryConfigs?.length || 0} admin categoryConfigs`);
-        console.log(`📦 Dashboard - Loaded ${data.statusConfigs?.length || 0} status configs`);
-        console.log(`📦 Dashboard - Loaded ${data.conditionConfigs?.length || 0} condition configs`);
       }
     } catch (error) {
       console.error('Failed to load admin categories:', error);
@@ -172,17 +126,31 @@ export default function DashboardPage() {
 
   const fetchItemsInCategory = async (categoryId: string) => {
     try {
-      console.log(`🔄 Dashboard - Fetching items in categoryId: ${categoryId}`);
       const res = await fetch(`/api/categories/${encodeURIComponent(categoryId)}/items`);
       if (res.ok) {
         const data = await res.json();
         setAvailableItems(data.items || []);
-        console.log(`📦 Dashboard - Loaded ${data.items?.length || 0} items in category "${data.categoryName}" (${categoryId})`);
       }
     } catch (error) {
       console.error('Failed to load category items:', error);
       setAvailableItems([]);
     }
+  };
+
+  // Helper functions to convert IDs to names
+  const getCategoryName = (categoryId: string) => {
+    const category = categoryConfigs.find(c => c.id === categoryId);
+    return category?.name || categoryId;
+  };
+
+  const getStatusName = (statusId: string) => {
+    const status = statusConfigs.find(s => s.id === statusId);
+    return status?.name || statusId;
+  };
+
+  const getConditionName = (conditionId: string) => {
+    const condition = conditionConfigs.find(c => c.id === conditionId);
+    return condition?.name || conditionId;
   };
 
   const resetAddModal = () => {
@@ -215,15 +183,10 @@ export default function DashboardPage() {
   };
 
   const handleItemSelection = (itemName: string) => {
-    console.log('🔍 handleItemSelection called with:', itemName);
-    console.log('🔍 Current showNewItemInput:', showNewItemInput);
-    
     if (itemName === 'new') {
-      console.log('🔍 Setting showNewItemInput to true');
       setShowNewItemInput(true);
       setForm(prev => ({ ...prev, itemName: 'new' }));
     } else {
-      console.log('🔍 Setting showNewItemInput to false');
       setForm(prev => ({ ...prev, itemName }));
       setShowNewItemInput(false);
       setNewItemName('');
@@ -236,23 +199,58 @@ export default function DashboardPage() {
     // Set loading state
     setIsSubmitting(true);
     
-    console.log('🔍 submitAddOwned - Starting validation...');
-    console.log('🔍 selectedCategoryId:', selectedCategoryId);
-    console.log('🔍 form.itemName:', form.itemName);
-    console.log('🔍 newItemName:', newItemName);
-    console.log('🔍 user object:', user);
-    
     // Check if user is available
     if (!user || !user.id) {
-      console.log('❌ Validation failed: User not available');
       toast.error('กรุณาเข้าสู่ระบบใหม่');
       setIsSubmitting(false);
       return;
     }
     
+    // Handle edit mode
+    if (editItemId) {
+      try {
+        console.log('🔍 Editing item with ID:', editItemId);
+        console.log('🔍 Form data:', form);
+        
+        // Call API to update the item
+        const updateData = {
+          serialNumber: form.serialNumber || '',
+          numberPhone: form.phone || '',
+          statusId: form.status || 'status_available',
+          conditionId: form.condition || 'cond_working',
+          notes: form.notes || ''
+        };
+        
+        const response = await fetch(`/api/inventory/${editItemId}`, {
+          method: 'PUT',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(updateData)
+        });
+        
+        if (!response.ok) {
+          const errorData = await response.json();
+          throw new Error(errorData.error || 'การแก้ไขล้มเหลว');
+        }
+        
+        const result = await response.json();
+        console.log('✅ Edit successful:', result);
+        
+        toast.success('แก้ไขข้อมูลอุปกรณ์เรียบร้อย');
+        setShowAddOwned(false);
+        resetAddModal();
+        refreshData();
+        return;
+      } catch (error) {
+        console.error('Error editing owned equipment:', error);
+        toast.error(`เกิดข้อผิดพลาดในการแก้ไข: ${error instanceof Error ? error.message : 'Unknown error'}`);
+      } finally {
+        setIsSubmitting(false);
+      }
+      return;
+    }
+    
     // Validate required fields
     if (!selectedCategoryId || selectedCategoryId === 'new' || (user?.userType === 'branch' && (!form.firstName || !form.lastName))) {
-      console.log('❌ Validation failed: Invalid category');
       toast.error('กรุณาเลือกหมวดหมู่');
       setIsSubmitting(false);
       return;
@@ -260,7 +258,6 @@ export default function DashboardPage() {
     
     // For new items, validate that we have a valid category (not 'new')
     if (form.itemName === 'new' && (selectedCategoryId === 'new' || !selectedCategoryId)) {
-      console.log('❌ Validation failed: Invalid category for new item');
       toast.error('กรุณาเลือกหมวดหมู่ที่ต้องการเพิ่มอุปกรณ์');
       setIsSubmitting(false);
       return;
@@ -268,7 +265,6 @@ export default function DashboardPage() {
     
     // For new items, validate newItemName
     if (form.itemName === 'new' && !newItemName?.trim()) {
-      console.log('❌ Validation failed: Missing newItemName');
       toast.error('กรุณากรอกชื่ออุปกรณ์ใหม่');
       setIsSubmitting(false);
       return;
@@ -276,27 +272,15 @@ export default function DashboardPage() {
     
     // For existing items, validate itemName
     if (form.itemName !== 'new' && !form.itemName) {
-      console.log('❌ Validation failed: Missing itemName');
       toast.error('กรุณาเลือกอุปกรณ์');
       setIsSubmitting(false);
       return;
     }
     
-    console.log('✅ All validations passed');
     try {
-      console.log('🔍 Form state:', form);
-      console.log('🔍 newItemName:', newItemName);
-      console.log('🔍 selectedCategoryId:', selectedCategoryId);
-      console.log('🔍 form.itemName:', form.itemName);
-      console.log('🔍 form.categoryId:', form.categoryId);
-      
       let itemId: string;
       
       if (form.itemName === 'new') {
-        console.log('🔍 Creating new inventory item...');
-        console.log('🔍 newItemName:', newItemName);
-        console.log('🔍 selectedCategoryId:', selectedCategoryId);
-        console.log('🔍 form.quantity:', form.quantity);
         
         // Create new inventory item first
         const newInventoryPayload = {
@@ -304,16 +288,15 @@ export default function DashboardPage() {
           categoryId: selectedCategoryId,
           serialNumber: form.serialNumber || '',
           price: 0,
-          quantity: Number(form.quantity) || 1, // Use the quantity from form
+          quantity: 1,
           status: 'active',
-          condition: form.condition || undefined,
+          statusId: form.status || 'status_available',
+          conditionId: form.condition || undefined,
           notes: form.notes || undefined,
           dateAdded: new Date().toISOString(),
           user_id: user?.id || undefined,
           userRole: 'user'
         };
-        
-        console.log('📦 Creating new inventory item:', newInventoryPayload);
         
         const inventoryRes = await fetch('/api/inventory', {
           method: 'POST',
@@ -330,7 +313,6 @@ export default function DashboardPage() {
         }
         
         const newInventoryData = await inventoryRes.json();
-        console.log('✅ New inventory item created:', newInventoryData);
         
         // Check if the response has the expected structure
         if (!newInventoryData.items || !Array.isArray(newInventoryData.items) || newInventoryData.items.length === 0) {
@@ -344,7 +326,25 @@ export default function DashboardPage() {
         itemId = newInventoryData.items[0]._id;
         // Remove duplicate toast - will show unified success message later
       } else {
-        // Find existing item in inventory
+        // Find existing item in inventory using the same API as dropdown
+        const categoryItemsResponse = await fetch(`/api/categories/${encodeURIComponent(selectedCategoryId)}/items`);
+        if (!categoryItemsResponse.ok) {
+          toast.error('ไม่สามารถดึงข้อมูลคลังสินค้าได้');
+          return;
+        }
+        
+        const categoryItemsData = await categoryItemsResponse.json();
+        
+        // Check if the item exists in the category
+        const itemExists = categoryItemsData.items && categoryItemsData.items.includes(form.itemName);
+        
+        if (!itemExists) {
+          console.log('❌ Item not found in category items:', { itemName: form.itemName, categoryId: selectedCategoryId });
+          toast.error('ไม่พบรายการอุปกรณ์ในคลังสินค้า');
+          return;
+        }
+        
+        // Get the actual inventory item details
         const inventoryResponse = await fetch('/api/inventory');
         if (!inventoryResponse.ok) {
           toast.error('ไม่สามารถดึงข้อมูลคลังสินค้าได้');
@@ -352,21 +352,13 @@ export default function DashboardPage() {
         }
         
         const inventoryData = await inventoryResponse.json();
-        console.log('🔍 Inventory data received:', inventoryData);
         
-        // Check if inventoryData has items array
-        if (!inventoryData.items || !Array.isArray(inventoryData.items)) {
-          console.error('❌ Invalid inventory data structure:', inventoryData);
-          toast.error('ไม่สามารถดึงข้อมูลคลังสินค้าได้ - โครงสร้างข้อมูลไม่ถูกต้อง');
-          return;
-        }
-        
-        const inventoryItem = inventoryData.items.find((item: any) => 
+        const inventoryItem = inventoryData.items?.find((item: any) => 
           item.itemName === form.itemName && item.categoryId === selectedCategoryId
         );
         
         if (!inventoryItem) {
-          console.log('❌ Item not found in inventory:', { itemName: form.itemName, categoryId: selectedCategoryId });
+          console.log('❌ Item not found in inventory details:', { itemName: form.itemName, categoryId: selectedCategoryId });
           toast.error('ไม่พบรายการอุปกรณ์ในคลังสินค้า');
           return;
         }
@@ -383,23 +375,16 @@ export default function DashboardPage() {
       // For new items created through /api/inventory, we don't need to call /api/user/owned-equipment
       // because the item is already created as user_owned in the new system
       if (form.itemName === 'new') {
-        console.log('✅ New item created and already owned by user - skipping owned-equipment API call');
         // Success message will be shown below - no duplicate toast here
       } else {
         // For existing items, we still need to call the owned-equipment API
         const payload = {
-          firstName: (user?.userType === 'branch' ? form.firstName : user?.firstName) || '',
-          lastName: (user?.userType === 'branch' ? form.lastName : user?.lastName) || '',
-          office: user?.office || '',
-          userId: user?.id || undefined,
-          nickname: user?.userType === 'branch' ? (form.nickname || '') : (user?.nickname || ''),
-          department: user?.userType === 'branch' ? (form.department || '') : (user?.department || ''),
-          phone: user?.userType === 'branch' ? (form.phone || '') : (user?.phone || ''),
-          itemId: itemId,
-          quantity: Number(form.quantity) || 1,
+          itemName: form.itemName,
+          categoryId: selectedCategoryId,
+          quantity: 1,
           serialNumber: form.serialNumber || undefined,
-          status: form.status || undefined,
-          condition: form.condition || undefined,
+          statusId: form.status || undefined,
+          conditionId: form.condition || undefined,
           notes: form.notes || undefined,
         };
         
@@ -566,6 +551,7 @@ export default function DashboardPage() {
             <table className="min-w-full border border-gray-200 rounded-md">
               <thead>
                 <tr className="bg-blue-600">
+                  <th className="px-3 py-2 text-center border-b text-white">วันที่เพิ่ม</th>
                   <th className="px-3 py-2 text-center border-b text-white">ชื่อ</th>
                   <th className="px-3 py-2 text-center border-b text-white">นามสกุล</th>
                   <th className="px-3 py-2 text-center border-b text-white">ชื่อเล่น</th>
@@ -574,6 +560,8 @@ export default function DashboardPage() {
                   <th className="px-3 py-2 text-center border-b text-white">เบอร์โทร</th>
                   <th className="px-3 py-2 text-center border-b text-white">ชื่ออุปกรณ์</th>
                   <th className="px-3 py-2 text-center border-b text-white">หมวดหมู่</th>
+                  <th className="px-3 py-2 text-center border-b text-white">สภาพ</th>
+                  <th className="px-3 py-2 text-center border-b text-white">สถานะ</th>
                   <th className="px-3 py-2 text-center border-b text-white">รายละเอียด</th>
                   <th className="px-3 py-2 text-center border-b text-white">จัดการ</th>
                 </tr>
@@ -581,18 +569,29 @@ export default function DashboardPage() {
               <tbody>
                 {ownedLoading ? (
                   <tr>
-                    <td colSpan={10} className="px-3 py-6 text-center text-gray-500">
+                    <td colSpan={13} className="px-3 py-6 text-center text-gray-500">
                       <RefreshCw className="inline-block w-4 h-4 mr-2 animate-spin text-gray-400" /> กำลังโหลดข้อมูล
                     </td>
                   </tr>
                 ) : ownedItems.length === 0 ? (
                   <tr>
-                    <td colSpan={10} className="px-3 py-6 text-center text-gray-500">
+                    <td colSpan={13} className="px-3 py-6 text-center text-gray-500">
                       ยังไม่มีอุปกรณ์ในความครอบครอง
                     </td>
                   </tr>
                 ) : ownedItems.map((row, idx) => (
                   <tr key={idx} className={`hover:bg-gray-100 ${idx % 2 === 0 ? 'bg-white' : 'bg-blue-50'}`}>
+                    <td className="px-3 py-2 text-center border-b">
+                      <div className="text-gray-900">
+                        {(() => {
+                          const dateValue = (row as any)?.currentOwnership?.ownedSince || (row as any)?.sourceInfo?.dateAdded || (row as any)?.createdAt;
+                          if (!dateValue) return '-';
+                          const d = new Date(dateValue);
+                          if (isNaN(d.getTime())) return '-';
+                          return d.toLocaleDateString('th-TH', { year: 'numeric', month: 'short', day: 'numeric' });
+                        })()}
+                      </div>
+                    </td>
                     <td className="px-3 py-2 text-center border-b">
                       <div className="text-gray-900">
                         {user?.userType === 'branch' 
@@ -639,13 +638,23 @@ export default function DashboardPage() {
                     <td className="px-3 py-2 text-center border-b">
                       <div className="text-gray-900">{row.itemName}</div>
                     </td>
-                    <td className="px-3 py-2 text-center border-b"><div className="text-gray-900">{row.category}</div></td>
+                    <td className="px-3 py-2 text-center border-b"><div className="text-gray-900">{getCategoryName(row.categoryId || (row as any).categoryId || row.category)}</div></td>
+                    <td className="px-3 py-2 text-center border-b">
+                      <div className="text-gray-900">
+                        {row.conditionId ? getConditionName(row.conditionId) : ((row as any).conditionName || '-')}
+                      </div>
+                    </td>
+                    <td className="px-3 py-2 text-center border-b">
+                      <div className="text-gray-900">
+                        {row.statusId ? getStatusName(row.statusId) : ((row as any).statusName || '-')}
+                      </div>
+                    </td>
                     <td className="px-3 py-2 text-center border-b">
                       <div className="text-gray-900">
                         {(() => {
-                          const totalQuantity = (row as any).totalQuantity || row.quantity || 1;
-                          const serialNumbers = (row as any).serialNumbers || [];
-                          const phoneNumbers = (row as any).phoneNumbers || [];
+                          const totalQuantity = 1;
+                          const serialNumbers = ((row as any).serialNumber ? [(row as any).serialNumber] : ((row as any).serialNumbers || []));
+                          const phoneNumbers = ((row as any).numberPhone ? [(row as any).numberPhone] : ((row as any).phoneNumbers || []));
                           const isSimCard = row.categoryId === 'cat_sim_card';
                           
                           // ถ้ามีชิ้นเดียว
@@ -682,16 +691,18 @@ export default function DashboardPage() {
                               <button 
                                 className="text-xs bg-green-100 text-green-800 px-2 py-1 rounded hover:bg-green-200 transition-colors"
                                 onClick={() => {
-                                  setDetailData({
+                                  const detailDataObj = {
                                     itemName: row.itemName,
-                                    category: row.category,
+                                    categoryId: row.categoryId || row.category,
+                                    categoryName: getCategoryName(row.categoryId || row.category),
                                     hasSerialItems,
                                     hasPhoneItems,
                                     hasNonSpecialItems: hasNonSpecialItems,
                                     serialNumbers,
                                     phoneNumbers,
                                     totalQuantity
-                                  });
+                                  };
+                                  setDetailData(detailDataObj);
                                   setShowDetailModal(true);
                                 }}
                               >
@@ -721,7 +732,8 @@ export default function DashboardPage() {
                                   onClick={() => {
                                     setDetailData({
                                       itemName: row.itemName,
-                                      category: row.category,
+                                      categoryId: row.categoryId || row.category,
+                                      categoryName: getCategoryName(row.categoryId || row.category),
                                       hasSerialItems,
                                       hasPhoneItems,
                                       hasNonSpecialItems: 0,
@@ -744,28 +756,112 @@ export default function DashboardPage() {
                       </div>
                     </td>
                     <td className="px-3 py-2 text-center border-b">
-                      <div className="flex items-center justify-center gap-2">
-                        {/* Return Equipment button - show for all items that have quantity > 0 */}
-                        {((row as any).totalQuantity || row.quantity) > 0 ? (
-                          <button
-                            onClick={() => {
-                              // Navigate to equipment return page with minimal data
-                              // Only send essential info - the page will fetch detailed data itself
-                              const params = new URLSearchParams({
-                                category: row.category || '',
-                                itemName: row.itemName || '',
-                                itemId: (row as any).itemId || ''
-                              });
-                              router.push(`/equipment-return?${params.toString()}`);
-                            }}
-                            className="px-3 py-1 text-orange-600 hover:text-orange-800 hover:bg-orange-50 border border-orange-200 rounded"
-                          >
-                            คืนอุปกรณ์
-                          </button>
-                        ) : (
-                          // Empty space for items with 0 quantity
-                          <span></span>
-                        )}
+                      <div className="flex items-center justify-center gap-1 flex-wrap">
+                        {/* Edit button */}
+                        <button
+                          onClick={async () => {
+                            try {
+                              // Set edit mode
+                              setEditItemId(row._id || '');
+                              
+                              // Fetch detailed item data from API
+                              const itemId = row._id || (row as any).itemId;
+                              if (itemId) {
+                                const response = await fetch(`/api/inventory/${itemId}`);
+                                if (response.ok) {
+                                  const itemData = await response.json();
+                                  console.log('🔍 Fetched item data for edit:', itemData);
+                                  
+                                  const formData = {
+                                    itemName: itemData.itemName || row.itemName,
+                                    categoryId: itemData.categoryId || row.categoryId || row.category,
+                                    serialNumber: itemData.serialNumber || row.serialNumber || '',
+                                    quantity: itemData.quantity || row.quantity || 1,
+                                    firstName: row.firstName || '',
+                                    lastName: row.lastName || '',
+                                    nickname: row.nickname || '',
+                                    department: row.department || '',
+                                    phone: row.phone || '',
+                                    status: itemData.statusId || row.statusId || '',
+                                    condition: itemData.conditionId || row.conditionId || '',
+                                    notes: itemData.notes || row.notes || ''
+                                  };
+                                  console.log('🔍 Setting form data:', formData);
+                                  
+                                  setForm(formData);
+                                  setSelectedCategoryId(itemData.categoryId || row.categoryId || row.category);
+                                  // Fetch items in category for dropdown
+                                  await fetchItemsInCategory(itemData.categoryId || row.categoryId || row.category);
+                                } else {
+                                  // Fallback to row data if API fails
+                                  setForm({
+                                    itemName: row.itemName,
+                                    categoryId: row.categoryId || row.category,
+                                    serialNumber: row.serialNumber || '',
+                                    quantity: row.quantity || 1,
+                                    firstName: row.firstName || '',
+                                    lastName: row.lastName || '',
+                                    nickname: row.nickname || '',
+                                    department: row.department || '',
+                                    phone: row.phone || '',
+                                    status: row.statusId || '',
+                                    condition: row.conditionId || '',
+                                    notes: row.notes || ''
+                                  });
+                                  setSelectedCategoryId(row.categoryId || row.category);
+                                  // Fetch items in category for dropdown
+                                  await fetchItemsInCategory(row.categoryId || row.category);
+                                }
+                              } else {
+                                // Fallback to row data if no ID
+                                setForm({
+                                  itemName: row.itemName,
+                                  categoryId: row.categoryId || row.category,
+                                  serialNumber: row.serialNumber || '',
+                                  quantity: row.quantity || 1,
+                                  firstName: row.firstName || '',
+                                  lastName: row.lastName || '',
+                                  nickname: row.nickname || '',
+                                  department: row.department || '',
+                                  phone: row.phone || '',
+                                  status: row.statusId || '',
+                                  condition: row.conditionId || '',
+                                  notes: row.notes || ''
+                                });
+                                setSelectedCategoryId(row.categoryId || row.category);
+                                // Fetch items in category for dropdown
+                                await fetchItemsInCategory(row.categoryId || row.category);
+                              }
+                              
+                              setShowAddOwned(true);
+                            } catch (error) {
+                              console.error('Error fetching item data for edit:', error);
+                              toast.error('ไม่สามารถดึงข้อมูลอุปกรณ์ได้');
+                            }
+                          }}
+                          className="px-3 py-1 text-xs text-blue-600 hover:text-blue-800 hover:bg-blue-50 border border-blue-200 rounded"
+                        >
+                          แก้ไข
+                        </button>
+                        
+                        {/* Return Equipment button - temporarily show always for debugging */}
+                        <button
+                          onClick={() => {
+                            // Debug: log the data we're sending
+                            console.log('🔍 Return button clicked:', { 
+                              id: row._id, 
+                              itemId: (row as any).itemId,
+                              itemName: row.itemName,
+                              totalQuantity: (row as any).totalQuantity,
+                              quantity: row.quantity
+                            });
+                            // Navigate to equipment return page with ID only
+                            router.push(`/equipment-return?id=${row._id || (row as any).itemId}`);
+                          }}
+                          className="px-3 py-1 text-xs text-orange-600 hover:text-orange-800 hover:bg-orange-50 border border-orange-200 rounded"
+                        >
+                          คืน
+                        </button>
                       </div>
                     </td>
                   </tr>
@@ -916,7 +1012,7 @@ export default function DashboardPage() {
                     </div>
                     <div>
                       <label className="block text-sm font-medium text-gray-700 mb-1">จำนวน *</label>
-                      <input type="number" min={1} value={form.quantity} onChange={(e) => setForm({ ...form, quantity: Number(e.target.value) })} className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500" required />
+                      <input type="number" min={1} max={1} value={1} readOnly className="w-full px-3 py-2 border border-gray-300 rounded-md bg-gray-100 text-gray-600 cursor-not-allowed" />
                     </div>
                     
                     <div>
@@ -1035,11 +1131,29 @@ export default function DashboardPage() {
                   จำนวนทั้งหมด: <span className="font-medium text-gray-900">{detailData.totalQuantity} ชิ้น</span>
                 </div>
                 
+                {/* แสดงหมวดหมู่ */}
+                {detailData.categoryName && (
+                  <div className="text-sm text-gray-600">
+                    หมวดหมู่: <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-blue-100 text-blue-800">
+                      {detailData.categoryName}
+                    </span>
+                  </div>
+                )}
+                
+                {/* แสดงอุปกรณ์ที่ไม่มี SN/เบอร์ - ลำดับแรก */}
+                {detailData.hasNonSpecialItems > 0 && (
+                  <div className="bg-gray-50 p-3 rounded-lg">
+                    <div className="text-sm font-medium text-gray-900">
+                      อุปกรณ์ที่ไม่มี SN/เบอร์: {detailData.hasNonSpecialItems} ชิ้น
+                    </div>
+                  </div>
+                )}
+
                 {/* แสดง Serial Numbers */}
                 {detailData.hasSerialItems > 0 && (
                   <div className="bg-blue-50 p-3 rounded-lg">
                     <div className="text-sm font-medium text-blue-900 mb-2">
-                      มี Serial Number: {detailData.hasSerialItems} ชิ้น
+                      อุปกรณ์ที่มี SN: {detailData.hasSerialItems} ชิ้น
                     </div>
                     <div className="space-y-1">
                       {detailData.serialNumbers.map((sn: string, idx: number) => (
@@ -1063,15 +1177,6 @@ export default function DashboardPage() {
                           • {phone}
                         </div>
                       ))}
-                    </div>
-                  </div>
-                )}
-                
-                {/* แสดงอุปกรณ์ทั่วไป */}
-                {detailData.hasNonSpecialItems > 0 && (
-                  <div className="bg-gray-50 p-3 rounded-lg">
-                    <div className="text-sm font-medium text-gray-900">
-                      อุปกรณ์ทั่วไป: {detailData.hasNonSpecialItems} ชิ้น
                     </div>
                   </div>
                 )}

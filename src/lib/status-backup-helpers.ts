@@ -31,7 +31,6 @@ export async function createStatusBackup(): Promise<void> {
     // Get current config
     const config = await InventoryConfig.findOne({});
     if (!config) {
-      console.log('⚠️  No inventory config found, skipping status backup');
       return;
     }
     
@@ -39,7 +38,6 @@ export async function createStatusBackup(): Promise<void> {
     if (fs.existsSync(CURRENT_BACKUP_FILE)) {
       const currentData = fs.readFileSync(CURRENT_BACKUP_FILE, 'utf8');
       fs.writeFileSync(PREVIOUS_BACKUP_FILE, currentData);
-      console.log('📦 Moved current backup to previous');
     }
     
     // สร้าง current backup ใหม่
@@ -51,7 +49,6 @@ export async function createStatusBackup(): Promise<void> {
     
     fs.writeFileSync(CURRENT_BACKUP_FILE, JSON.stringify(backupData, null, 2));
     
-    console.log(`✅ Status backup created: ${backupData.statusConfigs.length} status configs`);
   } catch (error) {
     console.error('❌ Error creating status backup:', error);
     throw error;
@@ -84,8 +81,6 @@ export async function restoreStatusFromBackup(usePrevious: boolean = false): Pro
     config.statusConfigs = backupData.statusConfigs;
     await config.save();
     
-    console.log(`✅ Status restore completed from ${backupType} backup: ${backupData.timestamp}`);
-    console.log(`📊 Restored: ${backupData.statusConfigs.length} status configs`);
   } catch (error) {
     console.error('❌ Error during status restore:', error);
     throw error;
@@ -140,15 +135,12 @@ export function clearStatusBackups(): void {
   try {
     if (fs.existsSync(CURRENT_BACKUP_FILE)) {
       fs.unlinkSync(CURRENT_BACKUP_FILE);
-      console.log('🗑️  Deleted current status backup');
     }
     
     if (fs.existsSync(PREVIOUS_BACKUP_FILE)) {
       fs.unlinkSync(PREVIOUS_BACKUP_FILE);
-      console.log('🗑️  Deleted previous status backup');
     }
     
-    console.log('✅ All status backups cleared');
   } catch (error) {
     console.error('❌ Error clearing status backups:', error);
     throw error;

@@ -43,20 +43,16 @@ export interface TransferItemParams {
  * สร้าง InventoryItem ใหม่และอัปเดต InventoryMaster
  */
 export async function createInventoryItem(params: CreateItemParams) {
-  console.log('🏗️ createInventoryItem called with:', JSON.stringify(params, null, 2));
+  const { itemName, categoryId, serialNumber } = params;
   
   try {
     await dbConnect();
-    console.log('✅ Database connected successfully');
   } catch (dbError) {
     console.error('❌ Database connection failed:', dbError);
     throw new Error(`Database connection failed: ${dbError}`);
   }
   
   const {
-    itemName,
-    categoryId,
-    serialNumber,
     numberPhone,
     statusId = 'status_available',
     conditionId = 'cond_working',
@@ -69,9 +65,7 @@ export async function createInventoryItem(params: CreateItemParams) {
   } = params;
 
   // Validate categoryId exists
-  console.log('🔍 Validating categoryId:', categoryId);
   const config = await InventoryConfig.findOne({ 'categoryConfigs.id': categoryId });
-  console.log('🔍 Category config found:', config ? 'Yes' : 'No');
   if (!config) {
     throw new Error(`Invalid categoryId: ${categoryId}`);
   }
@@ -81,28 +75,34 @@ export async function createInventoryItem(params: CreateItemParams) {
     'statusConfigs.id': statusId 
   });
   if (!statusExists) {
-    console.log('⚠️ StatusId not found, checking if it\'s a default value...');
     // Allow default values even if config is not found
     if (statusId === 'status_available' || statusId === 'status_missing') {
-      console.log('✅ Using default statusId:', statusId);
+      // Using default statusId
     } else {
       throw new Error(`Invalid statusId: ${statusId}`);
     }
   }
 
   // Validate conditionId exists - use more flexible query
-  console.log('🔍 Validating conditionId:', conditionId);
   const conditionExists = await InventoryConfig.findOne({ 
     'conditionConfigs.id': conditionId 
   });
-  console.log('🔍 Condition config found:', conditionExists ? 'Yes' : 'No');
   if (!conditionExists) {
-    console.log('⚠️ ConditionId not found, checking if it\'s a default value...');
     // Allow default values even if config is not found
     if (conditionId === 'cond_working' || conditionId === 'cond_damaged') {
-      console.log('✅ Using default conditionId:', conditionId);
+      // Using default conditionId
     } else {
       throw new Error(`Invalid conditionId: ${conditionId}`);
+    }
+  }
+
+  // Enhanced Item Name validation - check for duplicates in recycle bin
+  if (itemName && itemName.trim() !== '') {
+    const { checkItemNameInRecycleBin } = await import('./recycle-bin-helpers');
+    const recycleBinItem = await checkItemNameInRecycleBin(itemName.trim(), categoryId);
+    
+    if (recycleBinItem) {
+      throw new Error(`เพิ่มรายการไม่ได้เพราะชื่อซ้ำกับในถังขยะ: "${itemName.trim()}" (รอกู้คืนใน 30 วัน)`);
     }
   }
 
@@ -119,6 +119,15 @@ export async function createInventoryItem(params: CreateItemParams) {
     if (existingItem) {
       throw new Error(`Serial Number "${trimmedSerialNumber}" already exists in this category`);
     }
+
+    // Check if SN exists in recycle bin
+    const { checkSerialNumberInRecycleBin } = await import('./recycle-bin-helpers');
+    // อนุญาต SN ซ้ำข้าม "คนละชื่ออุปกรณ์" ดังนั้นตรวจเฉพาะภายในอุปกรณ์เดียวกัน (itemName+categoryId)
+    const recycleBinItem = await checkSerialNumberInRecycleBin(trimmedSerialNumber, { itemName, categoryId });
+    
+    if (recycleBinItem) {
+      throw new Error(`Serial Number "${trimmedSerialNumber}" exists in recycle bin for item: ${recycleBinItem.itemName} (รอกู้คืนใน 30 วัน)`);
+    }
   }
 
   // Enhanced Phone Number validation for SIM cards
@@ -134,6 +143,15 @@ export async function createInventoryItem(params: CreateItemParams) {
     
     if (existingPhoneItem) {
       throw new Error(`Phone Number "${trimmedNumberPhone}" already exists in SIM card category`);
+    }
+
+    // Check if phone number exists in recycle bin
+    const { checkPhoneNumberInRecycleBin } = await import('./recycle-bin-helpers');
+    // อนุญาตเบอร์ซ้ำข้าม "คนละชื่ออุปกรณ์" ดังนั้นตรวจเฉพาะภายในอุปกรณ์เดียวกัน (itemName+categoryId)
+    const recycleBinPhoneItem = await checkPhoneNumberInRecycleBin(trimmedNumberPhone, { itemName, categoryId });
+    
+    if (recycleBinPhoneItem) {
+      throw new Error(`Phone Number "${trimmedNumberPhone}" exists in recycle bin for SIM card: ${recycleBinPhoneItem.itemName} (รอกู้คืนใน 30 วัน)`);
     }
   }
 
@@ -153,15 +171,7 @@ export async function createInventoryItem(params: CreateItemParams) {
   const cleanNumberPhone = numberPhone && numberPhone.trim() !== '' ? numberPhone.trim() : undefined;
   const cleanNotes = notes && notes.trim() !== '' ? notes.trim() : undefined;
   
-  console.log('🏗️ Creating new InventoryItem with data:', {
-    itemName,
-    categoryId,
-    serialNumber: cleanSerialNumber,
-    statusId,
-    conditionId,
-    initialOwnerType,
-    addedBy
-  });
+  // Creating new InventoryItem
   
   const newItem = new InventoryItem({
     itemName,
@@ -188,28 +198,28 @@ export async function createInventoryItem(params: CreateItemParams) {
     }
   });
   
-  console.log('✅ InventoryItem instance created successfully');
 
-  console.log('💾 Saving InventoryItem to database...');
   try {
     const savedItem = await newItem.save();
-    console.log('✅ InventoryItem saved successfully:', savedItem._id);
 
-    // Update InventoryMaster
-    console.log('📊 Updating InventoryMaster...');
+    // Update InventoryMaster immediately and ensure it completes
     try {
-      await updateInventoryMasterLegacy(itemName, categoryId);
-      console.log('✅ InventoryMaster updated successfully');
+      await updateInventoryMaster(itemName, categoryId);
     } catch (masterError) {
       console.error('❌ Failed to update InventoryMaster:', masterError);
-      // Don't throw here - item is already saved
+      // Force retry once more for critical sync
+      try {
+        await updateInventoryMaster(itemName, categoryId);
+      } catch (retryError) {
+        console.error('❌ InventoryMaster retry also failed:', retryError);
+        // Don't throw here - item is already saved
+      }
     }
 
     // Create TransferLog
-    console.log('📝 Creating TransferLog...');
     try {
       await TransferLog.create({
-        itemId: savedItem._id.toString(),
+        itemId: (savedItem._id as any).toString(),
         itemName,
         category: categoryId,
         serialNumber: cleanSerialNumber,
@@ -226,7 +236,6 @@ export async function createInventoryItem(params: CreateItemParams) {
         processedBy: addedByUserId || assignedBy || 'system',
         reason: cleanNotes || (addedBy === 'user' ? 'User reported existing equipment' : 'Admin added new equipment')
       });
-      console.log('✅ TransferLog created successfully');
     } catch (logError) {
       console.error('❌ Failed to create TransferLog:', logError);
       // Don't throw here - item is already saved
@@ -235,6 +244,12 @@ export async function createInventoryItem(params: CreateItemParams) {
     return savedItem;
   } catch (saveError) {
     console.error('❌ Failed to save InventoryItem to database:', saveError);
+    console.error('❌ Save error details:', {
+      itemName: params.itemName,
+      categoryId: params.categoryId,
+      serialNumber: params.serialNumber,
+      error: saveError instanceof Error ? saveError.message : String(saveError)
+    });
     throw new Error(`Failed to save to database: ${saveError}`);
   }
 }
@@ -295,7 +310,7 @@ export async function transferInventoryItem(params: TransferItemParams) {
 
   // Create TransferLog (use item data directly - no ItemMaster needed)
   await TransferLog.create({
-    itemId: savedItem._id.toString(),
+    itemId: (savedItem._id as any).toString(),
     itemName: item.itemName,          // จาก InventoryItem โดยตรง
     category: item.categoryId,        // จาก InventoryItem โดยตรง
     serialNumber: savedItem.serialNumber,
@@ -348,7 +363,6 @@ export async function findUserOwnedItems(userId: string) {
  * อัปเดต InventoryMaster สำหรับ item เดียว (ใช้ masterItemId)
  */
 export async function updateInventoryMaster(itemName: string, categoryId: string, options: { skipAutoDetection?: boolean } = {}) {
-  console.log('🔍 updateInventoryMaster called with:', { itemName, categoryId });
   
   try {
     // หา master record จาก itemName และ categoryId โดยตรง
@@ -357,7 +371,6 @@ export async function updateInventoryMaster(itemName: string, categoryId: string
       categoryId: categoryId 
     });
     
-    console.log('🔍 Found existing master:', updatedMaster ? 'Yes' : 'No');
     
     if (!updatedMaster) {
       // สร้าง master ใหม่ - ต้องหา item แรกที่จะเป็น master
@@ -367,48 +380,38 @@ export async function updateInventoryMaster(itemName: string, categoryId: string
         return null;
       }
       
-      console.log('📦 Creating new InventoryMaster for:', { itemName, categoryId });
-      console.log('📦 Using first item as master:', firstItem._id);
       
       updatedMaster = new InventoryMaster({ 
-        masterItemId: firstItem._id.toString(),
+        masterItemId: (firstItem._id as any).toString(),
         itemName: itemName,
         categoryId,
-        relatedItemIds: [firstItem._id.toString()],
+        relatedItemIds: [(firstItem._id as any).toString()],
         totalQuantity: 0,
         availableQuantity: 0,
         userOwnedQuantity: 0
       });
       
-      console.log('📦 New master created, saving...');
       await updatedMaster.save();
-      console.log('✅ New master saved successfully');
     }
 
     // Calculate quantities from actual InventoryItems
-    console.log('🔍 Finding InventoryItems for:', { itemName, categoryId });
     const allItems = await InventoryItem.find({
       itemName,
       categoryId,
       deletedAt: { $exists: false }
     });
-    console.log('📦 Found InventoryItems:', allItems.length);
     
     const adminStockItems = allItems.filter(item => item.currentOwnership.ownerType === 'admin_stock');
     const userOwnedItems = allItems.filter(item => item.currentOwnership.ownerType === 'user_owned');
     
-    console.log('📊 Quantity breakdown:', {
-      total: allItems.length,
-      adminStock: adminStockItems.length,
-      userOwned: userOwnedItems.length
-    });
-    
     updatedMaster.totalQuantity = allItems.length;
+    // 🆕 FIXED: availableQuantity ควรหมายถึงอุปกรณ์ทั้งหมดที่ยังอยู่ในระบบ (ไม่ได้ถูกเบิกไป)
+    // รวมทุกสถานะของ admin_stock เพราะยังคงเป็น "คงเหลือ" ในระบบ
     updatedMaster.availableQuantity = adminStockItems.length;
     updatedMaster.userOwnedQuantity = userOwnedItems.length;
     
     // 🔧 Fix: อัปเดต relatedItemIds ให้ตรงกับ InventoryItems ที่มีอยู่จริง
-    const currentRelatedIds = allItems.map(item => item._id.toString());
+    const currentRelatedIds = allItems.map(item => (item._id as any).toString());
     const existingRelatedIds = updatedMaster.relatedItemIds || [];
     
     // ตรวจสอบว่ามีการเปลี่ยนแปลงหรือไม่
@@ -419,37 +422,32 @@ export async function updateInventoryMaster(itemName: string, categoryId: string
       updatedMaster.relatedItemIds = currentRelatedIds;
     }
     
-    // Calculate status breakdown based on model structure
-    const statusCounts = {
-      active: 0,
-      maintenance: 0,
-      damaged: 0,
-      retired: 0
-    };
+    // 🆕 FIXED: Calculate status breakdown dynamically from all items using statusId
+    const dynamicStatusBreakdown: Record<string, number> = {};
+    const dynamicConditionBreakdown: Record<string, number> = {};
     
-    // Count items by status mapping
     allItems.forEach(item => {
-      // Map statusId to statusBreakdown structure
-      switch (item.statusId) {
-        case 'status_available':
-        case 'status_in_use':
-          statusCounts.active++;
-          break;
-        case 'status_maintenance':
-          statusCounts.maintenance++;
-          break;
-        case 'status_damaged':
-          statusCounts.damaged++;
-          break;
-        case 'status_retired':
-          statusCounts.retired++;
-          break;
-        default:
-          statusCounts.active++; // Default to active for unknown status
+      // Count by statusId (e.g., status_available, status_missing)
+      if (item.statusId) {
+        dynamicStatusBreakdown[item.statusId] = (dynamicStatusBreakdown[item.statusId] || 0) + 1;
+      }
+      // Count by conditionId (e.g., cond_working, cond_damaged)
+      if (item.conditionId) {
+        dynamicConditionBreakdown[item.conditionId] = (dynamicConditionBreakdown[item.conditionId] || 0) + 1;
       }
     });
     
-    updatedMaster.statusBreakdown = statusCounts;
+    
+    // 🆕 BREAKING CHANGE: Replace old statusBreakdown with dynamic one
+    updatedMaster.statusBreakdown = dynamicStatusBreakdown;
+    
+    // 🆕 NEW: Save conditionBreakdown as well
+    if (updatedMaster.conditionBreakdown !== undefined) {
+      updatedMaster.conditionBreakdown = dynamicConditionBreakdown;
+    } else {
+      // Add conditionBreakdown if it doesn't exist (for backward compatibility)
+      (updatedMaster as any).conditionBreakdown = dynamicConditionBreakdown;
+    }
     
     // Calculate item details breakdown
     const itemsWithSerialNumber = allItems.filter(item => item.serialNumber && item.serialNumber.trim() !== '');
@@ -463,15 +461,15 @@ export async function updateInventoryMaster(itemName: string, categoryId: string
     updatedMaster.itemDetails = {
       withSerialNumber: {
         count: itemsWithSerialNumber.length,
-        itemIds: itemsWithSerialNumber.map(item => item._id.toString())
+        itemIds: itemsWithSerialNumber.map(item => (item._id as any).toString())
       },
       withPhoneNumber: {
         count: itemsWithPhoneNumber.length,
-        itemIds: itemsWithPhoneNumber.map(item => item._id.toString())
+        itemIds: itemsWithPhoneNumber.map(item => (item._id as any).toString())
       },
       other: {
         count: otherItems.length,
-        itemIds: otherItems.map(item => item._id.toString())
+        itemIds: otherItems.map(item => (item._id as any).toString())
       }
     };
     
@@ -512,15 +510,7 @@ export async function updateInventoryMaster(itemName: string, categoryId: string
     updatedMaster.stockManagement.adminDefinedStock = updatedMaster.availableQuantity;
     updatedMaster.stockManagement.realAvailable = updatedMaster.availableQuantity;
     
-    console.log('💾 Saving updated master with quantities:', {
-      totalQuantity: updatedMaster.totalQuantity,
-      availableQuantity: updatedMaster.availableQuantity,
-      userOwnedQuantity: updatedMaster.userOwnedQuantity,
-      adminDefinedStock: updatedMaster.stockManagement.adminDefinedStock
-    });
-    
     await updatedMaster.save();
-    console.log('✅ Master updated and saved successfully');
     
     return updatedMaster;
   } catch (error) {
@@ -547,7 +537,7 @@ export async function syncAllRelatedItemIds() {
           deletedAt: { $exists: false }
         });
         
-        const currentRelatedIds = relatedItems.map(item => item._id.toString());
+        const currentRelatedIds = relatedItems.map(item => (item._id as any).toString());
         const existingRelatedIds = master.relatedItemIds || [];
         
         // ตรวจสอบว่าต้องอัปเดตหรือไม่
@@ -605,7 +595,7 @@ export async function changeItemStatus(
 
   // Log the status change (use item data directly - no ItemMaster needed)
   await TransferLog.create({
-    itemId: savedItem._id.toString(),
+    itemId: (savedItem._id as any).toString(),
     itemName: item.itemName,          // จาก InventoryItem โดยตรง
     category: item.categoryId,        // จาก InventoryItem โดยตรง
     serialNumber: savedItem.serialNumber,
@@ -624,6 +614,169 @@ export async function changeItemStatus(
   });
 
   return savedItem;
+}
+
+/**
+ * เปลี่ยนสถานะของอุปกรณ์ที่ไม่มี SN โดยใช้ STRICT MATCHING
+ * 
+ * กรณีที่ 1: เปลี่ยนสถานะแต่ไม่เปลี่ยนสภาพ → ต้องมีสภาพ "ใช้งานได้" เท่านั้น
+ * กรณีที่ 2: เปลี่ยนสภาพแต่ไม่เปลี่ยนสถานะ → ต้องมีสถานะ "มี" เท่านั้น
+ * 
+ * @param itemName ชื่ออุปกรณ์
+ * @param categoryId หมวดหมู่
+ * @param newStatusId สถานะใหม่ (ถ้าต้องการเปลี่ยน)
+ * @param newConditionId สภาพใหม่ (ถ้าต้องการเปลี่ยน)
+ * @param currentStatusId สถานะปัจจุบันที่ต้องการเปลี่ยน (สำหรับ status change)
+ * @param currentConditionId สภาพปัจจุบันที่ต้องการเปลี่ยน (สำหรับ condition change)
+ * @param quantity จำนวนที่ต้องการเปลี่ยน
+ * @param changedBy ผู้ทำการเปลี่ยน
+ * @param reason เหตุผล
+ * @throws Error เมื่อไม่พบอุปกรณ์ที่ตรงตามเงื่อนไข strict matching
+ */
+export async function changeNonSNItemStatusWithPriority(
+  itemName: string,
+  categoryId: string,
+  newStatusId?: string,
+  newConditionId?: string,
+  currentStatusId?: string,
+  currentConditionId?: string,
+  quantity: number = 1,
+  changedBy: string,
+  reason?: string
+  ) {
+    // สร้าง query สำหรับอุปกรณ์ที่ไม่มี SN
+  const baseQuery = {
+    itemName,
+    categoryId,
+    'currentOwnership.ownerType': 'admin_stock',
+    deletedAt: { $exists: false },
+    $and: [
+      { $or: [{ serialNumber: { $exists: false } }, { serialNumber: '' }] },
+      { $or: [{ numberPhone: { $exists: false } }, { numberPhone: '' }] }
+    ]
+  };
+
+  let targetItems: any[] = [];
+
+  // กรณีที่ 1: เปลี่ยนสถานะแต่ไม่เปลี่ยนสภาพ
+  if (newStatusId && !newConditionId && currentStatusId) {
+    
+    // หาอุปกรณ์ที่มีสภาพ "ใช้งานได้" เท่านั้น
+    const workingItems = await InventoryItem.find({
+      ...baseQuery,
+      statusId: currentStatusId,
+      conditionId: 'cond_working'
+    }).limit(quantity);
+
+
+    // ตรวจสอบว่าเพียงพอหรือไม่
+    if (workingItems.length < quantity) {
+      throw new Error(`ไม่พบอุปกรณ์ที่มีสภาพ "ใช้งานได้" เพียงพอสำหรับการเปลี่ยนสถานะ (พบ ${workingItems.length} ชิ้น ต้องการ ${quantity} ชิ้น)`);
+    }
+
+    targetItems = workingItems;
+
+    // อัปเดตสถานะ
+    for (const item of targetItems) {
+      await InventoryItem.findByIdAndUpdate(item._id, {
+        statusId: newStatusId,
+        updatedAt: new Date()
+      });
+    }
+  }
+  
+  // กรณีที่ 2: เปลี่ยนสภาพแต่ไม่เปลี่ยนสถานะ
+  else if (newConditionId && !newStatusId && currentConditionId) {
+    
+    // หาอุปกรณ์ที่มีสถานะ "มี" เท่านั้น
+    const availableItems = await InventoryItem.find({
+      ...baseQuery,
+      conditionId: currentConditionId,
+      statusId: 'status_available'
+    }).limit(quantity);
+
+
+    // ตรวจสอบว่าเพียงพอหรือไม่
+    if (availableItems.length < quantity) {
+      throw new Error(`ไม่พบอุปกรณ์ที่มีสถานะ "มี" เพียงพอสำหรับการเปลี่ยนสภาพ (พบ ${availableItems.length} ชิ้น ต้องการ ${quantity} ชิ้น)`);
+    }
+
+    targetItems = availableItems;
+
+    // อัปเดตสภาพ
+    for (const item of targetItems) {
+      await InventoryItem.findByIdAndUpdate(item._id, {
+        conditionId: newConditionId,
+        updatedAt: new Date()
+      });
+    }
+  }
+  
+  // กรณีที่ 3: เปลี่ยนทั้งสถานะและสภาพ
+  else if (newStatusId && newConditionId && currentStatusId && currentConditionId) {
+    
+    targetItems = await InventoryItem.find({
+      ...baseQuery,
+      statusId: currentStatusId,
+      conditionId: currentConditionId
+    }).limit(quantity);
+
+
+    // อัปเดตทั้งสถานะและสภาพ
+    for (const item of targetItems) {
+      await InventoryItem.findByIdAndUpdate(item._id, {
+        statusId: newStatusId,
+        conditionId: newConditionId,
+        updatedAt: new Date()
+      });
+    }
+  }
+  
+  else {
+    throw new Error('Invalid parameters: Must specify either newStatusId or newConditionId with corresponding current values');
+  }
+
+  if (targetItems.length === 0) {
+    throw new Error('ไม่พบอุปกรณ์ที่ตรงตามเงื่อนไขที่ระบุ');
+  }
+
+
+  // อัปเดต InventoryMaster
+  await updateInventoryMaster(itemName, categoryId);
+
+  // สร้าง log สำหรับการเปลี่ยนแปลง
+  const logReason = reason || `Bulk status/condition change: ${targetItems.length} items updated`;
+  
+  // สร้าง TransferLog สำหรับแต่ละรายการ
+  for (const item of targetItems) {
+    await TransferLog.create({
+      itemId: (item._id as any).toString(),
+      itemName: item.itemName,
+      category: item.categoryId,
+      serialNumber: item.serialNumber,
+      transferType: 'status_change',
+      fromOwnership: {
+        ownerType: item.currentOwnership.ownerType,
+        userId: item.currentOwnership.userId
+      },
+      toOwnership: {
+        ownerType: item.currentOwnership.ownerType,
+        userId: item.currentOwnership.userId
+      },
+      transferDate: new Date(),
+      processedBy: changedBy,
+      reason: logReason
+    });
+  }
+
+  return {
+    updatedCount: targetItems.length,
+    updatedItems: targetItems.map(item => ({
+      id: item._id.toString(),
+      statusId: newStatusId || item.statusId,
+      conditionId: newConditionId || item.conditionId
+    }))
+  };
 }
 
 /**
@@ -650,18 +803,15 @@ export async function softDeleteInventoryItem(itemId: string, deletedBy: string,
  * 🆕 จัดการเมื่อ masterItem ถูกลบ (พร้อม Priority Selection และ Enhanced Logging)
  */
 export async function handleMasterItemDeletion(deletedItemId: string) {
-  console.log(`🗑️ Master item deleted: ${deletedItemId}`);
   
   try {
     // หา InventoryMaster ที่มี masterItemId เป็น item ที่ถูกลบ
     const master = await InventoryMaster.findOne({ masterItemId: deletedItemId });
     
     if (!master) {
-      console.log('ℹ️ No InventoryMaster found with masterItemId:', deletedItemId);
       return;
     }
     
-    console.log('🔍 Found InventoryMaster that needs masterItem update:', master._id);
     
     // ลบ deletedItemId ออกจาก relatedItemIds
     master.relatedItemIds = master.relatedItemIds.filter(id => id !== deletedItemId);
@@ -670,7 +820,6 @@ export async function handleMasterItemDeletion(deletedItemId: string) {
       // ไม่มี item เหลือ -> ลบ InventoryMaster
       console.log('❌ No items left in group, deleting InventoryMaster:', master._id);
       await InventoryMaster.deleteOne({ _id: master._id });
-      console.log('✅ InventoryMaster deleted successfully');
       return;
     }
     
@@ -687,23 +836,17 @@ export async function handleMasterItemDeletion(deletedItemId: string) {
       // ไม่มี item ที่ใช้งานได้เหลือ -> ลบ InventoryMaster
       console.log('❌ No active items left in group, deleting InventoryMaster:', master._id);
       await InventoryMaster.deleteOne({ _id: master._id });
-      console.log('✅ InventoryMaster deleted successfully');
       return;
     }
     
     // อัปเดต masterItemId เป็น item ตัวใหม่
     const oldMasterItemId = master.masterItemId;
-    master.masterItemId = nextMasterItem._id.toString();
+    master.masterItemId = (nextMasterItem._id as any).toString();
     master.lastUpdated = new Date();
     
     await master.save();
     
     // 🆕 Enhanced Logging
-    console.log(`📋 Promoting item ${nextMasterItem._id} to master`);
-    console.log(`🔄 Master updated: ${oldMasterItemId} → ${master.masterItemId}`);
-    console.log(`👤 New master ownership: ${nextMasterItem.currentOwnership.ownerType}`);
-    console.log(`📊 Remaining items in group: ${master.relatedItemIds.length}`);
-    console.log(`✅ Master item delegation completed successfully`);
     
   } catch (error) {
     console.error('❌ handleMasterItemDeletion failed:', error);
@@ -715,7 +858,6 @@ export async function handleMasterItemDeletion(deletedItemId: string) {
  * 🆕 ฟื้นฟู InventoryItem จาก soft delete พร้อมจัดการ InventoryMaster
  */
 export async function restoreInventoryItem(itemId: string, restoredBy: string) {
-  console.log('🔄 restoreInventoryItem called for:', itemId);
   
   try {
     const item = await InventoryItem.findById(itemId);
@@ -740,11 +882,10 @@ export async function restoreInventoryItem(itemId: string, restoredBy: string) {
     
     if (!master) {
       // สร้าง InventoryMaster ใหม่
-      console.log('📦 Creating new InventoryMaster for restored item');
       master = new InventoryMaster({
-        masterItemId: savedItem._id.toString(),
+        masterItemId: (savedItem._id as any).toString(),
         categoryId,
-        relatedItemIds: [savedItem._id.toString()],
+        relatedItemIds: [(savedItem._id as any).toString()],
         totalQuantity: 0,
         availableQuantity: 0,
         userOwnedQuantity: 0
@@ -762,7 +903,6 @@ export async function restoreInventoryItem(itemId: string, restoredBy: string) {
     // อัปเดตสถิติ
     await updateInventoryMaster(itemName, categoryId);
     
-    console.log(`✅ Restored InventoryItem and updated InventoryMaster`);
     return savedItem;
     
   } catch (error) {
@@ -842,7 +982,6 @@ export async function updateInventoryMasterLegacy(itemName: string, categoryId: 
  * อัปเดต InventoryMaster summary สำหรับ item ทั้งหมด
  */
 export async function refreshAllMasterSummaries() {
-  console.log('🔄 refreshAllMasterSummaries called');
   
   // Get all unique combinations of itemName and categoryId from InventoryItems
   const combinations = await InventoryItem.aggregate([
@@ -861,12 +1000,10 @@ export async function refreshAllMasterSummaries() {
     }
   ]);
   
-  console.log(`🔍 Found ${combinations.length} unique item combinations`);
   
   const results = [];
   for (const combo of combinations) {
     try {
-      console.log(`🔄 Updating InventoryMaster for: ${combo._id.itemName} (${combo._id.categoryId})`);
       const result = await updateInventoryMaster(combo._id.itemName, combo._id.categoryId);
       results.push(result);
     } catch (error) {
@@ -875,7 +1012,6 @@ export async function refreshAllMasterSummaries() {
     }
   }
   
-  console.log(`✅ Successfully updated ${results.length} InventoryMaster records`);
   return results;
 }
 
@@ -890,11 +1026,11 @@ export async function getSerialNumbers(itemName: string, categoryId: string): Pr
   const items = await InventoryItem.find({
     itemName,
     categoryId,
-    serialNumber: { $exists: true, $ne: '', $ne: null },
+    serialNumber: { $exists: true, $nin: [null, ''] },
     deletedAt: { $exists: false }
   }, { serialNumber: 1 }).lean();
   
-  return items.map(item => item.serialNumber).filter(Boolean);
+  return items.map(item => item.serialNumber).filter((sn): sn is string => Boolean(sn));
 }
 
 /**
@@ -904,11 +1040,11 @@ export async function getPhoneNumbers(itemName: string, categoryId: string): Pro
   const items = await InventoryItem.find({
     itemName,
     categoryId,
-    numberPhone: { $exists: true, $ne: '', $ne: null },
+    numberPhone: { $exists: true, $nin: [null, ''] },
     deletedAt: { $exists: false }
   }, { numberPhone: 1 }).lean();
   
-  return items.map(item => item.numberPhone).filter(Boolean);
+  return items.map(item => item.numberPhone).filter((phone): phone is string => Boolean(phone));
 }
 
 /**
@@ -963,7 +1099,6 @@ export async function getItemsWithDetails(itemName: string, categoryId: string) 
  * 🆕 อัปเดตชื่ออุปกรณ์ทั้งหมดใน group (แนวทางที่ 1)
  */
 export async function updateEquipmentGroupName(itemId: string, newItemName: string, updatedBy: string) {
-  console.log('🔄 updateEquipmentGroupName called:', { itemId, newItemName, updatedBy });
   
   try {
     await dbConnect();
@@ -1002,14 +1137,13 @@ export async function updateEquipmentGroupName(itemId: string, newItemName: stri
     master.lastUpdatedBy = updatedBy;
     await master.save();
     
-    console.log(`✅ Updated ${updateResult.modifiedCount} items from "${oldItemName}" to "${newItemName}"`);
     
     return {
       success: true,
       updatedCount: updateResult.modifiedCount,
       oldName: oldItemName,
       newName: newItemName,
-      masterId: master._id.toString()
+      masterId: (master._id as any).toString()
     };
     
   } catch (error) {
@@ -1162,12 +1296,6 @@ export async function getAdminStockInfo(itemName: string, categoryId: string) {
     throw new Error(`ไม่พบรายการ ${itemName} ในหมวดหมู่ ${categoryId}`);
   }
   
-  console.log(`📊 Stock Info - Raw InventoryMaster data for ${itemName}:`, {
-    totalQuantity: item.totalQuantity,
-    availableQuantity: item.availableQuantity,
-    userOwnedQuantity: item.userOwnedQuantity
-  });
-  
   // Get breakdown data to include withoutSerialNumber count
   const breakdownData = await getItemBreakdown(itemName, categoryId);
   
@@ -1189,35 +1317,29 @@ export async function getAdminStockInfo(itemName: string, categoryId: string) {
     // Add breakdown data including withoutSerialNumber
     withoutSerialNumber: {
       count: breakdownData?.typeBreakdown?.withoutSN || 0
-    },
-    statusBreakdown: breakdownData?.statusBreakdown || {},
-    conditionBreakdown: breakdownData?.conditionBreakdown || {},
-    typeBreakdown: breakdownData?.typeBreakdown || {
-      withoutSN: 0,
-      withSN: 0,
-      withPhone: 0
     }
   };
 }
 
 export async function syncAdminStockItems(itemName: string, categoryId: string, targetAdminStock: number, reason: string, adminId: string, newCategoryId?: string, newStatusId?: string, newConditionId?: string) {
-  console.log(`🔄 Syncing admin stock items for ${itemName}: target items = ${targetAdminStock}`);
-  console.log(`🔧 Update options:`, { newCategoryId, newStatusId, newConditionId });
   
   // Get current admin stock items
   const currentAdminItems = await InventoryItem.find({
     itemName,
     categoryId,
     'currentOwnership.ownerType': 'admin_stock',
-    status: { $ne: 'deleted' }
-  });
+    deletedAt: { $exists: false } // 🆕 FIXED: ใช้ deletedAt เพื่อกรองรายการที่ถูกลบ
+  }).sort({ updatedAt: -1 }); // 🆕 FIXED: เรียงตามวันที่อัปเดตล่าสุด ใหม่ไปเก่า
   
   const currentCount = currentAdminItems.length;
-  console.log(`📊 Current admin items: ${currentCount}, Target: ${targetAdminStock}`);
+  
+  // 🆕 DEBUG: แสดงรายการอุปกรณ์ทั้งหมดที่พบ
+  currentAdminItems.forEach((item, index) => {
+    console.log(`  ${index + 1}. ID: ${item._id}, Status: ${item.statusId}, Condition: ${item.conditionId}, SN: ${item.serialNumber || 'No SN'}`);
+  });
   
   // Update existing items if new values are specified
   if (newCategoryId || newStatusId || newConditionId) {
-    console.log(`🔄 Updating existing items with new values...`);
     for (const item of currentAdminItems) {
       let updated = false;
       
@@ -1235,52 +1357,99 @@ export async function syncAdminStockItems(itemName: string, categoryId: string, 
       }
       
       if (updated) {
-        item.lastModified = new Date();
+        item.updatedAt = new Date();
         await item.save();
-        console.log(`✅ Updated item ${item._id} with new values`);
       }
     }
   }
   
   if (currentCount < targetAdminStock) {
-    // Need to create more items
+    // Need to create more items - BUT only if targeting available+working
     const itemsToCreate = targetAdminStock - currentCount;
-    console.log(`➕ Creating ${itemsToCreate} new admin stock items`);
+    console.log(`➕ Need to create ${itemsToCreate} new admin stock items`);
     
-    for (let i = 0; i < itemsToCreate; i++) {
-      await createInventoryItem({
-        itemName,
-        categoryId: categoryId, // ใช้หมวดหมู่เดิม (ไม่เปลี่ยนหมวดหมู่)
-        statusId: newStatusId || 'status_available', // ใช้สถานะใหม่หากระบุ
-        conditionId: newConditionId || 'cond_working', // ใช้สภาพใหม่หากระบุ
-        addedBy: 'admin',
-        addedByUserId: adminId,
-        initialOwnerType: 'admin_stock',
-        notes: `Auto-created via stock adjustment: ${reason}`
-      });
+    // 🆕 CRITICAL: Only create new items if they will be status_available + cond_working
+    const createNewItems = (newStatusId === 'status_available' || !newStatusId) && 
+                           (newConditionId === 'cond_working' || !newConditionId);
+    
+    if (createNewItems) {
+      for (let i = 0; i < itemsToCreate; i++) {
+        await createInventoryItem({
+          itemName,
+          categoryId: categoryId, // ใช้หมวดหมู่เดิม (ไม่เปลี่ยนหมวดหมู่)
+          statusId: newStatusId || 'status_available', // ใช้สถานะใหม่หากระบุ
+          conditionId: newConditionId || 'cond_working', // ใช้สภาพใหม่หากระบุ
+          addedBy: 'admin',
+          addedByUserId: adminId,
+          initialOwnerType: 'admin_stock',
+          notes: `Auto-created via stock adjustment: ${reason}`
+        });
+      }
+    } else {
     }
   } else if (currentCount > targetAdminStock) {
     // Need to remove items
     const itemsToRemove = currentCount - targetAdminStock;
     console.log(`➖ Removing ${itemsToRemove} admin stock items`);
     
-    // Remove items without serial numbers first
-    const itemsWithoutSN = currentAdminItems.filter(item => !item.serialNumber);
+    // 🆕 FIXED: Remove only items without SN that have BOTH status "available" AND condition "working"
+    // ต้องตรงทั้ง 2 เงื่อนไขพร้อมกัน ถึงจะสามารถลบได้
+    const itemsWithoutSN = currentAdminItems.filter(item => {
+      const hasNoSN = !item.serialNumber && !item.numberPhone;
+      const isAvailable = item.statusId === 'status_available';
+      const isWorking = item.conditionId === 'cond_working';
+      
+      
+      return hasNoSN && isAvailable && isWorking;
+    }).sort((a, b) => {
+      // 🔧 CRITICAL FIX: เรียงตาม updatedAt เก่าก่อน (ลบตัวที่อัปเดตเก่าก่อน)
+      // เพื่อไม่ให้ลบอุปกรณ์ที่เพิ่งเปลี่ยนสถานะ
+      return new Date(a.updatedAt).getTime() - new Date(b.updatedAt).getTime();
+    });
+    
+    
+    // 🆕 DEBUG: แสดงรายการอุปกรณ์ที่กรองแล้ว
+    itemsWithoutSN.forEach((item, index) => {
+    });
+    
+    if (itemsWithoutSN.length < itemsToRemove) {
+      console.warn(`⚠️ Warning: Only ${itemsWithoutSN.length} items available for deletion, but need to remove ${itemsToRemove}`);
+      currentAdminItems.forEach(item => {
+        console.log(`  - ID: ${item._id}, Status: ${item.statusId}, Condition: ${item.conditionId}, SN: ${item.serialNumber || 'No SN'}`);
+      });
+    }
+    
     const itemsToDelete = itemsWithoutSN.slice(0, itemsToRemove);
+    
+    // 🆕 DEBUG: แสดงรายการที่จะถูกลบ
+    itemsToDelete.forEach((item, index) => {
+    });
     
     for (const item of itemsToDelete) {
       // 🔧 CRITICAL FIX: Use hard delete for non-SN items to prevent count discrepancy
-      // Only non-SN items should be deleted during stock adjustment
-      console.log(`🗑️ Hard deleting non-SN item: ${item._id} (no serial number)`);
+      // Only non-SN items with "available" status and "working" condition should be deleted
       
       // Hard delete the item to prevent count discrepancy
       await InventoryItem.findByIdAndDelete(item._id);
-      console.log(`✅ Permanently deleted non-SN item: ${item._id}`);
+    }
+    
+    // 🆕 CRITICAL: Check if we couldn't delete enough items
+    if (itemsToDelete.length < itemsToRemove) {
+      console.error(`❌ Could only delete ${itemsToDelete.length} out of ${itemsToRemove} required items`);
+      console.error(`❌ Available items for deletion: ${itemsWithoutSN.length} (non-SN + available + working)`);
+      console.error(`❌ Current admin items by status/condition:`);
+      const statusConditionBreakdown: Record<string, number> = {};
+      currentAdminItems.forEach(item => {
+        const key = `${item.statusId}_${item.conditionId}`;
+        statusConditionBreakdown[key] = (statusConditionBreakdown[key] || 0) + 1;
+      });
+      console.error(`❌ Breakdown:`, statusConditionBreakdown);
+      
+      throw new Error(`ไม่สามารถลดจำนวนได้ มีอุปกรณ์ที่สถานะ "มี" และสภาพ "ใช้งานได้" เพียง ${itemsWithoutSN.length} ชิ้น แต่ต้องการลด ${itemsToRemove} ชิ้น`);
     }
   }
   
   // Update InventoryMaster - ไม่มีการเปลี่ยนหมวดหมู่
-  console.log(`🔄 Updating InventoryMaster for: ${itemName} (${categoryId})`);
   await updateInventoryMaster(itemName, categoryId);
   
   return true;
@@ -1290,7 +1459,6 @@ export async function syncAdminStockItems(itemName: string, categoryId: string, 
  * 🆕 ดึงรายการอุปกรณ์สำหรับ dropdown (ใช้ masterItemId)
  */
 export async function getEquipmentTypesForDropdown() {
-  console.log('🔍 getEquipmentTypesForDropdown called');
   
   try {
     await dbConnect();
@@ -1307,10 +1475,10 @@ export async function getEquipmentTypesForDropdown() {
         return null;
       }
       
-      const categoryConfig = categoryConfigs.find(c => c.id === master.categoryId);
+      const categoryConfig = categoryConfigs.find((c: any) => c.id === master.categoryId);
       
       return {
-        masterId: master._id.toString(),
+        masterId: (master._id as any).toString(),
         itemName: (masterItem as any).itemName,
         categoryId: master.categoryId,
         categoryName: categoryConfig?.name || 'ไม่ระบุ',
@@ -1357,20 +1525,19 @@ export async function updateItemDetails(masterId: string): Promise<void> {
     master.itemDetails = {
       withSerialNumber: {
         count: itemsWithSerialNumber.length,
-        itemIds: itemsWithSerialNumber.map(item => item._id.toString())
+        itemIds: itemsWithSerialNumber.map(item => (item._id as any).toString())
       },
       withPhoneNumber: {
         count: itemsWithPhoneNumber.length,
-        itemIds: itemsWithPhoneNumber.map(item => item._id.toString())
+        itemIds: itemsWithPhoneNumber.map(item => (item._id as any).toString())
       },
       other: {
         count: otherItems.length,
-        itemIds: otherItems.map(item => item._id.toString())
+        itemIds: otherItems.map(item => (item._id as any).toString())
       }
     };
 
     await master.save();
-    console.log(`✅ Updated itemDetails for master: ${masterId}`);
     
   } catch (error) {
     console.error('❌ updateItemDetails failed:', error);
@@ -1383,17 +1550,15 @@ export async function updateItemDetails(masterId: string): Promise<void> {
  */
 export async function updateAllItemDetails(): Promise<void> {
   try {
-    console.log('🔄 Starting updateAllItemDetails...');
     
     const masters = await InventoryMaster.find({});
     let updatedCount = 0;
     
     for (const master of masters) {
-      await updateItemDetails(master._id.toString());
+      await updateItemDetails((master._id as any).toString());
       updatedCount++;
     }
     
-    console.log(`✅ Updated itemDetails for ${updatedCount} master items`);
     
   } catch (error) {
     console.error('❌ updateAllItemDetails failed:', error);
@@ -1413,7 +1578,7 @@ export async function getItemDetailsDetailed(itemName: string, categoryId: strin
 
     // ถ้ายังไม่มี itemDetails แบบใหม่ ให้สร้างใหม่
     if (!master.itemDetails || typeof master.itemDetails.withSerialNumber === 'number') {
-      await updateItemDetails(master._id.toString());
+      await updateItemDetails((master._id as any).toString());
       await master.save();
     }
 

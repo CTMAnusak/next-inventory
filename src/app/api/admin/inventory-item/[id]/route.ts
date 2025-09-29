@@ -34,7 +34,6 @@ export async function PATCH(
     }
 
     const updateData = await request.json();
-    console.log('🔧 Updating InventoryItem:', id, updateData);
 
     // Find the item
     const item = await InventoryItem.findById(id);
@@ -113,7 +112,6 @@ export async function PATCH(
       );
     }
 
-    console.log('✅ InventoryItem updated successfully');
     // Note: InventoryMaster จะ auto-sync ผ่าน post-save hook
 
     return NextResponse.json({

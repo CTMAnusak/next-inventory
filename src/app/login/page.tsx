@@ -122,7 +122,6 @@ export default function LoginPage() {
   const handleGoogleRegister = async () => {
     setGoogleRegisterLoading(true);
     try {
-      console.log('🔍 Starting Google Register...');
       const response = await fetch('/api/auth/google?action=register', {
         method: 'GET',
         cache: 'no-cache',
@@ -131,11 +130,8 @@ export default function LoginPage() {
         }
       });
       const data = await response.json();
-      console.log('📋 Google Register Response:', data);
-      console.log('📋 Response Status:', response.status);
       
       if (data.authUrl) {
-        console.log('✅ Redirecting to Google OAuth:', data.authUrl);
         window.location.href = data.authUrl;
       } else if (data.error) {
         console.log('❌ Google Register Error:', data);
@@ -319,9 +315,6 @@ export default function LoginPage() {
 
             <button
               onClick={(e) => {
-                console.log('🔥 Google Register Button Clicked!');
-                console.log('🔥 Button disabled?', googleLoginLoading || googleRegisterLoading || isLoading);
-                console.log('🔥 States:', { googleLoginLoading, googleRegisterLoading, isLoading });
                 handleGoogleRegister();
               }}
               disabled={googleLoginLoading || googleRegisterLoading || isLoading}

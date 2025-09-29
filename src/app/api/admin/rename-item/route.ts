@@ -1,10 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { verifyTokenFromRequest } from '@/lib/auth';
 
-console.log('🚀 [API] Loading rename script...');
 import { renameItemGlobally, rollbackRename, RenameResult } from '@/scripts/rename-item-global';
-console.log('✅ [API] Rename script loaded successfully');
-console.log('🔍 [API] Function types:', {
   renameItemGlobally: typeof renameItemGlobally,
   rollbackRename: typeof rollbackRename
 });
@@ -12,7 +9,6 @@ console.log('🔍 [API] Function types:', {
 export async function POST(request: NextRequest) {
   try {
     // Verify admin authentication
-    console.log('🔑 Verifying token...');
     const payload = verifyTokenFromRequest(request);
     if (!payload) {
       console.log('❌ Token verification failed');
@@ -22,7 +18,6 @@ export async function POST(request: NextRequest) {
       );
     }
     
-    console.log(`✅ Token verified for user: ${payload.userId}`);
 
     const body = await request.json();
     const { action, oldName, newName, options = {} } = body;
@@ -50,10 +45,7 @@ export async function POST(request: NextRequest) {
         );
       }
 
-      console.log(`🚀 Admin ${payload.userId} initiated rename: "${oldName}" → "${newName}"`);
-      console.log(`⚙️ Options:`, options);
 
-      console.log('📡 Starting renameItemGlobally...');
       
       // Execute global rename
       let result: RenameResult;
@@ -67,7 +59,6 @@ export async function POST(request: NextRequest) {
             batchSize: options.batchSize || 1000
           }
         );
-        console.log('✅ renameItemGlobally completed');
       } catch (scriptError) {
         console.error('❌ renameItemGlobally failed:', scriptError);
         return NextResponse.json({
@@ -76,14 +67,12 @@ export async function POST(request: NextRequest) {
         }, { status: 500 });
       }
 
-      console.log(`📊 Rename result:`, {
         success: result.success,
         documentsUpdated: result.documentsUpdated,
         errors: result.errors.length,
         errorDetails: result.errors
       });
 
-      console.log('🚀 Full result object:', result);
 
       return NextResponse.json({
         success: result.success,
@@ -103,7 +92,6 @@ export async function POST(request: NextRequest) {
         );
       }
 
-      console.log(`🔄 Admin ${payload.userId} initiated rollback: ${backupId}`);
 
       const success = await rollbackRename(backupId);
 
@@ -123,7 +111,6 @@ export async function POST(request: NextRequest) {
         );
       }
 
-      console.log(`👀 Admin ${payload.userId} previewing changes for: "${oldName}"`);
 
       const result: RenameResult = await renameItemGlobally(
         oldName.trim(),

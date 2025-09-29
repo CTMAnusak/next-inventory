@@ -101,13 +101,16 @@ export default function AdminEquipmentReportsPage() {
   // Serial Number Selection Modal
   const [showSelectionModal, setShowSelectionModal] = useState(false);
   const [selectedRequest, setSelectedRequest] = useState<RequestLog | null>(null);
+  const [selectedItemIndex, setSelectedItemIndex] = useState<number | null>(null);
   const [itemSelections, setItemSelections] = useState<{[key: string]: any[]}>({});
   
-  // Delete Confirmation Modal
-  const [showDeleteConfirmModal, setShowDeleteConfirmModal] = useState(false);
   
   // State for current inventory data
   const [inventoryItems, setInventoryItems] = useState<{[key: string]: string}>({});
+  
+  // Config data for status and condition
+  const [statusConfigs, setStatusConfigs] = useState<any[]>([]);
+  const [conditionConfigs, setConditionConfigs] = useState<any[]>([]);
 
   // Search and filter states
   const [searchTerm, setSearchTerm] = useState('');
@@ -126,6 +129,7 @@ export default function AdminEquipmentReportsPage() {
   useEffect(() => {
     fetchData();
     fetchInventoryData();
+    fetchConfigs();
   }, []);
 
   // Initialize drag scrolling
@@ -143,6 +147,30 @@ export default function AdminEquipmentReportsPage() {
 
 
 
+  const fetchConfigs = async () => {
+    try {
+      const response = await fetch('/api/inventory-config');
+      if (response.ok) {
+        const data = await response.json();
+        setStatusConfigs(data.statusConfigs || []);
+        setConditionConfigs(data.conditionConfigs || []);
+      }
+    } catch (error) {
+      console.error('Error fetching configs:', error);
+    }
+  };
+
+  // Helper functions to convert ID to name
+  const getStatusName = (statusId: string) => {
+    const status = statusConfigs.find(s => s.id === statusId);
+    return status?.name || statusId;
+  };
+
+  const getConditionName = (conditionId: string) => {
+    const condition = conditionConfigs.find(c => c.id === conditionId);
+    return condition?.name || conditionId;
+  };
+
   const fetchData = async () => {
     setLoading(true);
     try {
@@ -153,12 +181,18 @@ export default function AdminEquipmentReportsPage() {
 
       if (requestResponse.ok) {
         const requestData = await requestResponse.json();
+        console.log('📋 Request data received:', requestData);
         setRequestLogs(requestData);
+      } else {
+        console.error('❌ Request API failed:', requestResponse.status, requestResponse.statusText);
       }
 
       if (returnResponse.ok) {
         const returnData = await returnResponse.json();
+        console.log('📋 Return data received:', returnData);
         setReturnLogs(returnData);
+      } else {
+        console.error('❌ Return API failed:', returnResponse.status, returnResponse.statusText);
       }
 
       if (!requestResponse.ok && !returnResponse.ok) {
@@ -193,9 +227,15 @@ export default function AdminEquipmentReportsPage() {
   };
 
   // ฟังก์ชันสำหรับเปิด Serial Number Selection Modal
-  const handleOpenSelectionModal = (request: RequestLog) => {
-    setSelectedRequest(request);
+  const handleOpenSelectionModal = (request: RequestLog, itemIndex: number) => {
+    // สร้าง request ใหม่ที่มีแค่รายการที่เลือก
+    const singleItemRequest = {
+      ...request,
+      items: [request.items[itemIndex]]
+    };
+    setSelectedRequest(singleItemRequest);
     setItemSelections({});
+    setSelectedItemIndex(itemIndex);
     setShowSelectionModal(true);
   };
 
@@ -207,14 +247,15 @@ export default function AdminEquipmentReportsPage() {
     }));
   }, []);
 
-  // ฟังก์ชันสำหรับยืนยันการคืนอุปกรณ์
-  const handleApproveReturn = async (returnId: string) => {
+  // ฟังก์ชันสำหรับยืนยันการคืนอุปกรณ์รายการเดียว
+  const handleApproveReturnItem = async (returnId: string, itemIndex: number) => {
     try {
-      const response = await fetch(`/api/admin/equipment-reports/returns/${returnId}/approve`, {
+      const response = await fetch(`/api/admin/equipment-reports/returns/${returnId}/approve-item`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
-        }
+        },
+        body: JSON.stringify({ itemIndex })
       });
 
       let data;
@@ -228,7 +269,7 @@ export default function AdminEquipmentReportsPage() {
 
       if (response.ok) {
         if (data.alreadyApproved) {
-          toast.success('คำขอคืนนี้ได้รับการอนุมัติแล้ว');
+          toast.success('รายการนี้ได้รับการอนุมัติแล้ว');
         } else {
           const message = data.message || 'ยืนยันการคืนอุปกรณ์เรียบร้อยแล้ว';
           toast.success(message);
@@ -238,16 +279,13 @@ export default function AdminEquipmentReportsPage() {
         toast.error(data.error || 'เกิดข้อผิดพลาด');
       }
     } catch (error) {
-      console.error('Error approving return:', error);
+      console.error('Error approving return item:', error);
       toast.error('เกิดข้อผิดพลาดในการเชื่อมต่อ');
     }
   };
 
   // ฟังก์ชันสำหรับอนุมัติด้วยการเลือก Serial Number
   const handleApproveWithSelection = async () => {
-    console.log('🎯 handleApproveWithSelection called');
-    console.log('📋 selectedRequest:', selectedRequest);
-    console.log('🔍 itemSelections:', itemSelections);
     
     if (!selectedRequest) {
       console.log('❌ No selectedRequest');
@@ -272,14 +310,23 @@ export default function AdminEquipmentReportsPage() {
         }
 
         return {
+          masterId: (item as any).masterId, // match request item reliably
           itemName: item.itemName,
-          category: (item as any).category || 'ไม่ระบุ',
+          category: (item as any).categoryId || (item as any).category || 'ไม่ระบุ',
           requestedQuantity: item.quantity,
           selectedItems: selectedItems
         };
       });
 
-      const response = await fetch(`/api/admin/equipment-reports/requests/${selectedRequest._id}/approve-with-selection`, {
+      // ใช้ requestId เดิม (ไม่ใช่ของ singleItemRequest)
+      const originalRequestId = requestLogs.find(req => 
+        req._id === selectedRequest._id || 
+        (req.firstName === selectedRequest.firstName && 
+         req.lastName === selectedRequest.lastName && 
+         req.requestDate === selectedRequest.requestDate)
+      )?._id || selectedRequest._id;
+
+      const response = await fetch(`/api/admin/equipment-reports/requests/${originalRequestId}/approve-with-selection`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -304,17 +351,18 @@ export default function AdminEquipmentReportsPage() {
     }
   };
 
-  // ฟังก์ชันสำหรับเปิด Modal ยืนยันการลบคำขอ
+  // ฟังก์ชันสำหรับลบคำขอ
   const handleDeleteRequest = async (requestId: string) => {
-    setShowDeleteConfirmModal(true);
-  };
-
-  // ฟังก์ชันสำหรับยืนยันการลบคำขอ
-  const confirmDeleteRequest = async () => {
-    if (!selectedRequest) return;
-
     try {
-      const response = await fetch(`/api/admin/equipment-reports/requests/${selectedRequest._id}/delete`, {
+      // หา requestId เดิมจาก requestLogs
+      const originalRequestId = requestLogs.find(req => 
+        req._id === requestId || 
+        (req.firstName === selectedRequest?.firstName && 
+         req.lastName === selectedRequest?.lastName && 
+         req.requestDate === selectedRequest?.requestDate)
+      )?._id || requestId;
+
+      const response = await fetch(`/api/admin/equipment-reports/requests/${originalRequestId}/delete`, {
         method: 'DELETE',
         headers: {
           'Content-Type': 'application/json',
@@ -325,7 +373,6 @@ export default function AdminEquipmentReportsPage() {
 
       if (response.ok) {
         toast.success('ลบคำขอเรียบร้อยแล้ว');
-        setShowDeleteConfirmModal(false);
         setShowSelectionModal(false);
         setSelectedRequest(null);
         setItemSelections({});
@@ -335,6 +382,42 @@ export default function AdminEquipmentReportsPage() {
       }
     } catch (error) {
       console.error('Error deleting request:', error);
+      toast.error('เกิดข้อผิดพลาดในการเชื่อมต่อ');
+    }
+  };
+
+  // ฟังก์ชันสำหรับลบ 'รายการเดียว' ในคำขอจาก popup
+  const handleDeleteRequestItem = async () => {
+    if (!selectedRequest || selectedItemIndex == null) return;
+
+    try {
+      // หา requestId เดิมจาก requestLogs
+      const originalRequestId = requestLogs.find(req => 
+        req._id === selectedRequest._id || 
+        (req.firstName === selectedRequest.firstName && 
+         req.lastName === selectedRequest.lastName && 
+         req.requestDate === selectedRequest.requestDate)
+      )?._id || selectedRequest._id;
+
+      const response = await fetch(`/api/admin/equipment-reports/requests/${originalRequestId}/items/${selectedItemIndex}`, {
+        method: 'DELETE',
+        headers: { 'Content-Type': 'application/json' }
+      });
+
+      const data = await response.json();
+
+      if (response.ok) {
+        toast.success('ลบรายการออกจากคำขอเรียบร้อยแล้ว');
+        setShowSelectionModal(false);
+        setSelectedRequest(null);
+        setSelectedItemIndex(null);
+        setItemSelections({});
+        fetchData();
+      } else {
+        toast.error(data.error || 'ไม่สามารถลบรายการได้');
+      }
+    } catch (error) {
+      console.error('Error deleting request item:', error);
       toast.error('เกิดข้อผิดพลาดในการเชื่อมต่อ');
     }
   };
@@ -363,6 +446,16 @@ export default function AdminEquipmentReportsPage() {
       console.error('Error completing request:', error);
       toast.error('เกิดข้อผิดพลาดในการดำเนินการ');
     }
+  };
+
+  // ฟังก์ชันรีเซทค่าฟิลเตอร์ทั้งหมดกลับเป็นค่าเริ่มต้น
+  const resetFilters = () => {
+    setSearchTerm('');
+    setDepartmentFilter('');
+    setOfficeFilter('');
+    setDateFromFilter('');
+    setDateToFilter('');
+    setCurrentPage(1);
   };
 
   const applyFilters = () => {
@@ -490,6 +583,13 @@ export default function AdminEquipmentReportsPage() {
                 <Download className="w-4 h-4" />
                 <span>Export Excel</span>
               </button>
+              <button
+                onClick={resetFilters}
+                className="w-full min-[400px]:w-3/5 min-[481px]:w-auto flex items-center justify-center space-x-2 px-4 py-2 bg-orange-100 text-orange-700 rounded-lg hover:bg-orange-200 transition-colors"
+              >
+                <RefreshCw className="w-4 h-4" />
+                <span>รีเซทค่า</span>
+              </button>
             </div>
           </div>
 
@@ -497,8 +597,8 @@ export default function AdminEquipmentReportsPage() {
           <div className="border-b border-gray-200 mb-6 overflow-x-auto overflow-y-hidden">
             <nav className="-mb-px flex space-x-8">
               {[
-                { key: 'request', label: 'ประวัติเบิก', icon: Package, count: requestLogs.length },
-                { key: 'return', label: 'ประวัติคืน', icon: FileText, count: returnLogs.length },
+                { key: 'request', label: 'ประวัติเบิก', icon: Package, count: requestLogs.reduce((total, req) => total + req.items.length, 0) },
+                { key: 'return', label: 'ประวัติคืน', icon: FileText, count: returnLogs.reduce((total, req) => total + req.items.length, 0) },
               ].map((tab) => {
                 const Icon = tab.icon;
                 return (
@@ -527,6 +627,16 @@ export default function AdminEquipmentReportsPage() {
           {/* Filters */}
           {showFilters && (
             <div className="bg-gray-50 rounded-lg p-4 mb-6 space-y-4">
+              <div className="flex justify-between items-center mb-4">
+                <h3 className="text-lg font-medium text-gray-900">ฟิลเตอร์ข้อมูล</h3>
+                <button
+                  onClick={resetFilters}
+                  className="flex items-center space-x-2 px-3 py-2 bg-orange-100 text-orange-700 rounded-lg hover:bg-orange-200 transition-colors text-sm"
+                >
+                  <RefreshCw className="w-4 h-4" />
+                  <span>รีเซทค่า</span>
+                </button>
+              </div>
               <div className="grid max-[768px]:grid-cols-1 max-[1120px]:grid-cols-2 grid-cols-4 gap-4">
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-1">
@@ -635,10 +745,10 @@ export default function AdminEquipmentReportsPage() {
                       หมวดหมู่
                     </th>
                     <th className="px-6 py-3 text-center text-xs font-medium text-white uppercase tracking-wider">
-                      สภาพ
+                      สถานะ
                     </th>
                     <th className="px-6 py-3 text-center text-xs font-medium text-white uppercase tracking-wider">
-                      สถานะ
+                      สภาพ
                     </th>
                     <th className="px-6 py-3 text-center text-xs font-medium text-white uppercase tracking-wider">
                       Serial Number
@@ -681,64 +791,60 @@ export default function AdminEquipmentReportsPage() {
                     const requestLog = log as RequestLog;
                     return requestLog.items.map((item, itemIndex) => (
                       <tr key={`${requestLog._id}-${itemIndex}`} className={logIndex % 2 === 0 ? 'bg-white' : 'bg-blue-50'}>
-                        {itemIndex === 0 && (
-                          <>
-                            {/* วันที่เบิก */}
-                            <td rowSpan={requestLog.items.length} className="px-6 py-4 text-sm text-gray-500 text-center text-selectable">
-                              {new Date(requestLog.requestDate).toLocaleDateString('th-TH')}
-                            </td>
-                            {/* ชื่อผู้เบิก */}
-                            <td rowSpan={requestLog.items.length} className="px-6 py-4 text-sm text-center text-selectable">
-                              <div className={
-                                (requestLog as any).userId?.pendingDeletion 
-                                  ? 'text-orange-600' 
-                                  : !requestLog.firstName 
-                                  ? 'text-gray-500 italic' 
-                                  : 'text-gray-900'
-                              }>
-                                {requestLog.firstName && requestLog.lastName ? (
-                                  <>
-                                    {requestLog.firstName} {requestLog.lastName}
-                                    {(requestLog as any).userId?.pendingDeletion && ' (รอลบ)'}
-                                  </>
-                                ) : (
-                                  '(ผู้ใช้ถูกลบแล้ว)'
-                                )}
-                              </div>
-                            </td>
-                            {/* ชื่อเล่น */}
-                            <td rowSpan={requestLog.items.length} className="px-6 py-4 text-sm text-gray-500 text-center text-selectable">
-                              {requestLog.nickname || '-'}
-                            </td>
-                            {/* แผนก */}
-                            <td rowSpan={requestLog.items.length} className="px-6 py-4 text-sm text-gray-500 text-center text-selectable">
-                              {requestLog.department || '-'}
-                            </td>
-                            {/* ออฟฟิศ/สาขา */}
-                            <td rowSpan={requestLog.items.length} className="px-6 py-4 text-sm text-gray-500 text-center text-selectable">
-                              {requestLog.office || '-'}
-                            </td>
-                            {/* เบอร์โทร */}
-                            <td rowSpan={requestLog.items.length} className="px-6 py-4 text-sm text-gray-500 text-center text-selectable">
-                              {requestLog.phone || '-'}
-                            </td>
-                          </>
-                        )}
+                        {/* วันที่เบิก */}
+                        <td className="px-6 py-4 text-sm text-gray-500 text-center text-selectable">
+                          {requestLog.requestDate ? new Date(requestLog.requestDate).toLocaleDateString('th-TH') : '-'}
+                        </td>
+                        {/* ชื่อผู้เบิก */}
+                        <td className="px-6 py-4 text-sm text-center text-selectable">
+                          <div className={
+                            (requestLog as any).userId?.pendingDeletion 
+                              ? 'text-orange-600' 
+                              : !requestLog.firstName 
+                              ? 'text-gray-500 italic' 
+                              : 'text-gray-900'
+                          }>
+                            {requestLog.firstName && requestLog.lastName ? (
+                              <>
+                                {requestLog.firstName} {requestLog.lastName}
+                                {(requestLog as any).userId?.pendingDeletion && ' (รอลบ)'}
+                              </>
+                            ) : (
+                              'Unknown User'
+                            )}
+                          </div>
+                        </td>
+                        {/* ชื่อเล่น */}
+                        <td className="px-6 py-4 text-sm text-gray-500 text-center text-selectable">
+                          {requestLog.nickname || '-'}
+                        </td>
+                        {/* แผนก */}
+                        <td className="px-6 py-4 text-sm text-gray-500 text-center text-selectable">
+                          {requestLog.department || '-'}
+                        </td>
+                        {/* ออฟฟิศ/สาขา */}
+                        <td className="px-6 py-4 text-sm text-gray-500 text-center text-selectable">
+                          {requestLog.office || '-'}
+                        </td>
+                        {/* เบอร์โทร */}
+                        <td className="px-6 py-4 text-sm text-gray-500 text-center text-selectable">
+                          {requestLog.phone || '-'}
+                        </td>
                         {/* ชื่ออุปกรณ์ */}
                         <td className="px-6 py-4 text-sm font-medium text-gray-900 text-center text-selectable">
                           {getCurrentItemName(item)}
                         </td>
                         {/* หมวดหมู่ */}
                         <td className="px-6 py-4 text-sm text-gray-500 text-center text-selectable">
-                          {item.category || '-'}
-                        </td>
-                        {/* สภาพ */}
-                        <td className="px-6 py-4 text-sm text-gray-500 text-center text-selectable">
-                          {item.statusOnRequest || '-'}
+                          {item.category || 'Unknown Category'}
                         </td>
                         {/* สถานะ */}
                         <td className="px-6 py-4 text-sm text-gray-500 text-center text-selectable">
-                          {item.conditionOnRequest || '-'}
+                          {getStatusName(item.statusOnRequest || '')}
+                        </td>
+                        {/* สภาพ */}
+                        <td className="px-6 py-4 text-sm text-gray-500 text-center text-selectable">
+                          {getConditionName(item.conditionOnRequest || '')}
                         </td>
                         {/* Serial Number */}
                         <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500 text-center">
@@ -779,47 +885,43 @@ export default function AdminEquipmentReportsPage() {
                         <td className="px-6 py-4 text-sm text-gray-500 text-center text-selectable">
                           {item.quantity}
                         </td>
-                        {itemIndex === 0 && (
-                          <>
-                            {/* ความเร่งด่วน */}
-                            <td rowSpan={requestLog.items.length} className="px-6 py-4 whitespace-nowrap text-center">
-                              <span className={`inline-flex px-2 py-1 text-xs font-semibold rounded-full ${
-                                requestLog.urgency === 'very_urgent' 
-                                  ? 'bg-red-100 text-red-800' 
-                                  : 'bg-gray-100 text-gray-800'
-                              }`}>
-                                {requestLog.urgency === 'very_urgent' ? 'ด่วนมาก' : 'ปกติ'}
-                              </span>
-                            </td>
-                            {/* สถานที่จัดส่ง */}
-                            <td rowSpan={requestLog.items.length} className="px-6 py-4 text-sm text-gray-500 text-center text-selectable">
-                              {requestLog.deliveryLocation || '-'}
-                            </td>
-                            {/* เหตุผลการเบิก */}
-                            <td rowSpan={requestLog.items.length} className="px-6 py-4 text-sm text-gray-500 text-center">
-                              <div className="max-w-xs truncate" title={requestLog.reason}>
-                                {requestLog.reason || '-'}
-                              </div>
-                            </td>
-                            {/* การดำเนินการ */}
-                            <td rowSpan={requestLog.items.length} className="px-6 py-4 whitespace-nowrap text-center">
-                              {requestLog.status === 'completed' ? (
-                                <span className="inline-flex items-center px-3 py-1 rounded-full text-xs font-medium bg-green-100 text-green-800">
-                                  <CheckCircle className="w-3 h-3 mr-1" />
-                                  เสร็จสิ้น
-                                </span>
-                              ) : (
-                                <button
-                                  onClick={() => handleOpenSelectionModal(requestLog)}
-                                  className="inline-flex items-center px-3 py-1 border border-transparent text-xs font-medium rounded-md text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 cursor-pointer"
-                                >
-                                  <Settings className="w-3 h-3 mr-1" />
-                                  เลือกอุปกรณ์และอนุมัติ
-                                </button>
-                              )}
-                            </td>
-                          </>
-                        )}
+                        {/* ความเร่งด่วน */}
+                        <td className="px-6 py-4 whitespace-nowrap text-center">
+                          <span className={`inline-flex px-2 py-1 text-xs font-semibold rounded-full ${
+                            requestLog.urgency === 'very_urgent' 
+                              ? 'bg-red-100 text-red-800' 
+                              : 'bg-gray-100 text-gray-800'
+                          }`}>
+                            {requestLog.urgency === 'very_urgent' ? 'ด่วนมาก' : 'ปกติ'}
+                          </span>
+                        </td>
+                        {/* สถานที่จัดส่ง */}
+                        <td className="px-6 py-4 text-sm text-gray-500 text-center text-selectable">
+                          {requestLog.deliveryLocation || '-'}
+                        </td>
+                        {/* เหตุผลการเบิก */}
+                        <td className="px-6 py-4 text-sm text-gray-500 text-center">
+                          <div className="max-w-xs truncate" title={requestLog.reason}>
+                            {requestLog.reason || '-'}
+                          </div>
+                        </td>
+                         {/* การดำเนินการ */}
+                         <td className="px-6 py-4 whitespace-nowrap text-center">
+                           {requestLog.status === 'completed' ? (
+                             <span className="inline-flex items-center px-3 py-1 rounded-full text-xs font-medium bg-green-100 text-green-800">
+                               <CheckCircle className="w-3 h-3 mr-1" />
+                               เสร็จสิ้น
+                             </span>
+                             ) : (
+                               <button
+                                 onClick={() => handleOpenSelectionModal(requestLog, itemIndex)}
+                                 className="inline-flex items-center px-3 py-1 border border-transparent text-xs font-medium rounded-md text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 cursor-pointer"
+                               >
+                                 <Settings className="w-3 h-3 mr-1" />
+                                 เลือกอุปกรณ์และอนุมัติ
+                               </button>
+                             )}
+                         </td>
                       </tr>
                     ));
                   })}
@@ -854,10 +956,10 @@ export default function AdminEquipmentReportsPage() {
                       หมวดหมู่
                     </th>
                     <th className="px-6 py-3 text-center text-xs font-medium text-white uppercase tracking-wider">
-                      สภาพ
+                      สถานะ
                     </th>
                     <th className="px-6 py-3 text-center text-xs font-medium text-white uppercase tracking-wider">
-                      สถานะ
+                      สภาพ
                     </th>
                     <th className="px-6 py-3 text-center text-xs font-medium text-white uppercase tracking-wider">
                       Serial Number
@@ -897,64 +999,60 @@ export default function AdminEquipmentReportsPage() {
                     const returnLog = log as ReturnLog;
                     return returnLog.items.map((item, itemIndex) => (
                       <tr key={`${returnLog._id}-${itemIndex}`} className={logIndex % 2 === 0 ? 'bg-white' : 'bg-blue-50'}>
-                        {itemIndex === 0 && (
-                          <>
-                            {/* วันที่คืน */}
-                            <td rowSpan={returnLog.items.length} className="px-6 py-4 text-sm text-gray-500 text-center text-selectable">
-                              {new Date(returnLog.returnDate).toLocaleDateString('th-TH')}
-                            </td>
-                            {/* ชื่อผู้คืน */}
-                            <td rowSpan={returnLog.items.length} className="px-6 py-4 text-sm text-center text-selectable">
-                              <div className={
-                                (returnLog as any).userId?.pendingDeletion 
-                                  ? 'text-orange-600' 
-                                  : !returnLog.firstName 
-                                  ? 'text-gray-500 italic' 
-                                  : 'text-gray-900'
-                              }>
-                                {returnLog.firstName && returnLog.lastName ? (
-                                  <>
-                                    {returnLog.firstName} {returnLog.lastName}
-                                    {(returnLog as any).userId?.pendingDeletion && ' (รอลบ)'}
-                                  </>
-                                ) : (
-                                  '(ผู้ใช้ถูกลบแล้ว)'
-                                )}
-                              </div>
-                            </td>
-                            {/* ชื่อเล่น */}
-                            <td rowSpan={returnLog.items.length} className="px-6 py-4 text-sm text-gray-500 text-center text-selectable">
-                              {returnLog.nickname || '-'}
-                            </td>
-                            {/* แผนก */}
-                            <td rowSpan={returnLog.items.length} className="px-6 py-4 text-sm text-gray-500 text-center text-selectable">
-                              {returnLog.department || '-'}
-                            </td>
-                            {/* ออฟฟิศ/สาขา */}
-                            <td rowSpan={returnLog.items.length} className="px-6 py-4 text-sm text-gray-500 text-center text-selectable">
-                              {returnLog.office || '-'}
-                            </td>
-                            {/* เบอร์โทร */}
-                            <td rowSpan={returnLog.items.length} className="px-6 py-4 text-sm text-gray-500 text-center text-selectable">
-                              {returnLog.phoneNumber || '-'}
-                            </td>
-                          </>
-                        )}
+                        {/* วันที่คืน */}
+                        <td className="px-6 py-4 text-sm text-gray-500 text-center text-selectable">
+                          {returnLog.returnDate ? new Date(returnLog.returnDate).toLocaleDateString('th-TH') : '-'}
+                        </td>
+                        {/* ชื่อผู้คืน */}
+                        <td className="px-6 py-4 text-sm text-center text-selectable">
+                          <div className={
+                            (returnLog as any).userId?.pendingDeletion 
+                              ? 'text-orange-600' 
+                              : !returnLog.firstName 
+                              ? 'text-gray-500 italic' 
+                              : 'text-gray-900'
+                          }>
+                            {returnLog.firstName && returnLog.lastName ? (
+                              <>
+                                {returnLog.firstName} {returnLog.lastName}
+                                {(returnLog as any).userId?.pendingDeletion && ' (รอลบ)'}
+                              </>
+                            ) : (
+                              'Unknown User'
+                            )}
+                          </div>
+                        </td>
+                        {/* ชื่อเล่น */}
+                        <td className="px-6 py-4 text-sm text-gray-500 text-center text-selectable">
+                          {returnLog.nickname || '-'}
+                        </td>
+                        {/* แผนก */}
+                        <td className="px-6 py-4 text-sm text-gray-500 text-center text-selectable">
+                          {returnLog.department || '-'}
+                        </td>
+                        {/* ออฟฟิศ/สาขา */}
+                        <td className="px-6 py-4 text-sm text-gray-500 text-center text-selectable">
+                          {returnLog.office || '-'}
+                        </td>
+                        {/* เบอร์โทร */}
+                        <td className="px-6 py-4 text-sm text-gray-500 text-center text-selectable">
+                          {returnLog.phoneNumber || '-'}
+                        </td>
                         {/* ชื่ออุปกรณ์ */}
                         <td className="px-6 py-4 text-sm font-medium text-gray-900 text-center text-selectable">
                           {getCurrentItemName(item)}
                         </td>
                         {/* หมวดหมู่ */}
                         <td className="px-6 py-4 text-sm text-gray-500 text-center text-selectable">
-                          {item.category || '-'}
-                        </td>
-                        {/* สภาพ */}
-                        <td className="px-6 py-4 text-sm text-gray-500 text-center text-selectable">
-                          {item.statusOnReturn || '-'}
+                          {item.category || 'Unknown Category'}
                         </td>
                         {/* สถานะ */}
                         <td className="px-6 py-4 text-sm text-gray-500 text-center text-selectable">
-                          {item.conditionOnReturn || '-'}
+                          {getStatusName(item.statusOnReturn || '')}
+                        </td>
+                        {/* สภาพ */}
+                        <td className="px-6 py-4 text-sm text-gray-500 text-center text-selectable">
+                          {getConditionName(item.conditionOnReturn || '')}
                         </td>
                         {/* Serial Number */}
                         <td className="px-6 py-4 text-sm text-gray-500 text-center text-selectable">
@@ -998,23 +1096,21 @@ export default function AdminEquipmentReportsPage() {
                             <span className="text-gray-400">ไม่มีรูปภาพ</span>
                           )}
                         </td>
-                        {itemIndex === 0 && (
-                          <td rowSpan={returnLog.items.length} className="px-6 py-4 whitespace-nowrap text-sm font-medium text-center">
-                            {returnLog.status === 'pending' ? (
-                              <button
-                                onClick={() => handleApproveReturn(returnLog._id)}
-                                className="bg-green-600 hover:bg-green-700 text-white px-4 py-2 rounded-lg text-sm font-medium transition-colors cursor-pointer"
-                              >
-                                <CheckCircle className="w-4 h-4 inline mr-2" />
-                                ยืนยันการคืน
-                              </button>
-                            ) : (
-                              <span className="text-green-600 font-medium">
-                                ✅ ยืนยันแล้ว
-                              </span>
-                            )}
-                          </td>
-                        )}
+                        <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-center">
+                          {item.statusOnReturn === 'pending' || returnLog.status === 'pending' ? (
+                            <button
+                              onClick={() => handleApproveReturnItem(returnLog._id, itemIndex)}
+                              className="bg-green-600 hover:bg-green-700 text-white px-4 py-2 rounded-lg text-sm font-medium transition-colors cursor-pointer"
+                            >
+                              <CheckCircle className="w-4 h-4 inline mr-2" />
+                              ยืนยันการคืน
+                            </button>
+                          ) : (
+                            <span className="text-green-600 font-medium">
+                              ✅ ยืนยันแล้ว
+                            </span>
+                          )}
+                        </td>
                       </tr>
                     ));
                   })}
@@ -1142,6 +1238,7 @@ export default function AdminEquipmentReportsPage() {
                     onClick={() => {
                       setShowSelectionModal(false);
                       setSelectedRequest(null);
+                      setSelectedItemIndex(null);
                       setItemSelections({});
                     }}
                     className="text-gray-400 hover:text-gray-600"
@@ -1171,7 +1268,7 @@ export default function AdminEquipmentReportsPage() {
                           key={itemKey} 
                           itemKey={itemKey}
                           itemName={item.itemName || inventoryItems[item.itemId] || 'ไม่ระบุ'}
-                          category={item.category || 'ไม่ระบุ'}
+                          category={item.categoryId || 'ไม่ระบุ'}
                           requestedQuantity={item.quantity}
                           requestedSerialNumbers={item.serialNumbers}
                           onSelectionChange={handleSelectionChange}
@@ -1192,129 +1289,53 @@ export default function AdminEquipmentReportsPage() {
                       </span>
                     )}
                   </div>
-                  <div className="flex justify-center items-center space-x-6">
-                    {/* ปุ่มลบคำขอ */}
-                    <button
-                      onClick={() => selectedRequest && handleDeleteRequest(selectedRequest._id)}
-                      className="px-4 py-2 border border-red-300 rounded-md text-sm font-medium text-red-700 hover:bg-red-50 hover:border-red-400 shadow-sm"
-                    >
-                      🗑️ ลบคำขอ
-                    </button>
-                    
-                    {/* ปุ่มยกเลิก */}
-                    <button
-                      onClick={() => {
-                        setShowSelectionModal(false);
-                        setSelectedRequest(null);
-                        setItemSelections({});
-                      }}
-                      className="px-4 py-2 border border-gray-300 rounded-md text-sm font-medium text-gray-700 hover:bg-gray-50"
-                    >
-                      ยกเลิก
-                    </button>
-                    
-                    {/* ปุ่มอนุมัติและมอบหมาย */}
-                    <button
-                      onClick={handleApproveWithSelection}
-                      disabled={!selectedRequest || Object.keys(itemSelections).length !== selectedRequest.items.length}
-                      className="px-4 py-2 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 disabled:opacity-50 disabled:cursor-not-allowed"
-                    >
-                      อนุมัติและมอบหมาย
-                    </button>
-                  </div>
+                   <div className="flex justify-center items-center space-x-4">
+                     {/* ปุ่มลบคำขอ/ลบรายการเดียว */}
+                     <button
+                       onClick={() => {
+                         if (selectedItemIndex != null) {
+                           if (confirm('ลบรายการนี้ออกจากคำขอใช่หรือไม่?')) {
+                             handleDeleteRequestItem();
+                           }
+                         } else {
+                           if (confirm('คุณแน่ใจหรือไม่ที่ต้องการลบคำขอนี้?')) {
+                             handleDeleteRequest(selectedRequest!._id);
+                           }
+                         }
+                       }}
+                       className="px-4 py-2 border border-red-300 rounded-md text-sm font-medium text-red-700 hover:bg-red-50 hover:border-red-400 shadow-sm"
+                     >
+                       {selectedItemIndex != null ? '🗑️ ลบรายการนี้' : '🗑️ ลบคำขอ'}
+                     </button>
+                     
+                     {/* ปุ่มยกเลิก */}
+                     <button
+                       onClick={() => {
+                         setShowSelectionModal(false);
+                         setSelectedRequest(null);
+                         setSelectedItemIndex(null);
+                         setItemSelections({});
+                       }}
+                       className="px-4 py-2 border border-gray-300 rounded-md text-sm font-medium text-gray-700 hover:bg-gray-50"
+                     >
+                       ยกเลิก
+                     </button>
+                     
+                     {/* ปุ่มอนุมัติและมอบหมาย */}
+                     <button
+                       onClick={handleApproveWithSelection}
+                       disabled={!selectedRequest || Object.keys(itemSelections).length !== selectedRequest.items.length}
+                       className="px-4 py-2 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 disabled:opacity-50 disabled:cursor-not-allowed"
+                     >
+                       อนุมัติและมอบหมาย
+                     </button>
+                   </div>
                 </div>
               </div>
             </div>
           </div>
         )}
 
-        {/* Delete Confirmation Modal */}
-        {showDeleteConfirmModal && selectedRequest && (
-          <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-[70]">
-            <div className="bg-white rounded-xl shadow-2xl w-full max-w-md mx-4 transform transition-all">
-              {/* Header */}
-              <div className="bg-red-500 rounded-t-xl p-6 text-white">
-                <div className="flex items-center">
-                  <div className="w-12 h-12 bg-white/20 rounded-full flex items-center justify-center mr-4">
-                    <svg className="w-6 h-6 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
-                    </svg>
-                  </div>
-                  <div>
-                    <h3 className="text-xl font-bold">ลบคำขอเบิกอุปกรณ์</h3>
-                    <p className="text-red-100 text-sm">การดำเนินการนี้ไม่สามารถยกเลิกได้</p>
-                  </div>
-                </div>
-              </div>
-
-              {/* Content */}
-              <div className="p-6">
-                <div className="mb-4">
-                  <p className="text-gray-700 mb-3">คุณแน่ใจหรือไม่ที่ต้องการลบคำขอนี้?</p>
-                  
-                  <div className="bg-gray-50 p-4 rounded-lg">
-                    <div className="text-sm">
-                      <div className="grid grid-cols-2 gap-2 text-gray-600">
-                        <span className="font-medium">ผู้ขอ:</span>
-                        <span>{selectedRequest.firstName} {selectedRequest.lastName}</span>
-                        <span className="font-medium">วันที่ขอ:</span>
-                        <span>{new Date(selectedRequest.requestDate).toLocaleDateString('th-TH')}</span>
-                        <span className="font-medium">อุปกรณ์:</span>
-                        <div className="space-y-1">
-                          {selectedRequest.items.map((item, idx) => (
-                            <div key={idx} className="text-sm">
-                              <span className="font-medium">{item.itemName}</span>
-                              <span className="text-gray-500"> จำนวน: {item.quantity} ชิ้น</span>
-                              {Array.isArray(item.serialNumbers) && item.serialNumbers.length > 0 && (
-                                <div className="ml-2 text-xs text-blue-600">
-                                  SN ที่ขอ: {item.serialNumbers.join(', ')}
-                                </div>
-                              )}
-                            </div>
-                          ))}
-                        </div>
-                      </div>
-                    </div>
-                  </div>
-                </div>
-
-                <div className="bg-red-50 border-l-4 border-red-400 p-4 mb-6">
-                  <div className="flex">
-                    <div className="flex-shrink-0">
-                      <svg className="h-5 w-5 text-red-400" viewBox="0 0 20 20" fill="currentColor">
-                        <path fillRule="evenodd" d="M8.257 3.099c.765-1.36 2.722-1.36 3.486 0l5.58 9.92c.75 1.334-.213 2.98-1.742 2.98H4.42c-1.53 0-2.493-1.646-1.743-2.98l5.58-9.92zM11 13a1 1 0 11-2 0 1 1 0 012 0zm-1-8a1 1 0 00-1 1v3a1 1 0 002 0V6a1 1 0 00-1-1z" clipRule="evenodd" />
-                      </svg>
-                    </div>
-                    <div className="ml-3">
-                      <p className="text-sm text-red-700 font-medium">
-                        ⚠️ คำเตือน: คำขอนี้จะถูกลบออกจากระบบถาวร
-                      </p>
-                    </div>
-                  </div>
-                </div>
-              </div>
-
-              {/* Footer */}
-              <div className="bg-gray-50 rounded-b-xl px-6 py-4 flex justify-between">
-                {/* ปุ่มยกเลิกฝั่งซ้าย */}
-                <button
-                  onClick={() => setShowDeleteConfirmModal(false)}
-                  className="px-6 py-2.5 text-gray-700 bg-white border border-gray-300 hover:bg-gray-50 rounded-lg transition-colors font-medium"
-                >
-                  ยกเลิก
-                </button>
-                
-                {/* ปุ่มลบฝั่งขวา (ห่างจากปุ่มยกเลิก) */}
-                <button
-                  onClick={confirmDeleteRequest}
-                  className="px-6 py-2.5 bg-red-600 hover:bg-red-700 text-white rounded-lg transition-colors font-medium shadow-lg"
-                >
-                  🗑️ ลบคำขอ
-                </button>
-              </div>
-            </div>
-          </div>
-        )}
       </div>
     </Layout>
   );

@@ -9,7 +9,6 @@
  */
 export function handleTokenExpiry(response: Response, errorMessage?: string) {
   if (response.status === 401) {
-    console.log('🔐 Token expired, redirecting to login...');
     
     // Clear auth token
     document.cookie = 'auth-token=; path=/; expires=Thu, 01 Jan 1970 00:00:00 GMT';

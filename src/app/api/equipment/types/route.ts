@@ -7,7 +7,6 @@ export async function GET(request: NextRequest) {
   try {
     await dbConnect();
     
-    console.log('🔍 Equipment types API called');
     
     const equipmentTypes = await getEquipmentTypesForDropdown();
     

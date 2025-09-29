@@ -11,7 +11,6 @@ export async function POST(request: NextRequest) {
     const returnData = await request.json();
     
     // Debug: Log the received data
-    console.log('🔍 Equipment Return API - Received data:', JSON.stringify(returnData, null, 2));
 
     // Validate required fields
     const requiredFields = ['returnDate', 'items'];
@@ -35,7 +34,6 @@ export async function POST(request: NextRequest) {
     }
 
     for (const item of returnData.items) {
-      console.log('🔍 Validating item:', JSON.stringify(item, null, 2));
       if (!item.itemId || !item.quantity || item.quantity <= 0) {
         console.error('❌ Invalid item data:', item);
         return NextResponse.json(
@@ -59,9 +57,34 @@ export async function POST(request: NextRequest) {
       );
     }
 
+    // Check for pending returns first
+    const pendingReturns = await ReturnLog.find({
+      userId: currentUserId,
+      status: 'pending'
+    });
+
+    // Check if any items are already in pending returns
+    for (const item of returnData.items) {
+      const hasPendingReturn = pendingReturns.some(returnLog => 
+        returnLog.items.some((returnItem: any) => 
+          returnItem.itemId === item.itemId &&
+          (!item.serialNumber || returnItem.serialNumber === item.serialNumber)
+        )
+      );
+
+      if (hasPendingReturn) {
+        // Get item name for better error message
+        const inventoryItem = await InventoryItem.findById(item.itemId);
+        const itemName = (inventoryItem as any)?.itemName || 'อุปกรณ์';
+        return NextResponse.json(
+          { error: `${itemName} ${item.serialNumber ? `(S/N: ${item.serialNumber}) ` : ''}อยู่ในรายการคืนที่รออนุมัติอยู่แล้ว` },
+          { status: 400 }
+        );
+      }
+    }
+
     // Validate that user owns the items they want to return (but don't transfer yet)
     for (const item of returnData.items) {
-      console.log('🔍 Validating returned item:', item);
       
       try {
         // Find the specific InventoryItem to validate ownership
@@ -76,11 +99,6 @@ export async function POST(request: NextRequest) {
             'currentOwnership.userId': currentUserId,
             deletedAt: { $exists: false }
           });
-          console.log('🔍 Validating item with SN:', {
-            itemId: item.itemId,
-            serialNumber: item.serialNumber,
-            userId: currentUserId
-          });
         } else {
           // Find by itemId without serial number - สำหรับอุปกรณ์ไม่มี SN
           inventoryItem = await InventoryItem.findOne({
@@ -88,10 +106,6 @@ export async function POST(request: NextRequest) {
             'currentOwnership.ownerType': 'user_owned',
             'currentOwnership.userId': currentUserId,
             deletedAt: { $exists: false }
-          });
-          console.log('🔍 Validating item without SN:', {
-            itemId: item.itemId,
-            userId: currentUserId
           });
         }
         
@@ -106,12 +120,6 @@ export async function POST(request: NextRequest) {
             { status: 400 }
           );
         }
-        
-        console.log('✅ Item ownership validated:', {
-          itemId: inventoryItem._id,
-          itemName: (inventoryItem as any).itemName,
-          ownedBy: inventoryItem.currentOwnership.userId
-        });
         
       } catch (error) {
         console.error('❌ Error validating item ownership:', error);
@@ -129,6 +137,7 @@ export async function POST(request: NextRequest) {
       serialNumber: item.serialNumber || undefined,
       assetNumber: item.assetNumber || undefined,
       image: item.image || undefined,
+      statusOnReturn: item.statusOnReturn || 'status_available',
       conditionOnReturn: item.conditionOnReturn || 'cond_working',
       itemNotes: item.itemNotes || undefined
     }));
@@ -141,7 +150,6 @@ export async function POST(request: NextRequest) {
       notes: returnData.notes || undefined
     };
 
-    console.log('🔍 Creating return log with data:', returnLogData);
     const newReturn = new ReturnLog(returnLogData);
     await newReturn.save();
 

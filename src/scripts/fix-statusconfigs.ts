@@ -13,7 +13,6 @@ dotenv.config({ path: '.env.local' });
 
 const fixStatusConfigs = async () => {
   try {
-    console.log('🔧 เริ่มแก้ไข statusConfigs field...');
 
     // เชื่อมต่อ database
     if (!process.env.MONGODB_URI) {
@@ -21,11 +20,9 @@ const fixStatusConfigs = async () => {
     }
 
     await mongoose.connect(process.env.MONGODB_URI);
-    console.log('✅ เชื่อมต่อ database สำเร็จ');
 
     // ดู document ปัจจุบัน
     const currentDoc = await InventoryConfig.findOne();
-    console.log('📋 Document ปัจจุบัน:');
     console.log('- _id:', currentDoc?._id);
     console.log('- categoryConfigs length:', currentDoc?.categoryConfigs?.length || 0);
     console.log('- statusConfigs:', currentDoc?.statusConfigs);
@@ -42,7 +39,6 @@ const fixStatusConfigs = async () => {
       }
     );
 
-    console.log(`✅ อัปเดตสำเร็จ: ${result.modifiedCount} documents`);
 
     // ตรวจสอบหลังอัปเดต
     const updatedDoc = await InventoryConfig.findOne();
@@ -55,13 +51,11 @@ const fixStatusConfigs = async () => {
 
     // ตรวจสอบ fields ทั้งหมด
     const allFields = Object.keys(updatedDoc?.toObject() || {});
-    console.log('📝 Fields ทั้งหมด:', allFields);
 
   } catch (error) {
     console.error('❌ เกิดข้อผิดพลาด:', error);
   } finally {
     await mongoose.disconnect();
-    console.log('🔌 ปิดการเชื่อมต่อ database');
   }
 };
 

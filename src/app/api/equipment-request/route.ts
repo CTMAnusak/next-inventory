@@ -11,10 +11,9 @@ export async function POST(request: NextRequest) {
     const requestData = await request.json();
     
     // Debug: Log the received data
-    console.log('🔍 Equipment Request API - Received data:', JSON.stringify(requestData, null, 2));
 
-    // Validate required fields
-    const requiredFields = ['firstName', 'lastName', 'requestDate', 'urgency', 'deliveryLocation', 'notes', 'items'];
+    // Validate required fields (notes no longer required)
+    const requiredFields = ['firstName', 'lastName', 'requestDate', 'urgency', 'deliveryLocation', 'items'];
     
     for (const field of requiredFields) {
       if (!requestData[field]) {
@@ -35,10 +34,8 @@ export async function POST(request: NextRequest) {
     }
 
     // Enhanced validation logging
-    console.log('🔍 API - Validating items:', JSON.stringify(requestData.items, null, 2));
     
     for (const item of requestData.items) {
-      console.log('🔍 API - Validating item:', JSON.stringify(item, null, 2));
       // ใช้รูปแบบใหม่: ต้องมี masterId
       if (!item.masterId) {
         console.error('🔍 API - Missing masterId:', item);
@@ -71,14 +68,38 @@ export async function POST(request: NextRequest) {
       );
     }
 
+    // Check for pending requests first
+    const pendingRequests = await RequestLog.find({
+      userId: currentUserId,
+      status: 'pending'
+    });
+
+    // Check if any requested items are already in pending requests
+    for (const item of requestData.items) {
+      const hasPendingRequest = pendingRequests.some(request => 
+        request.items.some((requestItem: any) => 
+          requestItem.masterId === item.masterId &&
+          (!item.serialNumber || requestItem.serialNumber === item.serialNumber)
+        )
+      );
+
+      if (hasPendingRequest) {
+        const master = await InventoryMaster.findById(item.masterId);
+        const itemName = master?.itemName || 'อุปกรณ์';
+        return NextResponse.json(
+          { error: `${itemName} ${item.serialNumber ? `(S/N: ${item.serialNumber}) ` : ''}อยู่ในรายการเบิกที่รออนุมัติอยู่แล้ว` },
+          { status: 400 }
+        );
+      }
+    }
+
     // Validate that requested items are available
     const validatedItems = [];
     
     for (const item of requestData.items) {
-      console.log('🔍 Validating availability for masterId:', item.masterId);
       
       try {
-        // ค้นหาข้อมูลจาก InventoryMaster
+        // ค้นหาข้อมูลจาก InventoryMaster (ไม่พึ่งพา InventoryItem อีกต่อไป)
         const master = await InventoryMaster.findById(item.masterId);
         if (!master) {
           return NextResponse.json(
@@ -87,16 +108,7 @@ export async function POST(request: NextRequest) {
           );
         }
 
-        // ดึงชื่ออุปกรณ์จาก masterItem (real-time)
-        const masterItem = await InventoryItem.findById(master.masterItemId);
-        if (!masterItem) {
-          return NextResponse.json(
-            { error: `ไม่พบอุปกรณ์อ้างอิง ID: ${master.masterItemId}` },
-            { status: 400 }
-          );
-        }
-
-        const itemName = (masterItem as any).itemName;
+        const itemName = master.itemName; // ใช้ชื่อจาก master โดยตรง
         const categoryId = master.categoryId;
         
         // ตรวจสอบความพร้อมใช้งานจาก InventoryItem โดยใช้ itemName และ categoryId
@@ -121,11 +133,11 @@ export async function POST(request: NextRequest) {
           categoryId: categoryId,
           quantity: item.quantity,
           serialNumber: item.serialNumber || undefined,
-          availableItemIds: availableItems.map(it => it._id.toString())
+          availableItemIds: availableItems.map(it => it._id.toString()),
+          itemNotes: item.itemNotes || undefined
         };
 
         validatedItems.push(cleanItems);
-        console.log(`✅ Item validated: ${itemName} (${item.quantity} units)`);
         
       } catch (error) {
         console.error('❌ Error validating item:', error);
@@ -142,13 +154,11 @@ export async function POST(request: NextRequest) {
       requestDate: new Date(requestData.requestDate),
       urgency: requestData.urgency,
       deliveryLocation: requestData.deliveryLocation,
-      notes: requestData.notes,
       items: validatedItems,
       status: 'pending',
       requestType: 'request'
     };
 
-    console.log('🔍 Creating request log with data:', requestLogData);
     const newRequest = new RequestLog(requestLogData);
     await newRequest.save();
     const newRequestId = newRequest._id;

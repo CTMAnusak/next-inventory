@@ -24,7 +24,6 @@ export async function GET(request: NextRequest) {
       const { default: User } = await import('@/models/User');
       const user = await User.findOne({ user_id: userId });
       if (user && user.pendingDeletion) {
-        console.log(`🚫 User ${userId} is pending deletion, blocking owned quantities access`);
         return NextResponse.json(
           { error: 'บัญชีของคุณอยู่ในสถานะรอลบ ไม่สามารถเข้าถึงข้อมูลได้' },
           { status: 403 }
@@ -66,7 +65,6 @@ export async function GET(request: NextRequest) {
 
     const userItems = Array.from(itemGroups.values());
 
-    console.log(`📊 User Owned Quantities - Found ${userItems.length} items for user ${userId}`);
 
     return NextResponse.json({
       items: userItems,

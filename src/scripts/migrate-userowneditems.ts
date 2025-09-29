@@ -41,7 +41,6 @@ export async function migrateUserOwnedItems(): Promise<MigrationResult> {
     const userOwnedItems = await db.collection('userowneditems').find({}).toArray();
     result.total = userOwnedItems.length;
     
-    console.log(`Found ${result.total} UserOwnedItems to migrate`);
 
     for (const item of userOwnedItems) {
       try {
@@ -105,7 +104,6 @@ export async function migrateUserOwnedItems(): Promise<MigrationResult> {
       }
     }
 
-    console.log('Migration completed!');
     console.log(`Total: ${result.total}, Migrated: ${result.migrated}, Skipped: ${result.skipped}, Errors: ${result.errors}`);
 
   } catch (error) {

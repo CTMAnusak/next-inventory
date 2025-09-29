@@ -87,7 +87,6 @@ export async function createAutoReturnForUser(
 
     await Promise.all(updatePromises);
 
-    console.log(`✅ Created auto-return for user ${userId}: ${userEquipment.length} items`);
 
     return {
       success: true,
@@ -144,7 +143,6 @@ export async function completeUserDeletion(userId: string): Promise<boolean> {
     const User = (await import('@/models/User')).default;
     await User.findByIdAndDelete(userId);
 
-    console.log(`✅ User ${userId} deleted completely`);
     return true;
     
   } catch (error) {

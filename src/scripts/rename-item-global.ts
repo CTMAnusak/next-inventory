@@ -83,15 +83,12 @@ async function processCollection(
   dryRun: boolean,
   batchSize: number
 ): Promise<CollectionResult> {
-  console.log(`🔍 Processing collection: ${collectionInfo.name}`);
-  console.log(`🔍 Query:`, collectionInfo.query);
   
   const collection = db.collection(collectionInfo.name);
   
   // นับจำนวน documents ที่จะได้รับผลกระทบ
   const documentsFound = await collection.countDocuments(collectionInfo.query);
   
-  console.log(`🔍 Documents found: ${documentsFound}`);
   
   if (documentsFound === 0) {
     return {
@@ -185,24 +182,18 @@ export async function renameItemGlobally(
   };
 
   try {
-    console.log(`🚀 Starting global rename: "${oldName}" → "${newName}"`);
-    console.log(`📋 Mode: ${dryRun ? 'DRY RUN' : 'LIVE'}`);
     
-    console.log(`🔌 Connecting to database...`);
     await dbConnect();
     
-    console.log(`🔌 Getting db connection...`);
     const db = mongoose.connection.db;
     if (!db) {
       throw new Error('Database connection failed');
     }
     
-    console.log(`✅ Database connected successfully`);
 
     // 1. สร้าง backup ถ้าไม่ใช่ dry run
     if (shouldCreateBackup && !dryRun) {
       result.backupId = await createBackup(db, oldName);
-      console.log(`💾 Backup created with ID: ${result.backupId}`);
     }
 
     // 2. กำหนด collections และ fields ที่ต้องเปลี่ยน
@@ -246,13 +237,10 @@ export async function renameItemGlobally(
 
     result.totalCollections = collectionsToUpdate.length;
     
-    console.log(`📋 Total collections to update: ${result.totalCollections}`);
-    console.log(`📋 Collections list:`, collectionsToUpdate.map(c => c.name));
 
     // 3. ประมวลผลแต่ละ collection
     for (const collectionInfo of collectionsToUpdate) {
       try {
-        console.log(`\n📁 Processing collection: ${collectionInfo.name}`);
         
         const collectionResult = await processCollection(
           db,
@@ -268,7 +256,6 @@ export async function renameItemGlobally(
         result.documentsUpdated += collectionResult.documentsUpdated;
         result.collectionsProcessed++;
 
-        console.log(`✅ ${collectionInfo.name}: ${collectionResult.documentsUpdated}/${collectionResult.documentsFound} updated`);
 
       } catch (error) {
         const errorMsg = `Error in ${collectionInfo.name}: ${error instanceof Error ? error.message : String(error)}`;
@@ -289,10 +276,6 @@ export async function renameItemGlobally(
     result.success = result.errors.length === 0;
     result.duration = Date.now() - startTime;
 
-    console.log(`\n🎉 Global rename ${result.success ? 'completed successfully' : 'completed with errors'}`);
-    console.log(`📊 Collections: ${result.collectionsProcessed}/${result.totalCollections}`);
-    console.log(`📄 Documents: ${result.documentsUpdated}/${result.totalDocuments} updated`);
-    console.log(`⏱️ Duration: ${result.duration}ms`);
 
     if (result.errors.length > 0) {
       console.log(`⚠️ Errors encountered: ${result.errors.length}`);
@@ -316,7 +299,6 @@ export async function renameItemGlobally(
  */
 export async function rollbackRename(backupId: string): Promise<boolean> {
   try {
-    console.log(`🔄 Starting rollback for backup: ${backupId}`);
     
     await dbConnect();
     const db = mongoose.connection.db;
@@ -342,11 +324,9 @@ export async function rollbackRename(backupId: string): Promise<boolean> {
         await collection.deleteMany({ _id: { $in: ids } });
         await collection.insertMany(docs);
         
-        console.log(`✅ Restored ${docs.length} documents in ${collectionName}`);
       }
     }
 
-    console.log(`🎉 Rollback completed successfully`);
     return true;
 
   } catch (error) {

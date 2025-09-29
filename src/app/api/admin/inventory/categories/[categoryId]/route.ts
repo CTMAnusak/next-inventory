@@ -98,7 +98,6 @@ export async function PUT(request: NextRequest, { params }: RouteParams) {
     
     await config.save();
     
-    console.log(`✅ Updated category: ${category.name} (ID: ${categoryId})`);
     
     return NextResponse.json({ 
       success: true, 
@@ -171,7 +170,6 @@ export async function DELETE(request: NextRequest, { params }: RouteParams) {
           }
         );
         
-        console.log(`📦 Moved ${itemsUsingCategory} items to "ไม่ระบุ" category`);
       }
     }
     
@@ -191,9 +189,7 @@ export async function DELETE(request: NextRequest, { params }: RouteParams) {
     
     await config.save();
     
-    console.log(`🗑️  Deleted category: ${category.name} (ID: ${categoryId})`);
     if (itemsUsingCategory > 0) {
-      console.log(`📦 Moved ${itemsUsingCategory} items to "ไม่ระบุ" category`);
     }
     
     return NextResponse.json({ 

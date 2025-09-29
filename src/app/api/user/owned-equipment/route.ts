@@ -28,6 +28,31 @@ export async function GET(request: NextRequest) {
       'currentOwnership.userId': userId,
       deletedAt: { $exists: false }
     }).sort({ 'currentOwnership.ownedSince': -1 });
+
+    // Get approved return logs to filter out returned items
+    const ReturnLog = (await import('@/models/ReturnLog')).default;
+    const approvedReturns = await ReturnLog.find({
+      userId: userId,
+      status: 'approved'
+    });
+
+    // Create a set of returned item IDs and serial numbers
+    const returnedItems = new Set();
+    approvedReturns.forEach(returnLog => {
+      returnLog.items.forEach((item: any) => {
+        if (item.serialNumber) {
+          returnedItems.add(`${item.itemId}-${item.serialNumber}`);
+        } else {
+          returnedItems.add(item.itemId);
+        }
+      });
+    });
+
+    // Filter out items that have been returned
+    const availableItems = ownedItems.filter(item => {
+      const itemKey = item.serialNumber ? `${item._id}-${item.serialNumber}` : item._id.toString();
+      return !returnedItems.has(itemKey);
+    });
     
     // Get configurations for display
     const config = await InventoryConfig.findOne({});
@@ -36,7 +61,7 @@ export async function GET(request: NextRequest) {
     const categoryConfigs = config?.categoryConfigs || [];
     
     // ประกอบข้อมูลด้วยฟิลด์จาก InventoryItem โดยตรง + mapping จาก InventoryConfig
-    const populatedItems = ownedItems.map((item) => {
+    const populatedItems = availableItems.map((item) => {
       const statusConfig = statusConfigs.find(s => s.id === item.statusId);
       const conditionConfig = conditionConfigs.find(c => c.id === item.conditionId);
       const categoryConfig = categoryConfigs.find(c => c.id === (item as any).categoryId);
@@ -46,7 +71,7 @@ export async function GET(request: NextRequest) {
         itemMasterId: (item as any).itemMasterId,
         itemName: (item as any).itemName || 'ไม่ระบุ',
         categoryId: (item as any).categoryId || 'ไม่ระบุ',
-        categoryName: categoryConfig?.name || 'ไม่ระบุ',
+        category: categoryConfig?.name || 'ไม่ระบุ',
         serialNumber: item.serialNumber,
         numberPhone: item.numberPhone,
         statusId: item.statusId,

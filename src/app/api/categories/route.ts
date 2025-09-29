@@ -4,7 +4,6 @@ import { getAllCategoryConfigs } from '@/lib/category-helpers';
 // GET - Fetch all categories from configuration
 export async function GET(request: NextRequest) {
   try {
-    console.log('🔍 Fetching categories from configuration...');
     
     // Get all category configurations
     const categoryConfigs = await getAllCategoryConfigs();
@@ -21,7 +20,6 @@ export async function GET(request: NextRequest) {
     // Sort by order
     categories.sort((a, b) => a.order - b.order);
     
-    console.log(`📦 Found ${categories.length} categories:`, categories.map(cat => cat.name));
     
     return NextResponse.json({
       categories: categories,

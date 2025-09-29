@@ -163,11 +163,8 @@ export async function sendJobAcceptedNotification(issueData: any) {
   };
 
   try {
-    console.log('📧 Sending job accepted email to:', issueData.email);
-    console.log('📋 Email subject:', mailOptions.subject);
     
     const result = await transporter.sendMail(mailOptions);
-    console.log('✅ Job accepted email sent successfully:', result.messageId);
     
     return { success: true, messageId: result.messageId };
   } catch (error) {
@@ -232,11 +229,8 @@ export async function sendWorkCompletedNotification(issueData: any) {
   };
 
   try {
-    console.log('📧 Sending work completed email to:', issueData.email);
-    console.log('📋 Email subject:', mailOptions.subject);
     
     const result = await transporter.sendMail(mailOptions);
-    console.log('✅ Work completed email sent successfully:', result.messageId);
     
     return { success: true, messageId: result.messageId };
   } catch (error) {

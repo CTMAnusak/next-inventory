@@ -15,7 +15,6 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
     let decoded;
     try {
       decoded = jwt.verify(token, process.env.JWT_SECRET || 'fallback-secret') as any;
-      console.log('🔍 Decoded token:', {
         userId: decoded.userId,
         email: decoded.email,
         userRole: decoded.userRole,
@@ -37,7 +36,6 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
       return NextResponse.json({ error: 'Insufficient permissions' }, { status: 403 });
     }
 
-    console.log('✅ Permission check passed');
 
     const { userRole } = await request.json();
 
@@ -75,7 +73,6 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
         }
       }
       
-      console.log('🆔 Generated new user_id:', nextUserId);
       userId = nextUserId;
     }
 

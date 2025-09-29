@@ -6,10 +6,8 @@ import RequestLog from '../models/RequestLog';
 async function migrateSerialNumbers() {
   try {
     await dbConnect();
-    console.log('🔗 Connected to MongoDB');
 
     // Migrate Inventory items
-    console.log('📦 Starting Inventory migration...');
     const inventoryItems = await Inventory.find({});
     let inventoryUpdated = 0;
 
@@ -25,14 +23,11 @@ async function migrateSerialNumbers() {
           $unset: { serialNumber: 1 }
         });
         inventoryUpdated++;
-        console.log(`✅ Updated inventory item: ${item.itemName} with serial number: ${item.serialNumber}`);
       }
     }
 
-    console.log(`📦 Inventory migration completed: ${inventoryUpdated} items updated`);
 
     // Migrate RequestLog items
-    console.log('📋 Starting RequestLog migration...');
     const requestLogs = await RequestLog.find({});
     let requestLogsUpdated = 0;
 
@@ -51,13 +46,10 @@ async function migrateSerialNumbers() {
       if (logUpdated) {
         await RequestLog.findByIdAndUpdate(log._id, { items: log.items });
         requestLogsUpdated++;
-        console.log(`✅ Updated request log: ${log._id}`);
       }
     }
 
-    console.log(`📋 RequestLog migration completed: ${requestLogsUpdated} logs updated`);
 
-    console.log('🎉 Migration completed successfully!');
     process.exit(0);
   } catch (error) {
     console.error('❌ Migration failed:', error);

@@ -51,7 +51,6 @@ export async function createRotatingBackup(): Promise<void> {
     
     fs.writeFileSync(currentFile, JSON.stringify(backupData, null, 2));
     
-    console.log(`✅ Rotating backup created: ${backupData.categoryConfigs.length} categories, ${backupData.statuses.length} statuses`);
   } catch (error) {
     console.error('❌ Error creating rotating backup:', error);
     throw error;
@@ -82,8 +81,6 @@ export async function rollbackFromBackup(): Promise<void> {
     config.statuses = backupData.statuses;
     await config.save();
     
-    console.log(`✅ Rollback completed from backup: ${backupData.timestamp}`);
-    console.log(`📊 Restored: ${backupData.categoryConfigs.length} categories, ${backupData.statuses.length} statuses`);
   } catch (error) {
     console.error('❌ Error during rollback:', error);
     throw error;
@@ -136,5 +133,4 @@ export function clearAllBackups(): void {
     fs.unlinkSync(previousFile);
   }
   
-  console.log('🗑️  All backup files cleared');
 }

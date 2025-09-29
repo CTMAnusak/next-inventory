@@ -15,13 +15,11 @@ const CACHE_DURATIONS = {
 export function clearUserCache(userId: string) {
   const cacheKey = `holdings_${userId}`;
   globalCache.delete(cacheKey);
-  console.log(`🗑️ Cache Utils - Cache cleared for user: ${userId}`);
 }
 
 // Function to clear all caches
 export function clearAllCaches() {
   globalCache.clear();
-  console.log('🗑️ Cache Utils - All caches cleared');
 }
 
 // Function to get cached data with dynamic duration

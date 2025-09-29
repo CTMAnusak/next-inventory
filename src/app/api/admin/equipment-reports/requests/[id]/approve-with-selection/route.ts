@@ -8,8 +8,9 @@ import { verifyTokenFromRequest } from '@/lib/auth';
 import { transferInventoryItem } from '@/lib/inventory-helpers';
 
 interface ItemSelection {
+  masterId?: string;
   itemName: string;
-  category: string;
+  category: string; // categoryId preferred
   requestedQuantity: number;
   selectedItems: Array<{
     itemId: string;
@@ -38,8 +39,6 @@ export async function POST(
     const body = await request.json();
     const { selections }: { selections: ItemSelection[] } = body;
 
-    console.log(`🔄 Processing approval with selections for request ${id}`);
-    console.log('📋 Selections:', JSON.stringify(selections, null, 2));
 
     // Find the request
     const requestLog = await RequestLog.findById(id);
@@ -50,13 +49,7 @@ export async function POST(
       );
     }
 
-    // Check if already completed
-    if (requestLog.status === 'completed') {
-      return NextResponse.json(
-        { error: 'คำขอนี้ได้ดำเนินการเสร็จสิ้นแล้ว' },
-        { status: 400 }
-      );
-    }
+    // อนุญาตให้อนุมัติทีละรายการ แม้คำขอยังไม่ครบ (ห้ามอนุมัติซ้ำรายการเดิม)
 
     // Validate selections
     if (!selections || selections.length === 0) {
@@ -66,12 +59,14 @@ export async function POST(
       );
     }
 
-    // Validate that selections match request items
+    // Validate that selections match request items (prefer masterId)
     for (const selection of selections) {
-      const requestItem = requestLog.items.find(
-        item => item.itemName === selection.itemName && 
-               (item.category || 'ไม่ระบุ') === selection.category
-      );
+      const requestItem = requestLog.items.find((item: any) => {
+        if (selection.masterId && item.masterId) {
+          return item.masterId === selection.masterId;
+        }
+        return item.itemName === selection.itemName && ((item.categoryId || item.category || 'ไม่ระบุ') === selection.category);
+      });
       
       if (!requestItem) {
         return NextResponse.json(
@@ -105,9 +100,12 @@ export async function POST(
     try {
       // Process each selection
       for (const selection of selections) {
-        const requestItem = requestLog.items.find(
-          item => item.itemName === selection.itemName
-        );
+        const requestItem = requestLog.items.find((item: any) => {
+          if (selection.masterId && item.masterId) {
+            return item.masterId === selection.masterId;
+          }
+          return item.itemName === selection.itemName && ((item.categoryId || item.category || 'ไม่ระบุ') === selection.category);
+        });
 
         if (!requestItem) {
           throw new Error(`Request item not found: ${selection.itemName}`);
@@ -146,9 +144,7 @@ export async function POST(
           // Track assigned serial numbers
           if (inventoryItem.serialNumber) {
             assignedSerialNumbers.push(inventoryItem.serialNumber);
-            console.log(`✅ Assigned SN: ${inventoryItem.serialNumber} to user ${requestLog.userId}`);
           } else {
-            console.log(`✅ Assigned 1x ${inventoryItem.itemName} (no SN) to user ${requestLog.userId}`);
           }
 
           totalAssigned += 1;
@@ -159,15 +155,19 @@ export async function POST(
           itemName: selection.itemName,
           category: selection.category,
           assignedSerialNumbers: assignedSerialNumbers,
-          assignedQuantity: totalAssigned
+          assignedQuantity: totalAssigned,
+          masterId: selection.masterId
         });
       }
 
-      // Update RequestLog with assigned items
+      // Update RequestLog with assigned items and status/condition
       for (const assignedItem of assignedItems) {
-        const requestItemIndex = requestLog.items.findIndex(
-          item => item.itemName === assignedItem.itemName
-        );
+        const requestItemIndex = requestLog.items.findIndex((item: any) => {
+          if (assignedItem.masterId && item.masterId) {
+            return item.masterId === assignedItem.masterId;
+          }
+          return item.itemName === assignedItem.itemName && ((item.categoryId || item.category || 'ไม่ระบุ') === assignedItem.category);
+        });
 
         if (requestItemIndex !== -1) {
           if (!requestLog.items[requestItemIndex].assignedSerialNumbers) {
@@ -178,18 +178,30 @@ export async function POST(
           if (assignedItem.assignedSerialNumbers && assignedItem.assignedSerialNumbers.length > 0) {
             requestLog.items[requestItemIndex].assignedSerialNumbers!.push(...assignedItem.assignedSerialNumbers);
           }
+
+          // Set default status and condition IDs when approved
+          requestLog.items[requestItemIndex].statusOnRequest = 'status_available'; // มี
+          requestLog.items[requestItemIndex].conditionOnRequest = 'cond_working'; // ใช้งานได้
+          // ถ้าจำนวนที่ assign ครบตามที่ขอ ถือว่าอนุมัติรายการนี้แล้ว
+          if ((requestLog.items[requestItemIndex] as any).assignedQuantity == null) {
+            (requestLog.items[requestItemIndex] as any).assignedQuantity = 0;
+          }
+          (requestLog.items[requestItemIndex] as any).assignedQuantity += assignedItem.assignedQuantity;
         }
       }
 
-      // Mark request as completed
-      requestLog.status = 'completed';
+      // หากทุก item ในคำขอมี assignedQuantity >= quantity ให้ปิดงานทั้งคำขอ
+      const allDone = requestLog.items.every((it: any) => (it.assignedQuantity || 0) >= it.quantity);
+      if (allDone) {
+        requestLog.status = 'completed';
+      }
       await requestLog.save();
 
-      console.log(`✅ Request ${id} completed successfully with ${assignedItems.length} item types assigned`);
 
       return NextResponse.json({
         message: 'อนุมัติและมอบหมายอุปกรณ์เรียบร้อยแล้ว',
         requestId: id,
+        requestCompleted: requestLog.status === 'completed',
         transferredItems: transferResults.length,
         assignedItems: assignedItems.map(item => ({
           itemName: item.itemName,

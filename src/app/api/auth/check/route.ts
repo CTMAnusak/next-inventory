@@ -23,7 +23,6 @@ export async function GET(request: NextRequest) {
     await client.close();
     
     if (!user) {
-      console.log(`🚪 User ${payload.userId} not found in database - user may have been deleted`);
       return NextResponse.json({ authenticated: false }, { status: 401 });
     }
 
@@ -31,12 +30,10 @@ export async function GET(request: NextRequest) {
     if (user.jwtInvalidatedAt) {
       const tokenCreatedAt = new Date(payload.iat * 1000); // JWT iat (issued at) เป็น seconds
       if (tokenCreatedAt < user.jwtInvalidatedAt) {
-        console.log(`🚫 User ${payload.userId} JWT token invalidated, forcing logout`);
         return NextResponse.json({ authenticated: false }, { status: 401 });
       }
     }
     
-    console.log(`✅ User ${payload.userId} authenticated successfully`);
 
     return NextResponse.json({
       authenticated: true,

@@ -11,7 +11,6 @@ dotenv.config({ path: '.env.local' });
 
 const addSampleStatusConfig = async () => {
   try {
-    console.log('🎯 เริ่มเพิ่ม sample statusConfig...');
 
     // เชื่อมต่อ database
     if (!process.env.MONGODB_URI) {
@@ -19,11 +18,9 @@ const addSampleStatusConfig = async () => {
     }
 
     await mongoose.connect(process.env.MONGODB_URI);
-    console.log('✅ เชื่อมต่อ database สำเร็จ');
 
     // สร้าง sample statusConfig
     const sampleStatus = createStatusConfig("ใช้งานได้", 1);
-    console.log('📝 Sample statusConfig:', JSON.stringify(sampleStatus, null, 2));
 
     // เพิ่มเข้า database
     const result = await InventoryConfig.updateOne(
@@ -35,7 +32,6 @@ const addSampleStatusConfig = async () => {
       }
     );
 
-    console.log(`✅ เพิ่ม sample statusConfig สำเร็จ: ${result.modifiedCount} documents`);
 
     // ตรวจสอบผลลัพธ์
     const updatedDoc = await InventoryConfig.findOne();
@@ -45,7 +41,6 @@ const addSampleStatusConfig = async () => {
     console.error('❌ เกิดข้อผิดพลาด:', error);
   } finally {
     await mongoose.disconnect();
-    console.log('🔌 ปิดการเชื่อมต่อ database');
   }
 };
 

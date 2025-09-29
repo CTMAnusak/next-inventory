@@ -38,7 +38,6 @@ export async function addUserIdToExistingUsers(): Promise<MigrationResult> {
     });
     
     result.total = usersWithoutUserId.length;
-    console.log(`Found ${result.total} users without user_id`);
 
     for (const user of usersWithoutUserId) {
       try {
@@ -78,7 +77,6 @@ export async function addUserIdToExistingUsers(): Promise<MigrationResult> {
       }
     }
 
-    console.log('Migration completed!');
     console.log(`Total: ${result.total}, Updated: ${result.updated}, Skipped: ${result.skipped}, Errors: ${result.errors}`);
 
   } catch (error) {

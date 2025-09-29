@@ -23,7 +23,6 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    console.log('Starting UserOwnedItems migration...');
     const result = await migrateUserOwnedItems();
 
     return NextResponse.json({

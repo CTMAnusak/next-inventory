@@ -36,7 +36,6 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    console.log(`🗑️ Permanent delete requested by ${currentUser.firstName} ${currentUser.lastName} for item: ${recycleBinId}`);
 
     // Use direct MongoDB to permanently delete from RecycleBin
     const { MongoClient, ObjectId } = require('mongodb');
@@ -73,7 +72,6 @@ export async function POST(request: NextRequest) {
       });
       deletedCount = result.deletedCount;
       
-      console.log(`🗑️ Deleting entire category: ${itemToDelete.itemName} (${itemToDelete.category}) - ${deletedCount} items`);
     } else {
       // Delete single item
       result = await recycleBin.deleteOne({ 
@@ -81,7 +79,6 @@ export async function POST(request: NextRequest) {
       });
       deletedCount = result.deletedCount;
       
-      console.log(`🗑️ Deleting single item: ${itemToDelete.itemName} (SN: ${itemToDelete.serialNumber})`);
     }
 
     await client.close();
@@ -93,7 +90,6 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    console.log(`✅ Permanently deleted from recycle bin:`, {
       type: itemToDelete.deleteType,
       itemName: itemToDelete.itemName,
       category: itemToDelete.category,

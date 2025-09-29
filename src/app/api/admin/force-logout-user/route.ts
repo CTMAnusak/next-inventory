@@ -27,7 +27,6 @@ export async function POST(request: NextRequest) {
 
     // เพิ่ม userId เข้าไปใน force logout list
     forceLogoutUsers.add(userId);
-    console.log(`🚪 Added user ${userId} to force logout list`);
 
     // Set timeout to remove from list after 5 minutes (cleanup)
     setTimeout(() => {
@@ -62,7 +61,6 @@ export async function GET(request: NextRequest) {
     if (shouldLogout) {
       // Remove from list after checking
       forceLogoutUsers.delete(payload.userId);
-      console.log(`🚪 User ${payload.userId} checked force logout status: true`);
     }
 
     return NextResponse.json({ shouldLogout });

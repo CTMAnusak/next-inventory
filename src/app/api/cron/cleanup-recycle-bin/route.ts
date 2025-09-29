@@ -24,18 +24,13 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    console.log('🕒 Starting scheduled recycle bin cleanup...');
-    console.log(`📅 Cleanup time: ${new Date().toISOString()}`);
 
     const result = await permanentDeleteExpiredItems();
 
     if (result.deletedCount > 0) {
-      console.log(`✅ Cleanup completed: ${result.deletedCount} items permanently deleted`);
-      console.log('📋 Deleted items:', result.items.map(item => 
         `${item.itemName} (SN: ${item.serialNumber || 'No SN'}) - Deleted: ${item.deletedAt.toISOString()}`
       ));
     } else {
-      console.log('✅ Cleanup completed: No expired items found');
     }
 
     return NextResponse.json({

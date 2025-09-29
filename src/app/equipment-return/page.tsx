@@ -5,7 +5,7 @@ import { useAuth } from '@/contexts/AuthContext';
 import { useSearchParams } from 'next/navigation';
 import Layout from '@/components/Layout';
 import { toast } from 'react-hot-toast';
-import { Search, Upload, ChevronDown } from 'lucide-react';
+import { Search, Upload, ChevronDown, RefreshCw } from 'lucide-react';
 import RequesterInfoForm from '@/components/RequesterInfoForm';
 import DatePicker from '@/components/DatePicker';
 
@@ -27,6 +27,9 @@ interface ReturnItem {
     maxQuantity?: number; // เพิ่มข้อมูลจำนวนสูงสุดสำหรับอุปกรณ์ไม่มี SN
   }>;
   selectedOption?: string;
+  itemNotes?: string;
+  statusOnReturn?: string; // สถานะอุปกรณ์เมื่อคืน
+  conditionOnReturn?: string; // สภาพอุปกรณ์เมื่อคืน
 }
 
 interface OwnedEquipment {
@@ -45,6 +48,11 @@ interface OwnedEquipment {
   items?: any[];
   itemIdMap?: { [key: string]: string }; // Map serial number to actual itemId
   masterItemId?: string; // เพิ่ม masterItemId สำหรับอ้างอิง InventoryMaster
+  // เพิ่มข้อมูลสถานะและสภาพ
+  statusId?: string;
+  statusName?: string;
+  conditionId?: string;
+  conditionName?: string;
 }
 
 export default function EquipmentReturnPage() {
@@ -67,6 +75,7 @@ export default function EquipmentReturnPage() {
   });
 
   const [returnItems, setReturnItems] = useState<ReturnItem[]>([]);
+  const [editingIndex, setEditingIndex] = useState<number | null>(null);
   const [returnItem, setReturnItem] = useState<ReturnItem>({
     itemId: '', 
     itemName: '', 
@@ -77,7 +86,10 @@ export default function EquipmentReturnPage() {
     category: '',
     inventorySerialNumber: '',
     availableOptions: undefined,
-    selectedOption: ''
+    selectedOption: '',
+    itemNotes: '',
+    statusOnReturn: 'status_available',
+    conditionOnReturn: 'cond_working'
   });
 
   const [showEquipmentDropdown, setShowEquipmentDropdown] = useState<boolean>(false);
@@ -86,9 +98,14 @@ export default function EquipmentReturnPage() {
   const [hasShownNotification, setHasShownNotification] = useState(false);
   const [maxQuantity, setMaxQuantity] = useState<number>(0); // จำนวนสูงสุดที่คืนได้
   const [remainingQuantity, setRemainingQuantity] = useState<number>(0); // จำนวนที่เหลือ
+  
+  // Config data for status and condition
+  const [statusConfigs, setStatusConfigs] = useState<any[]>([]);
+  const [conditionConfigs, setConditionConfigs] = useState<any[]>([]);
 
   useEffect(() => {
     fetchUserItems();
+    fetchConfigs();
   }, []);
 
   // Simplified useEffect to handle URL parameters for pre-filling data
@@ -96,22 +113,28 @@ export default function EquipmentReturnPage() {
     const category = searchParams.get('category');
     const itemName = searchParams.get('itemName');
     const itemId = searchParams.get('itemId');
+    const id = searchParams.get('id'); // support linking with ?id=
 
-    if (category && itemName && ownedEquipment.length > 0) {
-      console.log('🔗 Equipment Return - Pre-filling from URL:', { 
-        category, itemName, itemId
-      });
+    if ((category || itemName || itemId || id) && ownedEquipment.length > 0) {
+      
       
       // Find the equipment item by itemId or itemName
-      let foundItem = null;
-      if (itemId) {
-        foundItem = ownedEquipment.find(equip => String(equip.itemId) === itemId);
-        console.log('🔍 Found item by itemId:', foundItem);
+      let foundItem: OwnedEquipment | null = null;
+      // Prefer id param when provided
+      if (id && !foundItem) {
+        // match by _id, itemId, or nested actualItemId
+        foundItem = ownedEquipment.find(equip =>
+          String(equip._id) === id ||
+          String(equip.itemId) === id ||
+          (Array.isArray(equip.items) && equip.items.some((it: any) => String(it.actualItemId) === id))
+        ) || null;
+      }
+      if (itemId && !foundItem) {
+        foundItem = ownedEquipment.find(equip => String(equip.itemId) === itemId) || null;
       }
       
-      if (!foundItem) {
-        foundItem = ownedEquipment.find(equip => equip.itemName === itemName);
-        console.log('🔍 Found item by itemName:', foundItem);
+      if (!foundItem && itemName) {
+        foundItem = ownedEquipment.find(equip => equip.itemName === itemName) || null;
       }
 
       if (foundItem) {
@@ -154,12 +177,50 @@ export default function EquipmentReturnPage() {
     }
   }, [formData.firstName, formData.lastName, user?.userType]);
 
+  // Update filtered equipment when returnItems change
+  useEffect(() => {
+    if (ownedEquipment.length > 0) {
+      const availableEquipment = ownedEquipment.filter(equip => {
+        const isAlreadyAdded = returnItems.some(returnItem => 
+          returnItem.itemId === equip._id || 
+          (returnItem.serialNumber && returnItem.serialNumber === equip.serialNumber)
+        );
+        return !isAlreadyAdded;
+      });
+      
+      // Apply search filter if there's a search term
+      if (searchTerm.trim() === '') {
+        setFilteredEquipment(availableEquipment);
+      } else {
+        const filtered = availableEquipment.filter(equip => 
+          equip.searchText.includes(searchTerm.toLowerCase())
+        );
+        setFilteredEquipment(filtered);
+      }
+    }
+  }, [returnItems, ownedEquipment, searchTerm]);
+
+  const fetchConfigs = async () => {
+    try {
+      const response = await fetch('/api/inventory-config');
+      if (response.ok) {
+        const data = await response.json();
+        setStatusConfigs(data.statusConfigs || []);
+        setConditionConfigs(data.conditionConfigs || []);
+      }
+    } catch (error) {
+      console.error('Error fetching configs:', error);
+    }
+  };
+
   const fetchUserItems = async () => {
     try {
       // Use appropriate data based on user type
       const firstName = user?.userType === 'individual' ? user.firstName : formData.firstName;
       const lastName = user?.userType === 'individual' ? user.lastName : formData.lastName;
       const office = user?.office || '';
+      
+      console.log('🔍 Fetching user items with params:', { firstName, lastName, office, userId: user?.id });
       
       const params = new URLSearchParams({
         firstName: firstName || '',
@@ -174,10 +235,55 @@ export default function EquipmentReturnPage() {
       const res = await fetch(`/api/user/owned-equipment?${params.toString()}`);
       if (res.ok) {
         const data = await res.json();
-        const equipment: OwnedEquipment[] = data.items || [];
-        setOwnedEquipment(equipment);
-        setFilteredEquipment(equipment);
-        console.log('📦 Fetched owned equipment:', equipment);
+        console.log('🔍 API Response:', data);
+        
+        // ประมวลผลข้อมูลให้เป็นรูปแบบที่ UI ต้องการ
+        const processedEquipment: OwnedEquipment[] = (data.items || []).map((item: any) => {
+          const displayName = item.itemName || 'ไม่ระบุชื่อ';
+          const displayCategory = item.category || 'ไม่ระบุหมวดหมู่';
+          const searchText = `${displayName} ${displayCategory} ${item.serialNumber || ''}`.toLowerCase();
+          
+          return {
+            _id: item._id,
+            itemId: item._id, // ใช้ _id เป็น itemId
+            itemName: displayName,
+            category: displayCategory,
+            quantity: 1, // แต่ละรายการมี 1 ชิ้น
+            serialNumber: item.serialNumber,
+            inventorySerialNumber: item.serialNumber,
+            displayName: displayName,
+            displayCategory: displayCategory,
+            searchText: searchText,
+            totalQuantity: 1,
+            serialNumbers: item.serialNumber ? [item.serialNumber] : [],
+            items: [{
+              actualItemId: item._id,
+              serialNumber: item.serialNumber
+            }],
+            itemIdMap: item.serialNumber ? { [item.serialNumber]: item._id } : {},
+            masterItemId: item.itemMasterId,
+            // เพิ่มข้อมูลสถานะและสภาพ
+            statusId: item.statusId,
+            statusName: item.statusName,
+            conditionId: item.conditionId,
+            conditionName: item.conditionName
+          };
+        });
+        
+        console.log('🔍 Processed equipment:', processedEquipment);
+        setOwnedEquipment(processedEquipment);
+        
+        // Filter out equipment that's already in the return list
+        const availableEquipment = processedEquipment.filter(equip => {
+          const isAlreadyAdded = returnItems.some(returnItem => 
+            returnItem.itemId === equip._id || 
+            (returnItem.serialNumber && returnItem.serialNumber === equip.serialNumber)
+          );
+          return !isAlreadyAdded;
+        });
+        setFilteredEquipment(availableEquipment);
+      } else {
+        console.error('❌ API Error:', res.status, res.statusText);
       }
     } catch (e) {
       console.error('Error fetching owned equipment:', e);
@@ -209,7 +315,6 @@ export default function EquipmentReturnPage() {
   };
 
   const handleItemChange = (field: keyof ReturnItem, value: any) => {
-    console.log('🔄 handleItemChange:', { field, value });
     setReturnItem(prev => {
       const newItem = { ...prev, [field]: value };
       
@@ -219,17 +324,26 @@ export default function EquipmentReturnPage() {
         setRemainingQuantity(Math.max(0, maxQuantity - newQuantity));
       }
       
-      console.log('🔄 Updated returnItem:', newItem);
       return newItem;
     });
   };
 
   const handleEquipmentSearch = (term: string) => {
     setSearchTerm(term);
+    
+    // Filter out equipment that's already in the return list
+    const availableEquipment = ownedEquipment.filter(equip => {
+      const isAlreadyAdded = returnItems.some(returnItem => 
+        returnItem.itemId === equip._id || 
+        (returnItem.serialNumber && returnItem.serialNumber === equip.serialNumber)
+      );
+      return !isAlreadyAdded;
+    });
+    
     if (term.trim() === '') {
-      setFilteredEquipment(ownedEquipment);
+      setFilteredEquipment(availableEquipment);
     } else {
-      const filtered = ownedEquipment.filter(equip => 
+      const filtered = availableEquipment.filter(equip => 
         equip.searchText.includes(term.toLowerCase())
       );
       setFilteredEquipment(filtered);
@@ -249,14 +363,6 @@ export default function EquipmentReturnPage() {
     const hasSerialNumbers = serialNumbers.length > 0;
     const needsDropdown = hasMultipleItems || hasSerialNumbers;
     
-    console.log('🔍 selectEquipment debug:', {
-      itemName: equipment.itemName,
-      totalQuantity,
-      serialNumbers,
-      hasMultipleItems,
-      hasSerialNumbers,
-      needsDropdown
-    });
     
     if (needsDropdown) {
       // สร้าง availableOptions จากข้อมูลที่ได้
@@ -293,22 +399,41 @@ export default function EquipmentReturnPage() {
       }
       
       // ตั้งค่าให้แสดง dropdown เลือกรายการ
-      console.log('🔧 Setting up multiple item selection:', {
-        availableOptions,
-        totalOptions: availableOptions.length,
-        equipmentItemId: equipment.itemId,
-        itemIdMap: equipment.itemIdMap
-      });
-      
-      // ไม่ตั้งค่า default itemId - บังคับให้ user เลือก
-      handleItemChange('itemId', ''); // ว่างเปล่า - บังคับให้เลือก
-      handleItemChange('itemName', equipment.itemName);
-      handleItemChange('quantity', 1);
-      handleItemChange('category', equipment.category);
-      handleItemChange('availableOptions', availableOptions);
-      handleItemChange('selectedOption', '');
-      handleItemChange('serialNumber', '');
-      handleItemChange('inventorySerialNumber', '');
+      // ถ้ามีตัวเลือกเดียว ให้เลือกให้อัตโนมัติ
+      if (availableOptions.length === 1) {
+        const only = availableOptions[0];
+        handleItemChange('itemId', only.itemId);
+        handleItemChange('itemName', equipment.itemName);
+        handleItemChange('quantity', 1);
+        handleItemChange('category', equipment.category);
+        handleItemChange('availableOptions', availableOptions);
+        handleItemChange('selectedOption', only.value);
+        handleItemChange('serialNumber', only.serialNumber || '');
+        handleItemChange('inventorySerialNumber', only.serialNumber || '');
+        // ดึงค่าสถานะและสภาพจากอุปกรณ์
+        handleItemChange('statusOnReturn', (equipment as any).statusId || 'status_available');
+        handleItemChange('conditionOnReturn', (equipment as any).conditionId || 'cond_working');
+        if (only.value === 'no_sn_bulk' && only.maxQuantity) {
+          setMaxQuantity(only.maxQuantity);
+          setRemainingQuantity(Math.max(0, only.maxQuantity - 1));
+        } else {
+          setMaxQuantity(0);
+          setRemainingQuantity(0);
+        }
+      } else {
+        // ไม่ตั้งค่า default itemId - บังคับให้ user เลือก
+        handleItemChange('itemId', '');
+        handleItemChange('itemName', equipment.itemName);
+        handleItemChange('quantity', 1);
+        handleItemChange('category', equipment.category);
+        handleItemChange('availableOptions', availableOptions);
+        handleItemChange('selectedOption', '');
+        handleItemChange('serialNumber', '');
+        handleItemChange('inventorySerialNumber', '');
+        // ดึงค่าสถานะและสภาพจากอุปกรณ์
+        handleItemChange('statusOnReturn', (equipment as any).statusId || 'status_available');
+        handleItemChange('conditionOnReturn', (equipment as any).conditionId || 'cond_working');
+      }
       
       // รีเซ็ตจำนวนสูงสุดและจำนวนที่เหลือ
       setMaxQuantity(0);
@@ -328,18 +453,92 @@ export default function EquipmentReturnPage() {
       handleItemChange('inventorySerialNumber', equipment.serialNumber || '');
       handleItemChange('availableOptions', undefined);
       handleItemChange('selectedOption', '');
+      // ดึงค่าสถานะและสภาพจากอุปกรณ์
+      handleItemChange('statusOnReturn', (equipment as any).statusId || 'status_available');
+      handleItemChange('conditionOnReturn', (equipment as any).conditionId || 'cond_working');
       
-      console.log('🔧 Set up single item:', {
-        itemId: actualItemId,
-        itemName: equipment.itemName,
-        serialNumber: equipment.serialNumber || '',
-        originalEquipmentId: equipment.itemId
-      });
+      
     }
     
     setShowEquipmentDropdown(false);
     setSearchTerm('');
     setFilteredEquipment(ownedEquipment);
+  };
+
+  // Add selected return item to list with duplicate prevention (by itemId or selected option)
+  const addReturnItem = () => {
+    console.log('🔍 addReturnItem validation:', {
+      itemId: returnItem.itemId,
+      itemName: returnItem.itemName,
+      selectedOption: returnItem.selectedOption,
+      availableOptions: returnItem.availableOptions?.length || 0
+    });
+    
+    if (!returnItem.itemId || !returnItem.itemName) {
+      console.log('❌ Validation failed:', { itemId: returnItem.itemId, itemName: returnItem.itemName });
+      toast.error('กรุณาเลือกอุปกรณ์');
+      return;
+    }
+    // use itemId + serial to prevent duplicates
+    const key = `${returnItem.itemId}-${returnItem.serialNumber || ''}-${returnItem.selectedOption || ''}`;
+    const exists = returnItems.some(it => `${it.itemId}-${it.serialNumber || ''}-${it.selectedOption || ''}` === key);
+    if (exists) {
+      toast.error('เลือกรายการซ้ำไม่ได้');
+      return;
+    }
+    setReturnItems(prev => [...prev, { ...returnItem }]);
+    
+    // รีเซ็ทฟอร์มหลังจากเพิ่มรายการสำเร็จ
+    setReturnItem({
+      itemId: '', 
+      itemName: '', 
+      quantity: 1, 
+      serialNumber: '', 
+      assetNumber: '', 
+      image: null,
+      category: '',
+      inventorySerialNumber: '',
+      availableOptions: undefined,
+      selectedOption: '',
+      itemNotes: '',
+      statusOnReturn: 'status_available',
+      conditionOnReturn: 'cond_working'
+    });
+    setEditingIndex(null);
+    setMaxQuantity(0);
+    setRemainingQuantity(0);
+    
+    toast.success('เพิ่มรายการเรียบร้อยแล้ว');
+  };
+
+  const removeReturnItem = (idx: number) => {
+    setReturnItems(prev => prev.filter((_, i) => i !== idx));
+  };
+
+  const editReturnItem = (idx: number) => {
+    const toEdit = returnItems[idx];
+    if (!toEdit) return;
+
+    // If editing another item and it's not already in list, push it back
+    if (
+      editingIndex !== null &&
+      editingIndex !== idx
+    ) {
+      const key = `${returnItem.itemId}-${returnItem.serialNumber || ''}-${returnItem.selectedOption || ''}`;
+      const exists = returnItems.some((it, i) => i !== idx && `${it.itemId}-${it.serialNumber || ''}-${it.selectedOption || ''}` === key);
+      if (returnItem.itemId && !exists) {
+        setReturnItems(prev => {
+          const copy = [...prev];
+          // put back the current editing item at its previous position if possible
+          copy.splice(editingIndex, 0, { ...returnItem });
+          return copy.filter((_, i) => i !== (idx + 1));
+        });
+      }
+    }
+
+    setReturnItem({ ...toEdit });
+    setReturnItems(prev => prev.filter((_, i) => i !== idx));
+    setEditingIndex(idx);
   };
 
   const handleFileChange = (file: File | null) => {
@@ -362,6 +561,30 @@ export default function EquipmentReturnPage() {
 
     const data = await response.json();
     return data.filename;
+  };
+
+  // ฟังก์ชันรีเซทเฉพาะข้อมูลอุปกรณ์ที่กำลังเพิ่ม
+  const resetItemForm = () => {
+    setReturnItem({
+      itemId: '', 
+      itemName: '', 
+      quantity: 1, 
+      serialNumber: '', 
+      assetNumber: '', 
+      image: null,
+      category: '',
+      inventorySerialNumber: '',
+      availableOptions: undefined,
+      selectedOption: '',
+      itemNotes: '',
+      statusOnReturn: 'status_available',
+      conditionOnReturn: 'cond_working'
+    });
+    setEditingIndex(null);
+    setSearchTerm('');
+    setMaxQuantity(0);
+    setRemainingQuantity(0);
+    toast.success('รีเซทรายการอุปกรณ์เรียบร้อยแล้ว');
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -393,18 +616,12 @@ export default function EquipmentReturnPage() {
         return;
       }
 
-      // Validate item
-      console.log('🔍 Validating item:', { 
-        itemName: returnItem.itemName, 
-        itemId: returnItem.itemId, 
-        quantity: returnItem.quantity,
-        availableOptions: returnItem.availableOptions?.length,
-        selectedOption: returnItem.selectedOption
-      });
+      // Validate items - ต้องมีอย่างน้อยหนึ่งรายการ (ในรายการหรือฟอร์มปัจจุบัน)
+      const hasCurrentItem = returnItem.itemName && returnItem.itemId && returnItem.itemId !== 'undefined' && returnItem.quantity > 0;
+      const hasItemsInList = returnItems.length > 0;
       
-      // ตรวจสอบว่ามีข้อมูลพื้นฐาน
-      if (!returnItem.itemName || !returnItem.itemId || returnItem.itemId === 'undefined' || returnItem.quantity <= 0) {
-        console.log('❌ Item failed basic validation');
+      if (!hasCurrentItem && !hasItemsInList) {
+        console.log('❌ No items to return');
         toast.error('กรุณาเลือกอุปกรณ์และรายการที่ต้องการคืนให้ครบถ้วน');
         setIsLoading(false);
         return;
@@ -418,8 +635,8 @@ export default function EquipmentReturnPage() {
         return;
       }
       
-      // ถ้ามี availableOptions ต้องเลือก selectedOption ด้วย
-      if (returnItem.availableOptions && returnItem.availableOptions.length > 0) {
+      // ถ้ามีรายการปัจจุบันและมี availableOptions ต้องเลือก selectedOption ด้วย
+      if (hasCurrentItem && returnItem.availableOptions && returnItem.availableOptions.length > 0) {
         if (!returnItem.selectedOption || returnItem.selectedOption.length === 0) {
           console.log('❌ Item failed selectedOption validation');
           toast.error('กรุณาเลือกรายการอุปกรณ์ที่ต้องการคืน');
@@ -428,7 +645,6 @@ export default function EquipmentReturnPage() {
         }
       }
       
-      console.log('✅ Item passed validation');
 
       // Upload image and prepare return data
       let imagePath = '';
@@ -450,19 +666,11 @@ export default function EquipmentReturnPage() {
         const selectedOption = returnItem.availableOptions.find(opt => opt.value === returnItem.selectedOption);
         finalSerialNumber = selectedOption?.serialNumber || '';
         finalItemId = selectedOption?.itemId || returnItem.itemId; // Use actual itemId from option
-        console.log('🔍 Using data from selected option:', {
-          selectedOption: returnItem.selectedOption,
-          serialNumber: finalSerialNumber,
-          itemId: finalItemId,
-          availableOptions: returnItem.availableOptions
-        });
+          
       } else {
         // ใช้ Serial Number ที่มีอยู่แล้ว (กรณีมีชิ้นเดียว)
         finalSerialNumber = returnItem.serialNumber || '';
-        console.log('🔍 Using existing data:', { 
-          serialNumber: finalSerialNumber, 
-          itemId: finalItemId 
-        });
+          
       }
 
       const returnItemData = {
@@ -474,8 +682,38 @@ export default function EquipmentReturnPage() {
         image: imagePath || undefined,
       };
 
-      console.log('🔄 Final return item data:', returnItemData);
 
+
+      // Build items array - รวมทั้งรายการในลิสต์และรายการปัจจุบัน (ถ้ามี)
+      let itemsArrayInput = [...returnItems]; // เริ่มจากรายการที่เพิ่มแล้ว
+      
+      // เพิ่มรายการปัจจุบัน (ถ้ามีและไม่ซ้ำ)
+      if (hasCurrentItem) {
+        const currentKey = `${returnItem.itemId}-${returnItem.serialNumber || ''}-${returnItem.selectedOption || ''}`;
+        const isDuplicate = returnItems.some(it => `${it.itemId}-${it.serialNumber || ''}-${it.selectedOption || ''}` === currentKey);
+        
+        if (!isDuplicate) {
+          itemsArrayInput.push(returnItem);
+        }
+      }
+
+      const itemsArray = itemsArrayInput.map((ri) => {
+        // For options-based selection, prefer option-derived ids
+        const selectedOption = ri.availableOptions?.find(opt => opt.value === ri.selectedOption);
+        const finalId = selectedOption?.itemId || ri.itemId;
+        const finalSN = selectedOption?.serialNumber || ri.serialNumber || '';
+        return {
+          itemId: finalId,
+          quantity: ri.quantity,
+          serialNumber: finalSN || '',
+          assetNumber: ri.assetNumber || '',
+          image: ri.image || undefined,
+          masterItemId: (ri as any).masterItemId,
+          itemNotes: ri.itemNotes || '',
+          statusOnReturn: ri.statusOnReturn || 'status_available',
+          conditionOnReturn: ri.conditionOnReturn || 'cond_working'
+        };
+      });
 
       const returnData = {
         // Use user profile data for individual users, form data for branch users
@@ -486,14 +724,7 @@ export default function EquipmentReturnPage() {
         office: user?.office || '',
         phone: user?.userType === 'individual' ? (user.phone || '') : formData.phone,
         returnDate: formData.returnDate,
-        items: [{
-          itemId: returnItemData.itemId, // Use itemId as primary reference
-          quantity: returnItemData.quantity,
-          serialNumber: returnItemData.serialNumber || '',
-          assetNumber: returnItemData.assetNumber || '',
-          image: returnItemData.image || undefined,
-          masterItemId: returnItem.masterItemId // เพิ่ม masterItemId
-        }]
+        items: itemsArray
       };
 
       // Add timeout and retry logic
@@ -532,12 +763,10 @@ export default function EquipmentReturnPage() {
         }
       }
 
-      console.log('📊 Response status:', response.status, response.statusText);
 
       let data;
       try {
         data = await response.json();
-        console.log('📝 Response data:', data);
       } catch (jsonError) {
         console.error('❌ Failed to parse JSON response:', jsonError);
         const textResponse = await response.text();
@@ -570,8 +799,13 @@ export default function EquipmentReturnPage() {
           category: '',
           inventorySerialNumber: '',
           availableOptions: undefined,
-          selectedOption: ''
+          selectedOption: '',
+          itemNotes: '',
+          statusOnReturn: 'status_available',
+          conditionOnReturn: 'cond_working'
         });
+        setReturnItems([]); // รีเซ็ตรายการที่จะคืน
+        setEditingIndex(null);
         setMaxQuantity(0);
         setRemainingQuantity(0);
       } else {
@@ -645,6 +879,7 @@ export default function EquipmentReturnPage() {
               />
             </div>
 
+
             {/* Return Items */}
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-4">
@@ -714,14 +949,7 @@ export default function EquipmentReturnPage() {
                   </div>
 
                   {/* Item Selection Dropdown - แสดงเมื่อมีหลายตัวเลือก */}
-                  {(() => {
-                    console.log('🔍 Checking dropdown display:', {
-                      itemName: returnItem.itemName,
-                      availableOptions: returnItem.availableOptions,
-                      shouldShow: returnItem.availableOptions && returnItem.availableOptions.length > 0
-                    });
-                    return returnItem.availableOptions && returnItem.availableOptions.length > 0;
-                  })() && (
+                  {returnItem.availableOptions && returnItem.availableOptions.length > 0 && (
                     <div className="mb-4">
                       <label className="block text-sm font-medium text-gray-700 mb-1">
                         เลือกรายการที่ต้องการคืน *
@@ -730,15 +958,24 @@ export default function EquipmentReturnPage() {
                         <button
                           type="button"
                           onClick={() => setShowOptionDropdown(!showOptionDropdown)}
-                          className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 text-left flex items-center justify-between cursor-pointer"
+                          className={`w-full px-3 py-2 border rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 text-left flex items-center justify-between cursor-pointer ${
+                            !returnItem.selectedOption 
+                              ? 'border-red-300 bg-red-50 text-red-500' 
+                              : 'border-gray-300 text-gray-900'
+                          }`}
                         >
-                          <span className={returnItem.selectedOption ? 'text-gray-900' : 'text-gray-500'}>
+                          <span className={returnItem.selectedOption ? 'text-gray-900' : 'text-red-500'}>
                             {returnItem.selectedOption 
                               ? returnItem.availableOptions?.find(opt => opt.value === returnItem.selectedOption)?.displayName 
-                              : 'เลือกรายการที่ต้องการคืน'}
+                              : '⚠️ กรุณาเลือกรายการที่ต้องการคืน'}
                           </span>
                           <ChevronDown className="h-4 w-4 text-gray-400" />
                         </button>
+                        {!returnItem.selectedOption && (
+                          <p className="mt-1 text-sm text-red-600">
+                            ⚠️ กรุณาเลือกรายการอุปกรณ์ที่ต้องการคืนจากรายการด้านบน
+                          </p>
+                        )}
                         
                         {/* Option Selection Dropdown */}
                         {showOptionDropdown && (
@@ -753,6 +990,15 @@ export default function EquipmentReturnPage() {
                                     handleItemChange('inventorySerialNumber', option.serialNumber || '');
                                     handleItemChange('itemId', option.itemId);
                                     
+                                    // ดึงค่าสถานะและสภาพจากอุปกรณ์ที่เลือก
+                                    const selectedEquipment = ownedEquipment.find(equip => 
+                                      equip.itemId === option.itemId || equip._id === option.itemId
+                                    );
+                                    if (selectedEquipment) {
+                                      handleItemChange('statusOnReturn', (selectedEquipment as any).statusId || 'status_available');
+                                      handleItemChange('conditionOnReturn', (selectedEquipment as any).conditionId || 'cond_working');
+                                    }
+                                    
                                     // ตั้งค่าจำนวนสูงสุดและจำนวนที่เหลือสำหรับอุปกรณ์ไม่มี SN
                                     if (option.value === 'no_sn_bulk' && option.maxQuantity) {
                                       setMaxQuantity(option.maxQuantity);
@@ -762,12 +1008,6 @@ export default function EquipmentReturnPage() {
                                       setRemainingQuantity(0);
                                     }
                                     
-                                    console.log('🔄 Updated item after selection:', {
-                                      selectedOption: option.value,
-                                      itemId: option.itemId,
-                                      serialNumber: option.serialNumber,
-                                      maxQuantity: option.maxQuantity
-                                    });
                                     setShowOptionDropdown(false);
                                   }}
                                   className="px-3 py-2 hover:bg-blue-50 cursor-pointer border-b border-gray-100 last:border-b-0"
@@ -847,6 +1087,45 @@ export default function EquipmentReturnPage() {
                         </div>
                       </div>
 
+                      {/* Status and Condition */}
+                      <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
+                        <div>
+                          <label className="block text-sm font-medium text-gray-700 mb-1">
+                            สถานะอุปกรณ์ *
+                          </label>
+                          <select
+                            value={returnItem.statusOnReturn || 'status_available'}
+                            onChange={(e) => handleItemChange('statusOnReturn', e.target.value)}
+                            className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 text-gray-900"
+                            required
+                          >
+                            {statusConfigs.map((status) => (
+                              <option key={status.id} value={status.id}>
+                                {status.name}
+                              </option>
+                            ))}
+                          </select>
+                        </div>
+
+                        <div>
+                          <label className="block text-sm font-medium text-gray-700 mb-1">
+                            สภาพอุปกรณ์ *
+                          </label>
+                          <select
+                            value={returnItem.conditionOnReturn || 'cond_working'}
+                            onChange={(e) => handleItemChange('conditionOnReturn', e.target.value)}
+                            className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 text-gray-900"
+                            required
+                          >
+                            {conditionConfigs.map((condition) => (
+                              <option key={condition.id} value={condition.id}>
+                                {condition.name}
+                              </option>
+                            ))}
+                          </select>
+                        </div>
+                      </div>
+
                       {/* Image Upload */}
                       <div>
                         <label className="block text-sm font-medium text-gray-700 mb-1">
@@ -893,9 +1172,74 @@ export default function EquipmentReturnPage() {
                           </div>
                         </div>
                       </div>
+
+                      {/* Item-level reason (optional) */}
+                      <div className="mt-4">
+                        <label className="block text-sm font-medium text-gray-700 mb-1">
+                          เหตุผลของรายการนี้ (ไม่บังคับ)
+                        </label>
+                        <input
+                          type="text"
+                          value={returnItem.itemNotes || ''}
+                          onChange={(e) => handleItemChange('itemNotes', e.target.value)}
+                          className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 text-gray-900 placeholder-gray-500"
+                          placeholder="ระบุเหตุผลของรายการเฉพาะนี้ ถ้าต้องการ"
+                        />
+                      </div>
                     </>
                   )}
                 </div>
+                {/* Add to list and show selected list */}
+                <div className="flex items-center justify-between mt-2">
+                  <div className="flex gap-2">
+                    <button
+                      type="button"
+                      onClick={addReturnItem}
+                      className="px-3 py-2 bg-blue-100 text-blue-800 rounded-md hover:bg-blue-200 focus:outline-none"
+                    >
+                      เพิ่มเข้ารายการ
+                    </button>
+                    <button
+                      type="button"
+                      onClick={resetItemForm}
+                      className="px-3 py-2 bg-orange-100 text-orange-800 rounded-md hover:bg-orange-200 focus:outline-none flex items-center gap-1"
+                    >
+                      <RefreshCw className="w-4 h-4" />
+                      รีเซทรายการ
+                    </button>
+                  </div>
+                </div>
+
+                {returnItems.length > 0 && (
+                  <div className="mt-4 border border-gray-200 rounded-lg">
+                    <div className="p-3 font-medium text-gray-700">รายการที่จะคืน</div>
+                    <ul className="divide-y divide-gray-100">
+                      {returnItems.map((it, idx) => (
+                        <li key={`${it.itemId}-${it.serialNumber || idx}`} className="flex items-center justify-between p-3">
+                          <div className="text-gray-900">
+                            {it.itemName} {it.serialNumber ? `(SN: ${it.serialNumber})` : ''} × {it.quantity}
+                          </div>
+                          <div className="flex items-center gap-3">
+                            <button
+                              type="button"
+                              onClick={() => editReturnItem(idx)}
+                              className="text-blue-600 hover:text-blue-800 text-sm"
+                            >
+                              แก้ไข
+                            </button>
+                            <button
+                              type="button"
+                              onClick={() => removeReturnItem(idx)}
+                              className="text-red-600 hover:text-red-800 text-sm"
+                            >
+                              ลบ
+                            </button>
+                          </div>
+                        </li>
+                      ))}
+                    </ul>
+                  </div>
+                )}
             </div>
 
             {/* Submit Button */}

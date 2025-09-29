@@ -28,13 +28,11 @@ export interface IInventoryMaster extends Document {
   availableQuantity: number;    // จำนวนที่เหลือให้ยืม (admin_stock เท่านั้น)
   userOwnedQuantity: number;    // จำนวนที่ user ถือ (user_owned เท่านั้น)
   
-  // สถิติตามสถานะ
-  statusBreakdown: {
-    active: number;
-    maintenance: number;
-    damaged: number;
-    retired: number;
-  };
+  // 🆕 FIXED: สถิติตามสถานะ (รองรับ dynamic keys ตาม config)
+  statusBreakdown: Record<string, number>; // เช่น { status_available: 2, status_missing: 1 }
+  
+  // 🆕 NEW: สถิติตามสภาพอุปกรณ์ (รองรับ dynamic keys ตาม config)
+  conditionBreakdown: Record<string, number>; // เช่น { cond_working: 3, cond_damaged: 1 }
   
   // Stock Management - ใหม่
   stockManagement: {
@@ -143,28 +141,16 @@ const InventoryMasterSchema = new Schema<IInventoryMaster>({
     default: 0
   },
   
-  // สถิติตามสถานะ
+  // 🆕 FIXED: สถิติตามสถานะ (ใช้ dynamic object รองรับ config)
   statusBreakdown: {
-    active: {
-      type: Number,
-      min: 0,
-      default: 0
-    },
-    maintenance: {
-      type: Number,
-      min: 0,
-      default: 0
-    },
-    damaged: {
-      type: Number,
-      min: 0,
-      default: 0
-    },
-    retired: {
-      type: Number,
-      min: 0,
-      default: 0
-    }
+    type: Schema.Types.Mixed, // รองรับ dynamic keys เช่น { status_available: 2, status_missing: 1 }
+    default: {}
+  },
+  
+  // 🆕 NEW: สถิติตามสภาพอุปกรณ์ (ใช้ dynamic object รองรับ config)
+  conditionBreakdown: {
+    type: Schema.Types.Mixed, // รองรับ dynamic keys เช่น { cond_working: 3, cond_damaged: 1 }
+    default: {}
   },
   
   // Stock Management - ใหม่
@@ -280,8 +266,8 @@ InventoryMasterSchema.statics.updateSummary = async function(itemName: string, c
     {
       $match: { 
         itemName, 
-        category,
-        status: { $ne: 'deleted' } // ✅ Exclude soft-deleted items
+        categoryId: category, // 🆕 FIXED: Use categoryId field
+        deletedAt: { $exists: false } // 🆕 FIXED: Use proper soft delete check
       }
     },
     {
@@ -305,8 +291,11 @@ InventoryMasterSchema.statics.updateSummary = async function(itemName: string, c
           }
         },
         statusBreakdown: {
-          $push: '$status'
+          $push: '$statusId' // 🆕 FIXED: Use statusId instead of status
         },
+        conditionBreakdown: { // 🆕 NEW: Collect conditionId
+          $push: '$conditionId'
+        }
         // hasSerialNumber calculation removed - use itemDetails.withSerialNumber > 0 instead
       }
     }
@@ -314,37 +303,39 @@ InventoryMasterSchema.statics.updateSummary = async function(itemName: string, c
   
   if (stats.length === 0) {
     // ไม่มี item แล้ว ลบ master record
-    await this.deleteOne({ itemName, category });
+    await this.deleteOne({ itemName, categoryId: category });
     return null;
   }
   
   const stat = stats[0];
   
-  // คำนวณ status breakdown
-  const statusBreakdown = {
-    active: 0,
-    maintenance: 0,
-    damaged: 0,
-    retired: 0
-  };
+  // 🆕 FIXED: คำนวณ status breakdown แบบ dynamic
+  const statusBreakdown: Record<string, number> = {};
+  const conditionBreakdown: Record<string, number> = {};
   
   stat.statusBreakdown.forEach((status: string) => {
-    if (statusBreakdown.hasOwnProperty(status)) {
-      statusBreakdown[status as keyof typeof statusBreakdown]++;
-    }
+    statusBreakdown[status] = (statusBreakdown[status] || 0) + 1;
   });
+  
+  // เพิ่มการคำนวณ condition breakdown ถ้ามีข้อมูล
+  if (stat.conditionBreakdown) {
+    stat.conditionBreakdown.forEach((condition: string) => {
+      conditionBreakdown[condition] = (conditionBreakdown[condition] || 0) + 1;
+    });
+  }
   
   // อัปเดตหรือสร้าง master record
   return await this.findOneAndUpdate(
-    { itemName, category },
+    { itemName, categoryId: category },
     {
       itemName,
-      category,
+      categoryId: category,
       // hasSerialNumber removed - use itemDetails.withSerialNumber > 0 instead
       totalQuantity: stat.totalQuantity,
       availableQuantity: stat.availableQuantity,
       userOwnedQuantity: stat.userOwnedQuantity,
       statusBreakdown,
+      conditionBreakdown, // 🆕 NEW: Include condition breakdown
       lastUpdated: new Date()
     },
     { 

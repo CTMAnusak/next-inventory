@@ -18,31 +18,25 @@ export async function POST(request: NextRequest) {
 
     await dbConnect();
 
-    console.log('🔧 Starting ReturnLog ID mismatch fix...');
 
     // Find all pending return logs
     const returnLogs = await ReturnLog.find({ status: 'pending' });
     
-    console.log(`📋 Found ${returnLogs.length} pending return logs`);
 
     const fixResults = [];
 
     for (const returnLog of returnLogs) {
-      console.log(`\n🔍 Processing ReturnLog: ${returnLog._id}`);
-      console.log(`👤 User: ${returnLog.firstName} ${returnLog.lastName} (${returnLog.userId})`);
 
       let returnLogModified = false;
 
       for (let i = 0; i < returnLog.items.length; i++) {
         const item = returnLog.items[i];
-        console.log(`\n  📦 Item ${i}: ${item.itemId} (SN: ${item.serialNumber})`);
 
         // Check if itemId points to InventoryMaster instead of InventoryItem
         const inventoryMaster = await InventoryMaster.findById(item.itemId);
         const inventoryItem = await InventoryItem.findById(item.itemId);
 
         if (inventoryMaster && !inventoryItem) {
-          console.log(`  ⚠️  ID MISMATCH: Points to InventoryMaster, finding correct InventoryItem...`);
 
           // Find the actual InventoryItem that user owns
           const userInventoryItems = await InventoryItem.find({
@@ -54,7 +48,6 @@ export async function POST(request: NextRequest) {
 
           if (userInventoryItems.length > 0) {
             const correctItem = userInventoryItems[0];
-            console.log(`  ✅ Found correct InventoryItem: ${correctItem._id}`);
 
             // Update the itemId in ReturnLog
             returnLog.items[i].itemId = correctItem._id.toString();
@@ -72,7 +65,6 @@ export async function POST(request: NextRequest) {
               status: 'fixed'
             });
 
-            console.log(`  📝 Updated itemId: ${item.itemId} → ${correctItem._id}`);
           } else {
             console.log(`  ❌ No matching InventoryItem found for user`);
             
@@ -87,7 +79,6 @@ export async function POST(request: NextRequest) {
             });
           }
         } else if (inventoryItem) {
-          console.log(`  ✅ Already points to InventoryItem (correct)`);
           
           fixResults.push({
             returnLogId: returnLog._id,
@@ -116,7 +107,6 @@ export async function POST(request: NextRequest) {
       // Save the modified ReturnLog
       if (returnLogModified) {
         await returnLog.save();
-        console.log(`  💾 ReturnLog ${returnLog._id} updated successfully`);
       }
     }
 
@@ -129,7 +119,6 @@ export async function POST(request: NextRequest) {
       invalid: fixResults.filter(r => r.status === 'invalid').length
     };
 
-    console.log(`\n📊 Fix Summary:`, summary);
 
     return NextResponse.json({
       message: 'ReturnLog ID mismatch fix completed',

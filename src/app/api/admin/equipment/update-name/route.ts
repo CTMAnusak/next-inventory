@@ -36,7 +36,6 @@ export async function PUT(request: NextRequest) {
       );
     }
     
-    console.log('🔄 Admin updating equipment name:', { itemId, newItemName, adminId: payload.userId });
     
     // อัปเดตชื่อทั้ง group
     const result = await updateEquipmentGroupName(

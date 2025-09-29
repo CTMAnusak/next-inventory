@@ -16,6 +16,9 @@ export async function GET() {
   try {
     await dbConnect();
     
+    // Clear caches to ensure fresh data
+    clearAllCaches();
+    
     // Get all InventoryMaster items for summary view (only items with quantity > 0)
     const allItems = await InventoryMaster.find({
       $or: [
@@ -23,12 +26,10 @@ export async function GET() {
         { availableQuantity: { $gt: 0 } },
         { userOwnedQuantity: { $gt: 0 } }
       ]
-    });
+    }).lean(); // Use lean() for better performance
     
     // Debug: Log raw InventoryMaster data
-    console.log('🔍 Raw InventoryMaster data:');
     allItems.forEach(item => {
-      console.log(`📦 ${item.itemName}: Total=${item.totalQuantity}, Available=${item.availableQuantity}, UserOwned=${item.userOwnedQuantity}, HasSN=${item.itemDetails.withSerialNumber > 0}`);
     });
     
     // Convert InventoryMaster to expected format
@@ -49,9 +50,7 @@ export async function GET() {
     aggregatedItems.sort((a, b) => new Date(b.dateAdded).getTime() - new Date(a.dateAdded).getTime());
     
     // Debug: Log aggregation results
-    console.log('🔍 Admin Inventory Aggregation Results:');
     aggregatedItems.forEach(item => {
-      console.log(`📦 ${item.itemName}: Total=${item.totalQuantity}, Available=${item.quantity}, SerialNumbers=${JSON.stringify(item.serialNumbers)}`);
     });
     
     // Add cache-busting header
@@ -72,16 +71,11 @@ export async function GET() {
 
 // POST - Create new inventory item using new system
 export async function POST(request: NextRequest) {
-  console.log('🚀 POST API called');
   
   try {
-    console.log('🔧 Connecting to database...');
     await dbConnect();
-    console.log('✅ Database connected');
     
-    console.log('📝 Parsing request body...');
     const body = await request.json();
-    console.log('🔍 Admin Inventory API - Request body:', body);
     
     const { itemName, category, categoryId, quantity, totalQuantity, serialNumber, numberPhone, status, condition, statusId, conditionId } = body;
     
@@ -106,7 +100,6 @@ export async function POST(request: NextRequest) {
     
     // ใช้ categoryId เป็นหลัก แต่ถ้าไม่มีให้ใช้ category name
     const finalCategoryId = categoryId || category;
-    console.log('🔍 Admin Inventory API - Using categoryId:', finalCategoryId);
 
     // Check for duplicate serial number or phone number if provided
     // 🔧 CRITICAL FIX: Allow duplicate serial numbers across different categories
@@ -151,16 +144,6 @@ export async function POST(request: NextRequest) {
     // Create items using new inventory system
     const itemsToCreate = [];
     
-    console.log('🔍 Creating items with parameters:', {
-      itemName,
-      finalCategoryId,
-      status,
-      condition,
-      serialNumber,
-      numberPhone,
-      quantity
-    });
-    
     if (serialNumber || numberPhone) {
       // Create single item with serial number or phone number
       itemsToCreate.push({
@@ -190,7 +173,6 @@ export async function POST(request: NextRequest) {
       }
     }
     
-    console.log('🔍 Items to create:', itemsToCreate);
 
     // Create all items
     const createdItems = [];
@@ -199,9 +181,18 @@ export async function POST(request: NextRequest) {
       createdItems.push(newItem);
     }
     
+    // Force sync InventoryMaster to ensure data consistency
+    if (createdItems.length > 0) {
+      try {
+        const { updateInventoryMaster } = await import('@/lib/inventory-helpers');
+        await updateInventoryMaster(itemName, finalCategoryId);
+      } catch (syncError) {
+        console.error('❌ InventoryMaster force sync failed:', syncError);
+      }
+    }
+    
     // Clear all caches to ensure fresh data
     clearAllCaches();
-    console.log(`🗑️ Admin Inventory API - Cache cleared after creating ${createdItems.length} items`);
     
     return NextResponse.json({
       message: `เพิ่ม ${createdItems.length} รายการเรียบร้อยแล้ว`,
@@ -219,8 +210,20 @@ export async function POST(request: NextRequest) {
     console.error('❌ Error stack:', error instanceof Error ? error.stack : 'No stack trace');
     console.error('❌ Error details:', JSON.stringify(error, null, 2));
     
-    // Handle enhanced Serial Number and Phone Number validation errors
+    // Handle enhanced validation errors
     if (error instanceof Error) {
+      // Handle Item Name validation errors (recycle bin)
+      if (error.message.includes('เพิ่มรายการไม่ได้เพราะชื่อซ้ำกับในถังขยะ')) {
+        return NextResponse.json(
+          { 
+            error: error.message,
+            errorType: 'RECYCLE_BIN_ITEM_NAME_EXISTS',
+            showRecycleBinLink: true
+          },
+          { status: 400 }
+        );
+      }
+      
       if (error.message.startsWith('ACTIVE_SN_EXISTS:')) {
         const message = error.message.replace('ACTIVE_SN_EXISTS:', '');
         return NextResponse.json(
@@ -365,7 +368,6 @@ export async function DELETE(request: NextRequest) {
 
     // Move all items to recycle bin before deleting
     try {
-      console.log(`🗑️ Attempting to move ${itemsToDelete.length} items to recycle bin...`);
       
       // Create simple backup records in a separate collection for now
       const backupData = itemsToDelete.map(item => ({
@@ -381,7 +383,6 @@ export async function DELETE(request: NextRequest) {
       
       // Try to save to RecycleBin using direct MongoDB, but don't fail if it doesn't work
       try {
-        console.log(`🗑️ About to save ${backupData.length} items to RecycleBin using direct MongoDB...`);
         
         const { MongoClient } = require('mongodb');
         const uri = process.env.MONGODB_URI;
@@ -409,7 +410,6 @@ export async function DELETE(request: NextRequest) {
         const result = await recycleBin.insertMany(recycleBinItems);
         await client.close();
         
-        console.log(`✅ Successfully moved ${itemsToDelete.length} items to recycle bin. Inserted IDs:`, result.insertedIds);
       } catch (recycleBinSaveError) {
         console.error('❌ RecycleBin save failed, but continuing with deletion:', recycleBinSaveError);
         console.error('❌ RecycleBin error details:', {
@@ -421,7 +421,6 @@ export async function DELETE(request: NextRequest) {
       
     } catch (recycleBinError) {
       console.error('❌ Error with recycle bin process:', recycleBinError);
-      console.log('⚠️ Continuing with deletion despite recycle bin error');
     }
     
     // Now delete all related data
@@ -439,7 +438,6 @@ export async function DELETE(request: NextRequest) {
     
     // Clear all caches
     clearAllCaches();
-    console.log(`🗑️ Admin Inventory API - Deleted ${deletionSummary.totalItems} items for ${itemName} (${category})`);
     
     return NextResponse.json({
       message: `ลบรายการ "${itemName}" ทั้งหมดเรียบร้อยแล้ว`,

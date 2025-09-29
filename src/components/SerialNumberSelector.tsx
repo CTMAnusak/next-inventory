@@ -3,10 +3,15 @@
 import { useState, useEffect } from 'react';
 import { Package, Hash, Calendar, User, CheckCircle, AlertCircle } from 'lucide-react';
 
+// Force update timestamp: 2025-09-28 23:45:00
+
 interface AvailableItem {
   itemId: string;
   serialNumber?: string;
-  status: string;
+  numberPhone?: string;
+  status?: string;
+  statusId?: string;
+  conditionId?: string;
   dateAdded: string;
   addedBy: string;
   isVirtual?: boolean;
@@ -17,12 +22,30 @@ interface AvailableItemsResponse {
   itemName: string;
   category: string;
   totalAvailable: number;
+  configs: {
+    statusConfigs: ConfigItem[];
+    conditionConfigs: ConfigItem[];
+    categoryConfigs: ConfigItem[];
+  };
   withSerialNumber: AvailableItem[];
   withoutSerialNumber: {
     count: number;
     items: AvailableItem[];
     hasMore: boolean;
   };
+  withPhoneNumber?: AvailableItem[];
+}
+
+interface ConfigItem {
+  id: string;
+  name: string;
+  order: number;
+}
+
+interface InventoryConfigs {
+  statusConfigs: ConfigItem[];
+  conditionConfigs: ConfigItem[];
+  categoryConfigs: ConfigItem[];
 }
 
 interface SelectedItem {
@@ -200,6 +223,29 @@ export default function SerialNumberSelector({
   const canSelectMore = selectedItems.length < requestedQuantity;
   const isComplete = selectedItems.length === requestedQuantity;
 
+  // Helper functions to get config names from API response
+  const getStatusName = (statusId?: string) => {
+    if (!statusId || !availableItems?.configs) return '';
+    
+    // Use configs from API response
+    const status = availableItems.configs.statusConfigs.find(s => s.id === statusId);
+    if (status) return status.name;
+    
+    // Fallback to ID if not found
+    return statusId;
+  };
+
+  const getConditionName = (conditionId?: string) => {
+    if (!conditionId || !availableItems?.configs) return '';
+    
+    // Use configs from API response
+    const condition = availableItems.configs.conditionConfigs.find(c => c.id === conditionId);
+    if (condition) return condition.name;
+    
+    // Fallback to ID if not found
+    return conditionId;
+  };
+
   if (loading) {
     return (
       <div className="p-4 border rounded-lg">
@@ -262,51 +308,78 @@ export default function SerialNumberSelector({
   }
 
   return (
-    <div className="p-4 border rounded-lg">
-      {/* Header */}
-      <div className="flex items-center justify-between mb-3">
+    <div className="p-3 border rounded-lg">
+      {/* Header - Compact */}
+      <div className="flex items-center justify-between mb-2">
         <div className="flex items-center">
-          <Package className="w-4 h-4 mr-2 text-blue-600" />
           <span className="font-medium text-sm text-gray-900">{itemName}</span>
-          <span className="ml-2 px-2 py-1 text-xs bg-gray-100 text-gray-900 rounded font-medium">
-            เลือก {selectedItems.length}/{requestedQuantity}
+          <span className="ml-2 px-2 py-1 text-xs bg-gray-100 text-gray-900 rounded">
+            {selectedItems.length}/{requestedQuantity}
           </span>
         </div>
         
-        {isComplete && (
-          <div className="flex items-center text-green-600">
-            <CheckCircle className="w-4 h-4 mr-1" />
-            <span className="text-xs">เลือกครบแล้ว</span>
-          </div>
-        )}
-      </div>
-
-      {/* Quick Actions */}
-      <div className="mb-3">
         <button
           onClick={handleAutoSelect}
-          className="px-3 py-1 text-xs bg-blue-100 text-blue-800 rounded hover:bg-blue-200 font-medium"
+          className="px-2 py-1 text-xs bg-blue-100 text-blue-800 rounded hover:bg-blue-200"
         >
           เลือกอัตโนมัติ
         </button>
-        {selectedItems.length > 0 && (
-          <button
-            onClick={() => setSelectedItems([])}
-            className="ml-2 px-3 py-1 text-xs bg-gray-100 text-gray-700 rounded hover:bg-gray-200"
-          >
-            ล้างการเลือก
-          </button>
-        )}
       </div>
+
+      {/* Items without Serial Numbers */}
+      {availableItems.withoutSerialNumber.count > 0 && (
+        <div className="mb-3">
+          <div className="space-y-1">
+            {availableItems.withoutSerialNumber.items.map((item, index) => (
+              <div
+                key={item.itemId}
+                className={`p-2 border rounded cursor-pointer transition-colors ${
+                  isSelected(item.itemId)
+                    ? 'border-blue-500 bg-blue-50'
+                    : canSelectMore
+                    ? 'border-gray-200 hover:border-gray-300 hover:bg-gray-50'
+                    : 'border-gray-200 bg-gray-50 cursor-not-allowed opacity-50'
+                }`}
+                onClick={() => canSelectMore || isSelected(item.itemId) ? handleItemSelect(item) : null}
+              >
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center">
+                    <div className={`w-3 h-3 rounded border mr-2 ${
+                      isSelected(item.itemId)
+                        ? 'bg-blue-600 border-blue-600'
+                        : 'border-gray-300'
+                    }`}>
+                      {isSelected(item.itemId) && (
+                        <CheckCircle className="w-3 h-3 text-white" />
+                      )}
+                    </div>
+                    <span className="text-sm text-gray-600">
+                      ชิ้นที่ {item.displayIndex || index + 1}
+                    </span>
+                  </div>
+                  <div className="flex items-center space-x-2">
+                    {item.statusId && (
+                      <span className="px-2 py-1 bg-green-100 text-green-800 rounded text-xs">
+                        {getStatusName(item.statusId)}
+                      </span>
+                    )}
+                    {item.conditionId && (
+                      <span className="px-2 py-1 bg-blue-100 text-blue-800 rounded text-xs">
+                        {getConditionName(item.conditionId)}
+                      </span>
+                    )}
+                  </div>
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
 
       {/* Items with Serial Numbers */}
       {availableItems.withSerialNumber.length > 0 && (
-        <div className="mb-4">
-          <h4 className="text-sm font-medium text-gray-700 mb-2 flex items-center">
-            <Hash className="w-3 h-3 mr-1" />
-            อุปกรณ์ที่มี Serial Number ({availableItems.withSerialNumber.length} ชิ้น)
-          </h4>
-                        <div className="space-y-1 max-h-40 overflow-y-auto">
+        <div>
+          <div className="space-y-1">
             {availableItems.withSerialNumber.map((item) => (
               <div
                 key={`${item.itemId}-${item.serialNumber}`}
@@ -331,12 +404,20 @@ export default function SerialNumberSelector({
                       )}
                     </div>
                     <span className="text-sm font-mono text-blue-600">
-                      {item.serialNumber}
+                      {item.serialNumber || item.numberPhone}
                     </span>
                   </div>
-                  <div className="flex items-center text-xs text-gray-500">
-                    <User className="w-3 h-3 mr-1" />
-                    {item.addedBy === 'admin' ? 'Admin' : 'User'}
+                  <div className="flex items-center space-x-2">
+                    {item.statusId && (
+                      <span className="px-2 py-1 bg-green-100 text-green-800 rounded text-xs">
+                        {getStatusName(item.statusId)}
+                      </span>
+                    )}
+                    {item.conditionId && (
+                      <span className="px-2 py-1 bg-blue-100 text-blue-800 rounded text-xs">
+                        {getConditionName(item.conditionId)}
+                      </span>
+                    )}
                   </div>
                 </div>
               </div>
@@ -345,71 +426,13 @@ export default function SerialNumberSelector({
         </div>
       )}
 
-      {/* Items without Serial Numbers */}
-      {availableItems.withoutSerialNumber.count > 0 && (
-        <div>
-          <h4 className="text-sm font-medium text-gray-700 mb-2">
-            อุปกรณ์ที่ไม่มี Serial Number ({availableItems.withoutSerialNumber.count} ชิ้น)
-          </h4>
-          <div className="space-y-1">
-            {availableItems.withoutSerialNumber.items.map((item, index) => (
-              <div
-                key={item.itemId}
-                className={`p-2 border rounded cursor-pointer transition-colors ${
-                  isSelected(item.itemId)
-                    ? 'border-blue-500 bg-blue-50'
-                    : canSelectMore
-                    ? item.isVirtual 
-                      ? 'border-purple-200 hover:border-purple-300 hover:bg-purple-50'
-                      : 'border-gray-200 hover:border-gray-300 hover:bg-gray-50'
-                    : 'border-gray-200 bg-gray-50 cursor-not-allowed opacity-50'
-                }`}
-                onClick={() => canSelectMore || isSelected(item.itemId) ? handleItemSelect(item) : null}
-              >
-                <div className="flex items-center justify-between">
-                  <div className="flex items-center">
-                    <div className={`w-3 h-3 rounded border mr-2 ${
-                      isSelected(item.itemId)
-                        ? 'bg-blue-600 border-blue-600'
-                        : 'border-gray-300'
-                    }`}>
-                      {isSelected(item.itemId) && (
-                        <CheckCircle className="w-3 h-3 text-white" />
-                      )}
-                    </div>
-                    <span className={`text-sm ${item.isVirtual ? 'text-purple-600' : 'text-gray-600'}`}>
-                      ชิ้นที่ {item.displayIndex || index + 1} (ไม่มี SN) {item.isVirtual ? '[Virtual]' : ''}
-                    </span>
-                  </div>
-                  <div className="flex items-center text-xs text-gray-500">
-                    <Calendar className="w-3 h-3 mr-1" />
-                    {new Date(item.dateAdded).toLocaleDateString('th-TH')}
-                  </div>
-                </div>
-              </div>
-            ))}
-            {availableItems.withoutSerialNumber.hasMore && (
-              <div className="text-xs text-gray-500 text-center py-1">
-                และอีก {availableItems.withoutSerialNumber.count - availableItems.withoutSerialNumber.items.length} ชิ้น
-              </div>
-            )}
-          </div>
-        </div>
-      )}
-
-      {/* Selection Summary */}
+      {/* Selection Summary - Compact */}
       {selectedItems.length > 0 && (
-        <div className="mt-3 pt-3 border-t border-gray-200">
-          <div className="text-xs text-gray-600 mb-1">รายการที่เลือก:</div>
-          <div className="flex flex-wrap gap-1">
-            {selectedItems.map((item, index) => (
-              <span
-                key={item.itemId}
-                className="inline-flex items-center px-2 py-1 text-xs bg-blue-100 text-blue-800 rounded"
-              >
-                {item.serialNumber || `ชิ้นที่ ${index + 1}`}
-              </span>
-            ))}
+        <div className="mt-2 pt-2 border-t border-gray-200">
+          <div className="text-xs text-gray-600">
+            เลือกแล้ว: {selectedItems.map((item, index) => 
+              item.serialNumber || `ชิ้นที่ ${index + 1}`
+            ).join(', ')}
           </div>
         </div>
       )}

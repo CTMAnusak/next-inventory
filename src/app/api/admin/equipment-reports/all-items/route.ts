@@ -9,7 +9,6 @@ export const runtime = 'nodejs';
 // GET - ดึงรายการอุปกรณ์ทั้งหมดสำหรับการแก้ไข/ลบ (ทุกสถานะ ทุกสภาพ)
 export async function GET(request: NextRequest) {
   try {
-    console.log('🔍 All Items API called for editing');
     
     await dbConnect();
 
@@ -34,7 +33,6 @@ export async function GET(request: NextRequest) {
       );
     }
 
-    console.log(`🔍 Finding ALL items for editing: ${itemName} (${category})`);
 
     // ดึงรายการอุปกรณ์ทั้งหมดที่เป็น admin_stock (ทุกสถานะ ทุกสภาพ)
     const allItems = await InventoryItem.find({
@@ -47,7 +45,6 @@ export async function GET(request: NextRequest) {
       createdAt: 1      // แล้วเรียงตามวันที่สร้าง
     });
 
-    console.log(`📦 Found ${allItems.length} total admin_stock items for editing`);
 
     // แยกประเภทอุปกรณ์
     const itemsWithSN = allItems.filter(item => 
@@ -63,7 +60,6 @@ export async function GET(request: NextRequest) {
       (!item.numberPhone || item.numberPhone.trim() === '')
     );
 
-    console.log(`📊 Breakdown: WithSN=${itemsWithSN.length}, WithPhone=${itemsWithPhoneNumber.length}, WithoutSN=${itemsWithoutSN.length}`);
 
     const response = {
       itemName,

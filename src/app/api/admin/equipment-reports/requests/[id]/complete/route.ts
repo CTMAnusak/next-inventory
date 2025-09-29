@@ -64,17 +64,12 @@ export async function POST(
           inventoryItem.quantity -= item.quantity;
           await inventoryItem.save();
           
-          console.log(`✅ Reduced inventory ${item.itemId}: -${item.quantity} units`);
         } else {
-          console.log(`⚠️ Insufficient inventory for ${item.itemId}: requested ${item.quantity}, available ${inventoryItem.quantity}`);
         }
       } else {
-        console.log(`⚠️ Inventory item not found: ${item.itemId}`);
       }
     }
 
-    console.log(`✅ Request ${id} completed successfully`);
-    console.log(`📦 Created ${requestLog.items.length} inventory items for user ${requestLog.userId}`);
 
     return NextResponse.json({
       message: 'ดำเนินการเสร็จสิ้นแล้ว',

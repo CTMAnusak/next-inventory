@@ -70,7 +70,6 @@ export async function POST(request: NextRequest) {
           );
         }
         
-        console.log(`🎯 Cleaning up specific item: ${itemName} (${category})`);
         
         if (dryRun) {
           // Preview mode - just analyze
@@ -110,7 +109,6 @@ export async function POST(request: NextRequest) {
           );
         }
         
-        console.log(`📦 Batch cleanup for ${items.length} items`);
         
         for (const item of items) {
           if (!item.itemName || !item.category) {
@@ -150,7 +148,6 @@ export async function POST(request: NextRequest) {
         
       } else if (cleanupType === 'all') {
         // Clean up all soft-deleted items in the system
-        console.log('🌐 Cleaning up ALL soft-deleted items');
         
         if (dryRun) {
           const InventoryItem = (await import('@/models/InventoryItem')).default;
@@ -184,7 +181,6 @@ export async function POST(request: NextRequest) {
         
       } else if (cleanupType === 'sync-fix') {
         // Advanced: Fix sync issues comprehensively
-        console.log('🔧 Running comprehensive sync fix');
         
         // Import the comprehensive sync function from the script
         const { checkInventorySync, fixInventorySync } = require('../../../../fix-inventory-count-sync');
@@ -199,7 +195,6 @@ export async function POST(request: NextRequest) {
       if (!dryRun) {
         // Clear all caches after cleanup
         clearAllCaches();
-        console.log('🗑️ Cleared all caches after cleanup');
       }
 
       return NextResponse.json({
@@ -264,7 +259,6 @@ export async function GET(request: NextRequest) {
     const category = searchParams.get('category');
     const analysisType = searchParams.get('type') || 'full'; // 'full' | 'soft-deleted-only'
 
-    console.log(`🔍 Inventory sync analysis - Type: ${analysisType}, Item: ${itemName || 'all'}, Category: ${category || 'all'}`);
 
     // Import models
     const InventoryItem = (await import('@/models/InventoryItem')).default;
@@ -346,7 +340,6 @@ export async function GET(request: NextRequest) {
       }
     }
 
-    console.log(`📊 Found ${Object.keys(itemGroups).length} item types for analysis`);
 
     const analysisResults = [];
     let totalProblems = 0;

@@ -18,7 +18,6 @@ import path from 'path';
 const result = dotenv.config({ path: path.resolve(process.cwd(), '.env.local') });
 
 // Debug environment variables
-console.log('🔍 Environment Variables Check:');
 console.log('Current working directory:', process.cwd());
 console.log('Dotenv result:', result.error ? result.error.message : 'Success');
 console.log('MONGODB_URI exists:', !!process.env.MONGODB_URI);
@@ -47,7 +46,6 @@ export async function migrateExistingUsersToNewSchema(): Promise<MigrationResult
     const { default: User } = await import('../models/User');
     
     await dbConnect();
-    console.log('🔗 Connected to database');
 
     // Find users that need migration (missing new fields)
     const usersNeedingMigration = await User.find({
@@ -62,11 +60,9 @@ export async function migrateExistingUsersToNewSchema(): Promise<MigrationResult
     });
     
     result.total = usersNeedingMigration.length;
-    console.log(`📊 Found ${result.total} users needing migration`);
 
     for (const user of usersNeedingMigration) {
       try {
-        console.log(`🔄 Migrating user: ${user.email}`);
 
         // Set default values for existing users
         const updateData: any = {};
@@ -108,7 +104,6 @@ export async function migrateExistingUsersToNewSchema(): Promise<MigrationResult
       }
     }
 
-    console.log('🎉 Migration completed!');
     console.log(`📊 Results: Total: ${result.total}, Updated: ${result.updated}, Skipped: ${result.skipped}, Errors: ${result.errors}`);
 
     // Verification
@@ -125,7 +120,6 @@ export async function migrateExistingUsersToNewSchema(): Promise<MigrationResult
 
 async function verifyMigration() {
   try {
-    console.log('\n🔍 Verifying migration...');
     
     // Dynamic import for verification
     const { default: User } = await import('../models/User');
@@ -137,13 +131,7 @@ async function verifyMigration() {
     const pendingUsers = await User.countDocuments({ isApproved: false });
     const completedProfiles = await User.countDocuments({ profileCompleted: true });
     
-    console.log('📊 Migration Verification:');
-    console.log(`   👥 Total Users: ${totalUsers}`);
-    console.log(`   📝 Manual Registration: ${manualUsers}`);
-    console.log(`   🔗 Google Registration: ${googleUsers}`);
-    console.log(`   ✅ Approved Users: ${approvedUsers}`);
     console.log(`   ⏳ Pending Users: ${pendingUsers}`);
-    console.log(`   📋 Completed Profiles: ${completedProfiles}`);
     
     // Check for users with missing fields
     const usersWithMissingFields = await User.find({
@@ -156,12 +144,10 @@ async function verifyMigration() {
     });
     
     if (usersWithMissingFields.length > 0) {
-      console.log(`⚠️  Warning: ${usersWithMissingFields.length} users still have missing fields`);
       usersWithMissingFields.forEach(user => {
         console.log(`   - ${user.email}: registrationMethod=${user.registrationMethod}, isApproved=${user.isApproved}`);
       });
     } else {
-      console.log('✅ All users have required fields');
     }
     
   } catch (error) {
@@ -173,7 +159,6 @@ async function verifyMigration() {
 if (require.main === module) {
   migrateExistingUsersToNewSchema()
     .then((result) => {
-      console.log('\n📋 Final Migration Report:');
       result.details.forEach(detail => console.log(detail));
       process.exit(result.errors > 0 ? 1 : 0);
     })

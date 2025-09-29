@@ -25,7 +25,6 @@ export async function POST(request: NextRequest) {
     console.log('🧪 Testing unified inventory system...');
 
     // Simulate admin adding item
-    console.log('👨‍💼 Step 1: Admin adds item');
     let item = await Inventory.findOne({
       itemName: testItemName,
       category: testCategory
@@ -42,17 +41,14 @@ export async function POST(request: NextRequest) {
          // Warehouse stock
        });
       await item.save();
-      console.log('✅ Admin created new item:', item._id);
          } else {
        item.quantity += 10;
        item.totalQuantity += 10;
        // Warehouse stock
        await item.save();
-       console.log('✅ Admin updated existing item:', item._id);
      }
 
     // Simulate user adding the same item
-    console.log('👤 Step 2: User adds same item');
     const existingItem = await Inventory.findOne({
       itemName: testItemName,
       category: testCategory
@@ -71,7 +67,6 @@ export async function POST(request: NextRequest) {
         });
       }
       await existingItem.save();
-      console.log('✅ User updated same item:', existingItem._id);
     }
 
     // Fetch final result
@@ -84,7 +79,6 @@ export async function POST(request: NextRequest) {
       throw new Error('Test item not found after creation');
     }
 
-    console.log('🎯 Final result:');
     console.log(`   - ID: ${finalItem._id}`);
     console.log(`   - Name: ${finalItem.itemName}`);
     console.log(`   - Category: ${finalItem.category}`);

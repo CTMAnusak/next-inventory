@@ -24,16 +24,13 @@ interface MigrationStats {
 }
 
 async function migrateCategoryToId() {
-  console.log('🚀 Starting category string to ID migration...');
   
   try {
     // Connect to DB
     console.log('Connecting to MongoDB...');
     await dbConnect();
-    console.log('✅ MongoDB connected successfully');
 
     // Get category mapping
-    console.log('📊 Loading category configurations...');
     const config = await InventoryConfig.findOne({});
     if (!config || !config.categoryConfigs || config.categoryConfigs.length === 0) {
       console.error('❌ No categoryConfigs found in InventoryConfig');
@@ -46,7 +43,6 @@ async function migrateCategoryToId() {
       categoryMap.set(cat.name, cat.id);
     });
 
-    console.log(`📋 Found ${categoryMap.size} categories to map:`);
     categoryMap.forEach((id, name) => {
       console.log(`   ${name} -> ${id}`);
     });
@@ -62,14 +58,12 @@ async function migrateCategoryToId() {
     };
 
     // === Migrate InventoryItems ===
-    console.log('\n🔄 Migrating InventoryItems...');
     
     const inventoryItems = await InventoryItem.find({
       category: { $exists: true, $ne: null },
       categoryId: { $exists: false }
     });
 
-    console.log(`📦 Found ${inventoryItems.length} InventoryItems to migrate`);
 
     for (const item of inventoryItems) {
       stats.inventoryItemsProcessed++;
@@ -89,7 +83,6 @@ async function migrateCategoryToId() {
           stats.inventoryItemsUpdated++;
           
           if (stats.inventoryItemsUpdated % 100 === 0) {
-            console.log(`   📈 Migrated ${stats.inventoryItemsUpdated}/${inventoryItems.length} InventoryItems`);
           }
         } catch (error) {
           const errorMsg = `Failed to update InventoryItem ${item._id}: ${error}`;
@@ -106,14 +99,12 @@ async function migrateCategoryToId() {
     }
 
     // === Migrate InventoryMasters ===
-    console.log('\n🔄 Migrating InventoryMasters...');
     
     const inventoryMasters = await InventoryMaster.find({
       category: { $exists: true, $ne: null },
       categoryId: { $exists: false }
     });
 
-    console.log(`📦 Found ${inventoryMasters.length} InventoryMasters to migrate`);
 
     for (const master of inventoryMasters) {
       stats.inventoryMastersProcessed++;
@@ -133,7 +124,6 @@ async function migrateCategoryToId() {
           stats.inventoryMastersUpdated++;
           
           if (stats.inventoryMastersUpdated % 50 === 0) {
-            console.log(`   📈 Migrated ${stats.inventoryMastersUpdated}/${inventoryMasters.length} InventoryMasters`);
           }
         } catch (error) {
           const errorMsg = `Failed to update InventoryMaster ${master._id}: ${error}`;
@@ -151,17 +141,14 @@ async function migrateCategoryToId() {
 
     // === Handle Unmatched Categories ===
     if (stats.unmatchedCategories.length > 0) {
-      console.log('\n🔍 Handling unmatched categories...');
       
       // Find or create "ไม่ระบุ" category
       let unassignedCategoryId = categoryMap.get('ไม่ระบุ');
       if (!unassignedCategoryId) {
-        console.log('⚠️  "ไม่ระบุ" category not found, using fallback ID');
         unassignedCategoryId = 'cat_unassigned';
       }
 
       for (const unmatchedCategory of stats.unmatchedCategories) {
-        console.log(`   🔄 Assigning unmatched category "${unmatchedCategory}" to "ไม่ระบุ" (${unassignedCategoryId})`);
         
         // Update InventoryItems
         const itemUpdateResult = await InventoryItem.updateMany(
@@ -175,7 +162,6 @@ async function migrateCategoryToId() {
           { $set: { categoryId: unassignedCategoryId } }
         );
         
-        console.log(`     📊 Updated ${itemUpdateResult.modifiedCount} InventoryItems, ${masterUpdateResult.modifiedCount} InventoryMasters`);
         
         stats.inventoryItemsUpdated += itemUpdateResult.modifiedCount;
         stats.inventoryMastersUpdated += masterUpdateResult.modifiedCount;
@@ -183,18 +169,12 @@ async function migrateCategoryToId() {
     }
 
     // === Final Report ===
-    console.log('\n🎉 Migration completed successfully!');
-    console.log('\n📈 Final Statistics:');
-    console.log(`Categories found: ${stats.categoriesFound}`);
     console.log(`InventoryItems processed: ${stats.inventoryItemsProcessed}`);
-    console.log(`InventoryItems updated: ${stats.inventoryItemsUpdated}`);
     console.log(`InventoryMasters processed: ${stats.inventoryMastersProcessed}`);
-    console.log(`InventoryMasters updated: ${stats.inventoryMastersUpdated}`);
     console.log(`Unmatched categories: ${stats.unmatchedCategories.length}`);
     console.log(`Errors: ${stats.errors.length}`);
 
     if (stats.unmatchedCategories.length > 0) {
-      console.log('\n⚠️  Unmatched categories (assigned to "ไม่ระบุ"):');
       stats.unmatchedCategories.forEach(cat => console.log(`   - ${cat}`));
     }
 
@@ -203,7 +183,6 @@ async function migrateCategoryToId() {
       stats.errors.forEach(error => console.log(`   - ${error}`));
     }
 
-    console.log('\n✅ All items now have categoryId field for relational integrity!');
     
   } catch (error) {
     console.error('❌ Migration failed:', error);
@@ -214,7 +193,6 @@ async function migrateCategoryToId() {
 // Run migration if called directly
 if (require.main === module) {
   migrateCategoryToId().then(() => {
-    console.log('🏁 Migration script completed');
     process.exit(0);
   }).catch((error) => {
     console.error('💥 Migration script failed:', error);

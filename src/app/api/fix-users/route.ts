@@ -6,7 +6,6 @@ export async function POST(request: NextRequest) {
   try {
     await dbConnect();
     
-    console.log('Starting fix users...');
     
     // Find users without user_id
     const usersWithoutId = await User.find({
@@ -17,7 +16,6 @@ export async function POST(request: NextRequest) {
       ]
     });
     
-    console.log(`Found ${usersWithoutId.length} users without user_id`);
     
     let updated = 0;
     
@@ -43,7 +41,6 @@ export async function POST(request: NextRequest) {
             { _id: user._id },
             { $set: { user_id: user_id } }
           );
-          console.log(`Updated user ${user.email} with user_id: ${user_id}`);
           updated++;
         }
       } catch (error) {

@@ -17,6 +17,7 @@ interface GroupedRecycleBinItem {
   itemName: string;
   category: string;
   categoryId: string;
+  categoryName?: string; // เพิ่มฟิลด์สำหรับชื่อหมวดหมู่
   deleteType: 'individual_item' | 'bulk_delete';
   deletedAt: string;
   deleteReason: string;
@@ -179,7 +180,7 @@ export default function GroupedRecycleBinModal({ isOpen, onClose, onInventoryRef
             toast.dismiss(refreshToast);
           } catch (error) {
             console.warn('Failed to refresh main inventory after restore:', error);
-            toast.warning('ข้อมูล inventory อาจไม่เป็นปัจจุบัน กรุณารีเฟรชหน้า');
+            toast('ข้อมูล inventory อาจไม่เป็นปัจจุบัน กรุณารีเฟรชหน้า', { icon: '⚠️' });
           }
         }
       } else {
@@ -313,7 +314,7 @@ export default function GroupedRecycleBinModal({ isOpen, onClose, onInventoryRef
           </div>
 
           {/* Content */}
-          <div className="flex-1 overflow-hidden flex flex-col">
+          <div className="flex-1 overflow-hidden flex flex-col p-7">
             {loading ? (
               <div className="flex-1 flex items-center justify-center">
                 <div className="text-center">
@@ -330,7 +331,7 @@ export default function GroupedRecycleBinModal({ isOpen, onClose, onInventoryRef
                 </div>
               </div>
             ) : (
-              <div className="flex-1 overflow-y-auto p-6">
+              <div className="flex-1 overflow-y-auto">
                 <div className="space-y-4">
                   {groupedItems.map((group) => {
                     const isExpanded = expandedGroups.has(group._id);
@@ -345,7 +346,7 @@ export default function GroupedRecycleBinModal({ isOpen, onClose, onInventoryRef
                             <div className="flex-1">
                               <div className="flex items-center mb-2">
                                 <h3 className="text-lg font-semibold text-gray-900 mr-3">
-                                  🗑️ {group.itemName}
+                                  🗑️ {group.itemName} <span className="text-black text-base font-normal">(หมวดหมู่ : {group.categoryName || group.category})</span>
                                 </h3>
                                 <span className={`px-3 py-1 rounded-full text-sm font-medium ${
                                   group.deleteType === 'bulk_delete' 
@@ -431,6 +432,15 @@ export default function GroupedRecycleBinModal({ isOpen, onClose, onInventoryRef
                             <h4 className="font-medium text-gray-900 mb-3">📋 รายละเอียดอุปกรณ์:</h4>
                             
                             <div className="space-y-3 mb-4 text-sm">
+                              {itemDetails.other > 0 && (
+                                <div className="bg-amber-50 border-l-4 border-amber-400 px-4 py-3 rounded-r-lg">
+                                  <div className="flex items-center justify-between">
+                                    <div className="font-medium text-amber-800">📦 อุปกรณ์ที่ไม่มี SN/เบอร์</div>
+                                    <div className="text-amber-600">{itemDetails.other} ชิ้น</div>
+                                  </div>
+                                </div>
+                              )}
+                              
                               {itemDetails.withSerialNumber > 0 && (
                                 <div className="bg-purple-50 border-l-4 border-purple-400 px-4 py-3 rounded-r-lg">
                                   <div className="flex items-center justify-between">
@@ -445,15 +455,6 @@ export default function GroupedRecycleBinModal({ isOpen, onClose, onInventoryRef
                                   <div className="flex items-center justify-between">
                                     <div className="font-medium text-emerald-800">📞 ซิมการ์ด</div>
                                     <div className="text-emerald-600">{itemDetails.withPhoneNumber} ชิ้น</div>
-                                  </div>
-                                </div>
-                              )}
-                              
-                              {itemDetails.other > 0 && (
-                                <div className="bg-amber-50 border-l-4 border-amber-400 px-4 py-3 rounded-r-lg">
-                                  <div className="flex items-center justify-between">
-                                    <div className="font-medium text-amber-800">📦 อุปกรณ์ที่ไม่มี SN/เบอร์</div>
-                                    <div className="text-amber-600">{itemDetails.other} ชิ้น</div>
                                   </div>
                                 </div>
                               )}

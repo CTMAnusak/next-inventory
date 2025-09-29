@@ -80,7 +80,6 @@ export async function POST(request: NextRequest) {
       updatedAt: new Date()
     };
     
-    console.log('Creating admin user:', {
       user_id: adminData.user_id,
       email: adminData.email,
       userRole: adminData.userRole

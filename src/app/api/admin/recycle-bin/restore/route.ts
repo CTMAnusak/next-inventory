@@ -39,8 +39,6 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    console.log(`♻️ Restoring item from recycle bin: ${recycleBinId}`);
-    console.log(`👤 Restored by: ${currentUser.firstName} ${currentUser.lastName} (${currentUser.user_id})`);
 
     const result = await restoreFromRecycleBin({
       recycleBinId: recycleBinId,

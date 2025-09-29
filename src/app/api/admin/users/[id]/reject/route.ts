@@ -15,7 +15,6 @@ export async function POST(request: NextRequest, { params }: { params: { id: str
     let decoded;
     try {
       decoded = jwt.verify(token, process.env.JWT_SECRET || 'fallback-secret') as any;
-      console.log('🔍 Decoded token (reject):', {
         userId: decoded.userId,
         email: decoded.email,
         userRole: decoded.userRole,
@@ -36,7 +35,6 @@ export async function POST(request: NextRequest, { params }: { params: { id: str
       return NextResponse.json({ error: 'Insufficient permissions' }, { status: 403 });
     }
 
-    console.log('✅ Permission check passed (reject)');
 
     const { id } = await params;
 

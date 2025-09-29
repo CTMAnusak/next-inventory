@@ -21,7 +21,6 @@ export async function GET(
     await dbConnect();
     
     const categoryId = decodeURIComponent(category);
-    console.log(`🔍 Fetching items in categoryId: ${categoryId}`);
     
     // Validate categoryId
     const isValidCategory = await validateCategoryId(categoryId);
@@ -53,7 +52,6 @@ export async function GET(
       validItems.find(item => item.toLowerCase() === lowerItem)
     ).filter(Boolean);
     
-    console.log(`📦 Found ${uniqueItems.length} unique items in "${categoryName}" (${categoryId}):`, uniqueItems);
     
     return NextResponse.json({
       categoryId: categoryId,

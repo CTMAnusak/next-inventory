@@ -8,12 +8,10 @@ import InventoryConfig from '@/models/InventoryConfig';
 
 export async function POST(request: NextRequest) {
   try {
-    console.log('🔧 Force update statusConfigs...');
     
     await dbConnect();
     
     const body = await request.json();
-    console.log('📥 Received body:', body);
     
     // หา config document
     const config = await InventoryConfig.findOne();
@@ -21,7 +19,6 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'No config found' }, { status: 404 });
     }
     
-    console.log('📋 Current config:', config.toObject());
     
     // อัปเดต statusConfigs โดยตรง
     const newStatusConfigs = [
@@ -41,7 +38,6 @@ export async function POST(request: NextRequest) {
       }
     ];
     
-    console.log('🔄 Setting new statusConfigs:', newStatusConfigs);
     
     // ใช้ MongoDB collection โดยตรง
     const result = await InventoryConfig.collection.updateOne(
@@ -53,11 +49,9 @@ export async function POST(request: NextRequest) {
       }
     );
     
-    console.log('💾 Update result:', result);
     
     // ตรวจสอบหลัง update
     const updatedConfig = await InventoryConfig.findOne().lean();
-    console.log('✅ Updated config statusConfigs:', updatedConfig?.statusConfigs);
     
     return NextResponse.json({
       success: true,

@@ -8,12 +8,10 @@ import mongoose from 'mongoose';
  */
 async function migrateAddedByToArray() {
   try {
-    console.log('🔄 Starting migration: addedBy string to array...');
     await dbConnect();
 
     // Get all inventory items
     const allItems = await Inventory.find({}).lean();
-    console.log(`📦 Found ${allItems.length} inventory items to process`);
 
     // Group items by itemName + category
     const itemGroups = new Map();
@@ -27,7 +25,6 @@ async function migrateAddedByToArray() {
       itemGroups.get(key).push(item);
     }
 
-    console.log(`🔗 Found ${itemGroups.size} unique item groups`);
 
     let mergedCount = 0;
     let updatedCount = 0;
@@ -78,10 +75,8 @@ async function migrateAddedByToArray() {
          });
         
         updatedCount++;
-        console.log(`✅ Updated single item: ${item.itemName} (${item.category})`);
       } else {
         // Multiple items - merge them
-        console.log(`🔄 Merging ${items.length} duplicate items: ${items[0].itemName} (${items[0].category})`);
         
         // Find the best item to keep (prefer admin-added, then newest)
         const sortedItems = items.sort((a, b) => {
@@ -175,12 +170,9 @@ async function migrateAddedByToArray() {
         }
 
         mergedCount += itemsToMerge.length;
-        console.log(`✅ Merged ${items.length} items into one: ${primaryItem.itemName} (Total: ${totalQuantity}, Admin: ${totalAdminQuantity})`);
       }
     }
 
-    console.log(`🎉 Migration completed successfully!`);
-    console.log(`📊 Results:`);
     console.log(`   - Single items updated: ${updatedCount}`);
     console.log(`   - Items merged and deleted: ${mergedCount}`);
     console.log(`   - Final unique items: ${itemGroups.size}`);
@@ -197,7 +189,6 @@ async function migrateAddedByToArray() {
 if (require.main === module) {
   migrateAddedByToArray()
     .then(() => {
-      console.log('✅ Migration script completed');
       process.exit(0);
     })
     .catch((error) => {

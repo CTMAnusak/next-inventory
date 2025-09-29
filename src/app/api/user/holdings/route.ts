@@ -25,7 +25,6 @@ export async function GET(request: NextRequest) {
     const { default: User } = await import('@/models/User');
     const user = await User.findOne({ user_id: userId });
     if (user && user.pendingDeletion) {
-      console.log(`🚫 User ${userId} is pending deletion, blocking holdings access`);
       return NextResponse.json(
         { error: 'บัญชีของคุณอยู่ในสถานะรอลบ ไม่สามารถเข้าถึงข้อมูลได้' },
         { status: 403 }
@@ -37,14 +36,12 @@ export async function GET(request: NextRequest) {
     const cachedResult = getCachedData(cacheKey);
     if (cachedResult) {
       if (process.env.NODE_ENV === 'development') {
-        console.log(`💾 Holdings API - Cache Hit: ${Date.now() - startTime}ms`);
       }
       return NextResponse.json(cachedResult);
     }
 
     await dbConnect();
     if (process.env.NODE_ENV === 'development') {
-      console.log(`⏱️ Holdings API - DB Connect: ${Date.now() - startTime}ms`);
     }
 
     // Collect requests and returns for the user
@@ -53,7 +50,6 @@ export async function GET(request: NextRequest) {
       RequestLog.find({ userId }),
       ReturnLog.find({ userId })
     ]);
-    console.log(`⏱️ Holdings API - Request/Return Query: ${Date.now() - queryStart}ms (${requestLogs.length + returnLogs.length} records)`);
 
     const qtyByKey: Record<HoldingKey, number> = {};
 
@@ -104,7 +100,6 @@ export async function GET(request: NextRequest) {
         { itemName: { $in: itemIds } }  // Fallback for itemName-based lookup
       ]
     });
-    console.log(`⏱️ Holdings API - Inventory Query: ${Date.now() - invQueryStart}ms (${itemIds.length} IDs → ${invList.length} records)`);
 
     const items = entries.map((e) => {
       // Find inventory item by ID
@@ -145,7 +140,6 @@ export async function GET(request: NextRequest) {
     const result = { items };
     setCachedData(cacheKey, result);
     
-    console.log(`✅ Holdings API - Total Time: ${Date.now() - startTime}ms (returned ${items.length} items, cached)`);
     return NextResponse.json(result);
   } catch (error) {
     console.error('Fetch user holdings error:', error);

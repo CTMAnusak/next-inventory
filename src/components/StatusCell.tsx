@@ -18,7 +18,7 @@ interface StatusCellProps {
       withPhone: number;
     };
   };
-  onFetchBreakdown?: () => void;
+  onFetchBreakdown?: () => Promise<any> | void;
   statusConfigs?: Array<{ id: string; name: string; }>;
   conditionConfigs?: Array<{ id: string; name: string; }>;
 }
@@ -32,17 +32,17 @@ const StatusCell: React.FC<StatusCellProps> = ({
 }) => {
   const [showTooltip, setShowTooltip] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
-
-  // Auto-fetch breakdown when it's cleared (undefined)
+  // Auto-fetch breakdown whenever it's missing and we're not already loading
   useEffect(() => {
     if (!breakdown && onFetchBreakdown && !isLoading) {
-      console.log(`🔄 StatusCell: Auto-fetching breakdown for ${item.itemName}`);
-      setIsLoading(true);
-      onFetchBreakdown().finally(() => {
-        setIsLoading(false);
-      });
+      const p = onFetchBreakdown();
+      // Support both Promise and void returns
+      if (p && typeof (p as any).finally === 'function') {
+        setIsLoading(true);
+        (p as Promise<any>).finally(() => setIsLoading(false));
+      }
     }
-  }, [breakdown, onFetchBreakdown, item.itemName, isLoading]);
+  }, [breakdown, onFetchBreakdown, isLoading]);
 
   // Fetch breakdown data when tooltip is shown
   const handleMouseEnter = async (event: React.MouseEvent) => {
@@ -146,7 +146,6 @@ const StatusCell: React.FC<StatusCellProps> = ({
                 <h4>สถานะอุปกรณ์:</h4>
                 {breakdown.statusBreakdown && Object.entries(breakdown.statusBreakdown)
                   .map(([statusId, count]) => {
-                    console.log('🔍 StatusCell - Status:', statusId, count);
                     return (
                       <div key={statusId} className="breakdown-item">
                         • {getStatusName(statusId)}: {count} ชิ้น
@@ -157,7 +156,6 @@ const StatusCell: React.FC<StatusCellProps> = ({
                 <h4>สภาพอุปกรณ์:</h4>
                 {breakdown.conditionBreakdown && Object.entries(breakdown.conditionBreakdown)
                   .map(([conditionId, count]) => {
-                    console.log('🔍 StatusCell - Condition:', conditionId, count);
                     return (
                       <div key={conditionId} className="breakdown-item">
                         • {getConditionName(conditionId)}: {count} ชิ้น
@@ -170,7 +168,7 @@ const StatusCell: React.FC<StatusCellProps> = ({
                   <>
                     {breakdown.typeBreakdown.withoutSN > 0 && (
                       <div className="breakdown-item">
-                        • ไม่มี SN: {breakdown.typeBreakdown.withoutSN} ชิ้น
+                        • ไม่มี SN/เบอร์: {breakdown.typeBreakdown.withoutSN} ชิ้น
                       </div>
                     )}
                     {breakdown.typeBreakdown.withSN > 0 && (

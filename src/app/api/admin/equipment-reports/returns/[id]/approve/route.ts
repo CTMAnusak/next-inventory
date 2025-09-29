@@ -43,11 +43,9 @@ export async function POST(
 
     const adminId = payload.userId;
 
-    console.log(`🔄 Processing return approval for return log ${id}`);
 
     // Find the return log
     const returnLog = await ReturnLog.findById(id);
-    console.log(`🔍 Found return log:`, returnLog ? `${returnLog.firstName} ${returnLog.lastName}` : 'NOT FOUND');
     if (!returnLog) {
       return NextResponse.json(
         { error: 'ไม่พบคำขอคืนอุปกรณ์' },
@@ -74,12 +72,9 @@ export async function POST(
     const userIdToFind = returnLog.userId || `${returnLog.firstName}-${returnLog.lastName}`;
     
     for (const item of returnLog.items) {
-      console.log(`🔍 Processing return item:`, JSON.stringify(item, null, 2));
       
       // If item has specific serial number, transfer that specific item
       if (item.serialNumber) {
-        console.log(`🔍 Looking for InventoryItem with SN: ${item.serialNumber}`);
-        console.log(`🔍 Query params: _id=${item.itemId}, serialNumber=${item.serialNumber}, ownerType=user_owned, userId=${userIdToFind}`);
         
         // Find the specific inventory item by _id (itemId in ReturnLog = InventoryItem._id)
         let inventoryItem = await InventoryItem.findOne({
@@ -98,7 +93,6 @@ export async function POST(
           });
 
           if (adminStockItem) {
-            console.log(`ℹ️ Item ${item.serialNumber} is already in admin_stock - marking as already returned`);
             transferResults.push({
               itemId: adminStockItem._id.toString(),
               itemName: item.itemName || 'Unknown Item',
@@ -122,12 +116,6 @@ export async function POST(
           continue;
         }
 
-        console.log(`✅ Found InventoryItem for SN ${item.serialNumber}:`, {
-          _id: inventoryItem._id,
-          ownerType: inventoryItem.currentOwnership.ownerType,
-          userId: inventoryItem.currentOwnership.userId
-        });
-
         // Transfer back to admin stock
         const transferredItem = await transferInventoryItem({
           itemId: inventoryItem._id.toString(),
@@ -148,10 +136,7 @@ export async function POST(
           success: true,
           message: `Returned ${transferredItem.itemName} (${transferredItem.serialNumber || 'No SN'}) to admin stock`
         });
-        console.log(`✅ Returned item SN: ${item.serialNumber} back to admin stock`);
       } else {
-        console.log(`🔍 Looking for InventoryItems without SN - quantity: ${item.quantity}`);
-        console.log(`🔍 Query params: itemName=${item.itemName}, ownerType=user_owned, userId=${userIdToFind}`);
         
         // For items without serial numbers, find all items with the same name owned by user
         // ใช้ itemId เป็นหลัก และใช้ masterItemId เป็น fallback
@@ -177,7 +162,6 @@ export async function POST(
           ]
         }).limit(item.quantity); // จำกัดจำนวนตามที่ต้องการคืน
 
-        console.log(`🔍 Found ${userOwnedItems.length} items without SN for ${item.itemName}`);
 
         if (userOwnedItems.length === 0) {
           console.warn(`⚠️ No items without SN found for user ${userIdToFind} - item: ${item.itemName}`);
@@ -194,7 +178,6 @@ export async function POST(
           }).limit(item.quantity);
 
           if (adminStockItems.length > 0) {
-            console.log(`ℹ️ ${adminStockItems.length} items (no SN) are already in admin_stock - marking as already returned`);
             for (const adminStockItem of adminStockItems) {
               transferResults.push({
                 itemId: adminStockItem._id.toString(),
@@ -239,12 +222,6 @@ export async function POST(
         for (let i = 0; i < item.quantity; i++) {
           const inventoryItem = userOwnedItems[i];
           
-          console.log(`✅ Found InventoryItem without SN (${i + 1}/${item.quantity}):`, {
-            _id: inventoryItem._id,
-            ownerType: inventoryItem.currentOwnership.ownerType,
-            userId: inventoryItem.currentOwnership.userId
-          });
-          
           const transferredItem = await transferInventoryItem({
             itemId: inventoryItem._id.toString(),
             fromOwnerType: 'user_owned',
@@ -264,7 +241,6 @@ export async function POST(
             success: true,
             message: `Returned ${transferredItem.itemName} (${transferredItem.serialNumber || 'No SN'}) to admin stock (${i + 1}/${item.quantity})`
           });
-          console.log(`✅ Returned ${i + 1}/${item.quantity} ${item.itemName} (no SN) back to admin stock`);
         }
       }
     }
@@ -295,7 +271,6 @@ export async function POST(
           success: true,
           result: masterResult
         });
-        console.log(`📊 Updated InventoryMaster for ${item.itemName}`);
       } catch (error) {
         console.error(`❌ Failed to update InventoryMaster for ${item.itemName}:`, error);
         masterUpdateResults.push({
@@ -355,19 +330,15 @@ export async function POST(
     const actualTransfers = transferResults.filter(r => r.transferType !== 'already_returned').length;
     const alreadyReturnedCount = transferResults.filter(r => r.transferType === 'already_returned').length;
     
-    console.log(`✅ Return request ${id} approved successfully. ${actualTransfers} items transferred, ${alreadyReturnedCount} already returned`);
-    console.log(`✅ All verifications passed:`, { transferResults: transferResults.length, masterUpdates: masterUpdateResults.length, verifications: verificationResults.length });
 
     // ตรวจสอบว่าเป็น auto return หรือไม่ และลบ user อัตโนมัติหากไม่มีอุปกรณ์เหลือ
     let userDeletionMessage = '';
     if (returnLog.isAutoReturn) {
-      console.log(`🔍 This is an auto return, checking if user can be deleted...`);
       
       try {
         // หา user ที่เกี่ยวข้อง
         const userToCheck = await User.findOne({ user_id: userIdToFind });
         if (userToCheck && userToCheck.pendingDeletion) {
-          console.log(`📋 Found user with pending deletion: ${userToCheck.user_id}`);
           
           // ตรวจสอบว่ายังมีอุปกรณ์เหลืออยู่หรือไม่
           const remainingEquipment = await InventoryItem.find({
@@ -375,12 +346,10 @@ export async function POST(
             'currentOwnership.userId': userIdToFind
           });
           
-          console.log(`🔍 Remaining equipment count: ${remainingEquipment.length}`);
           
           if (remainingEquipment.length === 0) {
             // ไม่มีอุปกรณ์เหลือ - ลบ user ได้
             await User.findByIdAndDelete(userToCheck._id);
-            console.log(`✅ User ${userToCheck.user_id} deleted successfully (no equipment remaining)`);
             userDeletionMessage = ` และลบบัญชีผู้ใช้ ${userToCheck.firstName} ${userToCheck.lastName} เรียบร้อยแล้ว`;
             
             // ส่งสัญญาณให้ client ที่ user นี้ logout (ถ้ามี session อยู่)
@@ -393,7 +362,6 @@ export async function POST(
                 },
                 body: JSON.stringify({ userId: userToCheck.user_id })
               });
-              console.log(`🚪 Sent force logout signal for user ${userToCheck.user_id}`);
             } catch (logoutError) {
               console.error('Error sending logout signal:', logoutError);
               // ไม่ให้ error นี้ส่งผลต่อการ approve return

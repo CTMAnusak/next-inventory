@@ -8,7 +8,6 @@ export async function POST(request: NextRequest) {
     // Clear all caches in the system
     clearAllCaches();
     
-    console.log('✅ Admin - All caches cleared successfully');
     
     return NextResponse.json({ 
       success: true, 

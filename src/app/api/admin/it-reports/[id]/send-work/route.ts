@@ -56,32 +56,25 @@ export async function POST(
     );
 
     // ส่งอีเมลแจ้งเตือนตามสถานะ
-    console.log(`🔔 Email notification trigger - Status change: ${newStatus}`);
     
     try {
       if (newStatus === 'in_progress') {
         // 2. ส่งอีเมลแจ้งผู้แจ้งเมื่อ IT รับงาน
-        console.log('📧 Triggering job accepted email notification...');
         const { sendJobAcceptedNotification } = await import('@/lib/email');
         const emailResult = await sendJobAcceptedNotification(updatedIssue);
         
-        console.log('📊 Job accepted email result:', emailResult);
         
         if (emailResult.success) {
-          console.log('✅ Job accepted email sent successfully to user');
         } else {
           console.error('❌ Failed to send job accepted email:', emailResult.error);
         }
       } else if (newStatus === 'completed') {
         // 3. ส่งอีเมลแจ้งผู้แจ้งเมื่อ IT ส่งงาน
-        console.log('📧 Triggering work completed email notification...');
         const { sendWorkCompletedNotification } = await import('@/lib/email');
         const emailResult = await sendWorkCompletedNotification(updatedIssue);
         
-        console.log('📊 Work completed email result:', emailResult);
         
         if (emailResult.success) {
-          console.log('✅ Work completed email sent successfully to user');
         } else {
           console.error('❌ Failed to send work completed email:', emailResult.error);
         }

@@ -42,7 +42,6 @@ export async function DELETE(
     // Delete the request
     await RequestLog.findByIdAndDelete(requestId);
 
-    console.log(`✅ Request ${requestId} deleted by admin`);
 
     return NextResponse.json({
       message: 'ลบคำขอเรียบร้อยแล้ว',

@@ -4,7 +4,7 @@ import { useState, useEffect } from 'react';
 import { useAuth } from '@/contexts/AuthContext';
 import Layout from '@/components/Layout';
 import { toast } from 'react-hot-toast';
-import { Search } from 'lucide-react';
+import { Search, RefreshCw } from 'lucide-react';
 import RequesterInfoForm from '@/components/RequesterInfoForm';
 import DatePicker from '@/components/DatePicker';
 
@@ -12,6 +12,7 @@ interface RequestItem {
   itemId: string;
   quantity: number;
   serialNumber?: string;
+  itemNotes?: string;
 }
 
 interface InventoryItem {
@@ -45,7 +46,6 @@ export default function EquipmentRequestPage() {
     requestDate: new Date().toISOString().split('T')[0], // Today's date as default
     urgency: 'normal',
     deliveryLocation: '',
-    reason: '',
     // Personal info fields for branch users
     firstName: '',
     lastName: '',
@@ -56,8 +56,13 @@ export default function EquipmentRequestPage() {
   });
 
   const [requestItem, setRequestItem] = useState<RequestItem>({
-    itemId: '', quantity: 1, serialNumber: ''
+    itemId: '', quantity: 1, serialNumber: '', itemNotes: ''
   });
+
+  // Multiple items support (prevent duplicates by itemId)
+  const [requestItems, setRequestItems] = useState<RequestItem[]>([]);
+  // Track currently editing item (so switching edits preserves previous)
+  const [editingItemId, setEditingItemId] = useState<string | null>(null);
 
   // State for category-based item selection
   const [selectedCategoryId, setSelectedCategoryId] = useState<string>('');
@@ -91,8 +96,6 @@ export default function EquipmentRequestPage() {
          setInventoryItems(items);
          
          // Debug: Log inventory items
-         console.log('🔍 Equipment Request - Inventory items:', items);
-         console.log('🔍 Equipment Request - Items with quantity > 0:', items.filter((i: InventoryItem) => i.quantity > 0));
          
          // Group items by categoryId ONLY - ไม่ใช้ category name
          const grouped: {[key: string]: string[]} = {};
@@ -100,7 +103,6 @@ export default function EquipmentRequestPage() {
            if (item.quantity > 0) { // Only show items with available stock
              // ใช้ categoryId เท่านั้น - ไม่ fallback ไป category name
              const categoryId = item.categoryId;
-             console.log(`🔍 Equipment Request - Item: ${item.itemName}, categoryId: ${categoryId}`);
              
              if (categoryId) {
                if (!grouped[categoryId]) {
@@ -116,7 +118,6 @@ export default function EquipmentRequestPage() {
          });
          
          // Debug: Log grouped items
-         console.log('🔍 Equipment Request - Grouped items by category:', grouped);
          setItemsByCategory(grouped);
        }
       
@@ -143,8 +144,6 @@ export default function EquipmentRequestPage() {
 
   // Function to handle category selection for item
   const handleCategorySelect = (categoryId: string) => {
-    console.log(`🔍 Equipment Request - Category selected: ${categoryId}`);
-    console.log(`🔍 Equipment Request - Available items for this category:`, itemsByCategory[categoryId]);
     setSelectedCategoryId(categoryId);
     // Clear item ID when category changes
     handleItemChange('itemId', '');
@@ -165,6 +164,62 @@ export default function EquipmentRequestPage() {
   };
 
 
+  // Add current selected item into list with duplicate prevention
+  const addRequestItem = () => {
+    if (!requestItem.itemId || !requestItem.quantity || requestItem.quantity <= 0) {
+      toast.error('กรุณาเลือกอุปกรณ์และระบุจำนวนให้ถูกต้อง');
+      return;
+    }
+    if (requestItems.some(it => it.itemId === requestItem.itemId)) {
+      toast.error('ไม่สามารถเลือกอุปกรณ์ซ้ำได้');
+      return;
+    }
+    setRequestItems(prev => [...prev, { ...requestItem }]);
+    // Reset selectors to default for next addition
+    setRequestItem({ itemId: '', quantity: 1, serialNumber: '', itemNotes: '' });
+    setSelectedCategoryId('');
+    setShowCategorySelector(false);
+    setEditingItemId(null);
+  };
+
+  const removeRequestItem = (itemId: string) => {
+    setRequestItems(prev => prev.filter(it => it.itemId !== itemId));
+  };
+
+  const editRequestItem = (itemId: string) => {
+    const toEdit = requestItems.find(it => it.itemId === itemId);
+    if (!toEdit) return;
+
+    // If currently editing another item and it's not in the list, put it back first
+    if (
+      editingItemId &&
+      requestItem.itemId &&
+      editingItemId !== itemId &&
+      !requestItems.some(it => it.itemId === requestItem.itemId)
+    ) {
+      setRequestItems(prev => [...prev, { ...requestItem }]);
+    }
+
+    setRequestItem({ ...toEdit });
+    const inv = inventoryItems.find(i => String(i._id) === itemId);
+    if (inv?.categoryId) setSelectedCategoryId(String(inv.categoryId));
+    // Remove the item being edited from list (to avoid duplicates while editing)
+    setRequestItems(prev => prev.filter(it => it.itemId !== itemId));
+    setEditingItemId(itemId);
+  };
+
+  // ฟังก์ชันรีเซทเฉพาะข้อมูลอุปกรณ์ที่กำลังเพิ่ม
+  const resetItemForm = () => {
+    setRequestItem({
+      itemId: '', 
+      quantity: 1, 
+      serialNumber: '', 
+      itemNotes: ''
+    });
+    setSelectedCategoryId('');
+    setEditingItemId(null);
+    toast.success('รีเซทรายการอุปกรณ์เรียบร้อยแล้ว');
+  };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -176,7 +231,7 @@ export default function EquipmentRequestPage() {
       await fetchInventoryItems();
 
       // Validate form using user profile data
-      if (!user || !formData.requestDate || !formData.deliveryLocation || !formData.reason) {
+      if (!user || !formData.requestDate || !formData.deliveryLocation) {
         toast.error('กรุณากรอกข้อมูลให้ครบถ้วน');
         setIsLoading(false);
         return;
@@ -191,42 +246,45 @@ export default function EquipmentRequestPage() {
         }
       }
 
-      // Validate item
-      if (!requestItem.itemId || !requestItem.quantity || requestItem.quantity <= 0) {
-        toast.error('กรุณาเลือกอุปกรณ์และระบุจำนวนที่ถูกต้อง');
+      // Validate item: allow either the current selection OR the list below
+      const hasCurrent = Boolean(requestItem.itemId) && (requestItem.quantity || 0) > 0;
+      const hasList = requestItems.length > 0;
+      if (!hasCurrent && !hasList) {
+        toast.error('กรุณาเลือกอุปกรณ์อย่างน้อย 1 รายการ (จากตัวเลือกหรือจากรายการที่เลือกด้านล่าง)');
         setIsLoading(false);
         return;
       }
 
-      // Check inventory availability
-      const inventoryItem = inventoryItems.find(i => String(i._id) === requestItem.itemId);
-      if (!inventoryItem) {
-        toast.error('ไม่พบข้อมูลอุปกรณ์ที่เลือก');
-        setIsLoading(false);
-        return;
-      }
-      
-      const availableStock = inventoryItem.quantity || 0;
-      console.log(`🔍 Equipment Request - Validation: Item ${inventoryItem.itemName} available stock:`, availableStock);
-      
-      if (availableStock <= 0) {
-        toast.error(`${inventoryItem.itemName} ไม่มีสต็อกเหลือ (คงเหลือ: 0 ชิ้น)`);
-        setIsLoading(false);
-        return;
-      }
-      
-      if (availableStock < requestItem.quantity) {
-        toast.error(`${inventoryItem.itemName} มีสต็อกไม่เพียงพอ (คงเหลือ: ${availableStock} ชิ้น)`);
-        setIsLoading(false);
-        return;
+      // If user is submitting with the current selection, optionally check availability for it
+      if (hasCurrent) {
+        const inventoryItem = inventoryItems.find(i => String(i._id) === requestItem.itemId);
+        if (!inventoryItem) {
+          toast.error('ไม่พบข้อมูลอุปกรณ์ที่เลือก');
+          setIsLoading(false);
+          return;
+        }
+        const availableStock = inventoryItem.quantity || 0;
+        if (availableStock <= 0) {
+          toast.error(`${inventoryItem.itemName} ไม่มีสต็อกเหลือ (คงเหลือ: 0 ชิ้น)`);
+          setIsLoading(false);
+          return;
+        }
+        if (availableStock < requestItem.quantity) {
+          toast.error(`${inventoryItem.itemName} มีสต็อกไม่เพียงพอ (คงเหลือ: ${availableStock} ชิ้น)`);
+          setIsLoading(false);
+          return;
+        }
       }
 
-      // Transform item to use itemId as primary reference
-      const transformedItem = {
-        itemId: requestItem.itemId, // Use itemId as primary reference
-        quantity: requestItem.quantity,
-        serialNumber: requestItem.serialNumber || ''
-      };
+      // Build items payload (if user added multiple items)
+      // Compose items: include list + current selection if not duplicate
+      const selectedItems: RequestItem[] = [...requestItems];
+      if (
+        hasCurrent &&
+        !selectedItems.some(it => it.itemId === requestItem.itemId)
+      ) {
+        selectedItems.push(requestItem);
+      }
 
       const requestData = {
         // Use user profile data for individual users, form data for branch users
@@ -240,17 +298,17 @@ export default function EquipmentRequestPage() {
         requestDate: formData.requestDate,
         urgency: formData.urgency,
         deliveryLocation: formData.deliveryLocation,
-        reason: formData.reason,
         userId: user?.id || undefined,
-        items: [transformedItem]
+        items: selectedItems.map(it => ({
+          // API expects masterId; current UI itemId equals InventoryMaster._id from /api/inventory
+          masterId: it.itemId,
+          quantity: it.quantity,
+          serialNumber: it.serialNumber || '',
+          itemNotes: it.itemNotes || ''
+        }))
       };
 
       // Debug: Log the data being sent
-      console.log('🔍 Frontend - Original requestItem:', requestItem);
-      console.log('🔍 Frontend - Transformed item:', transformedItem);
-      console.log('🔍 Frontend - Sending request data:', JSON.stringify(requestData, null, 2));
-      console.log('🔍 Frontend - User type:', user.userType);
-      console.log('🔍 Frontend - Form data:', formData);
 
       const response = await fetch('/api/equipment-request', {
         method: 'POST',
@@ -270,7 +328,6 @@ export default function EquipmentRequestPage() {
           requestDate: '',
           urgency: 'normal',
           deliveryLocation: '',
-          reason: '',
           firstName: '',
           lastName: '',
           nickname: '',
@@ -278,8 +335,9 @@ export default function EquipmentRequestPage() {
           phone: '',
           office: '',
         });
-        setRequestItem({ itemId: '', quantity: 1, serialNumber: '' });
-        setSelectedCategory('');
+        setRequestItem({ itemId: '', quantity: 1, serialNumber: '', itemNotes: '' });
+        setRequestItems([]);
+        setSelectedCategoryId('');
         setShowCategorySelector(false);
       } else {
         // ไม่แสดง console.error เพื่อลดความยุ่งเหยิง
@@ -366,20 +424,7 @@ export default function EquipmentRequestPage() {
               />
             </div>
 
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">
-                เหตุผลการเบิก *
-              </label>
-              <textarea
-                name="reason"
-                value={formData.reason}
-                onChange={handleInputChange}
-                rows={3}
-                className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 text-gray-900 placeholder-gray-500"
-                placeholder="เช่น ใช้ในงานประจำ, ทดแทนของเสีย, โปรเจกต์พิเศษ"
-                required
-              />
-            </div>
+            {/* Removed overall reason; now using per-item reasons */}
 
             {/* Equipment Items */}
             <div>
@@ -400,7 +445,7 @@ export default function EquipmentRequestPage() {
                       className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 text-left flex items-center justify-between"
                     >
                       <span className={selectedCategoryId ? 'text-gray-900' : 'text-gray-500'}>
-                        {selectedCategoryId ? categoryConfigs.find(c => c.id === selectedCategoryId)?.name || 'เลือกหมวดหมู่' : 'เลือกหมวดหมู่'}
+                        {selectedCategoryId ? categoryConfigs.find(c => c.id === selectedCategoryId)?.name || 'กรุณาเลือกหมวดหมู่' : 'กรุณาเลือกหมวดหมู่'}
                       </span>
                       <span className="text-gray-400">▼</span>
                     </button>
@@ -421,7 +466,6 @@ export default function EquipmentRequestPage() {
                             // ตรวจสอบว่ามีอุปกรณ์ในหมวดหมู่นี้หรือไม่ (ใช้ categoryId เท่านั้น)
                             const hasItems = itemsByCategory[config.id] && itemsByCategory[config.id].length > 0;
                             
-                            console.log(`🔍 Category ${config.name} (${config.id}): hasItems=${hasItems}, count=${itemsByCategory[config.id]?.length || 0}`);
                             
                             return (
                               <div
@@ -447,8 +491,6 @@ export default function EquipmentRequestPage() {
                       อุปกรณ์ *
                     </label>
                     {(() => {
-                      console.log(`🔍 Equipment Request - Rendering items for categoryId: ${selectedCategoryId}`);
-                      console.log(`🔍 Equipment Request - itemsByCategory[${selectedCategoryId}]:`, itemsByCategory[selectedCategoryId]);
                       return null;
                     })()}
                     {(() => {
@@ -456,8 +498,6 @@ export default function EquipmentRequestPage() {
                       const selectedCategory = categoryConfigs.find(c => c.id === selectedCategoryId);
                       const availableItems = itemsByCategory[selectedCategoryId];
                       
-                      console.log(`🔍 Equipment Request - Selected category: ${selectedCategory?.name} (${selectedCategoryId})`);
-                      console.log(`🔍 Equipment Request - Available items:`, availableItems);
                       
                       if (availableItems && availableItems.length > 0) {
                         return (
@@ -472,8 +512,14 @@ export default function EquipmentRequestPage() {
                             className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 text-gray-900"
                             required
                           >
-                            <option value="">-- เลือกอุปกรณ์ --</option>
-                            {availableItems.map((itemName) => {
+                            <option value="">-- กรุณาเลือกอุปกรณ์ --</option>
+                            {availableItems
+                              .filter((itemName) => {
+                                const firstMatch = inventoryItems.find(i => i.itemName === itemName);
+                                if (!firstMatch) return true;
+                                return !requestItems.some(it => it.itemId === String(firstMatch._id));
+                              })
+                              .map((itemName) => {
                               const availableQty = inventoryItems
                                 .filter(i => i.itemName === itemName && i.quantity > 0)
                                 .reduce((sum, i) => sum + i.quantity, 0);
@@ -514,7 +560,10 @@ export default function EquipmentRequestPage() {
                           return availableStock > 0 ? availableStock : 1;
                         })()}
                         value={requestItem.quantity}
-                        onChange={(e) => handleItemChange('quantity', parseInt(e.target.value))}
+                        onChange={(e) => {
+                          const n = Number(e.target.value);
+                          handleItemChange('quantity', Number.isNaN(n) || n <= 0 ? 1 : n);
+                        }}
                         className={`w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 text-gray-900 ${
                           (!itemsByCategory[selectedCategoryId] || itemsByCategory[selectedCategoryId].length === 0) 
                             ? 'bg-gray-50 cursor-not-allowed' 
@@ -529,7 +578,7 @@ export default function EquipmentRequestPage() {
                       <label className="block text-sm font-medium text-gray-700 mb-1">
                         Serial Number (ถ้ามี)
                       </label>
-                      <input
+                    <input
                         type="text"
                         value={requestItem.serialNumber}
                         onChange={(e) => handleItemChange('serialNumber', e.target.value)}
@@ -544,8 +593,74 @@ export default function EquipmentRequestPage() {
                     </div>
                   </div>
                 )}
+                {/* Item-level reason (optional) */}
+                {selectedCategoryId && (
+                  <div className="mb-4">
+                    <label className="block text-sm font-medium text-gray-700 mb-1">
+                      เหตุผลของรายการนี้ (ไม่บังคับ)
+                    </label>
+                    <input
+                      type="text"
+                      value={requestItem.itemNotes || ''}
+                      onChange={(e) => handleItemChange('itemNotes', e.target.value)}
+                      className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 text-gray-900 placeholder-gray-500"
+                      placeholder="ระบุเหตุผลของรายการเฉพาะนี้ ถ้าต้องการ"
+                    />
+                  </div>
+                )}
               </div>
 
+              {/* Add to list and selected items */}
+              <div className="flex items-center justify-between mt-2">
+                <div className="flex gap-2">
+                  <button
+                    type="button"
+                    onClick={addRequestItem}
+                    className="px-3 py-2 bg-blue-100 text-blue-800 rounded-md hover:bg-blue-200 focus:outline-none"
+                  >
+                    เพิ่มเข้ารายการ
+                  </button>
+                  <button
+                    type="button"
+                    onClick={resetItemForm}
+                    className="px-3 py-2 bg-orange-100 text-orange-800 rounded-md hover:bg-orange-200 focus:outline-none flex items-center gap-1"
+                  >
+                    <RefreshCw className="w-4 h-4" />
+                    รีเซทรายการ
+                  </button>
+                </div>
+              </div>
+
+              {requestItems.length > 0 && (
+                <div className="mt-4 border border-gray-200 rounded-lg">
+                  <div className="p-3 font-medium text-gray-700">รายการที่เลือก</div>
+                  <ul className="divide-y divide-gray-100">
+                    {requestItems.map(item => (
+                      <li key={item.itemId} className="flex items-center justify-between p-3">
+                        <div className="text-gray-900">
+                          {getItemDisplayName(item.itemId)} × {item.quantity}
+                        </div>
+                        <div className="flex items-center gap-3">
+                          <button
+                            type="button"
+                            onClick={() => editRequestItem(item.itemId)}
+                            className="text-blue-600 hover:text-blue-800 text-sm"
+                          >
+                            แก้ไข
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => removeRequestItem(item.itemId)}
+                            className="text-red-600 hover:text-red-800 text-sm"
+                          >
+                            ลบ
+                          </button>
+                        </div>
+                      </li>
+                    ))}
+                  </ul>
+                </div>
+              )}
 
             </div>
 

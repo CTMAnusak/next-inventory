@@ -5,7 +5,6 @@ export async function GET(request: NextRequest) {
   try {
     const payload = verifyTokenFromRequest(request);
     
-    console.log('🔍 DEBUG TOKEN:');
     console.log('- Cookie header:', request.headers.get('cookie'));
     console.log('- JWT payload:', payload);
     

@@ -37,7 +37,6 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    console.log(`🗑️ Permanent group delete requested by ${currentUser.firstName} ${currentUser.lastName} for group: ${inventoryMasterId}`);
 
     // Use direct MongoDB to permanently delete from RecycleBin
     const { MongoClient } = require('mongodb');
@@ -64,8 +63,6 @@ export async function POST(request: NextRequest) {
 
     // Log details before deletion
     const firstItem = groupItems[0];
-    console.log(`🗑️ Permanently deleting group: ${firstItem.itemName} (${groupItems.length} items)`);
-    console.log(`📋 Group details:`, {
       inventoryMasterId,
       itemName: firstItem.itemName,
       category: firstItem.category,
@@ -85,7 +82,6 @@ export async function POST(request: NextRequest) {
 
     await client.close();
 
-    console.log(`✅ Permanently deleted ${deleteResult.deletedCount} items from recycle bin`);
 
     return NextResponse.json({
       success: true,

@@ -7,7 +7,8 @@ export interface IReturnItem {
   numberPhone?: string; // Phone Number (สำหรับซิมการ์ด)
   assetNumber?: string; // เลขทรัพย์สิน
   image?: string; // รูปภาพ
-  conditionOnReturn?: string; // สถานะเมื่อคืน (ใช้งานได้/ชำรุด)
+  statusOnReturn?: string; // สถานะอุปกรณ์เมื่อคืน (มี/หาย)
+  conditionOnReturn?: string; // สภาพอุปกรณ์เมื่อคืน (ใช้งานได้/ชำรุด)
   itemNotes?: string; // หมายเหตุเฉพาะรายการ
 }
 
@@ -34,7 +35,8 @@ const ReturnItemSchema = new Schema<IReturnItem>({
   numberPhone: { type: String },                    // Phone Number (สำหรับซิมการ์ด)
   assetNumber: { type: String },
   image: { type: String },                          // path ของรูปภาพ
-  conditionOnReturn: { type: String },              // สถานะเมื่อคืน (ใช้งานได้/ชำรุด)
+  statusOnReturn: { type: String },                 // สถานะอุปกรณ์เมื่อคืน (มี/หาย)
+  conditionOnReturn: { type: String },              // สภาพอุปกรณ์เมื่อคืน (ใช้งานได้/ชำรุด)
   itemNotes: { type: String }                       // หมายเหตุเฉพาะรายการ
 });
 
@@ -55,5 +57,11 @@ const ReturnLogSchema = new Schema<IReturnLog>({
 }, {
   timestamps: true
 });
+
+// Recommended indexes
+ReturnLogSchema.index({ returnDate: -1, createdAt: -1 });
+ReturnLogSchema.index({ userId: 1 });
+ReturnLogSchema.index({ status: 1 });
+ReturnLogSchema.index({ 'items.itemId': 1 });
 
 export default mongoose.models.ReturnLog || mongoose.model<IReturnLog>('ReturnLog', ReturnLogSchema);

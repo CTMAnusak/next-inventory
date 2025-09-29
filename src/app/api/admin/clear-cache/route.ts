@@ -14,7 +14,6 @@ export async function POST(request: NextRequest) {
     setCachedData('inventory_items', null);
     setCachedData('inventory_masters', null);
     
-    console.log('✅ All caches cleared successfully');
     
     return NextResponse.json({
       success: true,

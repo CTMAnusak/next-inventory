@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import dbConnect from '@/lib/mongodb';
 import User from '@/models/User';
+import DeletedUsers from '@/models/DeletedUser';
 import { InventoryItem } from '@/models/InventoryItem';
 import ReturnLog from '@/models/ReturnLog';
 import { hashPassword } from '@/lib/auth';
@@ -43,7 +44,6 @@ export async function PUT(
 
     // ตรวจสอบว่าเป็นการยกเลิก pending deletion หรือไม่
     if (pendingDeletion !== undefined) {
-      console.log(`🔄 Updating pending deletion status for user ${id}: ${pendingDeletion}`);
       
       // หา user ก่อนเพื่อเอา user_id
       const userToUpdate = await User.findById(id);
@@ -56,7 +56,6 @@ export async function PUT(
 
       // ถ้าเป็นการยกเลิกการลบ (pendingDeletion = false) ให้ลบ ReturnLog เก่า
       if (pendingDeletion === false) {
-        console.log(`🗑️ Cancelling deletion - removing pending ReturnLogs for user ${userToUpdate.user_id}`);
         
         const ReturnLog = (await import('@/models/ReturnLog')).default;
         const deleteResult = await ReturnLog.deleteMany({
@@ -65,7 +64,6 @@ export async function PUT(
           status: 'pending'
         });
         
-        console.log(`🗑️ Deleted ${deleteResult.deletedCount} pending ReturnLogs for user ${userToUpdate.user_id}`);
       }
       
       // อัพเดตเฉพาะ pending deletion fields
@@ -95,7 +93,6 @@ export async function PUT(
         );
       }
 
-      console.log(`✅ Updated pending deletion status successfully`);
       return NextResponse.json(updatedUser);
     }
 
@@ -229,11 +226,9 @@ export async function DELETE(
       'currentOwnership.userId': userToDelete.user_id
     });
 
-    console.log(`🔍 Found ${userOwnedItems.length} equipment owned by user: ${userToDelete.user_id}`);
 
     // หากมีอุปกรณ์ที่ user เป็นเจ้าของ - ไม่ลบ user แต่ทำเครื่องหมายรอลบ
     if (userOwnedItems.length > 0) {
-      console.log(`📦 User has ${userOwnedItems.length} items, marking for pending deletion instead of deleting`);
       
       // จัดกลุ่มอุปกรณ์ตามชนิด
       const itemGroups = new Map();
@@ -317,7 +312,6 @@ export async function DELETE(
           },
           body: JSON.stringify({ userId: userToDelete.user_id })
         });
-        console.log(`🚪 Sent immediate force logout signal for user ${userToDelete.user_id}`);
       } catch (logoutError) {
         console.error('Error sending immediate logout signal:', logoutError);
       }
@@ -326,10 +320,7 @@ export async function DELETE(
       // โดยการเพิ่ม field ที่ทำให้ JWT token เก่าใช้ไม่ได้
       userToDelete.jwtInvalidatedAt = new Date();
       await userToDelete.save();
-      console.log(`🔐 Added jwtInvalidatedAt to invalidate JWT token for user ${userToDelete.user_id}`);
 
-      console.log(`✅ Created automatic return log: ${returnLog._id}`);
-      console.log(`🔄 User marked for pending deletion instead of immediate deletion`);
 
       return NextResponse.json({ 
         message: `ผู้ใช้ถูกทำเครื่องหมายรอลบ และสร้างรายการคืนอุปกรณ์อัตโนมัติ ${userOwnedItems.length} รายการ กรุณาตรวจสอบที่ "ประวัติคืน" เพื่ออนุมัติการคืนอุปกรณ์`,
@@ -338,9 +329,29 @@ export async function DELETE(
         pendingDeletion: true
       });
     } else {
-      // ไม่มีอุปกรณ์ - ลบ user ได้ทันที
+      // ไม่มีอุปกรณ์ - ลบ user ได้ทันที (snapshot ก่อน)
+      try {
+        const snapData = {
+          userMongoId: userToDelete._id.toString(),
+          user_id: userToDelete.user_id,
+          firstName: userToDelete.firstName,
+          lastName: userToDelete.lastName,
+          nickname: userToDelete.nickname,
+          department: userToDelete.department,
+          office: userToDelete.office,
+          phone: userToDelete.phone,
+          email: userToDelete.email,
+          deletedAt: new Date()
+        } as any;
+        await DeletedUsers.findOneAndUpdate(
+          { userMongoId: snapData.userMongoId },
+          snapData,
+          { upsert: true, new: true }
+        );
+      } catch (e) {
+        console.error('Failed to snapshot user before delete:', e);
+      }
       const deletedUser = await User.findByIdAndDelete(id);
-      console.log(`✅ User deleted immediately (no equipment found)`);
 
       return NextResponse.json({ 
         message: 'ลบผู้ใช้เรียบร้อยแล้ว',

@@ -14,16 +14,13 @@ export function useForceLogoutCheck() {
 
     // ตรวจสอบเฉพาะ user ที่มี pendingDeletion = true
     if (!user.pendingDeletion) {
-      console.log(`👤 User ${user.id} is not pending deletion, skipping force logout check`);
       return;
     }
 
-    console.log(`🔍 User ${user.id} is pending deletion, starting force logout monitoring...`);
 
     const checkForceLogout = async () => {
       // ป้องกันการแสดง alert ซ้ำ
       if (hasShownAlert) {
-        console.log('🚪 Alert already shown, skipping check');
         return;
       }
 
@@ -38,7 +35,6 @@ export function useForceLogoutCheck() {
           const data = await forceLogoutResponse.json();
           
           if (data.shouldLogout) {
-            console.log('🚪 Force logout detected, logging out user...');
             
             // แสดงข้อความแจ้งเตือนก่อน logout (ครั้งเดียว)
             if (!hasShownAlert) {
@@ -59,7 +55,6 @@ export function useForceLogoutCheck() {
         });
 
         if (!authResponse.ok || authResponse.status === 401) {
-          console.log('🚪 Auth check failed - user may have been deleted, logging out...');
           
           // แสดงข้อความแจ้งเตือนก่อน logout (ครั้งเดียว)
           if (!hasShownAlert) {

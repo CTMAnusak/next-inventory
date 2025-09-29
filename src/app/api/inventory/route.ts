@@ -5,7 +5,6 @@ import Inventory from '@/models/Inventory'; // Legacy inventory model for POST c
 import User from '@/models/User';
 import { verifyTokenFromRequest } from '@/lib/auth';
 import { getCachedData, setCachedData } from '@/lib/cache-utils';
-import { enrichItemsWithCategoryName } from '@/lib/category-helpers';
 
 export async function GET(request: NextRequest) {
   const startTime = Date.now();
@@ -21,14 +20,12 @@ export async function GET(request: NextRequest) {
       const cacheKey = 'inventory_basic';
       const cachedResult = getCachedData(cacheKey);
       if (cachedResult && process.env.NODE_ENV === 'development') {
-        console.log(`💾 Inventory API - Cache Hit: ${Date.now() - startTime}ms`);
         return NextResponse.json(cachedResult);
       }
     }
 
     await dbConnect();
     if (process.env.NODE_ENV === 'development') {
-      console.log(`⏱️ Inventory API - DB Connect: ${Date.now() - startTime}ms`);
     }
 
     // Parse query parameters (reuse searchParams from above)
@@ -76,25 +73,42 @@ export async function GET(request: NextRequest) {
         .limit(limit),
       InventoryMaster.countDocuments(filter)
     ]);
-    console.log(`⏱️ Inventory API - Query: ${Date.now() - queryStart}ms (${items.length}/${total} records, filters: ${Object.keys(filter).join(', ')})`);
 
-    // Enrich items with category names
-    const itemsWithCategoryName = await enrichItemsWithCategoryName(items);
+    // Don't enrich with category names - let frontend handle it
+    console.log('🔍 Raw items from database:', items.map(item => ({ 
+      _id: item._id, 
+      itemName: item.itemName, 
+      categoryId: item.categoryId,
+      category: item.category,
+      availableQuantity: item.availableQuantity
+    })));
+    
+    console.log('🔍 Items count:', { 
+      rawItems: items.length
+    });
     
     // Convert InventoryMaster to format expected by equipment-request UI
-    const formattedItems = itemsWithCategoryName.map(item => ({
-      _id: item._id,
-      itemName: item.itemName,
-      categoryId: item.categoryId, // ใช้ categoryId เป็นหลัก
-      // ไม่ส่ง category name ใน API response - ให้ frontend ใช้ categoryId ในการ lookup
-      quantity: item.availableQuantity, // จำนวนที่เหลือให้เบิก
-      totalQuantity: item.totalQuantity,
-      serialNumbers: [], // Will be populated from InventoryItem if needed
-      status: 'active',
-      dateAdded: item.updatedAt,
-      hasSerialNumber: item.itemDetails.withSerialNumber > 0,
-      userOwnedQuantity: item.userOwnedQuantity
-    }));
+    const formattedItems = items.map(item => {
+      console.log('🔍 Mapping item:', { 
+        _id: item._id, 
+        itemName: item.itemName, 
+        categoryId: item.categoryId,
+        availableQuantity: item.availableQuantity 
+      });
+      return {
+        _id: item._id,
+        itemName: item.itemName,
+        categoryId: item.categoryId, // ใช้ categoryId เป็นหลัก
+        // ไม่ส่ง category name ใน API response - ให้ frontend ใช้ categoryId ในการ lookup
+        quantity: item.availableQuantity, // จำนวนที่เหลือให้เบิก
+        totalQuantity: item.totalQuantity,
+        serialNumbers: [], // Will be populated from InventoryItem if needed
+        status: 'active',
+        dateAdded: item.updatedAt,
+        hasSerialNumber: item.itemDetails?.withSerialNumber > 0,
+        userOwnedQuantity: item.userOwnedQuantity
+      };
+    });
 
     if (process.env.NODE_ENV === 'development') {
       console.log(`📊 Inventory API - Formatted ${formattedItems.length} items for UI:`, 
@@ -130,13 +144,10 @@ export async function GET(request: NextRequest) {
 
 export async function POST(request: NextRequest) {
   try {
-    console.log('📝 Inventory API - POST request received');
     const itemData = await request.json();
-    console.log('📝 Inventory API - Request data:', itemData);
     
     // Get user info from token
     const payload: any = verifyTokenFromRequest(request);
-    console.log('📝 Inventory API - Token payload:', payload);
     
     if (!payload) {
       console.log('❌ Inventory API - No token payload');
@@ -147,7 +158,7 @@ export async function POST(request: NextRequest) {
     }
 
     // Validate required fields
-    const requiredFields = ['itemName', 'category'];
+    const requiredFields = ['itemName', 'categoryId'];
     
     for (const field of requiredFields) {
       if (!itemData[field]) {
@@ -161,10 +172,8 @@ export async function POST(request: NextRequest) {
     await dbConnect();
 
     // Get user info from database using Mongoose
-    console.log('🔍 Inventory API - Looking for user with user_id:', payload.userId);
     
     const currentUser = await User.findOne({ user_id: payload.userId });
-    console.log('🔍 Inventory API - User found:', currentUser ? currentUser._id : 'None');
     
     if (!currentUser) {
       console.log('❌ Inventory API - User not found');
@@ -198,14 +207,14 @@ export async function POST(request: NextRequest) {
       // Create single item with serial number
       itemsToCreate.push({
         itemName: itemData.itemName,
-        category: itemData.category,
+        categoryId: itemData.categoryId,
         serialNumber: itemData.serialNumber.trim(),
         addedBy: 'user' as const,
         addedByUserId: currentUser.user_id,
         initialOwnerType: 'user_owned' as const,
         userId: currentUser.user_id,
-        statusId: itemData.status || 'status_available',
-        conditionId: itemData.condition,
+        statusId: itemData.statusId || 'status_available',
+        conditionId: itemData.conditionId,
         notes: itemData.notes || 'Added by user via dashboard'
       });
     } else {
@@ -214,13 +223,13 @@ export async function POST(request: NextRequest) {
       for (let i = 0; i < quantity; i++) {
         itemsToCreate.push({
           itemName: itemData.itemName,
-          category: itemData.category,
+          categoryId: itemData.categoryId,
           addedBy: 'user' as const,
           addedByUserId: currentUser.user_id,
           initialOwnerType: 'user_owned' as const,
           userId: currentUser.user_id,
-          statusId: itemData.status || 'status_available',
-          conditionId: itemData.condition,
+          statusId: itemData.statusId || 'status_available',
+          conditionId: itemData.conditionId,
           notes: itemData.notes || `Added by user via dashboard (${i + 1}/${quantity})`
         });
       }
@@ -233,14 +242,13 @@ export async function POST(request: NextRequest) {
       createdItems.push(newItem);
     }
     
-    console.log(`✅ Inventory API - Created ${createdItems.length} items successfully`);
     
     return NextResponse.json({
       message: 'เพิ่มสินค้าเรียบร้อยแล้ว',
       items: createdItems,
       summary: {
         itemName: itemData.itemName,
-        category: itemData.category,
+        category: itemData.categoryId,
         quantity: createdItems.length,
         withSerialNumber: createdItems.filter(item => item.serialNumber).length,
         withoutSerialNumber: createdItems.filter(item => !item.serialNumber).length
@@ -251,8 +259,17 @@ export async function POST(request: NextRequest) {
     console.error('❌ Inventory API - Error occurred:', error);
     console.error('❌ Inventory API - Error stack:', error instanceof Error ? error.stack : 'No stack trace');
     
-    // 🔧 Enhanced error handling for Serial Number validation
+    // 🔧 Enhanced error handling for validation
     if (error instanceof Error) {
+      // Handle Item Name validation errors (recycle bin)
+      if (error.message.includes('เพิ่มรายการไม่ได้เพราะชื่อซ้ำกับในถังขยะ')) {
+        console.log('❌ Inventory API - Item Name validation error from createInventoryItem');
+        return NextResponse.json(
+          { error: error.message },
+          { status: 400 }
+        );
+      }
+      
       if (error.message.startsWith('ACTIVE_SN_EXISTS:') || error.message.startsWith('RECYCLE_SN_EXISTS:')) {
         console.log('❌ Inventory API - Serial Number validation error from createInventoryItem');
         // For users, show generic message regardless of whether SN is active or in recycle bin

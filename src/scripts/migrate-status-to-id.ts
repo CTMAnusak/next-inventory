@@ -273,8 +273,6 @@ class StatusMigrationTool {
    * รัน Migration ทั้งหมด
    */
   async runFullMigration(dryRunOnly: boolean = true): Promise<MigrationLog[]> {
-    console.log('🚀 Starting Status Migration Process...');
-    console.log(`📋 Mode: ${dryRunOnly ? 'DRY RUN' : 'FULL MIGRATION'}`);
     
     const steps = [
       () => this.createStatusConfigs(),
@@ -296,7 +294,6 @@ class StatusMigrationTool {
       }
     }
 
-    console.log('\n📊 Migration Summary:');
     console.table(this.logs.map(log => ({
       Step: log.step,
       Status: log.status,
@@ -350,7 +347,6 @@ if (require.main === module) {
 
   if (isRollback) {
     rollbackStatusMigration().then(() => {
-      console.log('✅ Rollback completed');
       process.exit(0);
     }).catch((error) => {
       console.error('❌ Rollback failed:', error);
@@ -358,7 +354,6 @@ if (require.main === module) {
     });
   } else {
     runStatusMigration(isDryRun).then(() => {
-      console.log(`✅ ${isDryRun ? 'Dry run' : 'Migration'} completed`);
       process.exit(0);
     }).catch((error) => {
       console.error(`❌ ${isDryRun ? 'Dry run' : 'Migration'} failed:`, error);

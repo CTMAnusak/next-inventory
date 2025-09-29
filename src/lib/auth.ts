@@ -75,7 +75,6 @@ export function verifyTokenFromRequest(request: any): any {
       return null;
     }
     
-    console.log('✅ Found auth-token, length:', actualToken.length);
     return jwt.verify(actualToken, JWT_SECRET);
   } catch (error) {
     console.log('❌ Token verification error:', error.message);
@@ -112,7 +111,6 @@ export function verifyTokenFromRequestEdge(request: any): any {
       return null;
     }
     
-    console.log('✅ Found auth-token, length:', actualToken.length);
     return verifyTokenEdge(actualToken);
   } catch (error) {
     console.log('❌ Token verification error:', error);

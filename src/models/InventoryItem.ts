@@ -204,35 +204,37 @@ InventoryItemSchema.pre('save', function(next) {
   next();
 });
 
-// Post-save hook เพื่อ auto-sync InventoryMaster
+// Post-save hook เพื่อ auto-sync InventoryMaster (DISABLED to prevent race conditions)
+// The sync is now handled directly in createInventoryItem function for better control
+/*
 InventoryItemSchema.post('save', async function(doc) {
   try {
     // Import ที่จำเป็น
     const { updateInventoryMaster } = await import('../lib/inventory-helpers');
     
-    console.log(`🔄 Auto-syncing InventoryMaster for: ${doc.itemName} (${doc.categoryId})`);
     await updateInventoryMaster(doc.itemName, doc.categoryId);
-    console.log(`✅ Auto-sync completed for: ${doc.itemName}`);
   } catch (error) {
     console.error(`❌ Auto-sync failed for ${doc.itemName}:`, error);
     // Don't throw error - just log it
   }
 });
+*/
 
-// Post-findOneAndUpdate hook เพื่อ auto-sync InventoryMaster
+// Post-findOneAndUpdate hook เพื่อ auto-sync InventoryMaster (DISABLED to prevent race conditions)
+// The sync is now handled directly in the API endpoints for better control
+/*
 InventoryItemSchema.post('findOneAndUpdate', async function(doc) {
   if (doc) {
     try {
       const { updateInventoryMaster } = await import('../lib/inventory-helpers');
       
-      console.log(`🔄 Auto-syncing InventoryMaster after update: ${doc.itemName} (${doc.categoryId})`);
       await updateInventoryMaster(doc.itemName, doc.categoryId);
-      console.log(`✅ Auto-sync completed for: ${doc.itemName}`);
     } catch (error) {
       console.error(`❌ Auto-sync failed for ${doc.itemName}:`, error);
     }
   }
 });
+*/
 
 // Static methods สำหรับ common queries
 InventoryItemSchema.statics.findAvailableByName = function(itemName: string) {

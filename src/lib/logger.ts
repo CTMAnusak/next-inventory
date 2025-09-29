@@ -6,7 +6,7 @@ export const logger = {
   // Performance logs - only in development
   perf: (message: string, ...args: any[]) => {
     if (isDev) {
-      console.log(`⏱️ ${message}`, ...args);
+      console.log(`⚡ ${message}`, ...args);
     }
   },
 
@@ -20,7 +20,7 @@ export const logger = {
   // Info logs - always show but simplified in production
   info: (message: string, ...args: any[]) => {
     if (isDev) {
-      console.log(`📊 ${message}`, ...args);
+      console.log(`ℹ️ ${message}`, ...args);
     } else {
       console.log(message);
     }

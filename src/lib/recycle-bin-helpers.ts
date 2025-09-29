@@ -25,14 +25,6 @@ export async function moveToRecycleBin(params: MoveToRecycleBinParams) {
   
   await dbConnect();
   
-  console.log(`🗑️ Moving item to recycle bin:`, {
-    itemName: item.itemName,
-    category: item.category,
-    serialNumber: item.serialNumber || 'No SN',
-    numberPhone: item.numberPhone || 'No Phone',
-    deleteType
-  });
-  
   // สร้างรายการในถังขยะ
   const recycleBinItem = new RecycleBin({
     itemName: item.itemName,
@@ -48,7 +40,6 @@ export async function moveToRecycleBin(params: MoveToRecycleBinParams) {
   });
   
   await recycleBinItem.save();
-  console.log(`✅ Item moved to recycle bin: ${recycleBinItem._id}`);
   
   return recycleBinItem;
 }
@@ -66,14 +57,6 @@ export async function restoreFromRecycleBin(params: RestoreFromRecycleBinParams)
   if (!recycleBinItem) {
     throw new Error('ไม่พบรายการในถังขยะ');
   }
-  
-  console.log(`♻️ Restoring item from recycle bin:`, {
-    itemName: recycleBinItem.itemName,
-    category: recycleBinItem.category,
-    serialNumber: recycleBinItem.serialNumber || 'No SN',
-    numberPhone: recycleBinItem.numberPhone || 'No Phone',
-    deleteType: recycleBinItem.deleteType
-  });
   
   if (recycleBinItem.deleteType === 'individual_item') {
     // กู้คืนอุปกรณ์รายชิ้น
@@ -101,8 +84,6 @@ export async function restoreFromRecycleBin(params: RestoreFromRecycleBinParams)
     
     try {
       await restoredItem.save();
-      console.log(`✅ Individual item restored: ${restoredItem._id}`);
-      console.log(`📋 Restored item details: ${itemData.itemName} (SN: ${itemData.serialNumber || 'No SN'})`);
     } catch (error) {
       console.error(`❌ Error saving restored item:`, error);
       
@@ -124,7 +105,6 @@ export async function restoreFromRecycleBin(params: RestoreFromRecycleBinParams)
     
     // ลบข้อมูลออกจากถังขยะ (เนื่องจากกู้คืนเสร็จแล้ว)
     await RecycleBin.findByIdAndDelete(recycleBinId);
-    console.log(`🗑️ Removed restored item from recycle bin: ${recycleBinId}`);
     
     return { type: 'individual', item: restoredItem };
     
@@ -165,7 +145,6 @@ export async function restoreFromRecycleBin(params: RestoreFromRecycleBinParams)
         await restoredItem.save();
         restoredItems.push(restoredItem);
         
-        console.log(`✅ Restored item: ${itemData.itemName} (SN: ${itemData.serialNumber || 'No SN'})`);
       } catch (error) {
         console.error(`❌ Error restoring item ${item.itemName}:`, error);
         
@@ -180,7 +159,6 @@ export async function restoreFromRecycleBin(params: RestoreFromRecycleBinParams)
       }
     }
     
-    console.log(`✅ Category restored: ${restoredItems.length}/${categoryItems.length} items`);
     if (errors.length > 0) {
       console.log(`⚠️ Errors encountered: ${errors.length} items`);
       errors.forEach(error => console.log(`   - ${error}`));
@@ -195,7 +173,6 @@ export async function restoreFromRecycleBin(params: RestoreFromRecycleBinParams)
       category: recycleBinItem.category,
       deleteType: 'category_bulk'
     });
-    console.log(`🗑️ Removed ${deleteResult.deletedCount} category items from recycle bin`);
     
     // ถ้ามี errors ให้ throw error พร้อมรายละเอียด
     if (errors.length > 0) {
@@ -215,7 +192,7 @@ export async function restoreFromRecycleBin(params: RestoreFromRecycleBinParams)
 /**
  * ตรวจสอบว่า Serial Number มีอยู่ในถังขยะหรือไม่
  */
-export async function checkSerialNumberInRecycleBin(serialNumber: string) {
+export async function checkSerialNumberInRecycleBin(serialNumber: string, options?: { itemName?: string; categoryId?: string }) {
   if (!serialNumber || serialNumber.trim() === '') {
     return null;
   }
@@ -223,16 +200,22 @@ export async function checkSerialNumberInRecycleBin(serialNumber: string) {
   await dbConnect();
   
   // ✅ ใหม่: ไม่ต้องตรวจสอบ isRestored เพราะข้อมูลที่กู้คืนแล้วจะถูกลบออกจากถังขยะ
-  const recycleBinItem = await RecycleBin.findOne({
-    serialNumber: serialNumber.trim()
-  });
+  // หากระบุ itemName/categoryId ให้ match เฉพาะรายการที่เป็นอุปกรณ์เดียวกันเท่านั้น
+  const query: any = { serialNumber: serialNumber.trim() };
+  if (options?.itemName) {
+    query.itemName = options.itemName.trim();
+  }
+  if (options?.categoryId) {
+    query.categoryId = options.categoryId;
+  }
+  const recycleBinItem = await RecycleBin.findOne(query);
   return recycleBinItem;
 }
 
 /**
  * ตรวจสอบว่า Phone Number มีอยู่ในถังขยะหรือไม่
  */
-export async function checkPhoneNumberInRecycleBin(numberPhone: string) {
+export async function checkPhoneNumberInRecycleBin(numberPhone: string, options?: { itemName?: string; categoryId?: string }) {
   if (!numberPhone || numberPhone.trim() === '') {
     return null;
   }
@@ -240,9 +223,38 @@ export async function checkPhoneNumberInRecycleBin(numberPhone: string) {
   await dbConnect();
   
   // ✅ ใหม่: ไม่ต้องตรวจสอบ isRestored เพราะข้อมูลที่กู้คืนแล้วจะถูกลบออกจากถังขยะ
-  const recycleBinItem = await RecycleBin.findOne({
-    numberPhone: numberPhone.trim()
-  });
+  // หากระบุ itemName/categoryId ให้ match เฉพาะรายการที่เป็นอุปกรณ์เดียวกันเท่านั้น
+  const query: any = { numberPhone: numberPhone.trim() };
+  if (options?.itemName) {
+    query.itemName = options.itemName.trim();
+  }
+  if (options?.categoryId) {
+    query.categoryId = options.categoryId;
+  }
+  const recycleBinItem = await RecycleBin.findOne(query);
+  return recycleBinItem;
+}
+
+/**
+ * ตรวจสอบว่า Item Name มีอยู่ในถังขยะหรือไม่
+ */
+export async function checkItemNameInRecycleBin(itemName: string, categoryId?: string) {
+  if (!itemName || itemName.trim() === '') {
+    return null;
+  }
+  
+  await dbConnect();
+  
+  const query: any = {
+    itemName: itemName.trim()
+  };
+  
+  // ถ้ามี categoryId ให้ตรวจสอบเฉพาะในหมวดหมู่นั้น
+  if (categoryId) {
+    query.categoryId = categoryId;
+  }
+  
+  const recycleBinItem = await RecycleBin.findOne(query);
   return recycleBinItem;
 }
 
@@ -252,19 +264,15 @@ export async function checkPhoneNumberInRecycleBin(numberPhone: string) {
 export async function permanentDeleteExpiredItems() {
   await dbConnect();
   
-  console.log('🧹 Starting permanent cleanup of expired recycle bin items...');
   
   const expiredItems = await RecycleBin.findExpiredItems();
-  console.log(`📊 Found ${expiredItems.length} expired items to delete permanently`);
   
   if (expiredItems.length === 0) {
-    console.log('✅ No expired items found');
     return { deletedCount: 0, items: [] };
   }
   
   const deletedItems = [];
   for (const item of expiredItems) {
-    console.log(`🗑️ Permanently deleting: ${item.itemName} (SN: ${item.serialNumber || 'No SN'})`);
     deletedItems.push({
       itemName: item.itemName,
       category: item.category,
@@ -279,7 +287,6 @@ export async function permanentDeleteExpiredItems() {
     _id: { $in: expiredItems.map(item => item._id) }
   });
   
-  console.log(`✅ Permanently deleted ${result.deletedCount} expired items`);
   
   return {
     deletedCount: result.deletedCount,

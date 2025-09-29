@@ -77,7 +77,6 @@ export default function ITTrackingPage() {
   const submitApproval = async () => {
     if (!selectedIssue || !approvalAction) return;
 
-    console.log('🎯 User submitting approval:', { 
       issueId: selectedIssue._id, 
       action: approvalAction, 
       reason: rejectionReason 
@@ -97,7 +96,6 @@ export default function ITTrackingPage() {
       });
 
       const data = await response.json();
-      console.log('📨 API Response:', { status: response.status, data });
 
       if (response.ok) {
         toast.success(data.message);

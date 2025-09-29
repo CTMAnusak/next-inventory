@@ -26,21 +26,18 @@ async function ensureConfig() {
     
     // Ensure categoryConfigs exists
     if (!existing.categoryConfigs || existing.categoryConfigs.length === 0) {
-      console.log('⚠️  No categoryConfigs found, initializing...');
       existing.categoryConfigs = DEFAULT_CATEGORY_CONFIGS;
       needsSave = true;
     }
     
     // Ensure statusConfigs exists
     if (!existing.statusConfigs || existing.statusConfigs.length === 0) {
-      console.log('⚠️  No statusConfigs found, initializing with defaults...');
       existing.statusConfigs = DEFAULT_STATUS_CONFIGS;
       needsSave = true;
     }
     
     // Ensure conditionConfigs exists
     if (!existing.conditionConfigs || existing.conditionConfigs.length === 0) {
-      console.log('⚠️  No conditionConfigs found, initializing with defaults...');
       existing.conditionConfigs = DEFAULT_CONDITION_CONFIGS;
       needsSave = true;
     }
@@ -59,7 +56,6 @@ async function ensureConfig() {
     conditionConfigs: DEFAULT_CONDITION_CONFIGS
   });
   await created.save();
-  console.log('✅ Created new inventory config with default categoryConfigs and statusConfigs');
   return created;
 }
 
@@ -85,7 +81,6 @@ export async function GET() {
     
     // If no categoryConfigs exist, create only "ไม่ระบุ" category
     if (categoryConfigs.length === 0) {
-      console.log('⚠️  No categoryConfigs found, creating only "ไม่ระบุ" category');
       categoryConfigs = [{
         id: 'cat_unassigned',
         name: 'ไม่ระบุ',
@@ -114,8 +109,6 @@ export async function GET() {
     }));
     
     // Get statusConfigs and ensure proper serialization
-    console.log('🔍 Raw config.statusConfigs:', config.statusConfigs);
-    console.log('🔍 statusConfigs length:', config.statusConfigs?.length || 0);
     
     const cleanedStatusConfigs = (config.statusConfigs || []).map((statusConfig: IStatusConfig) => ({
       id: statusConfig.id,
@@ -126,11 +119,8 @@ export async function GET() {
       updatedAt: statusConfig.updatedAt
     })).sort((a: any, b: any) => a.order - b.order);
     
-    console.log('✅ Cleaned statusConfigs:', cleanedStatusConfigs);
     
     // Get conditionConfigs and ensure proper serialization
-    console.log('🔍 Raw config.conditionConfigs:', config.conditionConfigs);
-    console.log('🔍 conditionConfigs length:', config.conditionConfigs?.length || 0);
     
     const cleanedConditionConfigs = (config.conditionConfigs || []).map((conditionConfig: IConditionConfig) => ({
       id: conditionConfig.id,
@@ -141,7 +131,6 @@ export async function GET() {
       updatedAt: conditionConfig.updatedAt
     })).sort((a: any, b: any) => a.order - b.order);
     
-    console.log('✅ Cleaned conditionConfigs:', cleanedConditionConfigs);
 
     const result = { 
       statusConfigs: cleanedStatusConfigs, // New status system only
@@ -180,7 +169,6 @@ export async function PUT(request: NextRequest) {
     if (statusConfigs) {
       await createStatusBackup(); // ✅ Status backup แยก
     }
-    console.log('📦 Backup created before config update');
     
     // Handle categoryConfigs update (preferred method)
     if (Array.isArray(categoryConfigs)) {
@@ -202,19 +190,16 @@ export async function PUT(request: NextRequest) {
       // Clear cache
       setCachedData('inventory_config', null);
       
-      console.log(`✅ Updated categoryConfigs: ${validConfigs.length} categories`);
     }
     
     // Handle statusConfigs update (new method)
     if (Array.isArray(statusConfigs)) {
-      console.log('🔍 Received statusConfigs for update:', statusConfigs);
       
       // Validate statusConfigs
       const validStatusConfigs = statusConfigs.filter(status => 
         status.name && status.name.trim() && typeof status.order === 'number'
       );
       
-      console.log('🔍 Valid statusConfigs after filter:', validStatusConfigs);
       
       // Ensure proper ordering and timestamps
       validStatusConfigs.forEach((status, index) => {
@@ -224,26 +209,22 @@ export async function PUT(request: NextRequest) {
         if (!status.id) status.id = generateStatusId();
       });
       
-      console.log('🔍 Final statusConfigs before save:', validStatusConfigs);
       
       config.statusConfigs = validStatusConfigs;
       
       // Clear cache
       setCachedData('inventory_config', null);
       
-      console.log(`✅ Updated statusConfigs: ${validStatusConfigs.length} status configs`);
     }
     
     // Handle conditionConfigs update
     if (Array.isArray(conditionConfigs)) {
-      console.log('🔍 Received conditionConfigs for update:', conditionConfigs);
       
       // Validate conditionConfigs
       const validConditionConfigs = conditionConfigs.filter(condition => 
         condition.name && condition.name.trim() && typeof condition.order === 'number'
       );
       
-      console.log('🔍 Valid conditionConfigs after filter:', validConditionConfigs);
       
       // Ensure proper ordering and timestamps
       validConditionConfigs.forEach((condition, index) => {
@@ -253,18 +234,14 @@ export async function PUT(request: NextRequest) {
         if (!condition.id) condition.id = generateConditionId();
       });
       
-      console.log('🔍 Final conditionConfigs before save:', validConditionConfigs);
       
       config.conditionConfigs = validConditionConfigs;
       
       // Clear cache
       setCachedData('inventory_config', null);
       
-      console.log(`✅ Updated conditionConfigs: ${validConditionConfigs.length} condition configs`);
     }
     
-    console.log('💾 Saving config to DB...');
-    console.log('🔍 Config before save - statusConfigs length:', config.statusConfigs?.length || 0);
     
     // ใช้ updateOne แทน save เพื่อแก้ปัญหาการบันทึก
     const updateData: any = {};
@@ -283,14 +260,11 @@ export async function PUT(request: NextRequest) {
         { _id: config._id },
         { $set: updateData }
       );
-      console.log('💾 Update result:', result);
     }
     
-    console.log('✅ Config saved successfully!');
     
     // Reload config to get fresh data
     const savedConfig = await InventoryConfig.findOne();
-    console.log('🔍 Config after save - statusConfigs length:', savedConfig?.statusConfigs?.length || 0);
 
       // Clean categoryConfigs for response - ใช้ savedConfig
       const cleanedResponseConfigs = (savedConfig?.categoryConfigs || []).map((categoryConfig: ICategoryConfig) => ({

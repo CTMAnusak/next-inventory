@@ -63,12 +63,10 @@ async function migrateInventorySystem(): Promise<MigrationStats> {
 
   try {
     await dbConnect();
-    console.log('🔄 Starting inventory system migration...');
 
     // Step 1: Read all old inventory records
     const oldInventories = await OldInventory.find({});
     stats.oldRecords = oldInventories.length;
-    console.log(`📊 Found ${stats.oldRecords} old inventory records`);
 
     // Step 2: Convert to new system
     for (const oldItem of oldInventories) {
@@ -87,8 +85,6 @@ async function migrateInventorySystem(): Promise<MigrationStats> {
     // Step 4: Update RequestLog and ReturnLog references
     await updateLogReferences(stats);
 
-    console.log('✅ Migration completed!');
-    console.log('📊 Migration Statistics:', stats);
 
     return stats;
 
@@ -100,7 +96,6 @@ async function migrateInventorySystem(): Promise<MigrationStats> {
 }
 
 async function migrateInventoryItem(oldItem: any, stats: MigrationStats) {
-  console.log(`🔄 Migrating: ${oldItem.itemName} (${oldItem._id})`);
 
   // Handle items with serial numbers
   if (oldItem.serialNumbers && oldItem.serialNumbers.length > 0) {
@@ -186,11 +181,9 @@ async function createInventoryItem(oldItem: any, serialNumber: string | undefine
   
   stats.transferLogsCreated++;
 
-  console.log(`  ✅ Created InventoryItem: ${savedItem.itemName} ${serialNumber ? `(SN: ${serialNumber})` : ''}`);
 }
 
 async function generateMasterRecords(stats: MigrationStats) {
-  console.log('🔄 Generating InventoryMaster records...');
 
   // Get unique combinations of itemName + category
   const combinations = await InventoryItem.aggregate([
@@ -208,7 +201,6 @@ async function generateMasterRecords(stats: MigrationStats) {
     try {
       await InventoryMaster.updateSummary(combo._id.itemName, combo._id.category);
       stats.masterRecordsCreated++;
-      console.log(`  ✅ Created/Updated InventoryMaster: ${combo._id.itemName} (${combo._id.category})`);
     } catch (error) {
       const errorMsg = `Error creating master record for ${combo._id.itemName}: ${error}`;
       console.error(errorMsg);
@@ -218,11 +210,9 @@ async function generateMasterRecords(stats: MigrationStats) {
 }
 
 async function updateLogReferences(stats: MigrationStats) {
-  console.log('🔄 Updating RequestLog and ReturnLog references...');
 
   // Note: This is a complex migration that would need to map old inventory IDs to new InventoryItem IDs
   // For now, we'll log this as a manual step needed
-  console.log('⚠️  RequestLog and ReturnLog reference updates need to be done manually');
   console.log('    This involves mapping old inventory._id to new InventoryItem._id values');
   
   // TODO: Implement detailed log reference updates if needed
@@ -232,10 +222,8 @@ async function updateLogReferences(stats: MigrationStats) {
 async function dryRun(): Promise<void> {
   try {
     await dbConnect();
-    console.log('🔍 DRY RUN: Analyzing current inventory data...');
 
     const oldInventories = await OldInventory.find({});
-    console.log(`📊 Found ${oldInventories.length} old inventory records`);
 
     let totalItemsToCreate = 0;
     const summaryByCategory: Record<string, number> = {};
@@ -254,9 +242,6 @@ async function dryRun(): Promise<void> {
       }
     }
 
-    console.log(`📊 Migration will create ${totalItemsToCreate} new InventoryItem records`);
-    console.log('📊 Summary by category:', summaryByCategory);
-    console.log(`📊 Estimated ${Object.keys(summaryByCategory).length} InventoryMaster records will be created`);
 
   } catch (error) {
     console.error('❌ Dry run failed:', error);
@@ -275,7 +260,6 @@ async function main() {
       const stats = await migrateInventorySystem();
       
       if (stats.errors.length > 0) {
-        console.log('\n⚠️  Migration completed with errors:');
         stats.errors.forEach(error => console.log(`  - ${error}`));
       }
     }

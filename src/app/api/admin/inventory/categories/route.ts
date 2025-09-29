@@ -74,7 +74,6 @@ export async function POST(request: NextRequest) {
     
     await config.save();
     
-    console.log(`✅ Created new category: ${name}`);
     
     return NextResponse.json({ 
       success: true, 
@@ -123,7 +122,6 @@ export async function PUT(request: NextRequest) {
     
     await config.save();
     
-    console.log(`✅ Updated ${validConfigs.length} categories`);
     
     return NextResponse.json({ 
       success: true, 

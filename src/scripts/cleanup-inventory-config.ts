@@ -29,11 +29,9 @@ const cleanup = async () => {
     }
 
     await mongoose.connect(process.env.MONGODB_URI);
-    console.log('✅ เชื่อมต่อ database สำเร็จ');
 
     // ดู document ปัจจุบัน
     const currentDoc = await InventoryConfig.findOne();
-    console.log('📋 Document ปัจจุบัน:', JSON.stringify(currentDoc, null, 2));
 
     // ลบ fields ที่ไม่ต้องการ - รอบที่ 1
     const result1 = await InventoryConfig.updateMany(
@@ -48,7 +46,6 @@ const cleanup = async () => {
       }
     );
 
-    console.log(`✅ รอบที่ 1 สำเร็จ: ${result1.modifiedCount} documents`);
 
     // ลบ fields ที่ไม่ต้องการ - รอบที่ 2 (กรณีที่ Mongoose สร้าง updatedAt ใหม่)
     const result2 = await InventoryConfig.collection.updateMany(
@@ -61,9 +58,7 @@ const cleanup = async () => {
       }
     );
 
-    console.log(`✅ รอบที่ 2 สำเร็จ: ${result2.modifiedCount} documents`);
 
-    console.log(`✅ ทำความสะอาดสำเร็จทั้งหมด!`);
 
     // ดู document หลังทำความสะอาด
     const cleanedDoc = await InventoryConfig.findOne();
@@ -73,21 +68,16 @@ const cleanup = async () => {
     const expectedFields = ['_id', 'statusConfigs', 'categoryConfigs'];
     const actualFields = Object.keys(cleanedDoc?.toObject() || {});
     
-    console.log('🎯 Fields ที่ต้องการ:', expectedFields);
-    console.log('📝 Fields จริง:', actualFields);
     
     const unexpectedFields = actualFields.filter(field => !expectedFields.includes(field));
     if (unexpectedFields.length > 0) {
-      console.log('⚠️ Fields ที่ไม่คาดหวัง:', unexpectedFields);
     } else {
-      console.log('✅ Fields ถูกต้องแล้ว!');
     }
 
   } catch (error) {
     console.error('❌ เกิดข้อผิดพลาด:', error);
   } finally {
     await mongoose.disconnect();
-    console.log('🔌 ปิดการเชื่อมต่อ database');
   }
 };
 

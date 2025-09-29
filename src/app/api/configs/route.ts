@@ -7,7 +7,6 @@ export async function GET() {
   try {
     await dbConnect();
     
-    console.log('🔍 Fetching inventory configurations...');
     
     // Get the inventory config document
     const config = await InventoryConfig.findOne({});
@@ -20,7 +19,7 @@ export async function GET() {
       );
     }
     
-    console.log('✅ Inventory config found:', {
+    console.log('📊 Config found:', {
       statusConfigs: config.statusConfigs?.length || 0,
       conditionConfigs: config.conditionConfigs?.length || 0,
       categoryConfigs: config.categoryConfigs?.length || 0

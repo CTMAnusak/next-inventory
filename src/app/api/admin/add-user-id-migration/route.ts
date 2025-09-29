@@ -15,7 +15,6 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    console.log('Starting user_id migration...');
     const result = await addUserIdToExistingUsers();
 
     return NextResponse.json({

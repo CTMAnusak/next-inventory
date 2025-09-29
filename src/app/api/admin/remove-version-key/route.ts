@@ -23,11 +23,9 @@ export async function POST(request: NextRequest) {
       }
     );
     
-    console.log('💾 Remove result:', result);
     
     // ตรวจสอบหลัง remove
     const updatedDoc = await InventoryConfig.findOne().lean();
-    console.log('📝 Fields after removal:', Object.keys(updatedDoc || {}));
     
     return NextResponse.json({
       success: true,

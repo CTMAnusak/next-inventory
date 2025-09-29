@@ -22,7 +22,6 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'Only main admin can run migrations' }, { status: 403 });
     }
 
-    console.log('🚀 Starting user migration...');
     const result = await migrateExistingUsersToNewSchema();
 
     return NextResponse.json({

@@ -3,6 +3,7 @@ import dbConnect from '@/lib/mongodb';
 import User from '@/models/User';
 import { verifyToken } from '@/lib/auth';
 import { getRecycleBinItems, permanentDeleteExpiredItems } from '@/lib/recycle-bin-helpers';
+import { getCategoryNameById } from '@/lib/category-helpers';
 
 // GET - Fetch recycle bin items
 export async function GET(request: NextRequest) {
@@ -35,13 +36,31 @@ export async function GET(request: NextRequest) {
     const page = parseInt(searchParams.get('page') || '1');
     const limit = parseInt(searchParams.get('limit') || '50');
 
-    console.log(`🗑️ Fetching recycle bin items: grouped=${grouped}, type=${type}, page=${page}, limit=${limit}`);
 
     let result;
     if (grouped) {
       // 🆕 ใช้ grouped data จาก RecycleBin model
       const RecycleBin = (await import('@/models/RecycleBin')).default;
       const groupedItems = await RecycleBin.findGroupedDeletedItems(page, limit);
+      
+      // แปลงชื่อหมวดหมู่สำหรับทุกรายการ
+      const enrichedItems = await Promise.all(
+        groupedItems.map(async (item) => {
+          try {
+            const categoryName = await getCategoryNameById(item.categoryId);
+            return {
+              ...item,
+              categoryName: categoryName
+            };
+          } catch (error) {
+            console.warn(`Failed to get category name for ${item.categoryId}:`, error);
+            return {
+              ...item,
+              categoryName: item.category // fallback to original category
+            };
+          }
+        })
+      );
       
       // คำนวณ total สำหรับ pagination
       const totalGroups = await RecycleBin.aggregate([
@@ -51,7 +70,7 @@ export async function GET(request: NextRequest) {
       ]);
       
       result = {
-        items: groupedItems,
+        items: enrichedItems,
         page,
         limit,
         total: totalGroups[0]?.total || 0

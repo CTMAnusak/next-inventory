@@ -8,19 +8,14 @@ import InventoryConfig from '@/models/InventoryConfig';
 
 export async function GET() {
   try {
-    console.log('🔍 Debug: Fetching config directly from DB...');
     
     await dbConnect();
     
     // อ่านข้อมูลจาก DB โดยตรง โดยไม่ผ่าน cache
     const config = await InventoryConfig.findOne({}).lean();
     
-    console.log('📋 Raw config from DB:', config);
-    console.log('📝 statusConfigs length:', config?.statusConfigs?.length || 0);
-    console.log('📝 categoryConfigs length:', config?.categoryConfigs?.length || 0);
     
     if (config?.statusConfigs) {
-      console.log('🎯 statusConfigs data:', config.statusConfigs);
     }
     
     const result = {
