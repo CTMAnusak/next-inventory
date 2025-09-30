@@ -456,14 +456,7 @@ export default function AdminEquipmentTrackingPage() {
                   </tr>
                 </thead>
                 <tbody className="bg-white divide-y divide-gray-200">
-                  {currentItems.length === 0 ? (
-                    <tr>
-                      <td colSpan={8} className="px-6 py-8 text-center text-gray-500">
-                        ไม่พบข้อมูล
-                      </td>
-                    </tr>
-                  ) : (
-                    currentItems.map((record, index) => (
+                  {currentItems.map((record, index) => (
                       <tr key={`${record._id}-${index}`} className={`hover:bg-gray-100 ${index % 2 === 0 ? 'bg-white' : 'bg-blue-50'}`}>
                         <td className="px-6 py-4 whitespace-nowrap">
                           <div className="flex items-center">
@@ -568,7 +561,7 @@ export default function AdminEquipmentTrackingPage() {
                         </td>
                       </tr>
                     ))
-                  )}
+                  }
                 </tbody>
               </table>
             )}

@@ -156,6 +156,8 @@ export async function GET(request: NextRequest) {
           itemId: item.itemId,
           quantity: item.quantity,
           serialNumber: item.serialNumber,
+          // include returned status so UI can show status column
+          statusOnReturn: item.statusOnReturn,
           conditionOnReturn: item.conditionOnReturn,
           itemNotes: item.itemNotes
         }))

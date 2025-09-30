@@ -207,8 +207,8 @@ input[type="tel"] {
 /* Keep table cells as non-selectable for drag scrolling, except selectable ones */
 .table-container td:not(.text-selectable),
 .table-container th {
-  user-select: none;
-  cursor: default;
+  user-select: text;
+  cursor: pointer;
 }
 
 /* Override for selectable cells with higher specificity */

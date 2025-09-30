@@ -25,6 +25,8 @@ export async function GET() {
             
             return {
               ...item.toObject(),
+              // ensure statusOnReturn is present for UI rendering
+              statusOnReturn: item.statusOnReturn || 'status_available',
               itemName: itemInfo?.itemName || 'Unknown Item',
               category: itemInfo?.category || 'Unknown Category'
             };
