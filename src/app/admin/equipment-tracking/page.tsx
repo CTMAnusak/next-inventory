@@ -20,7 +20,7 @@ import { toast } from 'react-hot-toast';
 
 interface EquipmentTracking {
   _id: string;
-  requestId: string;
+  userId?: string;
   firstName: string;
   lastName: string;
   nickname: string;
@@ -28,11 +28,6 @@ interface EquipmentTracking {
   office: string;
   phone: string;
   pendingDeletion?: boolean;
-  requestDate: string;
-  deliveryLocation: string;
-  urgency: string;
-  reason: string;
-  userId?: string;
   itemId: string;
   itemName: string;
   currentItemName: string;
@@ -40,8 +35,16 @@ interface EquipmentTracking {
   serialNumber?: string;
   category: string;
   categoryName?: string;
-  submittedAt: string;
+  status: string;
+  statusName?: string;
+  condition: string;
+  conditionName?: string;
   source: 'request' | 'user-owned';
+  dateAdded: string;
+  requestDate: string;
+  deliveryLocation: string;
+  urgency: string;
+  reason: string;
 }
 
 export default function AdminEquipmentTrackingPage() {
@@ -52,15 +55,14 @@ export default function AdminEquipmentTrackingPage() {
 
   // Search and filter states
   const [searchTerm, setSearchTerm] = useState('');
-  const [userFilter, setUserFilter] = useState('');
   const [itemFilter, setItemFilter] = useState('');
+  const [categoryFilter, setCategoryFilter] = useState('');
+  const [statusFilter, setStatusFilter] = useState('');
+  const [conditionFilter, setConditionFilter] = useState('');
   const [departmentFilter, setDepartmentFilter] = useState('');
   const [officeFilter, setOfficeFilter] = useState('');
-  const [dateFromFilter, setDateFromFilter] = useState('');
-  const [dateToFilter, setDateToFilter] = useState('');
-  const [urgencyFilter, setUrgencyFilter] = useState('');
-  const [userIdFilter, setUserIdFilter] = useState('');
-  const [itemIdFilter, setItemIdFilter] = useState('');
+  const [dateAddedFilter, setDateAddedFilter] = useState('');
+  const [sourceFilter, setSourceFilter] = useState('');
 
   // Pagination
   const [currentPage, setCurrentPage] = useState(1);
@@ -85,15 +87,13 @@ export default function AdminEquipmentTrackingPage() {
 
   useEffect(() => {
     applyFilters();
-  }, [trackingData, searchTerm, userFilter, itemFilter, departmentFilter, officeFilter, dateFromFilter, dateToFilter, urgencyFilter, userIdFilter, itemIdFilter]);
+  }, [trackingData, searchTerm, itemFilter, categoryFilter, statusFilter, conditionFilter, departmentFilter, officeFilter, dateAddedFilter, sourceFilter]);
 
   const fetchTrackingData = async () => {
     setLoading(true);
     try {
       // Build query parameters from filters
       const params = new URLSearchParams();
-      if (userIdFilter) params.append('userId', userIdFilter);
-      if (itemIdFilter) params.append('itemId', itemIdFilter);
       if (departmentFilter) params.append('department', departmentFilter);
       if (officeFilter) params.append('office', officeFilter);
       
@@ -127,14 +127,18 @@ export default function AdminEquipmentTrackingPage() {
         record.currentItemName.toLowerCase().includes(searchTerm.toLowerCase()) ||
         (record.serialNumber && record.serialNumber.toLowerCase().includes(searchTerm.toLowerCase()));
 
-      // User filter
-      const matchesUser = !userFilter || 
-        `${record.firstName} ${record.lastName}`.toLowerCase().includes(userFilter.toLowerCase()) ||
-        record.nickname.toLowerCase().includes(userFilter.toLowerCase());
-
       // Item filter
       const matchesItem = !itemFilter || 
         record.currentItemName.toLowerCase().includes(itemFilter.toLowerCase());
+
+      // Category filter
+      const matchesCategory = !categoryFilter || record.category === categoryFilter;
+
+      // Status filter
+      const matchesStatus = !statusFilter || record.status === statusFilter;
+
+      // Condition filter
+      const matchesCondition = !conditionFilter || record.condition === conditionFilter;
 
       // Department filter
       const matchesDepartment = !departmentFilter || record.department.includes(departmentFilter);
@@ -142,23 +146,17 @@ export default function AdminEquipmentTrackingPage() {
       // Office filter
       const matchesOffice = !officeFilter || record.office.includes(officeFilter);
 
-      // Date filter
-      const recordDate = new Date(record.requestDate);
-      const matchesDateFrom = !dateFromFilter || recordDate >= new Date(dateFromFilter);
-      const matchesDateTo = !dateToFilter || recordDate <= new Date(dateToFilter);
+      // Date filter (based on dateAdded)
+      const recordDate = new Date(record.dateAdded || record.requestDate);
+      const matchesDateAdded = !dateAddedFilter || 
+        recordDate.toDateString() === new Date(dateAddedFilter).toDateString();
 
-      // Urgency filter
-      const matchesUrgency = !urgencyFilter || record.urgency === urgencyFilter;
-      
-      // User ID filter
-      const matchesUserId = !userIdFilter || record.userId === userIdFilter;
-      
-      // Item ID filter
-      const matchesItemId = !itemIdFilter || record.itemId === itemIdFilter;
+      // Source filter (request or user-owned)
+      const matchesSource = !sourceFilter || record.source === sourceFilter;
 
-      return matchesSearch && matchesUser && matchesItem && matchesDepartment && 
-             matchesOffice && matchesDateFrom && matchesDateTo && matchesUrgency &&
-             matchesUserId && matchesItemId;
+      return matchesSearch && matchesItem && matchesCategory && matchesStatus && 
+             matchesCondition && matchesDepartment && matchesOffice && 
+             matchesDateAdded && matchesSource;
     });
 
     setFilteredData(filtered);
@@ -167,36 +165,69 @@ export default function AdminEquipmentTrackingPage() {
 
   const clearFilters = () => {
     setSearchTerm('');
-    setUserFilter('');
     setItemFilter('');
+    setCategoryFilter('');
+    setStatusFilter('');
+    setConditionFilter('');
     setDepartmentFilter('');
     setOfficeFilter('');
-    setDateFromFilter('');
-    setDateToFilter('');
-    setUrgencyFilter('');
-    setUserIdFilter('');
-    setItemIdFilter('');
+    setDateAddedFilter('');
+    setSourceFilter('');
   };
 
   // Get unique values for filters
-  const users = useMemo(() => {
-    if (!Array.isArray(trackingData)) return [];
-    return [...new Set(trackingData.map(record => `${record.firstName} ${record.lastName} (${record.nickname})`))];
-  }, [trackingData]);
-
   const items = useMemo(() => {
     if (!Array.isArray(trackingData)) return [];
-    return [...new Set(trackingData.map(record => record.currentItemName))];
+    return [...new Set(trackingData.map(record => record.currentItemName).filter(Boolean))];
+  }, [trackingData]);
+
+  const categories = useMemo(() => {
+    if (!Array.isArray(trackingData)) return [];
+    const categoryMap = new Map();
+    trackingData.forEach(record => {
+      const id = record.category;
+      const name = record.categoryName || record.category;
+      if (id && !categoryMap.has(id)) {
+        categoryMap.set(id, { id, name });
+      }
+    });
+    return Array.from(categoryMap.values());
+  }, [trackingData]);
+
+  const statuses = useMemo(() => {
+    if (!Array.isArray(trackingData)) return [];
+    const statusMap = new Map();
+    trackingData.forEach(record => {
+      const id = record.status;
+      const name = record.statusName || record.status;
+      if (id && !statusMap.has(id)) {
+        statusMap.set(id, { id, name });
+      }
+    });
+    return Array.from(statusMap.values());
+  }, [trackingData]);
+
+  const conditions = useMemo(() => {
+    if (!Array.isArray(trackingData)) return [];
+    const conditionMap = new Map();
+    trackingData.forEach(record => {
+      const id = record.condition;
+      const name = record.conditionName || record.condition;
+      if (id && !conditionMap.has(id)) {
+        conditionMap.set(id, { id, name });
+      }
+    });
+    return Array.from(conditionMap.values());
   }, [trackingData]);
 
   const departments = useMemo(() => {
     if (!Array.isArray(trackingData)) return [];
-    return [...new Set(trackingData.map(record => record.department))];
+    return [...new Set(trackingData.map(record => record.department).filter(Boolean))];
   }, [trackingData]);
 
   const offices = useMemo(() => {
     if (!Array.isArray(trackingData)) return [];
-    return [...new Set(trackingData.map(record => record.office))];
+    return [...new Set(trackingData.map(record => record.office).filter(Boolean))];
   }, [trackingData]);
 
   // Pagination
@@ -214,14 +245,7 @@ export default function AdminEquipmentTrackingPage() {
             <div className="text-center md:text-left mb-5 md:mb-0">
               <h1 className="text-2xl font-bold text-gray-900">ติดตามอุปกรณ์</h1>
               <p className="text-gray-600 mt-1">
-                {userIdFilter && itemIdFilter 
-                  ? `ติดตามอุปกรณ์ Item ID: ${itemIdFilter} ที่ User ID: ${userIdFilter} ครอบครอง`
-                  : userIdFilter 
-                    ? `ติดตามอุปกรณ์ที่ User ID: ${userIdFilter} ครอบครอง`
-                    : itemIdFilter 
-                      ? `ติดตามอุปกรณ์ Item ID: ${itemIdFilter} ที่ผู้ใช้ครอบครอง`
-                      : 'ค้นหาและติดตามว่าใครเบิกอุปกรณ์อะไรไป'
-                }
+                ค้นหาและติดตามว่าใครเบิกอุปกรณ์อะไรไป
               </p>
             </div>
             <div className="flex space-x-4">
@@ -273,24 +297,6 @@ export default function AdminEquipmentTrackingPage() {
               <div className="grid grid-cols-1 md:grid-cols-3 lg:grid-cols-5 gap-4">
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-1">
-                    ผู้เบิก
-                  </label>
-                  <select
-                    value={userFilter}
-                    onChange={(e) => setUserFilter(e.target.value)}
-                    className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 text-gray-900"
-                  >
-                    <option value="">ทั้งหมด</option>
-                    {users.map((user) => (
-                      <option key={user} value={user}>
-                        {user}
-                      </option>
-                    ))}
-                  </select>
-                </div>
-                
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">
                     อุปกรณ์
                   </label>
                   <select
@@ -309,28 +315,56 @@ export default function AdminEquipmentTrackingPage() {
 
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-1">
-                    User ID
+                    หมวดหมู่
                   </label>
-                  <input
-                    type="text"
-                    value={userIdFilter}
-                    onChange={(e) => setUserIdFilter(e.target.value)}
+                  <select
+                    value={categoryFilter}
+                    onChange={(e) => setCategoryFilter(e.target.value)}
                     className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 text-gray-900"
-                    placeholder="ระบุ User ID"
-                  />
+                  >
+                    <option value="">ทั้งหมด</option>
+                    {categories.map((category) => (
+                      <option key={category.id} value={category.id}>
+                        {category.name}
+                      </option>
+                    ))}
+                  </select>
                 </div>
 
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-1">
-                    Item ID
+                    สถานะ
                   </label>
-                  <input
-                    type="text"
-                    value={itemIdFilter}
-                    onChange={(e) => setItemIdFilter(e.target.value)}
+                  <select
+                    value={statusFilter}
+                    onChange={(e) => setStatusFilter(e.target.value)}
                     className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 text-gray-900"
-                    placeholder="ระบุ Item ID"
-                  />
+                  >
+                    <option value="">ทั้งหมด</option>
+                    {statuses.map((status) => (
+                      <option key={status.id} value={status.id}>
+                        {status.name}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">
+                    สภาพ
+                  </label>
+                  <select
+                    value={conditionFilter}
+                    onChange={(e) => setConditionFilter(e.target.value)}
+                    className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 text-gray-900"
+                  >
+                    <option value="">ทั้งหมด</option>
+                    {conditions.map((condition) => (
+                      <option key={condition.id} value={condition.id}>
+                        {condition.name}
+                      </option>
+                    ))}
+                  </select>
                 </div>
                 
                 <div>
@@ -371,39 +405,28 @@ export default function AdminEquipmentTrackingPage() {
                 
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-1">
-                    วันที่เริ่มต้น
-                  </label>
-                  <DatePicker
-                    value={dateFromFilter}
-                    onChange={(date) => setDateFromFilter(date)}
-                    placeholder="dd/mm/yyyy"
-                  />
-                </div>
-                
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">
-                    วันที่สิ้นสุด
-                  </label>
-                  <DatePicker
-                    value={dateToFilter}
-                    onChange={(date) => setDateToFilter(date)}
-                    placeholder="dd/mm/yyyy"
-                  />
-                </div>
-                
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">
-                    ความเร่งด่วน
+                    แหล่งที่มา
                   </label>
                   <select
-                    value={urgencyFilter}
-                    onChange={(e) => setUrgencyFilter(e.target.value)}
+                    value={sourceFilter}
+                    onChange={(e) => setSourceFilter(e.target.value)}
                     className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 text-gray-900"
                   >
                     <option value="">ทั้งหมด</option>
-                    <option value="very_urgent">ด่วนมาก</option>
-                    <option value="normal">ปกติ</option>
+                    <option value="request">เบิกอุปกรณ์</option>
+                    <option value="user-owned">เพิ่มอุปกรณ์ที่มี</option>
                   </select>
+                </div>
+                
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">
+                    วันที่เพิ่มอุปกรณ์
+                  </label>
+                  <DatePicker
+                    value={dateAddedFilter}
+                    onChange={(date) => setDateAddedFilter(date)}
+                    placeholder="dd/mm/yyyy"
+                  />
                 </div>
               </div>
             </div>
@@ -430,10 +453,25 @@ export default function AdminEquipmentTrackingPage() {
                 <thead className="bg-blue-600">
                   <tr>
                     <th className="px-6 py-3 text-left text-xs font-medium text-white uppercase tracking-wider">
-                      ชื่อ-นามสกุล (ชื่อเล่น)
+                      หมวดหมู่
                     </th>
                     <th className="px-6 py-3 text-left text-xs font-medium text-white uppercase tracking-wider">
-                      เบอร์โทร
+                      อุปกรณ์
+                    </th>
+                    <th className="px-6 py-3 text-left text-xs font-medium text-white uppercase tracking-wider">
+                      Serial Number
+                    </th>
+                    <th className="px-6 py-3 text-left text-xs font-medium text-white uppercase tracking-wider">
+                      สถานะ
+                    </th>
+                    <th className="px-6 py-3 text-left text-xs font-medium text-white uppercase tracking-wider">
+                      สภาพ
+                    </th>
+                    <th className="px-6 py-3 text-left text-xs font-medium text-white uppercase tracking-wider">
+                      วันที่เพิ่มอุปกรณ์
+                    </th>
+                    <th className="px-6 py-3 text-left text-xs font-medium text-white uppercase tracking-wider">
+                      ชื่อ-นามสกุล (ชื่อเล่น)
                     </th>
                     <th className="px-6 py-3 text-left text-xs font-medium text-white uppercase tracking-wider">
                       แผนก
@@ -442,22 +480,100 @@ export default function AdminEquipmentTrackingPage() {
                       ออฟฟิศ/สาขา
                     </th>
                     <th className="px-6 py-3 text-left text-xs font-medium text-white uppercase tracking-wider">
-                      หมวดหมู่
-                    </th>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-white uppercase tracking-wider">
-                      อุปกรณ์ที่มี
+                      เบอร์โทร
                     </th>
                     <th className="px-6 py-3 text-left text-xs font-medium text-white uppercase tracking-wider">
                       จำนวน
                     </th>
                     <th className="px-6 py-3 text-left text-xs font-medium text-white uppercase tracking-wider">
-                      Serial Number
+                      แหล่งที่มา
                     </th>
                   </tr>
                 </thead>
                 <tbody className="bg-white divide-y divide-gray-200">
                   {currentItems.map((record, index) => (
                       <tr key={`${record._id}-${index}`} className={`hover:bg-gray-100 ${index % 2 === 0 ? 'bg-white' : 'bg-blue-50'}`}>
+                        {/* 1. หมวดหมู่ */}
+                        <td className="px-6 py-4 whitespace-nowrap">
+                          <span className={`inline-flex px-2 py-1 text-xs font-semibold rounded-full ${
+                            (record.categoryName || record.category) === 'ไม่ระบุ' 
+                              ? 'bg-gray-100 text-gray-800' 
+                              : (record.categoryName || record.category) === 'คอมพิวเตอร์และแล็ปท็อป'
+                              ? 'bg-red-100 text-red-800'
+                              : (record.categoryName || record.category) === 'อุปกรณ์เสริม'
+                              ? 'bg-yellow-100 text-yellow-800'
+                              : 'bg-blue-100 text-blue-800'
+                          }`}>
+                            {record.categoryName || record.category}
+                          </span>
+                        </td>
+                        
+                        {/* 2. อุปกรณ์ */}
+                        <td className="px-6 py-4 whitespace-nowrap">
+                          <div className="text-sm font-medium text-gray-900">
+                            {record.currentItemName}
+                          </div>
+                        </td>
+                        
+                        {/* 3. Serial Number */}
+                        <td className="px-6 py-4 text-sm text-gray-900 text-selectable">
+                          {record.serialNumber ? (
+                            <span className="inline-flex px-2 py-1 text-xs font-semibold rounded-full bg-purple-100 text-purple-800">
+                              {record.serialNumber}
+                            </span>
+                          ) : (
+                            <span className="inline-flex px-2 py-1 text-xs font-semibold rounded-full bg-gray-100 text-gray-600">
+                              ไม่มี SN
+                            </span>
+                          )}
+                        </td>
+                        
+                        {/* 4. สถานะ */}
+                        <td className="px-6 py-4 whitespace-nowrap">
+                          <span className={`inline-flex px-2 py-1 text-xs font-semibold rounded-full ${
+                            record.statusName === 'มี' 
+                              ? 'bg-green-100 text-green-800' 
+                              : record.statusName === 'หาย'
+                              ? 'bg-red-100 text-red-800'
+                              : 'bg-gray-100 text-gray-800'
+                          }`}>
+                            {record.statusName || record.status || 'ไม่ระบุ'}
+                          </span>
+                        </td>
+                        
+                        {/* 5. สภาพ */}
+                        <td className="px-6 py-4 whitespace-nowrap">
+                          <span className={`inline-flex px-2 py-1 text-xs font-semibold rounded-full ${
+                            record.conditionName === 'ใช้งานได้' 
+                              ? 'bg-blue-100 text-blue-800' 
+                              : record.conditionName === 'ชำรุด'
+                              ? 'bg-orange-100 text-orange-800'
+                              : 'bg-gray-100 text-gray-800'
+                          }`}>
+                            {record.conditionName || record.condition || 'ไม่ระบุ'}
+                          </span>
+                        </td>
+                        
+                        {/* 6. วันที่เพิ่มอุปกรณ์ */}
+                        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+                          <div className="flex flex-col">
+                            <span className="font-medium">
+                              {new Date(record.dateAdded || record.requestDate).toLocaleDateString('th-TH', {
+                                year: 'numeric',
+                                month: 'short',
+                                day: 'numeric'
+                              })}
+                            </span>
+                            <span className="text-xs text-gray-500">
+                              {new Date(record.dateAdded || record.requestDate).toLocaleTimeString('th-TH', {
+                                hour: '2-digit',
+                                minute: '2-digit'
+                              })}
+                            </span>
+                          </div>
+                        </td>
+                        
+                        {/* 7. ชื่อ-นามสกุล (ชื่อเล่น) */}
                         <td className="px-6 py-4 whitespace-nowrap">
                           <div className="flex items-center">
                             <div>
@@ -472,73 +588,45 @@ export default function AdminEquipmentTrackingPage() {
                                   <>
                                     {record.firstName} {record.lastName}
                                     {record.pendingDeletion && ' (รอลบ)'}
-                                    {!record.firstName && ' (ผู้ใช้ถูกลบแล้ว)'}
                                   </>
                                 ) : (
                                   '(ผู้ใช้ถูกลบแล้ว)'
                                 )}
                               </div>
-                              <div className="text-sm text-gray-500">
-                                {record.nickname ? `(${record.nickname})` : '-'}
-                              </div>
-                              {record.userId && (
-                                <div className="text-xs text-gray-400">
-                                  ID: {record.userId}
+                              {record.nickname && (
+                                <div className="text-sm text-gray-500">
+                                  ({record.nickname})
                                 </div>
                               )}
                             </div>
                           </div>
                         </td>
-                        <td 
-                          className="px-6 py-4 text-sm text-gray-900 text-selectable"
-                          style={{ userSelect: 'text', cursor: 'text' }}
-                        >
-                          {record.phone || '-'}
-                        </td>
+                        
+                        {/* 8. แผนก */}
                         <td 
                           className="px-6 py-4 text-sm text-gray-900 text-selectable"
                           style={{ userSelect: 'text', cursor: 'text' }}
                         >
                           {record.department || '-'}
                         </td>
+                        
+                        {/* 9. ออฟฟิศ/สาขา */}
                         <td 
                           className="px-6 py-4 text-sm text-gray-900 text-selectable"
                           style={{ userSelect: 'text', cursor: 'text' }}
                         >
                           {record.office || '-'}
                         </td>
-                        <td className="px-6 py-4 whitespace-nowrap">
-                          <span className={`inline-flex px-2 py-1 text-xs font-semibold rounded-full ${
-                            (record.categoryName || record.category) === 'ไม่ระบุ' 
-                              ? 'bg-gray-100 text-gray-800' 
-                              : (record.categoryName || record.category) === 'คอมพิวเตอร์และแล็ปท็อป'
-                              ? 'bg-red-100 text-red-800'
-                              : (record.categoryName || record.category) === 'อุปกรณ์เสริม'
-                              ? 'bg-yellow-100 text-yellow-800'
-                              : 'bg-blue-100 text-blue-800'
-                          }`}>
-                            {record.categoryName || record.category}
-                          </span>
+                        
+                        {/* 10. เบอร์โทร */}
+                        <td 
+                          className="px-6 py-4 text-sm text-gray-900 text-selectable"
+                          style={{ userSelect: 'text', cursor: 'text' }}
+                        >
+                          {record.phone || '-'}
                         </td>
-                        <td className="px-6 py-4 whitespace-nowrap">
-                          <div className="flex items-center">
-                            <div>
-                              <div className="text-sm font-medium text-gray-900">
-                                {record.currentItemName}
-                              </div>
-                              <div className="text-xs text-gray-500">
-                                ID: {record.itemId}
-                              </div>
-                              <div className={`text-xs font-medium ${
-                                record.source === 'user-owned' 
-                                  ? 'text-orange-600 bg-orange-100 px-1 rounded' 
-                                  : 'text-blue-600 bg-blue-100 px-1 rounded'
-                              }`}>
-                                {record.source === 'user-owned' ? 'อุปกรณ์ที่มีอยู่เดิม' : 'อุปกรณ์ที่เบิก'}
-                              </div>
-                            </div>
-                          </div>
-                        </td>
+                        
+                        {/* 11. จำนวน */}
                         <td className="px-6 py-4 text-sm text-gray-900 text-selectable">
                           <span className={`inline-flex px-2 py-1 text-xs font-semibold rounded-full ${
                             record.quantity > 1 
@@ -548,16 +636,16 @@ export default function AdminEquipmentTrackingPage() {
                             {record.quantity} ชิ้น
                           </span>
                         </td>
-                        <td className="px-6 py-4 text-sm text-gray-900 text-selectable">
-                          {record.serialNumber ? (
-                            <span className="inline-flex px-2 py-1 text-xs font-semibold rounded-full bg-purple-100 text-purple-800">
-                              {record.serialNumber}
-                            </span>
-                          ) : (
-                            <span className="inline-flex px-2 py-1 text-xs font-semibold rounded-full bg-gray-100 text-gray-600">
-                              ไม่มี SN
-                            </span>
-                          )}
+                        
+                        {/* 12. แหล่งที่มา */}
+                        <td className="px-6 py-4 whitespace-nowrap">
+                          <span className={`inline-flex px-2 py-1 text-xs font-semibold rounded-full ${
+                            record.source === 'request' 
+                              ? 'bg-blue-100 text-blue-800' 
+                              : 'bg-orange-100 text-orange-800'
+                          }`}>
+                            {record.source === 'request' ? '🔵 เบิกอุปกรณ์' : '🟠 ผู้ใช้ (dashboard)'}
+                          </span>
                         </td>
                       </tr>
                     ))
@@ -573,7 +661,7 @@ export default function AdminEquipmentTrackingPage() {
               <Package className="w-12 h-12 text-gray-400 mx-auto mb-4" />
               <h3 className="text-lg font-medium text-gray-900 mb-2">ไม่พบข้อมูล</h3>
                               <p className="text-gray-600">
-                  {searchTerm || userFilter || itemFilter || departmentFilter || officeFilter || dateFromFilter || dateToFilter || urgencyFilter || userIdFilter || itemIdFilter
+                  {searchTerm || itemFilter || categoryFilter || statusFilter || conditionFilter || departmentFilter || officeFilter || dateAddedFilter || sourceFilter
                     ? 'ไม่พบข้อมูลที่ตรงกับเงื่อนไขการค้นหา'
                     : 'ยังไม่มีการเบิกอุปกรณ์หรืออุปกรณ์ที่มีอยู่เดิม'
                   }

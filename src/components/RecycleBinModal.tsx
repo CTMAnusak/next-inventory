@@ -8,6 +8,7 @@ interface RecycleBinItem {
   _id: string;
   itemName: string;
   category: string;
+  categoryId?: string;    // เพิ่ม categoryId สำหรับตรวจสอบซิมการ์ด
   serialNumber?: string;
   numberPhone?: string;   // เพิ่มเบอร์โทรศัพท์
   deleteType: 'individual_item' | 'category_bulk';

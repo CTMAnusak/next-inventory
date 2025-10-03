@@ -3,7 +3,39 @@ import dbConnect from '@/lib/mongodb';
 import ReturnLog from '@/models/ReturnLog';
 import { InventoryItem } from '@/models/InventoryItemNew';
 import { changeItemStatus, transferInventoryItem } from '@/lib/inventory-helpers';
+import { getItemNameAndCategory } from '@/lib/item-name-resolver';
 import { verifyToken } from '@/lib/auth';
+
+// 🆕 Function to check if item becomes deletable after return
+async function checkAndNotifyItemBecomesDeletable(itemName: string, categoryId: string, approvedBy: string) {
+  try {
+    const InventoryMaster = (await import('@/models/InventoryMaster')).default;
+    
+    const inventoryMaster = await InventoryMaster.findOne({ itemName, categoryId });
+    if (!inventoryMaster) return;
+    
+    // Check if item now has admin stock (becomes deletable)
+    if (inventoryMaster.availableQuantity > 0) {
+      console.log(`✅ Item "${itemName}" becomes deletable - Admin Stock: ${inventoryMaster.availableQuantity}, User Owned: ${inventoryMaster.userOwnedQuantity}`);
+      
+      // Here you could add notification logic for admins
+      // For now, just log the change
+      const notification = {
+        type: 'item_becomes_deletable',
+        itemName,
+        categoryId,
+        adminStock: inventoryMaster.availableQuantity,
+        userOwned: inventoryMaster.userOwnedQuantity,
+        approvedBy,
+        timestamp: new Date()
+      };
+      
+      console.log('📢 Notification:', notification);
+    }
+  } catch (error) {
+    console.warn('Failed to check deletable status:', error);
+  }
+}
 
 export async function POST(
   request: NextRequest,
@@ -42,13 +74,6 @@ export async function POST(
       );
     }
     
-    if (returnLog.status !== 'pending') {
-      return NextResponse.json(
-        { error: 'การคืนนี้ได้รับการอนุมัติแล้ว' },
-        { status: 400 }
-      );
-    }
-    
     // Check if item index is valid
     if (itemIndex < 0 || itemIndex >= returnLog.items.length) {
       return NextResponse.json(
@@ -60,7 +85,7 @@ export async function POST(
     const item = returnLog.items[itemIndex];
     
     // Check if item is already approved
-    if (item.statusOnReturn === 'approved') {
+    if (item.approvalStatus === 'approved') {
       return NextResponse.json({
         message: 'รายการนี้ได้รับการอนุมัติแล้ว',
         alreadyApproved: true
@@ -104,30 +129,44 @@ export async function POST(
         });
       }
       
-      // Update the specific item status
-      returnLog.items[itemIndex].statusOnReturn = 'approved';
+      // Update the specific item approval status
+      returnLog.items[itemIndex].approvalStatus = 'approved';
       returnLog.items[itemIndex].approvedAt = new Date();
       returnLog.items[itemIndex].approvedBy = payload.userId;
-      
-      // Check if all items are approved
-      const allItemsApproved = returnLog.items.every((item: any) => item.statusOnReturn === 'approved');
-      
-      if (allItemsApproved) {
-        // Update return log status to approved
-        returnLog.status = 'approved';
-        returnLog.approvedAt = new Date();
-        returnLog.approvedBy = payload.userId;
-      }
-      
+
+      // Ensure Mongoose registers nested array mutation
+      (returnLog as any).markModified?.('items');
+
       await returnLog.save();
+
+      // 🆕 Update InventoryMaster after return and check if item becomes deletable
+      try {
+        const { updateInventoryMaster } = await import('@/lib/inventory-helpers');
+        const { getItemNameAndCategory } = await import('@/lib/item-name-resolver');
+        
+        // Get item info for InventoryMaster update
+        const itemInfo = await getItemNameAndCategory((item as any).masterItemId, item.itemId);
+        if (itemInfo) {
+          await updateInventoryMaster(itemInfo.itemName, itemInfo.categoryId);
+          
+          // 🔔 Check if item becomes deletable and notify
+          await checkAndNotifyItemBecomesDeletable(itemInfo.itemName, itemInfo.categoryId, payload.userId);
+        }
+      } catch (updateError) {
+        console.warn('Failed to update InventoryMaster after return approval:', updateError);
+        // Don't fail the main operation if this fails
+      }
+
+      // Resolve item name for response message
+      const resolvedInfo = await getItemNameAndCategory((item as any).masterItemId, item.itemId);
+      const resolvedItemName = resolvedInfo?.itemName || (item as any).itemName || 'อุปกรณ์';
       
       return NextResponse.json({
-        message: `อนุมัติการคืน ${item.itemName} เรียบร้อยแล้ว`,
+        message: `อนุมัติการคืน ${resolvedItemName} เรียบร้อยแล้ว`,
         itemId: item.itemId,
-        itemName: item.itemName,
+        itemName: resolvedItemName,
         serialNumber: item.serialNumber,
-        allItemsApproved: allItemsApproved,
-        returnStatus: returnLog.status
+        approvalStatus: 'approved'
       });
       
     } catch (itemError) {

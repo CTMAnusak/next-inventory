@@ -117,16 +117,31 @@ export async function POST(request: NextRequest) {
       }
     }
     
-    // Check for duplicate phone number for SIM cards
-    if (numberPhone && finalCategoryId === 'cat_sim_card') {
+    // Check for duplicate phone number for all categories that use phone numbers
+    if (numberPhone) {
+      // Check if phone number already exists in inventory items
       const existingItem = await InventoryItem.findOne({ 
         numberPhone: numberPhone,
-        categoryId: finalCategoryId,
         status: { $ne: 'deleted' } // ✅ Exclude soft-deleted items
       });
       if (existingItem) {
         return NextResponse.json(
-          { error: 'เบอร์โทรศัพท์นี้มีอยู่ในระบบแล้ว' },
+          { error: `เบอร์โทรศัพท์นี้มีอยู่ในระบบแล้วในคลัง: ${existingItem.itemName}` },
+          { status: 400 }
+        );
+      }
+
+      // ✅ Cross-validation: Check if phone number exists in User collection
+      const existingUser = await User.findOne({ 
+        phone: numberPhone,
+        $or: [
+          { deletedAt: { $exists: false } }, // Users without deletedAt field
+          { deletedAt: null } // Users with deletedAt: null
+        ]
+      });
+      if (existingUser) {
+        return NextResponse.json(
+          { error: `เบอร์โทรศัพท์นี้ถูกใช้โดยผู้ใช้: ${existingUser.firstName || ''} ${existingUser.lastName || ''} (${existingUser.office || ''})` },
           { status: 400 }
         );
       }
@@ -322,32 +337,67 @@ export async function DELETE(request: NextRequest) {
     const inventoryMaster = await InventoryMaster.findOne({ itemName, categoryId: category });
     const inventoryMasterId = inventoryMaster?._id?.toString() || `${itemName}_${category}_${Date.now()}`;
 
-    // Check if any items are currently owned by users
+    // 🆕 Get category name from CategoryConfig
+    let categoryName = category; // fallback to categoryId
+    try {
+      const { getCategoryNameById } = await import('@/lib/category-helpers');
+      categoryName = await getCategoryNameById(category);
+    } catch (error) {
+      console.warn('Failed to get category name, using categoryId as fallback:', error);
+    }
+
+    // 🔧 แยกประเภทอุปกรณ์
+    const adminStockItems = itemsToDelete.filter(item => 
+      item.currentOwnership.ownerType === 'admin_stock'
+    );
+    
     const userOwnedItems = itemsToDelete.filter(item => 
       item.currentOwnership.ownerType === 'user_owned'
     );
 
-    if (userOwnedItems.length > 0 && !deleteAll) {
-      return NextResponse.json(
-        { 
-          error: `มีอุปกรณ์ ${userOwnedItems.length} ชิ้นที่ถูกเบิกไปอยู่ ไม่สามารถลบได้`,
-          userOwnedItems: userOwnedItems.map(item => ({
-            serialNumber: item.serialNumber,
-            ownerId: item.currentOwnership.userId,
-            ownerName: item.currentOwnership.userId
-          }))
-        },
-        { status: 400 }
-      );
+    // ✅ กรณีที่ 1: มีเฉพาะ Admin Stock → ลบได้หมด
+    if (adminStockItems.length > 0 && userOwnedItems.length === 0) {
+      console.log(`🗑️ Deleting all items for "${itemName}" - Admin Stock only: ${adminStockItems.length} items`);
+    }
+    // ✅ กรณีที่ 2: มี Admin Stock + User Owned → ลบเฉพาะ Admin Stock
+    else if (adminStockItems.length > 0 && userOwnedItems.length > 0) {
+      console.log(`🗑️ Partial deletion for "${itemName}" - Admin Stock: ${adminStockItems.length}, User Owned: ${userOwnedItems.length}`);
+    }
+    // ❌ กรณีที่ 3: มีเฉพาะ User Owned → ลบไม่ได้เลย
+    else if (adminStockItems.length === 0 && userOwnedItems.length > 0) {
+      return NextResponse.json({
+        error: `❌ ไม่สามารถลบ "${itemName}" ได้`,
+        reason: `มีผู้ใช้ครอบครองอุปกรณ์อยู่ ${userOwnedItems.length} ชิ้น`,
+        message: "รายการนี้จะหายจากตารางเมื่อผู้ใช้คืนอุปกรณ์ครบทุกชิ้น",
+        nextSteps: [
+          "1. ติดต่อผู้ใช้ให้คืนอุปกรณ์",
+          "2. รอให้ผู้ใช้ส่งคำขอคืนอุปกรณ์", 
+          "3. อนุมัติการคืนอุปกรณ์",
+          "4. จึงจะสามารถลบรายการได้"
+        ],
+        adminStock: adminStockItems.length,
+        userOwned: userOwnedItems.length,
+        userOwnedItems: userOwnedItems.map(item => ({
+          serialNumber: item.serialNumber,
+          numberPhone: item.numberPhone,
+          ownerId: item.currentOwnership.userId,
+          ownedSince: item.currentOwnership.ownedSince
+        }))
+      }, { status: 400 });
     }
 
-    // Start deletion process
+    // Start deletion process - ลบเฉพาะ Admin Stock
+    const itemsToActuallyDelete = adminStockItems; // ลบเฉพาะ Admin Stock
+    const willDeleteAll = userOwnedItems.length === 0; // จะลบทั้งหมดหรือไม่
+    
     const deletionSummary = {
       totalItems: itemsToDelete.length,
-      adminStockItems: itemsToDelete.filter(item => item.currentOwnership.ownerType === 'admin_stock').length,
+      adminStockItems: adminStockItems.length,
       userOwnedItems: userOwnedItems.length,
-      withSerialNumber: itemsToDelete.filter(item => item.serialNumber).length,
-      withoutSerialNumber: itemsToDelete.filter(item => !item.serialNumber).length
+      itemsToDelete: itemsToActuallyDelete.length,
+      willDeleteAll,
+      withSerialNumber: itemsToActuallyDelete.filter(item => item.serialNumber).length,
+      withoutSerialNumber: itemsToActuallyDelete.filter(item => !item.serialNumber).length
     };
 
     // Create deletion log entry
@@ -369,8 +419,8 @@ export async function DELETE(request: NextRequest) {
     // Move all items to recycle bin before deleting
     try {
       
-      // Create simple backup records in a separate collection for now
-      const backupData = itemsToDelete.map(item => ({
+      // Create simple backup records - เฉพาะที่จะลบจริง
+      const backupData = itemsToActuallyDelete.map(item => ({
         itemName: item.itemName,
         categoryId: item.categoryId,
         serialNumber: item.serialNumber,
@@ -394,10 +444,11 @@ export async function DELETE(request: NextRequest) {
         
         const recycleBinItems = backupData.map(backup => ({
           itemName: backup.itemName,
-          category: category, // เก็บ category name เดิม
+          category: categoryName, // 🔧 Use resolved category name instead of categoryId
           categoryId: backup.categoryId,
           inventoryMasterId: inventoryMasterId, // 🆕 เพิ่ม inventoryMasterId
           serialNumber: backup.serialNumber,
+          numberPhone: JSON.parse(backup.originalData).numberPhone, // 🔧 Add numberPhone from original data
           deleteType: 'bulk_delete', // เปลี่ยนชื่อ
           deleteReason: backup.deleteReason,
           deletedBy: backup.deletedBy,
@@ -423,12 +474,30 @@ export async function DELETE(request: NextRequest) {
       console.error('❌ Error with recycle bin process:', recycleBinError);
     }
     
-    // Now delete all related data
-    // 1. Delete all InventoryItems
-    await InventoryItem.deleteMany({ itemName, categoryId: category });
+    // Now delete items - เฉพาะ Admin Stock
+    // 1. Delete only Admin Stock InventoryItems
+    await InventoryItem.deleteMany({ 
+      _id: { $in: itemsToActuallyDelete.map(item => item._id) }
+    });
     
-    // 2. Delete InventoryMaster
-    await InventoryMaster.deleteOne({ itemName, categoryId: category });
+    // 2. Update or Delete InventoryMaster
+    if (willDeleteAll) {
+      // ลบ InventoryMaster ถ้าไม่มีอุปกรณ์เหลือ
+      await InventoryMaster.deleteOne({ itemName, categoryId: category });
+      console.log(`✅ Deleted InventoryMaster for "${itemName}" - no items remaining`);
+    } else {
+      // อัปเดต InventoryMaster ถ้ายังมี User Owned
+      await InventoryMaster.updateOne(
+        { itemName, categoryId: category },
+        {
+          availableQuantity: 0, // Admin Stock หมดแล้ว
+          totalQuantity: userOwnedItems.length,
+          userOwnedQuantity: userOwnedItems.length,
+          lastUpdated: new Date()
+        }
+      );
+      console.log(`✅ Updated InventoryMaster for "${itemName}" - ${userOwnedItems.length} user owned items remaining`);
+    }
     
     // 3. Delete related logs (optional - for cleanup)
     // Note: We keep TransferLog and other logs for audit trail
@@ -439,8 +508,19 @@ export async function DELETE(request: NextRequest) {
     // Clear all caches
     clearAllCaches();
     
+    // Return appropriate message based on deletion type
+    const message = willDeleteAll 
+      ? `ลบรายการ "${itemName}" ทั้งหมดเรียบร้อยแล้ว (${deletionSummary.itemsToDelete} ชิ้น)`
+      : `ลบ Admin Stock "${itemName}" เรียบร้อยแล้ว (${deletionSummary.itemsToDelete} ชิ้น)`;
+    
+    const warning = !willDeleteAll 
+      ? `⚠️ รายการยังคงอยู่ในตารางเพราะมีผู้ใช้ครอบครอง ${deletionSummary.userOwnedItems} ชิ้น`
+      : null;
+
     return NextResponse.json({
-      message: `ลบรายการ "${itemName}" ทั้งหมดเรียบร้อยแล้ว`,
+      message,
+      warning,
+      deletionType: willDeleteAll ? 'complete' : 'partial',
       deletionSummary: deletionSummary,
       reason: reason,
       deletedBy: currentUser.firstName || currentUser.user_id,

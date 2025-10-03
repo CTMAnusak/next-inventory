@@ -60,6 +60,7 @@ interface ITIssue {
 
 interface ITAdmin {
   id: string;
+  userId: string;
   name: string;
   email: string;
 }
@@ -205,7 +206,10 @@ export default function AdminITReportsPage() {
           .filter((user: any) => user.userRole === 'it_admin')
           .map((user: any) => ({
             id: user._id,
-            name: `${user.firstName} ${user.lastName}`,
+            userId: user.user_id,
+            name: user.userType === 'individual' 
+              ? `${user.firstName} ${user.lastName}`.trim()
+              : user.office,
             email: user.email
           }));
         setItAdmins(itAdminUsers);

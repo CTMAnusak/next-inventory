@@ -7,6 +7,8 @@ import { toast } from 'react-hot-toast';
 import { Package, PackageOpen, AlertTriangle, BarChart3, Users, Plus, X, RefreshCw } from 'lucide-react';
 import { useAuth } from '@/contexts/AuthContext';
 import { enableDragScroll } from '@/lib/drag-scroll';
+import { isSIMCardSync } from '@/lib/sim-card-helpers';
+import SimpleErrorModal from '@/components/SimpleErrorModal';
 
 interface ICategoryConfig {
   id: string;
@@ -25,7 +27,7 @@ export default function DashboardPage() {
   const [editItemId, setEditItemId] = useState<string | null>(null);
   const [showDetailModal, setShowDetailModal] = useState(false);
   const [detailData, setDetailData] = useState<any>(null);
-  const [ownedItems, setOwnedItems] = useState<Array<{ _id?: string; itemName: string; category: string; categoryId?: string; serialNumber?: string; quantity: number; firstName?: string; lastName?: string; nickname?: string; department?: string; phone?: string; statusId?: string; conditionId?: string; statusName?: string; conditionName?: string; currentOwnership?: { ownedSince?: string | Date }; sourceInfo?: { dateAdded?: string | Date }; createdAt?: string | Date; source?: string; editable?: boolean }>>([]);
+  const [ownedItems, setOwnedItems] = useState<Array<{ _id?: string; itemName: string; category: string; categoryId?: string; serialNumber?: string; quantity: number; firstName?: string; lastName?: string; nickname?: string; department?: string; phone?: string; statusId?: string; conditionId?: string; statusName?: string; conditionName?: string; notes?: string; currentOwnership?: { ownedSince?: string | Date }; sourceInfo?: { dateAdded?: string | Date }; createdAt?: string | Date; source?: string; editable?: boolean }>>([]);
   const [categoryConfigs, setCategoryConfigs] = useState<ICategoryConfig[]>([]);
   const [statusConfigs, setStatusConfigs] = useState<any[]>([]);
   const [conditionConfigs, setConditionConfigs] = useState<any[]>([]);
@@ -41,6 +43,10 @@ export default function DashboardPage() {
   const [ownedLoading, setOwnedLoading] = useState(false);
   const [dataLoaded, setDataLoaded] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
+  
+  // Simple Error Modal State
+  const [showSimpleError, setShowSimpleError] = useState(false);
+  const [simpleErrorMessage, setSimpleErrorMessage] = useState('');
   
   // Drag scroll ref
   const tableContainerRef = useRef<HTMLDivElement>(null);
@@ -214,11 +220,19 @@ export default function DashboardPage() {
         
         // Call API to update the item
         const updateData = {
-          serialNumber: form.serialNumber || '',
-          numberPhone: form.phone || '',
           statusId: form.status || 'status_available',
           conditionId: form.condition || 'cond_working',
-          notes: form.notes || ''
+          notes: form.notes || '',
+          // สำหรับซิมการ์ด ส่ง numberPhone แทน serialNumber
+          ...(isSIMCardSync(selectedCategoryId) && form.serialNumber && {
+            numberPhone: form.serialNumber,
+            serialNumber: '' // ล้าง serialNumber สำหรับซิมการ์ด
+          }),
+          // สำหรับอุปกรณ์ทั่วไป ส่ง serialNumber ตรงๆ
+          ...(!isSIMCardSync(selectedCategoryId) && {
+            serialNumber: form.serialNumber || '',
+            numberPhone: form.phone || ''
+          })
         };
         
         const response = await fetch(`/api/inventory/${editItemId}`, {
@@ -277,6 +291,21 @@ export default function DashboardPage() {
       return;
     }
     
+    // Validate phone number for SIM Card
+    if (isSIMCardSync(selectedCategoryId) && form.serialNumber) {
+      const phoneNumber = form.serialNumber.trim();
+      if (phoneNumber.length !== 10) {
+        toast.error('เบอร์โทรศัพท์ต้องเป็น 10 หลักเท่านั้น');
+        setIsSubmitting(false);
+        return;
+      }
+      if (!/^[0-9]{10}$/.test(phoneNumber)) {
+        toast.error('เบอร์โทรศัพท์ต้องเป็นตัวเลข 10 หลักเท่านั้น');
+        setIsSubmitting(false);
+        return;
+      }
+    }
+    
     try {
       let itemId: string;
       
@@ -286,7 +315,6 @@ export default function DashboardPage() {
         const newInventoryPayload = {
           itemName: newItemName || '',
           categoryId: selectedCategoryId,
-          serialNumber: form.serialNumber || '',
           price: 0,
           quantity: 1,
           status: 'active',
@@ -295,7 +323,16 @@ export default function DashboardPage() {
           notes: form.notes || undefined,
           dateAdded: new Date().toISOString(),
           user_id: user?.id || undefined,
-          userRole: 'user'
+          userRole: 'user',
+          // สำหรับซิมการ์ด ส่ง numberPhone แทน serialNumber
+          ...(isSIMCardSync(selectedCategoryId) && form.serialNumber && {
+            numberPhone: form.serialNumber,
+            serialNumber: '' // ล้าง serialNumber สำหรับซิมการ์ด
+          }),
+          // สำหรับอุปกรณ์ทั่วไป ส่ง serialNumber ตรงๆ
+          ...(!isSIMCardSync(selectedCategoryId) && {
+            serialNumber: form.serialNumber || ''
+          })
         };
         
         const inventoryRes = await fetch('/api/inventory', {
@@ -307,7 +344,9 @@ export default function DashboardPage() {
         if (!inventoryRes.ok) {
           const errorData = await inventoryRes.json();
           console.error('❌ Inventory creation failed:', errorData);
-          toast.error(`ไม่สามารถสร้างอุปกรณ์ใหม่ได้: ${errorData.error || 'Unknown error'}`);
+          // Show error in popup modal instead of toast
+          setSimpleErrorMessage(`ไม่สามารถสร้างอุปกรณ์ใหม่ได้: ${errorData.error || 'Unknown error'}`);
+          setShowSimpleError(true);
           setIsSubmitting(false);
           return;
         }
@@ -317,7 +356,9 @@ export default function DashboardPage() {
         // Check if the response has the expected structure
         if (!newInventoryData.items || !Array.isArray(newInventoryData.items) || newInventoryData.items.length === 0) {
           console.error('❌ Invalid response structure:', newInventoryData);
-          toast.error('ไม่สามารถสร้างอุปกรณ์ใหม่ได้ - โครงสร้างข้อมูลไม่ถูกต้อง');
+          // Show error in popup modal instead of toast
+          setSimpleErrorMessage('ไม่สามารถสร้างอุปกรณ์ใหม่ได้ - โครงสร้างข้อมูลไม่ถูกต้อง');
+          setShowSimpleError(true);
           setIsSubmitting(false);
           return;
         }
@@ -382,10 +423,17 @@ export default function DashboardPage() {
           itemName: form.itemName,
           categoryId: selectedCategoryId,
           quantity: 1,
-          serialNumber: form.serialNumber || undefined,
           statusId: form.status || undefined,
           conditionId: form.condition || undefined,
           notes: form.notes || undefined,
+          // สำหรับซิมการ์ด ส่ง numberPhone แทน serialNumber
+          ...(isSIMCardSync(selectedCategoryId) && form.serialNumber && {
+            numberPhone: form.serialNumber
+          }),
+          // สำหรับอุปกรณ์ทั่วไป ส่ง serialNumber ตรงๆ
+          ...(!isSIMCardSync(selectedCategoryId) && {
+            serialNumber: form.serialNumber || undefined
+          })
         };
         
         const res = await fetch('/api/user/owned-equipment', { 
@@ -772,10 +820,17 @@ export default function DashboardPage() {
                                   const itemData = await response.json();
                                   console.log('🔍 Fetched item data for edit:', itemData);
                                   
+                                  // สำหรับซิมการ์ด ใช้ numberPhone แทน serialNumber
+                                  const categoryId = itemData.categoryId || row.categoryId || row.category;
+                                  const isSimCard = categoryId === 'cat_sim_card';
+                                  const serialNumberValue = isSimCard 
+                                    ? (itemData.numberPhone || row.numberPhone || '')
+                                    : (itemData.serialNumber || row.serialNumber || '');
+                                  
                                   const formData = {
                                     itemName: itemData.itemName || row.itemName,
-                                    categoryId: itemData.categoryId || row.categoryId || row.category,
-                                    serialNumber: itemData.serialNumber || row.serialNumber || '',
+                                    categoryId: categoryId,
+                                    serialNumber: serialNumberValue,
                                     quantity: itemData.quantity || row.quantity || 1,
                                     firstName: row.firstName || '',
                                     lastName: row.lastName || '',
@@ -789,15 +844,21 @@ export default function DashboardPage() {
                                   console.log('🔍 Setting form data:', formData);
                                   
                                   setForm(formData);
-                                  setSelectedCategoryId(itemData.categoryId || row.categoryId || row.category);
+                                  setSelectedCategoryId(categoryId);
                                   // Fetch items in category for dropdown
                                   await fetchItemsInCategory(itemData.categoryId || row.categoryId || row.category);
                                 } else {
                                   // Fallback to row data if API fails
+                                  const categoryId = row.categoryId || row.category;
+                                  const isSimCard = categoryId === 'cat_sim_card';
+                                  const serialNumberValue = isSimCard 
+                                    ? (row.numberPhone || '')
+                                    : (row.serialNumber || '');
+                                  
                                   setForm({
                                     itemName: row.itemName,
-                                    categoryId: row.categoryId || row.category,
-                                    serialNumber: row.serialNumber || '',
+                                    categoryId: categoryId,
+                                    serialNumber: serialNumberValue,
                                     quantity: row.quantity || 1,
                                     firstName: row.firstName || '',
                                     lastName: row.lastName || '',
@@ -808,16 +869,22 @@ export default function DashboardPage() {
                                     condition: row.conditionId || '',
                                     notes: row.notes || ''
                                   });
-                                  setSelectedCategoryId(row.categoryId || row.category);
+                                  setSelectedCategoryId(categoryId);
                                   // Fetch items in category for dropdown
                                   await fetchItemsInCategory(row.categoryId || row.category);
                                 }
                               } else {
                                 // Fallback to row data if no ID
+                                const categoryId = row.categoryId || row.category;
+                                const isSimCard = categoryId === 'cat_sim_card';
+                                const serialNumberValue = isSimCard 
+                                  ? (row.numberPhone || '')
+                                  : (row.serialNumber || '');
+                                
                                 setForm({
                                   itemName: row.itemName,
-                                  categoryId: row.categoryId || row.category,
-                                  serialNumber: row.serialNumber || '',
+                                  categoryId: categoryId,
+                                  serialNumber: serialNumberValue,
                                   quantity: row.quantity || 1,
                                   firstName: row.firstName || '',
                                   lastName: row.lastName || '',
@@ -828,7 +895,7 @@ export default function DashboardPage() {
                                   condition: row.conditionId || '',
                                   notes: row.notes || ''
                                 });
-                                setSelectedCategoryId(row.categoryId || row.category);
+                                setSelectedCategoryId(categoryId);
                                 // Fetch items in category for dropdown
                                 await fetchItemsInCategory(row.categoryId || row.category);
                               }
@@ -945,30 +1012,12 @@ export default function DashboardPage() {
                         {config.name}
                       </option>
                     ))}
-                    <option value="new">+ เพิ่มหมวดหมู่ใหม่</option>
                   </select>
                 </div>
 
-                {/* New Category Input */}
-                {selectedCategoryId === 'new' && (
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">ชื่อหมวดหมู่ใหม่ *</label>
-                    <input
-                      type="text"
-                      value={newCategoryName}
-                      onChange={(e) => {
-                        setNewCategoryName(e.target.value);
-                        setForm(prev => ({ ...prev, category: e.target.value }));
-                      }}
-                      className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
-                      placeholder="ระบุชื่อหมวดหมู่ใหม่"
-                      required
-                    />
-                  </div>
-                )}
 
                 {/* Step 2: Select Item (only if category is selected) */}
-                {selectedCategoryId && selectedCategoryId !== 'new' && (
+                {selectedCategoryId && (
                   <div>
                     <label className="block text-sm font-medium text-gray-700 mb-1">อุปกรณ์ *</label>
                     <select
@@ -1007,8 +1056,34 @@ export default function DashboardPage() {
                   showNewItemInput) && (
                   <>
                     <div>
-                      <label className="block text-sm font-medium text-gray-700 mb-1">Serial Number (ถ้ามี)</label>
-                      <input type="text" value={form.serialNumber} onChange={(e) => setForm({ ...form, serialNumber: e.target.value })} className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500" placeholder="กรอกถ้ามี" />
+                      <label className="block text-sm font-medium text-gray-700 mb-1">
+                        {isSIMCardSync(selectedCategoryId) ? 'เบอร์โทรศัพท์' : 'Serial Number (ถ้ามี)'}
+                        {isSIMCardSync(selectedCategoryId) && ' *'}
+                      </label>
+                      <input 
+                        type="text" 
+                        value={form.serialNumber} 
+                        onChange={(e) => {
+                          const value = e.target.value;
+                          // สำหรับ SIM Card ให้ยอมแต่ตัวเลขเท่านั้นและจำกัด 10 หลัก
+                          if (isSIMCardSync(selectedCategoryId)) {
+                            const numbersOnly = value.replace(/[^0-9]/g, '').slice(0, 10);
+                            setForm({ ...form, serialNumber: numbersOnly });
+                          } else {
+                            setForm({ ...form, serialNumber: value });
+                          }
+                        }} 
+                        className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500" 
+                        placeholder={isSIMCardSync(selectedCategoryId) ? 'กรอกเบอร์โทรศัพท์ 10 หลัก' : 'กรอกถ้ามี'} 
+                        pattern={isSIMCardSync(selectedCategoryId) ? '[0-9]{10}' : undefined}
+                        maxLength={isSIMCardSync(selectedCategoryId) ? 10 : undefined}
+                        required={isSIMCardSync(selectedCategoryId)}
+                      />
+                      {isSIMCardSync(selectedCategoryId) && (
+                        <p className="text-xs text-gray-500 mt-1">
+                          กรุณากรอกหมายเลขโทรศัพท์ให้ครบ 10 หลัก
+                        </p>
+                      )}
                     </div>
                     <div>
                       <label className="block text-sm font-medium text-gray-700 mb-1">จำนวน *</label>
@@ -1016,11 +1091,12 @@ export default function DashboardPage() {
                     </div>
                     
                     <div>
-                      <label className="block text-sm font-medium text-gray-700 mb-1">สถานะ</label>
+                      <label className="block text-sm font-medium text-gray-700 mb-1">สถานะ *</label>
                       <select
                         value={form.status}
                         onChange={(e) => setForm({ ...form, status: e.target.value })}
                         className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                        required
                       >
                         <option value="">เลือกสถานะ</option>
                         {statusConfigs.map((config) => (
@@ -1032,11 +1108,12 @@ export default function DashboardPage() {
                     </div>
                     
                     <div>
-                      <label className="block text-sm font-medium text-gray-700 mb-1">สภาพอุปกรณ์</label>
+                      <label className="block text-sm font-medium text-gray-700 mb-1">สภาพอุปกรณ์ *</label>
                       <select
                         value={form.condition}
                         onChange={(e) => setForm({ ...form, condition: e.target.value })}
                         className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                        required
                       >
                         <option value="">เลือกสภาพอุปกรณ์</option>
                         {conditionConfigs.map((config) => (
@@ -1196,6 +1273,13 @@ export default function DashboardPage() {
             </div>
           </div>
         )}
+
+        {/* Simple Error Modal */}
+        <SimpleErrorModal
+          isOpen={showSimpleError}
+          onClose={() => setShowSimpleError(false)}
+          message={simpleErrorMessage}
+        />
       </div>
     </Layout>
   );

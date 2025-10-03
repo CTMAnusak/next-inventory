@@ -121,6 +121,21 @@ export async function PUT(
       );
     }
 
+    // ✅ Cross-validation: Check if phone number exists in SIM Card inventory
+    if (phone) {
+      const existingSIMCard = await InventoryItem.findOne({ 
+        numberPhone: phone,
+        categoryId: 'cat_sim_card',
+        status: { $ne: 'deleted' } // Exclude soft-deleted items
+      });
+      if (existingSIMCard) {
+        return NextResponse.json(
+          { error: `เบอร์โทรศัพท์นี้ถูกใช้โดย SIM Card: ${existingSIMCard.itemName}` },
+          { status: 400 }
+        );
+      }
+    }
+
     // Validate email format
     const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
     if (!emailRegex.test(email)) {
@@ -217,6 +232,14 @@ export async function DELETE(
       return NextResponse.json(
         { error: 'ไม่พบผู้ใช้ที่ต้องการลบ' },
         { status: 404 }
+      );
+    }
+
+    // ป้องกันการลบ Main Admin
+    if (userToDelete.isMainAdmin) {
+      return NextResponse.json(
+        { error: 'ไม่สามารถลบ Admin หลักได้' },
+        { status: 403 }
       );
     }
 

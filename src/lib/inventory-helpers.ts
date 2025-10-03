@@ -145,6 +145,19 @@ export async function createInventoryItem(params: CreateItemParams) {
       throw new Error(`Phone Number "${trimmedNumberPhone}" already exists in SIM card category`);
     }
 
+    // ✅ Cross-validation: Check if phone number exists in User collection
+    const User = (await import('../models/User')).default;
+    const existingUser = await User.findOne({ 
+      phone: trimmedNumberPhone,
+      $or: [
+        { deletedAt: { $exists: false } }, // Users without deletedAt field
+        { deletedAt: null } // Users with deletedAt: null
+      ]
+    });
+    if (existingUser) {
+      throw new Error(`เบอร์โทรศัพท์ "${trimmedNumberPhone}" ถูกใช้โดยผู้ใช้: ${existingUser.firstName || ''} ${existingUser.lastName || ''} (${existingUser.office || ''})`);
+    }
+
     // Check if phone number exists in recycle bin
     const { checkPhoneNumberInRecycleBin } = await import('./recycle-bin-helpers');
     // อนุญาตเบอร์ซ้ำข้าม "คนละชื่ออุปกรณ์" ดังนั้นตรวจเฉพาะภายในอุปกรณ์เดียวกัน (itemName+categoryId)
@@ -1172,17 +1185,10 @@ async function getItemBreakdown(itemName: string, categoryId: string) {
           withoutSN: { 
             $sum: { 
               $cond: [
-                { $and: [
-                  { $or: [
-                    { $eq: ['$serialNumber', null] },
-                    { $eq: ['$serialNumber', ''] },
-                    { $eq: [{ $type: '$serialNumber' }, 'missing'] }
-                  ]},
-                  { $or: [
-                    { $eq: ['$numberPhone', null] },
-                    { $eq: ['$numberPhone', ''] },
-                    { $eq: [{ $type: '$numberPhone' }, 'missing'] }
-                  ]}
+                { $or: [
+                  { $eq: ['$serialNumber', null] },
+                  { $eq: ['$serialNumber', ''] },
+                  { $eq: [{ $type: '$serialNumber' }, 'missing'] }
                 ]}, 
                 1, 
                 0

@@ -7,22 +7,20 @@ export interface IReturnItem {
   numberPhone?: string; // Phone Number (สำหรับซิมการ์ด)
   assetNumber?: string; // เลขทรัพย์สิน
   image?: string; // รูปภาพ
-  statusOnReturn?: string; // สถานะอุปกรณ์เมื่อคืน (มี/หาย)
-  conditionOnReturn?: string; // สภาพอุปกรณ์เมื่อคืน (ใช้งานได้/ชำรุด)
+  statusOnReturn?: string; // สถานะอุปกรณ์เมื่อคืน (มี/หาย/ชำรุด - จาก status config)
+  conditionOnReturn?: string; // สภาพอุปกรณ์เมื่อคืน (ใช้งานได้/ชำรุด - จาก condition config)
   itemNotes?: string; // หมายเหตุเฉพาะรายการ
+  approvalStatus: 'pending' | 'approved'; // สถานะการอนุมัติของรายการนี้
+  approvedAt?: Date; // วันที่อนุมัติ
+  approvedBy?: string; // Admin userId ที่อนุมัติ
 }
 
 export interface IReturnLog extends Document {
   // User info - store only userId for real-time lookup
   userId: string; // Reference to User._id for real-time lookup
   returnDate: Date; // วันที่คืน
-  items: IReturnItem[]; // รายการอุปกรณ์ที่คืน
-  status: 'completed' | 'pending'; // สถานะการคืน
+  items: IReturnItem[]; // รายการอุปกรณ์ที่คืน (แต่ละรายการมี approvalStatus แยกกัน)
   notes?: string; // หมายเหตุรวมการคืน
-  
-  // Admin actions
-  processedAt?: Date;
-  processedBy?: string; // Admin userId
   
   createdAt: Date;
   updatedAt: Date;
@@ -35,25 +33,23 @@ const ReturnItemSchema = new Schema<IReturnItem>({
   numberPhone: { type: String },                    // Phone Number (สำหรับซิมการ์ด)
   assetNumber: { type: String },
   image: { type: String },                          // path ของรูปภาพ
-  statusOnReturn: { type: String },                 // สถานะอุปกรณ์เมื่อคืน (มี/หาย)
-  conditionOnReturn: { type: String },              // สภาพอุปกรณ์เมื่อคืน (ใช้งานได้/ชำรุด)
-  itemNotes: { type: String }                       // หมายเหตุเฉพาะรายการ
+  statusOnReturn: { type: String },                 // สถานะอุปกรณ์เมื่อคืน (มี/หาย - จาก status config)
+  conditionOnReturn: { type: String },              // สภาพอุปกรณ์เมื่อคืน (ใช้งานได้/ชำรุด - จาก condition config)
+  itemNotes: { type: String },                      // หมายเหตุเฉพาะรายการ
+  approvalStatus: { 
+    type: String, 
+    enum: ['pending', 'approved'], 
+    default: 'pending' 
+  },                                                // สถานะการอนุมัติ
+  approvedAt: { type: Date },                       // วันที่อนุมัติ
+  approvedBy: { type: String }                      // Admin userId ที่อนุมัติ
 });
 
 const ReturnLogSchema = new Schema<IReturnLog>({
   userId: { type: String, required: true },  // Reference to User._id
   returnDate: { type: Date, required: true },
   items: [ReturnItemSchema],
-  status: { 
-    type: String, 
-    enum: ['completed', 'pending'], 
-    default: 'pending'
-  },
-  notes: { type: String },
-  
-  // Admin actions
-  processedAt: { type: Date },
-  processedBy: { type: String }
+  notes: { type: String }
 }, {
   timestamps: true
 });
@@ -61,7 +57,12 @@ const ReturnLogSchema = new Schema<IReturnLog>({
 // Recommended indexes
 ReturnLogSchema.index({ returnDate: -1, createdAt: -1 });
 ReturnLogSchema.index({ userId: 1 });
-ReturnLogSchema.index({ status: 1 });
+ReturnLogSchema.index({ 'items.approvalStatus': 1 });
 ReturnLogSchema.index({ 'items.itemId': 1 });
 
-export default mongoose.models.ReturnLog || mongoose.model<IReturnLog>('ReturnLog', ReturnLogSchema);
+// Force recreation to ensure schema updates during dev hot-reload
+if (mongoose.models.ReturnLog) {
+  delete mongoose.models.ReturnLog;
+}
+
+export default mongoose.model<IReturnLog>('ReturnLog', ReturnLogSchema);

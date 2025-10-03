@@ -701,8 +701,8 @@ export default function AdminUsersPage() {
                             </button>
                           </div>
                         ) : user.isMainAdmin ? (
-                          <span className="inline-flex items-center px-2 py-1 text-xs font-semibold rounded-full bg-red-100 text-red-800">
-                            Admin หลัก
+                          <span className="inline-flex items-center px-2 py-1 text-xs font-semibold rounded-full bg-yellow-100 text-yellow-800 border border-yellow-300">
+                            🛡️ Admin หลัก
                           </span>
                         ) : (
                           <span className={`inline-flex items-center px-2 py-1 text-xs font-semibold rounded-full ${
@@ -748,15 +748,20 @@ export default function AdminUsersPage() {
                             <button
                               onClick={() => handleEdit(user)}
                               className="text-blue-600 hover:text-blue-900 p-1"
+                              title={user.isMainAdmin ? "แก้ไขข้อมูล (Admin หลัก - ไม่สามารถลบได้)" : "แก้ไขข้อมูล"}
                             >
                               <Edit className="w-4 h-4" />
                             </button>
-                            <button
-                              onClick={() => handleDelete(user._id!)}
-                              className="text-red-600 hover:text-red-900 p-1"
-                            >
-                              <Trash2 className="w-4 h-4" />
-                            </button>
+                            {/* Hide delete button for Main Admin */}
+                            {!user.isMainAdmin && (
+                              <button
+                                onClick={() => handleDelete(user._id!)}
+                                className="text-red-600 hover:text-red-900 p-1"
+                                title="ลบผู้ใช้"
+                              >
+                                <Trash2 className="w-4 h-4" />
+                              </button>
+                            )}
                           </>
                         )}
                       </div>

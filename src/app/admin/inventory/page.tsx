@@ -47,6 +47,8 @@ import {
 } from '@/lib/status-helpers';
 import { useTokenWarning } from '@/hooks/useTokenWarning';
 import TokenExpiryModal from '@/components/TokenExpiryModal';
+import ErrorModal from '@/components/ErrorModal';
+import SimpleErrorModal from '@/components/SimpleErrorModal';
 import { handleTokenExpiry } from '@/lib/auth-utils';
 import GroupedRecycleBinModal from '@/components/GroupedRecycleBinModal';
 import RecycleBinWarningModal from '@/components/RecycleBinWarningModal';
@@ -114,6 +116,10 @@ export default function AdminInventoryPage() {
     serialNumber: ''
   });
 
+  // Simple Error Modal State
+  const [showSimpleError, setShowSimpleError] = useState(false);
+  const [simpleErrorMessage, setSimpleErrorMessage] = useState('');
+
   // Token expiry warning
   const { 
     timeToExpiry, 
@@ -158,6 +164,7 @@ export default function AdminInventoryPage() {
   const [conditionFilter, setConditionFilter] = useState('');
   const [typeFilter, setTypeFilter] = useState('');
   const [lowStockFilter, setLowStockFilter] = useState<number | null>(null);
+  const [deletableFilter, setDeletableFilter] = useState<string>(''); // 🆕 Filter สำหรับสถานะการลบ
   
   // Drag scroll ref
   const tableContainerRef = useRef<HTMLDivElement>(null);
@@ -343,6 +350,18 @@ export default function AdminInventoryPage() {
   const [showDeleteConfirmModal, setShowDeleteConfirmModal] = useState(false);
   const [deleteConfirmText, setDeleteConfirmText] = useState('');
   const [deleteLoading, setDeleteLoading] = useState(false);
+  
+  // Error Modal State
+  const [showErrorModal, setShowErrorModal] = useState(false);
+  const [errorData, setErrorData] = useState<{
+    title: string;
+    message: string;
+    reason: string;
+    nextSteps: string[];
+    itemName: string;
+    adminStock: number;
+    userOwned: number;
+  } | null>(null);
 
 
   useEffect(() => {
@@ -413,7 +432,7 @@ export default function AdminInventoryPage() {
 
   useEffect(() => {
     applyFilters();
-  }, [items, searchTerm, categoryFilter, statusFilter, conditionFilter, typeFilter, lowStockFilter, serialNumberFilter]);
+  }, [items, searchTerm, categoryFilter, statusFilter, conditionFilter, typeFilter, lowStockFilter, serialNumberFilter, deletableFilter]);
 
   // Update stockValue when stockInfo changes for adjust_stock operation
   useEffect(() => {
@@ -655,6 +674,25 @@ export default function AdminInventoryPage() {
       );
     }
 
+    // 🆕 Apply deletable filter
+    if (deletableFilter) {
+      grouped = grouped.filter((g) => {
+        const adminStock = g.quantity || 0;
+        const userOwned = g.userOwnedQuantity || 0;
+        
+        switch (deletableFilter) {
+          case 'fully_deletable':
+            return adminStock > 0 && userOwned === 0;
+          case 'partially_deletable':
+            return adminStock > 0 && userOwned > 0;
+          case 'not_deletable':
+            return adminStock === 0 && userOwned > 0;
+          default:
+            return true;
+        }
+      });
+    }
+
     // Sort by low stock items first (non-serial groups only), then by date added
     grouped.sort((a, b) => {
       const threshold = lowStockFilter !== null ? lowStockFilter : 2;
@@ -770,11 +808,15 @@ export default function AdminInventoryPage() {
           });
           setShowRecycleBinWarning(true);
         } else {
-          toast.error(data.error || 'เกิดข้อผิดพลาด');
+          // Show error in popup modal instead of toast
+          setSimpleErrorMessage(data.error || 'เกิดข้อผิดพลาด');
+          setShowSimpleError(true);
         }
       }
     } catch (error) {
-      toast.error('เกิดข้อผิดพลาดในการเชื่อมต่อ');
+      // Show connection error in popup modal instead of toast
+      setSimpleErrorMessage('เกิดข้อผิดพลาดในการเชื่อมต่อ');
+      setShowSimpleError(true);
     } finally {
       setLoading(false);
     }
@@ -1417,12 +1459,35 @@ export default function AdminInventoryPage() {
       const data = await response.json();
 
       if (response.ok) {
-        toast.success('🗑️ ลบรายการทั้งหมดเรียบร้อยแล้ว');
+        // แสดงข้อความตาม deletion type
+        if (data.deletionType === 'complete') {
+          toast.success(`🗑️ ${data.message}`);
+        } else if (data.deletionType === 'partial') {
+          toast.success(`🗑️ ${data.message}`);
+          if (data.warning) {
+            toast.warning(data.warning, { duration: 5000 });
+          }
+        }
+        
         await fetchInventory();
         closeDeleteConfirmModal();
         closeStockModal();
       } else {
-        toast.error(data.error || 'เกิดข้อผิดพลาดในการลบ');
+        // แสดง Error Modal แทน toast
+        setErrorData({
+          title: 'ไม่สามารถลบได้',
+          message: data.error || 'เกิดข้อผิดพลาดในการลบ',
+          reason: data.reason || 'อุปกรณ์นี้ถูก User ครอบครองอยู่',
+          nextSteps: data.nextSteps || [
+            'รอให้ User คืนอุปกรณ์ทั้งหมด',
+            'ตรวจสอบสถานะการยืมในหน้า Equipment Tracking',
+            'ติดต่อ User เพื่อคืนอุปกรณ์'
+          ],
+          itemName: stockItem?.itemName || '',
+          adminStock: data.adminStock || 0,
+          userOwned: data.userOwned || 0
+        });
+        setShowErrorModal(true);
       }
     } catch (error) {
       console.error('Error deleting item:', error);
@@ -2188,7 +2253,9 @@ export default function AdminInventoryPage() {
         <div className="bg-white/90 backdrop-blur-sm rounded-2xl shadow-xl p-8 border border-white/50">
           {/* Header */}
           <div className="flex flex-col justify-between items-center mb-7 xl:flex-row">
-            <h1 className="text-2xl font-bold text-gray-900 pb-5 xl:pb-0">จัดการคลังสินค้า</h1>
+            <div>
+              <h1 className="text-2xl font-bold text-gray-900 pb-2 xl:pb-0">จัดการคลังสินค้า</h1>
+            </div>
             <div className="flex flex-wrap justify-center gap-4 w-full xl:w-auto">
               <button
                 onClick={() => setShowFilters(!showFilters)}
@@ -2316,6 +2383,21 @@ export default function AdminInventoryPage() {
                 </div>
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-1">
+                    สถานะการลบ
+                  </label>
+                  <select
+                    value={deletableFilter}
+                    onChange={(e) => setDeletableFilter(e.target.value)}
+                    className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 text-gray-900"
+                  >
+                    <option value="">ทั้งหมด</option>
+                    <option value="fully_deletable">✅ ลบได้ทั้งหมด</option>
+                    <option value="partially_deletable">⚠️ ลบได้บางส่วน</option>
+                    <option value="not_deletable">🚫 ลบไม่ได้</option>
+                  </select>
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">
                     สภาพอุปกรณ์
                   </label>
                   <select
@@ -2419,10 +2501,24 @@ export default function AdminInventoryPage() {
                       <td className={`px-6 py-4 text-sm font-medium ${
                         isLowStock ? 'text-red-600' : 'text-gray-900'
                       } text-center text-selectable`}>
-                        {item.quantity}
+                        <div className="flex flex-col items-center">
+                          <span>{item.quantity}</span>
+                          {item.userOwnedQuantity > 0 && (
+                            <span className="text-xs text-blue-600 mt-1">
+                              👤 User: {item.userOwnedQuantity}
+                            </span>
+                          )}
+                        </div>
                       </td>
                       <td className="px-6 py-4 text-sm text-gray-900 text-center text-selectable">
-                        {item.totalQuantity ?? item.quantity}
+                        <div className="flex flex-col items-center">
+                          <span>{item.totalQuantity ?? item.quantity}</span>
+                          {item.quantity === 0 && item.userOwnedQuantity > 0 && (
+                            <span className="px-2 py-1 text-xs bg-yellow-100 text-yellow-800 rounded-full mt-1">
+                              ⏳ รอคืนอุปกรณ์
+                            </span>
+                          )}
+                        </div>
                       </td>
                       <td className="px-6 py-4 whitespace-nowrap text-center">
                         <StatusCell 
@@ -2455,10 +2551,28 @@ export default function AdminInventoryPage() {
                         <div className="flex justify-center space-x-2">
                           <button
                             onClick={() => openStockModal(item)}
-                            className="px-3 py-1 bg-purple-100 hover:bg-purple-200 text-purple-700 rounded-md text-sm font-medium cursor-pointer"
+                            className={`px-3 py-1 rounded-md text-sm font-medium cursor-pointer ${
+                              item.quantity === 0 && item.userOwnedQuantity > 0
+                                ? 'bg-yellow-100 hover:bg-yellow-200 text-yellow-800'
+                                : item.quantity > 0 && item.userOwnedQuantity > 0
+                                  ? 'bg-orange-100 hover:bg-orange-200 text-orange-700'
+                                  : 'bg-purple-100 hover:bg-purple-200 text-purple-700'
+                            }`}
                             aria-label="จัดการ Stock"
+                            title={
+                              item.quantity === 0 && item.userOwnedQuantity > 0
+                                ? `ลบไม่ได้ - User ครอบครอง ${item.userOwnedQuantity} ชิ้น`
+                                : item.quantity > 0 && item.userOwnedQuantity > 0
+                                  ? `ลบได้บางส่วน - Admin: ${item.quantity}, User: ${item.userOwnedQuantity}`
+                                  : `ลบได้ทั้งหมด - ${item.quantity} ชิ้น`
+                            }
                           >
-                            จัดการ Stock
+                            {item.quantity === 0 && item.userOwnedQuantity > 0
+                              ? '🚫 ลบไม่ได้'
+                              : item.quantity > 0 && item.userOwnedQuantity > 0
+                                ? '⚠️ ลบบางส่วน'
+                                : '🗑️ จัดการ Stock'
+                            }
                           </button>
                         </div>
                       </td>
@@ -4860,6 +4974,28 @@ export default function AdminInventoryPage() {
           </div>
         </div>
       )}
+
+      {/* Error Modal */}
+      {errorData && (
+        <ErrorModal
+          isOpen={showErrorModal}
+          onClose={() => setShowErrorModal(false)}
+          title={errorData.title}
+          message={errorData.message}
+          reason={errorData.reason}
+          nextSteps={errorData.nextSteps}
+          itemName={errorData.itemName}
+          adminStock={errorData.adminStock}
+          userOwned={errorData.userOwned}
+        />
+      )}
+
+      {/* Simple Error Modal */}
+      <SimpleErrorModal
+        isOpen={showSimpleError}
+        onClose={() => setShowSimpleError(false)}
+        message={simpleErrorMessage}
+      />
 
     </Layout>
   );

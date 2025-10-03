@@ -25,13 +25,11 @@ export default function DatePicker({
   const calendarRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
 
-  // Initialize with current date if no value
+  // Initialize with value or empty for placeholder
   useEffect(() => {
     if (!value) {
-      const today = new Date();
-      const formattedDate = formatDateForDisplay(today);
-      setDisplayValue(formattedDate);
-      setInputValue(formattedDate);
+      setDisplayValue('');
+      setInputValue('');
     } else {
       const date = new Date(value);
       if (!isNaN(date.getTime())) {

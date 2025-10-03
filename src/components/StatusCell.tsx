@@ -168,7 +168,7 @@ const StatusCell: React.FC<StatusCellProps> = ({
                   <>
                     {breakdown.typeBreakdown.withoutSN > 0 && (
                       <div className="breakdown-item">
-                        • ไม่มี SN/เบอร์: {breakdown.typeBreakdown.withoutSN} ชิ้น
+                        • ไม่มี SN: {breakdown.typeBreakdown.withoutSN} ชิ้น
                       </div>
                     )}
                     {breakdown.typeBreakdown.withSN > 0 && (
@@ -178,7 +178,7 @@ const StatusCell: React.FC<StatusCellProps> = ({
                     )}
                     {breakdown.typeBreakdown.withPhone > 0 && (
                       <div className="breakdown-item">
-                        • มีเบอร์: {breakdown.typeBreakdown.withPhone} เบอร์
+                        • เบอร์: {breakdown.typeBreakdown.withPhone} เบอร์
                       </div>
                     )}
                   </>

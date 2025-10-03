@@ -203,12 +203,17 @@ export async function POST(request: NextRequest) {
     
     const itemsToCreate = [];
     
-    if (itemData.serialNumber && itemData.serialNumber.trim() !== '') {
-      // Create single item with serial number
+    // Check if item has serial number or phone number
+    const hasSerialNumber = itemData.serialNumber && itemData.serialNumber.trim() !== '';
+    const hasPhoneNumber = itemData.numberPhone && itemData.numberPhone.trim() !== '';
+    
+    if (hasSerialNumber || hasPhoneNumber) {
+      // Create single item with serial number or phone number
       itemsToCreate.push({
         itemName: itemData.itemName,
         categoryId: itemData.categoryId,
-        serialNumber: itemData.serialNumber.trim(),
+        serialNumber: hasSerialNumber ? itemData.serialNumber.trim() : undefined,
+        numberPhone: hasPhoneNumber ? itemData.numberPhone.trim() : undefined,
         addedBy: 'user' as const,
         addedByUserId: currentUser.user_id,
         initialOwnerType: 'user_owned' as const,
@@ -218,7 +223,7 @@ export async function POST(request: NextRequest) {
         notes: itemData.notes || 'Added by user via dashboard'
       });
     } else {
-      // Create multiple items without serial numbers
+      // Create multiple items without serial numbers or phone numbers
       const quantity = itemData.quantity || 1;
       for (let i = 0; i < quantity; i++) {
         itemsToCreate.push({

@@ -90,6 +90,22 @@ export async function POST(request: NextRequest) {
       );
     }
 
+    // ✅ Cross-validation: Check if phone number exists in SIM Card inventory
+    if (phone) {
+      const { InventoryItem } = await import('@/models/InventoryItem');
+      const existingSIMCard = await InventoryItem.findOne({ 
+        numberPhone: phone,
+        categoryId: 'cat_sim_card',
+        status: { $ne: 'deleted' } // Exclude soft-deleted items
+      });
+      if (existingSIMCard) {
+        return NextResponse.json(
+          { error: `เบอร์โทรศัพท์นี้ถูกใช้โดย SIM Card: ${existingSIMCard.itemName}` },
+          { status: 400 }
+        );
+      }
+    }
+
     // Validate email format
     const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
     if (!emailRegex.test(email)) {

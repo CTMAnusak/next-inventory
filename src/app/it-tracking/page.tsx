@@ -77,11 +77,6 @@ export default function ITTrackingPage() {
   const submitApproval = async () => {
     if (!selectedIssue || !approvalAction) return;
 
-      issueId: selectedIssue._id, 
-      action: approvalAction, 
-      reason: rejectionReason 
-    });
-
     try {
       const response = await fetch('/api/user/approve-issue', {
         method: 'POST',

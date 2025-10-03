@@ -67,15 +67,6 @@ export async function GET() {
           isSystemConfig: true,
           createdAt: new Date(),
           updatedAt: new Date()
-        },
-        {
-          id: 'cond_broken',
-          name: 'เสีย',
-          color: '#EF4444',
-          order: 3,
-          isSystemConfig: true,
-          createdAt: new Date(),
-          updatedAt: new Date()
         }
       ] as any;
       needsSave = true;

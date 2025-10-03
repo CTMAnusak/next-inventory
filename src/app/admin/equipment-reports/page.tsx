@@ -78,12 +78,12 @@ interface ReturnLog {
     serialNumber?: string; // Single serial number (แก้ไขจาก serialNumbers)
     assetNumber?: string;
     image?: string;
-    statusOnReturn?: string; // เพิ่ม statusOnReturn property
-    conditionOnReturn?: string; // เพิ่ม conditionOnReturn property
+    statusOnReturn?: string; // สถานะอุปกรณ์เมื่อคืน (มี/หาย)
+    conditionOnReturn?: string; // สภาพอุปกรณ์เมื่อคืน (ใช้งานได้/ชำรุด)
     numberPhone?: string; // เพิ่ม numberPhone property
+    approvalStatus?: 'pending' | 'approved'; // สถานะการอนุมัติ
   }>;
   submittedAt: string;
-  status?: 'pending' | 'completed'; // เพิ่ม status สำหรับการแสดงสถานะ
 }
 
 type TabType = 'request' | 'return';
@@ -92,6 +92,8 @@ export default function AdminEquipmentReportsPage() {
   const [requestLogs, setRequestLogs] = useState<RequestLog[]>([]);
   const [returnLogs, setReturnLogs] = useState<ReturnLog[]>([]);
   const [filteredData, setFilteredData] = useState<(RequestLog | ReturnLog)[]>([]);
+  // Flattened, sorted rows for display and pagination
+  const [displayRows, setDisplayRows] = useState<any[]>([]);
   const [loading, setLoading] = useState(false);
   const [activeTab, setActiveTab] = useState<TabType>('request');
   const [showFilters, setShowFilters] = useState(false);
@@ -161,15 +163,16 @@ export default function AdminEquipmentReportsPage() {
   };
 
   // Helper functions to convert ID to name
-  const getStatusName = (statusId: string) => {
-    const status = statusConfigs.find(s => s.id === statusId);
-    return status?.name || statusId;
-  };
+  // Note: Status and condition names are now resolved in the API, so these functions are no longer needed
+  // const getStatusName = (statusId: string) => {
+  //   const status = statusConfigs.find(s => s.id === statusId);
+  //   return status?.name || statusId;
+  // };
 
-  const getConditionName = (conditionId: string) => {
-    const condition = conditionConfigs.find(c => c.id === conditionId);
-    return condition?.name || conditionId;
-  };
+  // const getConditionName = (conditionId: string) => {
+  //   const condition = conditionConfigs.find(c => c.id === conditionId);
+  //   return condition?.name || conditionId;
+  // };
 
   const fetchData = async () => {
     setLoading(true);
@@ -496,22 +499,36 @@ export default function AdminEquipmentReportsPage() {
       return matchesSearch && matchesDepartment && matchesOffice && matchesRequestDate && matchesReturnDate;
     });
 
-    // Sort by submitted date (newest first)
-    filtered.sort((a, b) => {
-      // Use submittedAt if available, fallback to createdAt or updatedAt
-      const getDate = (item: any) => {
-        if (item.submittedAt) return new Date(item.submittedAt);
-        if (item.createdAt) return new Date(item.createdAt);
-        if (item.updatedAt) return new Date(item.updatedAt);
-        return new Date(0); // fallback to epoch
-      };
-      
-      const dateA = getDate(a);
-      const dateB = getDate(b);
-      return dateB.getTime() - dateA.getTime(); // Latest first
+    // Build flattened rows and sort by: pending first, then date desc
+    const rows: any[] = [];
+
+    if (activeTab === 'request') {
+      (filtered as RequestLog[]).forEach((log) => {
+        log.items.forEach((item, index) => {
+          const group = log.status === 'completed' ? 'approved' : 'pending';
+          const date = (log as any).submittedAt || (log as any).updatedAt || (log as any).createdAt || (log as any).requestDate || (log as any).returnDate || Date.now();
+          rows.push({ type: 'request', log, item, itemIndex: index, group, date: new Date(date) });
+        });
+      });
+    } else {
+      (filtered as ReturnLog[]).forEach((log) => {
+        log.items.forEach((item: any, index: number) => {
+          const group = item.approvalStatus === 'approved' ? 'approved' : 'pending';
+          const dateValue = group === 'approved' ? (item.approvedAt || (log as any).updatedAt || log.returnDate) : (log.returnDate || (log as any).createdAt || (log as any).updatedAt);
+          rows.push({ type: 'return', log, item, itemIndex: index, group, date: new Date(dateValue as any) });
+        });
+      });
+    }
+
+    const groupOrder = { pending: 0, approved: 1 } as const;
+    rows.sort((a, b) => {
+      const g = groupOrder[a.group as 'pending' | 'approved'] - groupOrder[b.group as 'pending' | 'approved'];
+      if (g !== 0) return g;
+      return (b.date as Date).getTime() - (a.date as Date).getTime();
     });
 
     setFilteredData(filtered);
+    setDisplayRows(rows);
     setCurrentPage(1);
   };
 
@@ -544,10 +561,10 @@ export default function AdminEquipmentReportsPage() {
   const offices = [...new Set([...requestLogs, ...returnLogs].map(item => item.office))];
 
   // Pagination
-  const totalPages = Math.ceil(filteredData.length / itemsPerPage);
+  const totalPages = Math.ceil(displayRows.length / itemsPerPage);
   const startIndex = (currentPage - 1) * itemsPerPage;
   const endIndex = startIndex + itemsPerPage;
-  const currentItems = filteredData.slice(startIndex, endIndex);
+  const currentItems = displayRows.slice(startIndex, endIndex);
 
   return (
     <Layout>
@@ -787,10 +804,17 @@ export default function AdminEquipmentReportsPage() {
                       <td colSpan={17} className="px-6 py-8 text-center text-gray-500">ไม่พบข้อมูล</td>
                     </tr>
                   )}
-                  {currentItems.map((log, logIndex) => {
-                    const requestLog = log as RequestLog;
-                    return requestLog.items.map((item, itemIndex) => (
-                      <tr key={`${requestLog._id}-${itemIndex}`} className={logIndex % 2 === 0 ? 'bg-white' : 'bg-blue-50'}>
+                  {currentItems.map((row, rowIndex) => {
+                    const requestLog = (row as any).log as RequestLog;
+                    const item = (row as any).item as any;
+                    const itemIndex = (row as any).itemIndex as number;
+                      // Determine row background color based on confirmation status
+                      const isUnconfirmed = (requestLog as any).status === 'pending';
+                      const baseBgClass = rowIndex % 2 === 0 ? 'bg-white' : 'bg-blue-50';
+                      const rowBgClass = isUnconfirmed ? 'bg-orange-50' : baseBgClass;
+                      
+                      return (
+                        <tr key={`${requestLog._id}-${itemIndex}`} className={rowBgClass}>
                         {/* วันที่เบิก */}
                         <td className="px-6 py-4 text-sm text-gray-500 text-center text-selectable">
                           {requestLog.requestDate ? new Date(requestLog.requestDate).toLocaleDateString('th-TH') : '-'}
@@ -840,24 +864,24 @@ export default function AdminEquipmentReportsPage() {
                         </td>
                         {/* สถานะ */}
                         <td className="px-6 py-4 text-sm text-gray-500 text-center text-selectable">
-                          {getStatusName(item.statusOnRequest || '')}
+                          {item.statusOnRequest || 'ไม่ระบุ'}
                         </td>
                         {/* สภาพ */}
                         <td className="px-6 py-4 text-sm text-gray-500 text-center text-selectable">
-                          {getConditionName(item.conditionOnRequest || '')}
+                          {item.conditionOnRequest || 'ไม่ระบุ'}
                         </td>
                         {/* Serial Number */}
                         <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500 text-center">
                           <div className="flex flex-col gap-1">
                             {/* Serial Numbers ที่ admin assign ให้ (รวมกับที่ user ขอ) */}
                             {Array.isArray(item.assignedSerialNumbers) && item.assignedSerialNumbers.length > 0 ? (
-                              item.assignedSerialNumbers.map((sn, idx) => (
+                              item.assignedSerialNumbers.map((sn: string, idx: number) => (
                                 <span key={idx} className="text-xs bg-green-100 text-green-800 px-2 py-1 rounded">
                                   {sn}
                                 </span>
                               ))
                             ) : Array.isArray(item.serialNumbers) && item.serialNumbers.length > 0 ? (
-                              item.serialNumbers.map((sn, idx) => (
+                              item.serialNumbers.map((sn: string, idx: number) => (
                                 <span key={idx} className="text-xs bg-orange-100 text-orange-800 px-2 py-1 rounded">
                                   {sn}
                                 </span>
@@ -871,7 +895,7 @@ export default function AdminEquipmentReportsPage() {
                         <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500 text-center">
                           <div className="flex flex-col gap-1">
                             {Array.isArray(item.assignedPhoneNumbers) && item.assignedPhoneNumbers.length > 0 ? (
-                              item.assignedPhoneNumbers.map((phone, idx) => (
+                              item.assignedPhoneNumbers.map((phone: string, idx: number) => (
                                 <span key={idx} className="text-xs bg-blue-100 text-blue-800 px-2 py-1 rounded">
                                   {phone}
                                 </span>
@@ -923,7 +947,7 @@ export default function AdminEquipmentReportsPage() {
                              )}
                          </td>
                       </tr>
-                    ));
+                    );
                   })}
                 </tbody>
               </table>
@@ -995,10 +1019,17 @@ export default function AdminEquipmentReportsPage() {
                       <td colSpan={16} className="px-6 py-8 text-center text-gray-500">ไม่พบข้อมูล</td>
                     </tr>
                   )}
-                  {currentItems.map((log, logIndex) => {
-                    const returnLog = log as ReturnLog;
-                    return returnLog.items.map((item, itemIndex) => (
-                      <tr key={`${returnLog._id}-${itemIndex}`} className={logIndex % 2 === 0 ? 'bg-white' : 'bg-blue-50'}>
+                  {currentItems.map((row, rowIndex) => {
+                    const returnLog = (row as any).log as ReturnLog;
+                    const item = (row as any).item as any;
+                    const itemIndex = (row as any).itemIndex as number;
+                      // Determine row background color based on approval status
+                      const isPending = item.approvalStatus === 'pending' || !item.approvalStatus;
+                      const baseBgClass = rowIndex % 2 === 0 ? 'bg-white' : 'bg-blue-50';
+                      const rowBgClass = isPending ? 'bg-orange-50' : baseBgClass;
+                      
+                      return (
+                        <tr key={`${returnLog._id}-${itemIndex}`} className={rowBgClass}>
                         {/* วันที่คืน */}
                         <td className="px-6 py-4 text-sm text-gray-500 text-center text-selectable">
                           {returnLog.returnDate ? new Date(returnLog.returnDate).toLocaleDateString('th-TH') : '-'}
@@ -1048,11 +1079,11 @@ export default function AdminEquipmentReportsPage() {
                         </td>
                         {/* สถานะ */}
                         <td className="px-6 py-4 text-sm text-gray-500 text-center text-selectable">
-                          {getStatusName(item.statusOnReturn || '')}
+                          {item.statusOnReturn || 'ไม่ระบุ'}
                         </td>
                         {/* สภาพ */}
                         <td className="px-6 py-4 text-sm text-gray-500 text-center text-selectable">
-                          {getConditionName(item.conditionOnReturn || '')}
+                          {item.conditionOnReturn || 'ไม่ระบุ'}
                         </td>
                         {/* Serial Number */}
                         <td className="px-6 py-4 text-sm text-gray-500 text-center text-selectable">
@@ -1097,7 +1128,7 @@ export default function AdminEquipmentReportsPage() {
                           )}
                         </td>
                         <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-center">
-                          {item.statusOnReturn === 'pending' || returnLog.status === 'pending' ? (
+                          {item.approvalStatus === 'pending' || !item.approvalStatus ? (
                             <button
                               onClick={() => handleApproveReturnItem(returnLog._id, itemIndex)}
                               className="bg-green-600 hover:bg-green-700 text-white px-4 py-2 rounded-lg text-sm font-medium transition-colors cursor-pointer"
@@ -1112,7 +1143,7 @@ export default function AdminEquipmentReportsPage() {
                           )}
                         </td>
                       </tr>
-                    ));
+                    );
                   })}
                 </tbody>
               </table>
@@ -1268,7 +1299,7 @@ export default function AdminEquipmentReportsPage() {
                           key={itemKey} 
                           itemKey={itemKey}
                           itemName={item.itemName || inventoryItems[item.itemId] || 'ไม่ระบุ'}
-                          category={item.categoryId || 'ไม่ระบุ'}
+                          category={item.category || 'ไม่ระบุ'}
                           requestedQuantity={item.quantity}
                           requestedSerialNumbers={item.serialNumbers}
                           onSelectionChange={handleSelectionChange}

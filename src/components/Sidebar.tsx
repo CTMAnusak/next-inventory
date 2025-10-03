@@ -19,7 +19,8 @@ import {
   BarChart3,
   MapPin,
   Users,
-  HelpCircle
+  HelpCircle,
+  Clock
 } from 'lucide-react';
 
 interface MenuItem {
@@ -49,7 +50,7 @@ export default function Sidebar({ isOpen, onClose }: SidebarProps) {
     // IT Report submenu paths
     const itReportPaths = ['/it-report', '/it-tracking', '/it-manual'];
     // Admin submenu paths
-    const adminPaths = ['/admin/inventory', '/admin/it-reports', '/admin/equipment-reports', '/admin/dashboard', '/admin/equipment-tracking', '/admin/users'];
+    const adminPaths = ['/admin/pending-summary', '/admin/inventory', '/admin/it-reports', '/admin/equipment-reports', '/admin/dashboard', '/admin/equipment-tracking', '/admin/users'];
     
     // เปิด IT Report submenu ถ้าอยู่ในหน้าที่เกี่ยวข้อง
     if (itReportPaths.some(path => pathname.startsWith(path))) {
@@ -132,6 +133,7 @@ export default function Sidebar({ isOpen, onClose }: SidebarProps) {
       icon: Settings,
       isAdmin: true,
       submenu: [
+        { title: 'สรุปรายงานรอทำ', href: '/admin/pending-summary' },
         { title: 'Inventory', href: '/admin/inventory' },
         { title: 'รายงานแจ้งงาน IT', href: '/admin/it-reports' },
         { title: 'รายงานเบิก/คืน', href: '/admin/equipment-reports' },
@@ -157,6 +159,7 @@ export default function Sidebar({ isOpen, onClose }: SidebarProps) {
       case 'แจ้งงาน IT': return AlertTriangle;
       case 'ติดตามสถานะ': return Search;
       case 'คู่มือการใช้งาน': return BookOpen;
+      case 'สรุปรายงานรอทำ': return Clock;
       case 'Inventory': return Package;
       case 'รายงานแจ้งงาน IT': return FileText;
       case 'รายงานเบิก/คืน': return FileText;

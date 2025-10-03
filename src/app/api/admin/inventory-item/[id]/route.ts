@@ -78,6 +78,18 @@ export async function PATCH(
             { status: 400 }
           );
         }
+
+        // ✅ Cross-validation: Check if phone number exists in User collection
+        const existingUser = await User.findOne({ 
+          phone: updateData.numberPhone.trim(),
+          deletedAt: { $exists: false } // Exclude soft-deleted users
+        });
+        if (existingUser) {
+          return NextResponse.json(
+            { error: `เบอร์โทรศัพท์ "${updateData.numberPhone.trim()}" ถูกใช้โดยผู้ใช้: ${existingUser.firstName || ''} ${existingUser.lastName || ''} (${existingUser.office || ''})` },
+            { status: 400 }
+          );
+        }
       }
     }
 

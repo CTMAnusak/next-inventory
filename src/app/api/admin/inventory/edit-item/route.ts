@@ -135,6 +135,22 @@ export async function POST(request: NextRequest) {
             });
           }
 
+          // ✅ Cross-validation: Check if phone number exists in User collection
+          const existingUser = await User.findOne({ 
+            phone: newPhoneNumber.trim(),
+            $or: [
+              { deletedAt: { $exists: false } }, // Users without deletedAt field
+              { deletedAt: null } // Users with deletedAt: null
+            ]
+          });
+          if (existingUser) {
+            return NextResponse.json({
+              success: false,
+              message: `เบอร์โทรศัพท์ "${newPhoneNumber}" ถูกใช้โดยผู้ใช้: ${existingUser.firstName || ''} ${existingUser.lastName || ''} (${existingUser.office || ''})`,
+              isDuplicate: true
+            });
+          }
+
           // Update the phone number
           existingItem.numberPhone = newPhoneNumber.trim();
           existingItem.updatedAt = new Date();
@@ -264,6 +280,15 @@ export async function POST(request: NextRequest) {
       const inventoryMaster = await InventoryMaster.findOne({ itemName, categoryId: category });
       const inventoryMasterId = inventoryMaster?._id?.toString() || `${itemName}_${category}_${Date.now()}`;
 
+      // 🆕 Get category name from CategoryConfig
+      let categoryName = category; // fallback to categoryId
+      try {
+        const { getCategoryNameById } = await import('@/lib/category-helpers');
+        categoryName = await getCategoryNameById(category);
+      } catch (error) {
+        console.warn('Failed to get category name, using categoryId as fallback:', error);
+      }
+
       // Try to move to recycle bin using direct MongoDB, but continue if it fails
       try {
         
@@ -277,7 +302,7 @@ export async function POST(request: NextRequest) {
         
         const recycleBinData = {
           itemName: existingItem.itemName,
-          category: existingItem.category,
+          category: categoryName, // 🔧 Use resolved category name instead of existingItem.category
           categoryId: category, // 🆕 เพิ่ม categoryId
           inventoryMasterId: inventoryMasterId, // 🆕 เพิ่ม inventoryMasterId
           serialNumber: existingItem.serialNumber,

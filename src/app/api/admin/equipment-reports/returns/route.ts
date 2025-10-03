@@ -5,7 +5,7 @@ import InventoryMaster from '@/models/InventoryMaster';
 import InventoryItem from '@/models/InventoryItem';
 import User from '@/models/User';
 import DeletedUsers from '@/models/DeletedUser';
-import { getItemNameAndCategory } from '@/lib/item-name-resolver';
+import { getItemNameAndCategory, getStatusNameById, getConditionNameById } from '@/lib/item-name-resolver';
 
 // GET - Fetch all equipment return logs with enriched item data
 export async function GET() {
@@ -23,12 +23,25 @@ export async function GET() {
             // ใช้ฟังก์ชันใหม่สำหรับดึงชื่ออุปกรณ์
             const itemInfo = await getItemNameAndCategory(item.masterItemId, item.itemId);
             
+            // แปลง statusOnReturn และ conditionOnReturn เป็นชื่อ
+            let statusId = item.statusOnReturn || 'status_available';
+            // Backward-compat: เดิมใช้ 'approved' เก็บใน statusOnReturn
+            if (statusId === 'approved') {
+              statusId = 'status_available';
+            }
+            const conditionId = item.conditionOnReturn || '';
+            
+            const statusName = await getStatusNameById(statusId) || statusId;
+            const conditionName = await getConditionNameById(conditionId) || conditionId;
+            
             return {
               ...item.toObject(),
-              // ensure statusOnReturn is present for UI rendering
-              statusOnReturn: item.statusOnReturn || 'status_available',
+              statusOnReturn: statusName,
+              conditionOnReturn: conditionName,
               itemName: itemInfo?.itemName || 'Unknown Item',
-              category: itemInfo?.category || 'Unknown Category'
+              category: itemInfo?.category || 'Unknown Category',
+              // Backward-compat: ถ้ายังไม่มี approvalStatus แต่ statusOnReturn เก่าเป็น 'approved' ให้ถือว่าอนุมัติแล้ว
+              approvalStatus: item.approvalStatus || (item.statusOnReturn === 'approved' ? 'approved' : 'pending')
             };
           })
         );
