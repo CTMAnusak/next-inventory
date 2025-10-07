@@ -424,7 +424,6 @@ export async function sendNewUserRegistrationNotification(userData: any) {
               <p><strong>📱 เบอร์โทร:</strong> ${userData.phone}</p>
               ${userData.department ? `<p><strong>🏷️ แผนก:</strong> ${userData.department}</p>` : ''}
               <p><strong>🔐 วิธีสมัคร:</strong> Google OAuth</p>
-              ${userData.profilePicture ? `<p><strong>📸 รูปโปรไฟล์:</strong> <a href="${userData.profilePicture}" target="_blank">ดูรูปโปรไฟล์</a></p>` : ''}
             </div>
 
             ${userData.requestMessage ? `

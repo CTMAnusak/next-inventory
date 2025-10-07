@@ -1,0 +1,155 @@
+{
+  "year": 2025,
+  "exportDate": "2025-10-06T07:52:19.563Z",
+  "dateRange": {
+    "start": "2024-12-31T17:00:00.000Z",
+    "end": "2025-12-31T16:59:59.000Z"
+  },
+  "totalRecords": 7,
+  "data": [
+    {
+      "_id": "68df8b68ddc0643ce146fb83",
+      "itemId": "68df8b68ddc0643ce146fb6a",
+      "itemName": "AIS",
+      "category": "cat_sim_card",
+      "transferType": "user_report",
+      "fromOwnership": {
+        "ownerType": "new_item"
+      },
+      "toOwnership": {
+        "ownerType": "user_owned",
+        "userId": "ADMIN1756103604440"
+      },
+      "transferDate": "2025-10-03T08:38:00.494Z",
+      "processedBy": "ADMIN1756103604440",
+      "reason": "Added by user via dashboard (1/1)",
+      "createdAt": "2025-10-03T08:38:00.500Z",
+      "updatedAt": "2025-10-03T08:38:00.500Z",
+      "__v": 0
+    },
+    {
+      "_id": "68df8f38ddc0643ce146fc89",
+      "itemId": "68df8f37ddc0643ce146fc5c",
+      "itemName": "AIS",
+      "category": "cat_sim_card",
+      "transferType": "user_report",
+      "fromOwnership": {
+        "ownerType": "new_item"
+      },
+      "toOwnership": {
+        "ownerType": "user_owned",
+        "userId": "ADMIN1756103604440"
+      },
+      "transferDate": "2025-10-03T08:54:16.638Z",
+      "processedBy": "ADMIN1756103604440",
+      "reason": "Added by user via dashboard (1/1)",
+      "createdAt": "2025-10-03T08:54:16.639Z",
+      "updatedAt": "2025-10-03T08:54:16.639Z",
+      "__v": 0
+    },
+    {
+      "_id": "68df9667ddc0643ce146fd39",
+      "itemId": "68df9666ddc0643ce146fd1d",
+      "itemName": "AIS",
+      "category": "cat_sim_card",
+      "transferType": "user_report",
+      "fromOwnership": {
+        "ownerType": "new_item"
+      },
+      "toOwnership": {
+        "ownerType": "user_owned",
+        "userId": "ADMIN1756103604440"
+      },
+      "transferDate": "2025-10-03T09:24:55.071Z",
+      "processedBy": "ADMIN1756103604440",
+      "reason": "Added by user via dashboard (1/1)",
+      "createdAt": "2025-10-03T09:24:55.072Z",
+      "updatedAt": "2025-10-03T09:24:55.072Z",
+      "__v": 0
+    },
+    {
+      "_id": "68df9e3addc0643ce146fec6",
+      "itemId": "68df9e3addc0643ce146febc",
+      "itemName": "AIS",
+      "category": "cat_sim_card",
+      "numberPhone": "0865466556",
+      "transferType": "user_report",
+      "fromOwnership": {
+        "ownerType": "new_item"
+      },
+      "toOwnership": {
+        "ownerType": "user_owned",
+        "userId": "ADMIN1756103604440"
+      },
+      "transferDate": "2025-10-03T09:58:18.779Z",
+      "processedBy": "ADMIN1756103604440",
+      "reason": "Added by user via dashboard",
+      "createdAt": "2025-10-03T09:58:18.780Z",
+      "updatedAt": "2025-10-03T09:58:18.780Z",
+      "__v": 0
+    },
+    {
+      "_id": "68e330a92e71a931b141529a",
+      "itemId": "68df9e3addc0643ce146febc",
+      "itemName": "AIS",
+      "category": "cat_sim_card",
+      "serialNumber": "",
+      "transferType": "status_change",
+      "fromOwnership": {
+        "ownerType": "user_owned",
+        "userId": "ADMIN1756103604440"
+      },
+      "toOwnership": {
+        "ownerType": "user_owned",
+        "userId": "ADMIN1756103604440"
+      },
+      "transferDate": "2025-10-06T02:59:53.423Z",
+      "processedBy": "ADMIN1756103604440",
+      "reason": "คืนจาก undefined undefined",
+      "createdAt": "2025-10-06T02:59:53.424Z",
+      "updatedAt": "2025-10-06T02:59:53.424Z",
+      "__v": 0
+    },
+    {
+      "_id": "68e330a92e71a931b14152b1",
+      "itemId": "68df9e3addc0643ce146febc",
+      "itemName": "AIS",
+      "category": "cat_sim_card",
+      "serialNumber": "",
+      "transferType": "return_completed",
+      "fromOwnership": {
+        "ownerType": "user_owned",
+        "userId": "ADMIN1756103604440"
+      },
+      "toOwnership": {
+        "ownerType": "admin_stock"
+      },
+      "transferDate": "2025-10-06T02:59:53.699Z",
+      "processedBy": "ADMIN1756103604440",
+      "returnId": "68e330922e71a931b14151cf",
+      "createdAt": "2025-10-06T02:59:53.700Z",
+      "updatedAt": "2025-10-06T02:59:53.700Z",
+      "__v": 0
+    },
+    {
+      "_id": "68e331852e71a931b141544f",
+      "itemId": "68e331852e71a931b1415440",
+      "itemName": "Lenovo",
+      "category": "cat_1759719764257_saeu6ca5p",
+      "serialNumber": "54545",
+      "transferType": "admin_add",
+      "fromOwnership": {
+        "ownerType": "new_item"
+      },
+      "toOwnership": {
+        "ownerType": "admin_stock"
+      },
+      "transferDate": "2025-10-06T03:03:33.582Z",
+      "processedBy": "system",
+      "reason": "Added by admin via inventory management",
+      "createdAt": "2025-10-06T03:03:33.584Z",
+      "updatedAt": "2025-10-06T03:03:33.584Z",
+      "__v": 0
+    }
+  ]
+}

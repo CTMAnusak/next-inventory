@@ -50,7 +50,9 @@ interface RequestLog {
     itemId: string;        // Primary reference to inventory
     itemName: string;      // Current name from inventory
     quantity: number;
-    category?: string;     // Item category
+    category?: string;     // Item category (name)
+    categoryId?: string;   // ✅ เพิ่ม categoryId
+    masterId?: string;     // ✅ เพิ่ม masterId
     serialNumbers?: string[];
     assignedSerialNumbers?: string[]; // Serial numbers assigned by admin
     statusOnRequest?: string; // เพิ่ม statusOnRequest property
@@ -105,6 +107,12 @@ export default function AdminEquipmentReportsPage() {
   const [selectedRequest, setSelectedRequest] = useState<RequestLog | null>(null);
   const [selectedItemIndex, setSelectedItemIndex] = useState<number | null>(null);
   const [itemSelections, setItemSelections] = useState<{[key: string]: any[]}>({});
+  
+  // Loading states for buttons
+  const [isApproving, setIsApproving] = useState(false);
+  const [isDeletingRequest, setIsDeletingRequest] = useState(false);
+  const [isDeletingItem, setIsDeletingItem] = useState(false);
+  const [approvingReturnIds, setApprovingReturnIds] = useState<Set<string>>(new Set()); // Track multiple return approvals
   
   
   // State for current inventory data
@@ -252,7 +260,12 @@ export default function AdminEquipmentReportsPage() {
 
   // ฟังก์ชันสำหรับยืนยันการคืนอุปกรณ์รายการเดียว
   const handleApproveReturnItem = async (returnId: string, itemIndex: number) => {
+    const trackingId = `${returnId}-${itemIndex}`;
+    
     try {
+      // ✅ เริ่ม loading
+      setApprovingReturnIds(prev => new Set(prev).add(trackingId));
+      
       const response = await fetch(`/api/admin/equipment-reports/returns/${returnId}/approve-item`, {
         method: 'POST',
         headers: {
@@ -284,6 +297,13 @@ export default function AdminEquipmentReportsPage() {
     } catch (error) {
       console.error('Error approving return item:', error);
       toast.error('เกิดข้อผิดพลาดในการเชื่อมต่อ');
+    } finally {
+      // ✅ จบ loading
+      setApprovingReturnIds(prev => {
+        const newSet = new Set(prev);
+        newSet.delete(trackingId);
+        return newSet;
+      });
     }
   };
 
@@ -296,6 +316,8 @@ export default function AdminEquipmentReportsPage() {
     }
 
     try {
+      setIsApproving(true); // ✅ เริ่ม loading
+      
       // Validate selections
       const selections = selectedRequest.items.map(item => {
         const itemKey = `${item.itemName || 'unknown'}-${(item as any).category || 'ไม่ระบุ'}`;
@@ -351,12 +373,16 @@ export default function AdminEquipmentReportsPage() {
     } catch (error) {
       console.error('Error approving with selection:', error);
       toast.error(error instanceof Error ? error.message : 'เกิดข้อผิดพลาดในการเชื่อมต่อ');
+    } finally {
+      setIsApproving(false); // ✅ จบ loading
     }
   };
 
   // ฟังก์ชันสำหรับลบคำขอ
   const handleDeleteRequest = async (requestId: string) => {
     try {
+      setIsDeletingRequest(true); // ✅ เริ่ม loading
+      
       // หา requestId เดิมจาก requestLogs
       const originalRequestId = requestLogs.find(req => 
         req._id === requestId || 
@@ -386,6 +412,8 @@ export default function AdminEquipmentReportsPage() {
     } catch (error) {
       console.error('Error deleting request:', error);
       toast.error('เกิดข้อผิดพลาดในการเชื่อมต่อ');
+    } finally {
+      setIsDeletingRequest(false); // ✅ จบ loading
     }
   };
 
@@ -394,6 +422,8 @@ export default function AdminEquipmentReportsPage() {
     if (!selectedRequest || selectedItemIndex == null) return;
 
     try {
+      setIsDeletingItem(true); // ✅ เริ่ม loading
+      
       // หา requestId เดิมจาก requestLogs
       const originalRequestId = requestLogs.find(req => 
         req._id === selectedRequest._id || 
@@ -422,6 +452,8 @@ export default function AdminEquipmentReportsPage() {
     } catch (error) {
       console.error('Error deleting request item:', error);
       toast.error('เกิดข้อผิดพลาดในการเชื่อมต่อ');
+    } finally {
+      setIsDeletingItem(false); // ✅ จบ loading
     }
   };
 
@@ -505,7 +537,9 @@ export default function AdminEquipmentReportsPage() {
     if (activeTab === 'request') {
       (filtered as RequestLog[]).forEach((log) => {
         log.items.forEach((item, index) => {
-          const group = log.status === 'completed' ? 'approved' : 'pending';
+          // ✅ Check if THIS ITEM is approved (not the whole request)
+          const isItemApproved = ((item as any).assignedQuantity || 0) >= item.quantity;
+          const group = isItemApproved ? 'approved' : 'pending';
           const date = (log as any).submittedAt || (log as any).updatedAt || (log as any).createdAt || (log as any).requestDate || (log as any).returnDate || Date.now();
           rows.push({ type: 'request', log, item, itemIndex: index, group, date: new Date(date) });
         });
@@ -568,7 +602,7 @@ export default function AdminEquipmentReportsPage() {
 
   return (
     <Layout>
-      <div className="w-full max-w-9/10 mx-auto">
+      <div className="w-full max-w-full mx-auto">
         <div className="bg-white/90 backdrop-blur-sm rounded-2xl shadow-xl p-8 border border-white/50">
           {/* Header */}
           <div className="flex flex-col justify-between items-center mb-7 xl:flex-row">
@@ -608,37 +642,6 @@ export default function AdminEquipmentReportsPage() {
                 <span>รีเซทค่า</span>
               </button>
             </div>
-          </div>
-
-          {/* Tabs */}
-          <div className="border-b border-gray-200 mb-6 overflow-x-auto overflow-y-hidden">
-            <nav className="-mb-px flex space-x-8">
-              {[
-                { key: 'request', label: 'ประวัติเบิก', icon: Package, count: requestLogs.reduce((total, req) => total + req.items.length, 0) },
-                { key: 'return', label: 'ประวัติคืน', icon: FileText, count: returnLogs.reduce((total, req) => total + req.items.length, 0) },
-              ].map((tab) => {
-                const Icon = tab.icon;
-                return (
-                  <button
-                    key={tab.key}
-                    onClick={() => setActiveTab(tab.key as TabType)}
-                    className={`flex items-center space-x-2 py-2 px-1 border-b-2 font-medium text-sm ${
-                      activeTab === tab.key
-                        ? 'border-blue-500 text-blue-600'
-                        : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
-                    }`}
-                  >
-                    <Icon className="w-4 h-4" />
-                    <span className="w-max">{tab.label}</span>
-                    <span className={`inline-flex items-center justify-center px-2 py-1 text-xs font-bold leading-none rounded-full ${
-                      activeTab === tab.key ? 'bg-blue-100 text-blue-600' : 'bg-gray-100 text-gray-600'
-                    }`}>
-                      {tab.count}
-                    </span>
-                  </button>
-                );
-              })}
-            </nav>
           </div>
 
           {/* Filters */}
@@ -731,6 +734,53 @@ export default function AdminEquipmentReportsPage() {
             </div>
           )}
 
+          {/* Tabs */}
+          <div className="border-b border-gray-200 mb-6 overflow-x-auto overflow-y-hidden">
+            <nav className="-mb-px flex space-x-8">
+              {[
+                { 
+                  key: 'request', 
+                  label: 'ประวัติเบิก', 
+                  icon: Package, 
+                  count: requestLogs.reduce((total, req) => total + req.items.length, 0),
+                  pendingCount: requestLogs.reduce((total, req) => 
+                    total + req.items.filter((item: any) => ((item.assignedQuantity || 0) < item.quantity)).length, 0
+                  )
+                },
+                { 
+                  key: 'return', 
+                  label: 'ประวัติคืน', 
+                  icon: FileText, 
+                  count: returnLogs.reduce((total, req) => total + req.items.length, 0),
+                  pendingCount: returnLogs.reduce((total, ret) => 
+                    total + ret.items.filter((item: any) => item.approvalStatus !== 'approved').length, 0
+                  )
+                },
+              ].map((tab) => {
+                const Icon = tab.icon;
+                return (
+                  <button
+                    key={tab.key}
+                    onClick={() => setActiveTab(tab.key as TabType)}
+                    className={`flex items-center space-x-2 py-2 px-1 border-b-2 font-medium text-sm ${
+                      activeTab === tab.key
+                        ? 'border-blue-500 text-blue-600'
+                        : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
+                    }`}
+                  >
+                    <Icon className="w-4 h-4" />
+                    <span className="w-max">{tab.label}</span>
+                    <span className={`inline-flex items-center justify-center px-2 py-1 text-xs font-bold leading-none rounded-full ${
+                      activeTab === tab.key ? 'bg-blue-100 text-blue-600' : 'bg-gray-100 text-gray-600'
+                    }`}>
+                      {tab.count}
+                    </span>
+                  </button>
+                );
+              })}
+            </nav>
+          </div>
+
           {/* Table */}
           <div ref={tableContainerRef} className="table-container">
             {activeTab === 'request' ? (
@@ -808,10 +858,10 @@ export default function AdminEquipmentReportsPage() {
                     const requestLog = (row as any).log as RequestLog;
                     const item = (row as any).item as any;
                     const itemIndex = (row as any).itemIndex as number;
-                      // Determine row background color based on confirmation status
-                      const isUnconfirmed = (requestLog as any).status === 'pending';
+                      // ✅ Determine row background color based on ITEM confirmation status (not request status)
+                      const isItemApproved = ((item as any).assignedQuantity || 0) >= item.quantity;
                       const baseBgClass = rowIndex % 2 === 0 ? 'bg-white' : 'bg-blue-50';
-                      const rowBgClass = isUnconfirmed ? 'bg-orange-50' : baseBgClass;
+                      const rowBgClass = isItemApproved ? baseBgClass : 'bg-orange-50';
                       
                       return (
                         <tr key={`${requestLog._id}-${itemIndex}`} className={rowBgClass}>
@@ -931,11 +981,21 @@ export default function AdminEquipmentReportsPage() {
                         </td>
                          {/* การดำเนินการ */}
                          <td className="px-6 py-4 whitespace-nowrap text-center">
-                           {requestLog.status === 'completed' ? (
-                             <span className="inline-flex items-center px-3 py-1 rounded-full text-xs font-medium bg-green-100 text-green-800">
-                               <CheckCircle className="w-3 h-3 mr-1" />
-                               เสร็จสิ้น
-                             </span>
+                           {/* ✅ เช็คว่า item นี้อนุมัติแล้วหรือยัง (ไม่ใช่เช็ค request status) */}
+                           {(() => {
+                             const assignedQty = (item as any).assignedQuantity || 0;
+                             const requestedQty = item.quantity || 0;
+                             const isCompleted = assignedQty >= requestedQty;
+                             
+                            // Debug logging
+                            console.log(`🔍 Item ${item.itemName}: assignedQty=${assignedQty}, requestedQty=${requestedQty}, isCompleted=${isCompleted}`);
+                            console.log(`🔍 Full item data:`, item);
+                             
+                             return isCompleted ? (
+                               <span className="inline-flex items-center px-3 py-1 rounded-full text-xs font-medium bg-green-100 text-green-800">
+                                 <CheckCircle className="w-3 h-3 mr-1" />
+                                 เสร็จสิ้น
+                               </span>
                              ) : (
                                <button
                                  onClick={() => handleOpenSelectionModal(requestLog, itemIndex)}
@@ -944,7 +1004,8 @@ export default function AdminEquipmentReportsPage() {
                                  <Settings className="w-3 h-3 mr-1" />
                                  เลือกอุปกรณ์และอนุมัติ
                                </button>
-                             )}
+                             );
+                           })()}
                          </td>
                       </tr>
                     );
@@ -1131,10 +1192,15 @@ export default function AdminEquipmentReportsPage() {
                           {item.approvalStatus === 'pending' || !item.approvalStatus ? (
                             <button
                               onClick={() => handleApproveReturnItem(returnLog._id, itemIndex)}
-                              className="bg-green-600 hover:bg-green-700 text-white px-4 py-2 rounded-lg text-sm font-medium transition-colors cursor-pointer"
+                              disabled={approvingReturnIds.has(`${returnLog._id}-${itemIndex}`)}
+                              className="bg-green-600 hover:bg-green-700 text-white px-4 py-2 rounded-lg text-sm font-medium transition-colors cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed inline-flex items-center space-x-2"
                             >
-                              <CheckCircle className="w-4 h-4 inline mr-2" />
-                              ยืนยันการคืน
+                              {approvingReturnIds.has(`${returnLog._id}-${itemIndex}`) ? (
+                                <RefreshCw className="w-4 h-4 animate-spin" />
+                              ) : (
+                                <CheckCircle className="w-4 h-4" />
+                              )}
+                              <span>{approvingReturnIds.has(`${returnLog._id}-${itemIndex}`) ? 'กำลังยืนยัน...' : 'ยืนยันการคืน'}</span>
                             </button>
                           ) : (
                             <span className="text-green-600 font-medium">
@@ -1240,18 +1306,18 @@ export default function AdminEquipmentReportsPage() {
                     
                     {/* แสดงรายการ SN ที่ user เจาะจงมา */}
                     {selectedRequest.items.some(item => item.serialNumbers && item.serialNumbers.length > 0) && (
-                      <div className="mt-3 p-3 bg-orange-50 border border-orange-200 rounded-lg">
+                      <div className="mt-3 p-3 bg-blue-50 border border-blue-200 rounded-lg">
                         <div className="flex items-center mb-2">
-                          <div className="w-2 h-2 bg-orange-500 rounded-full mr-2"></div>
-                          <span className="text-sm font-medium text-orange-800">Serial Numbers ที่ user เจาะจงมา:</span>
+                          <div className="w-2 h-2 bg-blue-500 rounded-full mr-2"></div>
+                          <span className="text-sm font-medium text-blue-800">Serial Numbers ที่ user เลือกมา:</span>
                         </div>
                         <div className="space-y-1">
                           {selectedRequest.items.map((item, idx) => 
                             item.serialNumbers && item.serialNumbers.length > 0 && (
-                              <div key={idx} className="text-sm text-orange-700">
+                              <div key={idx} className="text-sm text-blue-700">
                                 <span className="font-medium">{item.itemName}:</span>{' '}
                                 {item.serialNumbers.map((sn, snIdx) => (
-                                  <span key={snIdx} className="inline-block bg-orange-100 px-2 py-1 rounded text-xs mr-1">
+                                  <span key={snIdx} className="inline-block bg-blue-100 px-2 py-1 rounded text-xs mr-1">
                                     {sn}
                                   </span>
                                 ))}
@@ -1259,8 +1325,8 @@ export default function AdminEquipmentReportsPage() {
                             )
                           )}
                         </div>
-                        <p className="text-xs text-orange-600 mt-2">
-                          💡 ระบบจะล็อค Serial Numbers เหล่านี้ให้อัตโนมัติ (หากมีในคลัง)
+                        <p className="text-xs text-blue-600 mt-2">
+                          💡 ระบบจะติ๊กให้อัตโนมัติ (หากมีในคลัง) แต่คุณสามารถเปลี่ยนการเลือกได้
                         </p>
                       </div>
                     )}
@@ -1300,6 +1366,7 @@ export default function AdminEquipmentReportsPage() {
                           itemKey={itemKey}
                           itemName={item.itemName || inventoryItems[item.itemId] || 'ไม่ระบุ'}
                           category={item.category || 'ไม่ระบุ'}
+                          categoryId={item.categoryId} // ✅ ส่ง categoryId ไปด้วย
                           requestedQuantity={item.quantity}
                           requestedSerialNumbers={item.serialNumbers}
                           onSelectionChange={handleSelectionChange}
@@ -1334,9 +1401,13 @@ export default function AdminEquipmentReportsPage() {
                            }
                          }
                        }}
-                       className="px-4 py-2 border border-red-300 rounded-md text-sm font-medium text-red-700 hover:bg-red-50 hover:border-red-400 shadow-sm"
+                       disabled={isDeletingRequest || isDeletingItem}
+                       className="px-4 py-2 border border-red-300 rounded-md text-sm font-medium text-red-700 hover:bg-red-50 hover:border-red-400 shadow-sm disabled:opacity-50 disabled:cursor-not-allowed flex items-center space-x-2"
                      >
-                       {selectedItemIndex != null ? '🗑️ ลบรายการนี้' : '🗑️ ลบคำขอ'}
+                       {(isDeletingRequest || isDeletingItem) && (
+                         <RefreshCw className="w-4 h-4 animate-spin" />
+                       )}
+                       <span>{selectedItemIndex != null ? '🗑️ ลบรายการนี้' : '🗑️ ลบคำขอ'}</span>
                      </button>
                      
                      {/* ปุ่มยกเลิก */}
@@ -1355,10 +1426,13 @@ export default function AdminEquipmentReportsPage() {
                      {/* ปุ่มอนุมัติและมอบหมาย */}
                      <button
                        onClick={handleApproveWithSelection}
-                       disabled={!selectedRequest || Object.keys(itemSelections).length !== selectedRequest.items.length}
-                       className="px-4 py-2 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 disabled:opacity-50 disabled:cursor-not-allowed"
+                       disabled={isApproving || !selectedRequest || Object.keys(itemSelections).length !== selectedRequest.items.length}
+                       className="px-4 py-2 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 disabled:opacity-50 disabled:cursor-not-allowed flex items-center space-x-2"
                      >
-                       อนุมัติและมอบหมาย
+                       {isApproving && (
+                         <RefreshCw className="w-4 h-4 animate-spin" />
+                       )}
+                       <span>{isApproving ? 'กำลังอนุมัติ...' : 'อนุมัติและมอบหมาย'}</span>
                      </button>
                    </div>
                 </div>

@@ -115,6 +115,48 @@ export async function POST(request: NextRequest) {
       );
     }
 
+    // ✅ Check for duplicate data - collect all errors first
+    const duplicateErrors = [];
+
+    // Check email
+    const existingUserByEmail = await User.findOne({ email });
+    if (existingUserByEmail) {
+      duplicateErrors.push('อีเมลล์นี้มีอยู่ในระบบแล้ว');
+    }
+
+    // Check phone number
+    const existingUserByPhone = await User.findOne({ phone });
+    if (existingUserByPhone) {
+      duplicateErrors.push('เบอร์โทรศัพท์นี้มีผู้ใช้งานในระบบแล้ว');
+    }
+
+    // Check full name for individual users
+    if (userType === 'individual' && firstName && lastName) {
+      const existingUserByName = await User.findOne({ 
+        firstName,
+        lastName 
+      });
+      if (existingUserByName) {
+        duplicateErrors.push(`ชื่อ-นามสกุล "${firstName} ${lastName}" มีผู้ใช้งานในระบบแล้ว`);
+      }
+    }
+
+    // If any duplicates found, return combined error message
+    if (duplicateErrors.length > 0) {
+      const errorMessage = duplicateErrors.length === 1 
+        ? duplicateErrors[0]
+        : `ไม่สามารถสร้างผู้ใช้ได้ เนื่องจาก: ${duplicateErrors.join(', ')}`;
+      
+      return NextResponse.json(
+        { 
+          error: errorMessage,
+          duplicateFields: duplicateErrors,
+          detailedError: 'ไม่สามารถสร้างผู้ใช้ได้ เนื่องจาก:\n• ' + duplicateErrors.join('\n• ')
+        },
+        { status: 400 }
+      );
+    }
+
     // ใช้ MongoDB Native เพราะ Mongoose มีปัญหา select user_id
     const { MongoClient } = require('mongodb');
     const uri = process.env.MONGODB_URI || 'mongodb://localhost:27017/inventory-management';
@@ -123,16 +165,6 @@ export async function POST(request: NextRequest) {
     await client.connect();
     const db = client.db();
     const collection = db.collection('users');
-
-    // Check if email already exists
-    const existingUser = await collection.findOne({ email });
-    if (existingUser) {
-      await client.close();
-      return NextResponse.json(
-        { error: 'อีเมลล์นี้มีอยู่ในระบบแล้ว' },
-        { status: 400 }
-      );
-    }
 
     // Hash password
     const hashedPassword = await hashPassword(password);

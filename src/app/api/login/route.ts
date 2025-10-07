@@ -98,6 +98,14 @@ export async function POST(request: NextRequest) {
 export async function DELETE(request: NextRequest) {
   // Logout endpoint
   const response = NextResponse.json({ message: 'ออกจากระบบสำเร็จ' });
-  response.cookies.delete('auth-token');
+  
+  // ลบ cookie ด้วยการตั้งค่าใหม่ที่มี Max-Age = 0
+  response.cookies.set('auth-token', '', {
+    path: '/',
+    maxAge: 0,
+    expires: new Date(0),
+    sameSite: 'strict'
+  });
+  
   return response;
 }

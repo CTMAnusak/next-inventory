@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import dbConnect from '@/lib/mongodb';
 import User from '@/models/User';
 import { verifyToken } from '@/lib/auth';
-import { cleanupSoftDeletedItems } from '@/lib/inventory-helpers';
+import { cleanupSoftDeletedItems } from '@/lib/inventory-helpers-old';
 import { clearAllCaches } from '@/lib/cache-utils';
 
 export async function POST(request: NextRequest) {
@@ -180,13 +180,7 @@ export async function POST(request: NextRequest) {
         totalCleaned += result.cleaned;
         
       } else if (cleanupType === 'sync-fix') {
-        // Advanced: Fix sync issues comprehensively
-        
-        // Import the comprehensive sync function from the script
-        const { checkInventorySync, fixInventorySync } = require('../../../../fix-inventory-count-sync');
-        
-        // This would need to be implemented as a proper function in inventory-helpers
-        // For now, redirect to use the all cleanup
+        // Advanced: Fix sync issues comprehensively - fallback to cleanup all for now
         const result = await cleanupSoftDeletedItems();
         results.push({ scope: 'sync-fix', ...result });
         totalCleaned += result.cleaned;
@@ -257,157 +251,66 @@ export async function GET(request: NextRequest) {
     const { searchParams } = new URL(request.url);
     const itemName = searchParams.get('itemName');
     const category = searchParams.get('category');
-    const analysisType = searchParams.get('type') || 'full'; // 'full' | 'soft-deleted-only'
+    const analysisType = searchParams.get('type') || 'full';
 
-
-    // Import models
     const InventoryItem = (await import('@/models/InventoryItem')).default;
     const InventoryMaster = (await import('@/models/InventoryMaster')).default;
     
-    // Build query
     let itemQuery: any = {};
     if (itemName) itemQuery.itemName = itemName;
     if (category) itemQuery.category = category;
 
     if (analysisType === 'soft-deleted-only') {
-      // Only check soft-deleted items
       itemQuery.status = 'deleted';
       const softDeletedItems = await InventoryItem.find(itemQuery).select('itemName category serialNumber numberPhone deletedAt deleteReason');
-      
       const summary = softDeletedItems.reduce((acc: any, item) => {
         const key = `${item.itemName}|${item.category}`;
-        if (!acc[key]) {
-          acc[key] = {
-            itemName: item.itemName,
-            category: item.category,
-            count: 0,
-            items: []
-          };
-        }
+        if (!acc[key]) { acc[key] = { itemName: item.itemName, category: item.category, count: 0, items: [] }; }
         acc[key].count++;
-        acc[key].items.push({
-          id: item._id,
-          serialNumber: item.serialNumber,
-          numberPhone: item.numberPhone,
-          deletedAt: item.deletedAt,
-          deleteReason: item.deleteReason
-        });
+        acc[key].items.push({ id: item._id, serialNumber: item.serialNumber, numberPhone: item.numberPhone, deletedAt: item.deletedAt, deleteReason: item.deleteReason });
         return acc;
       }, {});
-
-      return NextResponse.json({
-        analysisType: 'soft-deleted-only',
-        totalSoftDeleted: softDeletedItems.length,
-        summary: Object.values(summary),
-        queryScope: itemName && category ? 'specific' : 'all'
-      });
+      return NextResponse.json({ analysisType: 'soft-deleted-only', totalSoftDeleted: softDeletedItems.length, summary: Object.values(summary), queryScope: itemName && category ? 'specific' : 'all' });
     }
 
-    // Full inventory sync analysis
     const allItems = await InventoryItem.find(itemQuery);
-    
-    // Group by itemName + category
     const itemGroups: any = {};
     for (const item of allItems) {
       const key = `${item.itemName}|${item.category}`;
-      if (!itemGroups[key]) {
-        itemGroups[key] = {
-          itemName: item.itemName,
-          category: item.category,
-          allItems: [],
-          activeItems: [],
-          softDeletedItems: []
-        };
-      }
-      
+      if (!itemGroups[key]) { itemGroups[key] = { itemName: item.itemName, category: item.category, allItems: [], activeItems: [], softDeletedItems: [] }; }
       itemGroups[key].allItems.push(item);
-      
       if (item.status === 'deleted') {
-        itemGroups[key].softDeletedItems.push({
-          id: item._id,
-          serialNumber: item.serialNumber,
-          numberPhone: item.numberPhone,
-          deletedAt: item.deletedAt,
-          deleteReason: item.deleteReason
-        });
+        itemGroups[key].softDeletedItems.push({ id: item._id, serialNumber: item.serialNumber, numberPhone: item.numberPhone, deletedAt: item.deletedAt, deleteReason: item.deleteReason });
       } else {
-        itemGroups[key].activeItems.push({
-          id: item._id,
-          serialNumber: item.serialNumber,
-          status: item.status,
-          ownerType: item.currentOwnership?.ownerType
-        });
+        itemGroups[key].activeItems.push({ id: item._id, serialNumber: item.serialNumber, status: item.status, ownerType: item.currentOwnership?.ownerType });
       }
     }
 
-
-    const analysisResults = [];
+    const analysisResults: any[] = [];
     let totalProblems = 0;
-
-    // Analyze each group
     for (const [key, group] of Object.entries(itemGroups)) {
-      const masterItem = await InventoryMaster.findOne({
-        itemName: group.itemName,
-        category: group.category
-      });
-
-      const totalInItems = group.allItems.length;
-      const activeInItems = group.activeItems.length;
-      const softDeletedCount = group.softDeletedItems.length;
-      const totalInMaster = masterItem ? masterItem.totalQuantity : 0;
-      const availableInMaster = masterItem ? masterItem.availableQuantity : 0;
-      const userOwnedInMaster = masterItem ? masterItem.userOwnedQuantity : 0;
-
-      // Check for problems
+      const masterItem = await InventoryMaster.findOne({ itemName: (group as any).itemName, category: (group as any).category });
+      const totalInItems = (group as any).allItems.length;
+      const activeInItems = (group as any).activeItems.length;
+      const softDeletedCount = (group as any).softDeletedItems.length;
+      const totalInMaster = masterItem ? (masterItem as any).totalQuantity : 0;
+      const availableInMaster = masterItem ? (masterItem as any).availableQuantity : 0;
+      const userOwnedInMaster = masterItem ? (masterItem as any).userOwnedQuantity : 0;
       const hasSoftDeleted = softDeletedCount > 0;
       const hasCountMismatch = activeInItems !== totalInMaster;
       const hasProblem = hasSoftDeleted || hasCountMismatch;
-
       if (hasProblem) totalProblems++;
-
       analysisResults.push({
-        itemName: group.itemName,
-        category: group.category,
-        inventoryItems: {
-          total: totalInItems,
-          active: activeInItems,
-          softDeleted: softDeletedCount,
-          activeDetails: group.activeItems,
-          softDeletedDetails: group.softDeletedItems
-        },
-        inventoryMaster: {
-          exists: !!masterItem,
-          total: totalInMaster,
-          available: availableInMaster,
-          userOwned: userOwnedInMaster
-        },
-        issues: {
-          hasSoftDeleted,
-          hasCountMismatch,
-          hasProblem
-        },
-        recommendations: hasProblem ? [
-          ...(hasSoftDeleted ? ['ลบรายการที่ถูก soft delete ออกจาก database'] : []),
-          ...(hasCountMismatch ? ['อัพเดตจำนวนใน inventorymasters ให้ตรงกับจำนวนจริง'] : [])
-        ] : []
+        itemName: (group as any).itemName,
+        category: (group as any).category,
+        inventoryItems: { total: totalInItems, active: activeInItems, softDeleted: softDeletedCount, activeDetails: (group as any).activeItems, softDeletedDetails: (group as any).softDeletedItems },
+        inventoryMaster: { exists: !!masterItem, total: totalInMaster, available: availableInMaster, userOwned: userOwnedInMaster },
+        issues: { hasSoftDeleted, hasCountMismatch, hasProblem },
+        recommendations: hasProblem ? [ ...(hasSoftDeleted ? ['ลบรายการที่ถูก soft delete ออกจาก database'] : []), ...(hasCountMismatch ? ['อัพเดตจำนวนใน inventorymasters ให้ตรงกับจำนวนจริง'] : []) ] : []
       });
     }
 
-    return NextResponse.json({
-      analysisType: 'full',
-      summary: {
-        totalItemTypes: Object.keys(itemGroups).length,
-        problemItemTypes: totalProblems,
-        healthyItemTypes: Object.keys(itemGroups).length - totalProblems
-      },
-      queryScope: itemName && category ? 'specific' : (itemName ? 'by-item' : (category ? 'by-category' : 'all')),
-      results: analysisResults.sort((a, b) => {
-        // Sort problems first, then by item name
-        if (a.issues.hasProblem && !b.issues.hasProblem) return -1;
-        if (!a.issues.hasProblem && b.issues.hasProblem) return 1;
-        return a.itemName.localeCompare(b.itemName);
-      })
-    });
+    return NextResponse.json({ analysisType: 'full', summary: { totalItemTypes: Object.keys(itemGroups).length, problemItemTypes: totalProblems, healthyItemTypes: Object.keys(itemGroups).length - totalProblems }, queryScope: itemName && category ? 'specific' : (itemName ? 'by-item' : (category ? 'by-category' : 'all')), results: analysisResults.sort((a, b) => { if ((a as any).issues.hasProblem && !(b as any).issues.hasProblem) return -1; if (!(a as any).issues.hasProblem && (b as any).issues.hasProblem) return 1; return (a as any).itemName.localeCompare((b as any).itemName); }) });
 
   } catch (error) {
     console.error('❌ Error in inventory sync analysis:', error);

@@ -29,18 +29,41 @@ export async function POST(request: NextRequest) {
       }, { status: 400 });
     }
     
-    // ตรวจสอบว่าอีเมลซ้ำหรือไม่
-    const existingUser = await User.findOne({ email });
-    
-    if (existingUser) {
+    // ✅ Check for duplicate data - collect all errors first
+    const duplicateErrors = [];
+
+    // Check email
+    const existingUserByEmail = await User.findOne({ email });
+    if (existingUserByEmail) {
+      duplicateErrors.push('อีเมลนี้มีอยู่ในระบบแล้ว');
+    }
+
+    // Check phone number
+    const existingUserByPhone = await User.findOne({ phone });
+    if (existingUserByPhone) {
+      duplicateErrors.push('เบอร์โทรศัพท์นี้มีผู้ใช้งานในระบบแล้ว');
+    }
+
+    // Check full name
+    const existingUserByName = await User.findOne({ 
+      firstName,
+      lastName 
+    });
+    if (existingUserByName) {
+      duplicateErrors.push(`ชื่อ-นามสกุล "${firstName} ${lastName}" มีผู้ใช้งานในระบบแล้ว`);
+    }
+
+    // If any duplicates found, return combined error message
+    if (duplicateErrors.length > 0) {
+      const errorMessage = duplicateErrors.length === 1 
+        ? duplicateErrors[0]
+        : `ไม่สามารถสร้าง Admin User ได้ เนื่องจาก: ${duplicateErrors.join(', ')}`;
+      
       return NextResponse.json({
         success: false,
-        message: 'อีเมลนี้มีอยู่ในระบบแล้ว',
-        existing_user: {
-          email: existingUser.email,
-          user_id: existingUser.user_id,
-          userRole: existingUser.userRole
-        }
+        message: errorMessage,
+        duplicateFields: duplicateErrors,
+        detailedError: 'ไม่สามารถสร้าง Admin User ได้ เนื่องจาก:\n• ' + duplicateErrors.join('\n• ')
       }, { status: 400 });
     }
     
@@ -80,11 +103,6 @@ export async function POST(request: NextRequest) {
       updatedAt: new Date()
     };
     
-      user_id: adminData.user_id,
-      email: adminData.email,
-      userRole: adminData.userRole
-    });
-    
     const insertResult = await collection.insertOne(adminData);
     const newAdmin = await collection.findOne({ _id: insertResult.insertedId });
     
@@ -114,7 +132,7 @@ export async function POST(request: NextRequest) {
     return NextResponse.json(
       { 
         success: false, 
-        error: error.message
+        error: (error as any).message
       },
       { status: 500 }
     );

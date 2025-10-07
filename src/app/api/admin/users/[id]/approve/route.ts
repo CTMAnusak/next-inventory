@@ -12,15 +12,9 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
-    let decoded;
+    let decoded: any;
     try {
       decoded = jwt.verify(token, process.env.JWT_SECRET || 'fallback-secret') as any;
-        userId: decoded.userId,
-        email: decoded.email,
-        userRole: decoded.userRole,
-        isMainAdmin: decoded.isMainAdmin,
-        userType: decoded.userType
-      });
     } catch (error) {
       console.log('❌ Token verification error:', error);
       return NextResponse.json({ error: 'Invalid token' }, { status: 401 });
@@ -35,7 +29,6 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
       });
       return NextResponse.json({ error: 'Insufficient permissions' }, { status: 403 });
     }
-
 
     const { userRole } = await request.json();
 
@@ -60,7 +53,6 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
     // Generate user_id if not exists
     let userId = user.user_id;
     if (!userId || userId === 'UNaN') {
-      // หา users ที่มี user_id ขึ้นต้นด้วย 'U' และตามด้วยตัวเลข 3 หลัก
       const lastUser = await User.findOne({ 
         user_id: { $regex: /^U\d{3}$/ } 
       }).sort({ user_id: -1 });
@@ -84,9 +76,6 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
     user.approvedAt = new Date();
 
     await user.save();
-
-    // TODO: Send approval email to user
-    // await sendUserApprovedNotification(user);
 
     return NextResponse.json({
       success: true,

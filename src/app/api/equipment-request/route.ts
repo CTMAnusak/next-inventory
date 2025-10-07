@@ -132,7 +132,8 @@ export async function POST(request: NextRequest) {
           itemName: itemName,
           categoryId: categoryId,
           quantity: item.quantity,
-          serialNumber: item.serialNumber || undefined,
+          // ✅ บันทึก serialNumbers เป็น array (ตาม model)
+          serialNumbers: item.serialNumber ? [item.serialNumber] : undefined,
           availableItemIds: availableItems.map(it => it._id.toString()),
           itemNotes: item.itemNotes || undefined
         };

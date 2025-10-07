@@ -30,13 +30,21 @@ export async function GET() {
             const statusName = item.statusOnRequest ? await getStatusNameById(item.statusOnRequest) : null;
             const conditionName = item.conditionOnRequest ? await getConditionNameById(item.conditionOnRequest) : null;
             
+            const itemObj = typeof item.toObject === 'function' ? item.toObject() : item;
+            
+            // Debug logging for assignedQuantity
+            console.log(`🔍 Item ${itemObj.itemName || 'Unknown'}: assignedQuantity from DB = ${itemObj.assignedQuantity}, itemApproved = ${itemObj.itemApproved}`);
+            
             return {
-              ...(typeof item.toObject === 'function' ? item.toObject() : item),
+              ...itemObj,
+              masterId: itemObj.masterId, // ✅ ส่ง masterId ออกมาด้วย
               itemName: info?.itemName || 'Unknown Item',
               category: info?.category || 'Unknown Category',
               categoryId: info?.categoryId || '',
               statusOnRequest: statusName || item.statusOnRequest || '-',
-              conditionOnRequest: conditionName || item.conditionOnRequest || '-'
+              conditionOnRequest: conditionName || item.conditionOnRequest || '-',
+              assignedQuantity: itemObj.assignedQuantity || 0, // ✅ ส่ง assignedQuantity ออกมาด้วย
+              itemApproved: itemObj.itemApproved || false // ✅ ส่ง itemApproved ออกมาด้วย
             };
           })
         );

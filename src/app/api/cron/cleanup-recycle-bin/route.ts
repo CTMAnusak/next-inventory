@@ -24,13 +24,13 @@ export async function POST(request: NextRequest) {
       );
     }
 
-
     const result = await permanentDeleteExpiredItems();
 
-    if (result.deletedCount > 0) {
-        `${item.itemName} (SN: ${item.serialNumber || 'No SN'}) - Deleted: ${item.deletedAt.toISOString()}`
+    if (result.deletedCount > 0 && Array.isArray(result.items)) {
+      const lines = result.items.map((item: any) => (
+        `${item.itemName} (SN: ${item.serialNumber || 'No SN'}) - Deleted: ${new Date(item.deletedAt).toISOString()}`
       ));
-    } else {
+      console.log('🧹 RecycleBin cleanup deleted items:\n' + lines.join('\n'));
     }
 
     return NextResponse.json({

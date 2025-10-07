@@ -3,7 +3,7 @@ import dbConnect from '@/lib/mongodb';
 import User from '@/models/User';
 import jwt from 'jsonwebtoken';
 
-export async function POST(request: NextRequest, { params }: { params: { id: string } }) {
+export async function POST(request: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   try {
     // Verify admin token
     const token = request.cookies.get('auth-token')?.value;
@@ -12,14 +12,9 @@ export async function POST(request: NextRequest, { params }: { params: { id: str
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
-    let decoded;
+    let decoded: any;
     try {
       decoded = jwt.verify(token, process.env.JWT_SECRET || 'fallback-secret') as any;
-        userId: decoded.userId,
-        email: decoded.email,
-        userRole: decoded.userRole,
-        isMainAdmin: decoded.isMainAdmin
-      });
     } catch (error) {
       console.log('❌ Token verification error (reject):', error);
       return NextResponse.json({ error: 'Invalid token' }, { status: 401 });
@@ -34,7 +29,6 @@ export async function POST(request: NextRequest, { params }: { params: { id: str
       });
       return NextResponse.json({ error: 'Insufficient permissions' }, { status: 403 });
     }
-
 
     const { id } = await params;
 

@@ -31,6 +31,7 @@ interface ITIssue {
   urgency: 'normal' | 'very_urgent';
   description: string;
   reportDate: string;
+  status?: 'pending' | 'in_progress' | 'completed';
 }
 
 interface RequestLog {
@@ -77,6 +78,7 @@ interface User {
   office: string;
   userType: 'individual' | 'branch';
   createdAt: string;
+  isApproved?: boolean;
 }
 
 export default function PendingSummaryPage() {
@@ -314,8 +316,8 @@ export default function PendingSummaryPage() {
           </div>
 
           {/* 1. IT Issues Table */}
-          <div className="mb-8">
-            <div className="flex items-center justify-between mb-4">
+          <div className="mb-10">
+            <div className="flex items-center justify-between flex-col sm:flex-row mb-4 gap-4 sm:gap-0">
               <div className="flex items-center space-x-2">
                 <AlertTriangle className="w-5 h-5 text-yellow-600" />
                 <h2 className="text-xl font-bold text-gray-900">รายงานแจ้งงาน IT - รอดำเนินการ</h2>
@@ -418,8 +420,8 @@ export default function PendingSummaryPage() {
           </div>
 
           {/* 2. Request Logs Table */}
-          <div className="mb-8">
-            <div className="flex items-center justify-between mb-4">
+          <div className="mb-10">
+            <div className="flex items-center justify-between flex-col sm:flex-row mb-4 gap-4 sm:gap-0">
               <div className="flex items-center space-x-2">
                 <Package className="w-5 h-5 text-blue-600" />
                 <h2 className="text-xl font-bold text-gray-900">ประวัติเบิก - รอยืนยัน</h2>
@@ -524,8 +526,8 @@ export default function PendingSummaryPage() {
           </div>
 
           {/* 3. Return Logs Table */}
-          <div className="mb-8">
-            <div className="flex items-center justify-between mb-4">
+          <div className="mb-10">
+            <div className="flex items-center justify-between flex-col sm:flex-row mb-4 gap-4 sm:gap-0">
               <div className="flex items-center space-x-2">
                 <PackageOpen className="w-5 h-5 text-purple-600" />
                 <h2 className="text-xl font-bold text-gray-900">ประวัติคืน - รอยืนยัน</h2>
@@ -632,8 +634,8 @@ export default function PendingSummaryPage() {
           </div>
 
           {/* 4. Pending Users Table */}
-          <div className="mb-8">
-            <div className="flex items-center justify-between mb-4">
+          <div className="mb-10">
+            <div className="flex items-center justify-between flex-col sm:flex-row gap-2 sm:gap-0 mb-4">
               <div className="flex items-center space-x-2">
                 <Users className="w-5 h-5 text-green-600" />
                 <h2 className="text-xl font-bold text-gray-900">อนุมัติรายชื่อ - รออนุมัติ</h2>

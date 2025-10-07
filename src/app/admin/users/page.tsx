@@ -19,6 +19,7 @@ import {
   Download
 } from 'lucide-react';
 import { toast } from 'react-hot-toast';
+import { customToast } from '@/lib/custom-toast';
 
 interface User {
   _id?: string; // MongoDB _id (for compatibility)
@@ -257,7 +258,34 @@ export default function AdminUsersPage() {
         setShowEditModal(false);
       } else {
         const data = await response.json();
-        toast.error(data.error || 'เกิดข้อผิดพลาด');
+        // Check if it's a duplicate error with multiple fields
+        if (data.duplicateFields && data.duplicateFields.length > 1) {
+          // Show detailed error for multiple duplicates
+          const errorList = data.duplicateFields.map((field: string) => `• ${field}`).join('\n');
+          customToast.error(`${editingUser ? 'ไม่สามารถอัพเดตผู้ใช้ได้' : 'ไม่สามารถสร้างผู้ใช้ได้'} เนื่องจาก:\n${errorList}`, { 
+            duration: 15000, // เพิ่มเวลาเพราะมีข้อมูลเยอะ
+            style: {
+              whiteSpace: 'pre-line',
+              textAlign: 'left',
+              maxWidth: '600px',
+              lineHeight: '1.6',
+              padding: '20px',
+              paddingRight: '40px', // เผื่อที่สำหรับปุ่มปิด
+            },
+            dismissible: true, // ให้สามารถปิดได้
+          });
+        } else {
+          // Show simple error for single duplicate or other errors
+          customToast.error(data.error || 'เกิดข้อผิดพลาด', { 
+            duration: 10000,
+            style: {
+              maxWidth: '500px',
+              padding: '18px',
+              paddingRight: '40px', // เผื่อที่สำหรับปุ่มปิด
+            },
+            dismissible: true, // ให้สามารถปิดได้
+          });
+        }
       }
     } catch (error) {
       toast.error('เกิดข้อผิดพลาดในการเชื่อมต่อ');
@@ -485,45 +513,6 @@ export default function AdminUsersPage() {
             </div>
           </div>
 
-          {/* Tabs */}
-          <div className="mb-6">
-            <div className="border-b border-gray-200">
-              <nav className="-mb-px flex space-x-8">
-                <button
-                  onClick={() => setActiveTab('approved')}
-                  className={`py-2 px-1 border-b-2 font-medium text-sm ${
-                    activeTab === 'approved'
-                      ? 'border-blue-500 text-blue-600'
-                      : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
-                  }`}
-                >
-                  รายชื่อผู้ใช้งาน
-                  <span className={`ml-2 px-2 py-1 text-xs rounded-full ${
-                    activeTab === 'approved' ? 'bg-blue-100 text-blue-600' : 'bg-gray-100 text-gray-600'
-                  }`}>
-                    {users.length}
-                  </span>
-                </button>
-                <button
-                  onClick={() => setActiveTab('pending')}
-                  className={`py-2 px-1 border-b-2 font-medium text-sm ${
-                    activeTab === 'pending'
-                      ? 'border-orange-500 text-orange-600'
-                      : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
-                  }`}
-                >
-                  อนุมัติรายชื่อ
-                  <span className={`ml-2 px-2 py-1 text-xs rounded-full ${
-                    activeTab === 'pending' ? 'bg-orange-100 text-orange-600' : 'bg-gray-100 text-gray-600'
-                  }`}>
-                    {pendingUsers.length}
-                  </span>
-                </button>
-              </nav>
-            </div>
-          </div>
-
-
           {/* Filters */}
           {showFilters && (
             <div className="bg-gray-50 rounded-lg p-4 mb-6 space-y-4">
@@ -577,6 +566,44 @@ export default function AdminUsersPage() {
               </div>
             </div>
           )}
+
+          {/* Tabs */}
+          <div className="mb-6">
+            <div className="border-b border-gray-200">
+              <nav className="-mb-px flex space-x-8">
+                <button
+                  onClick={() => setActiveTab('approved')}
+                  className={`py-2 px-1 border-b-2 font-medium text-sm ${
+                    activeTab === 'approved'
+                      ? 'border-blue-500 text-blue-600'
+                      : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
+                  }`}
+                >
+                  รายชื่อผู้ใช้งาน
+                  <span className={`ml-2 px-2 py-1 text-xs rounded-full ${
+                    activeTab === 'approved' ? 'bg-blue-100 text-blue-600' : 'bg-gray-100 text-gray-600'
+                  }`}>
+                    {users.length}
+                  </span>
+                </button>
+                <button
+                  onClick={() => setActiveTab('pending')}
+                  className={`py-2 px-1 border-b-2 font-medium text-sm ${
+                    activeTab === 'pending'
+                      ? 'border-orange-500 text-orange-600'
+                      : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
+                  }`}
+                >
+                  อนุมัติรายชื่อ
+                  <span className={`ml-2 px-2 py-1 text-xs rounded-full ${
+                    activeTab === 'pending' ? 'bg-orange-100 text-orange-600' : 'bg-gray-100 text-gray-600'
+                  }`}>
+                    {pendingUsers.length}
+                  </span>
+                </button>
+              </nav>
+            </div>
+          </div>
 
           {/* Table */}
           <div ref={tableContainerRef} className="table-container">
@@ -1231,13 +1258,6 @@ export default function AdminUsersPage() {
               {/* User Info */}
               <div className="bg-gray-50 rounded-lg p-4 mb-6">
                 <div className="flex items-center space-x-4 mb-3">
-                  {approvingUser.profilePicture && (
-                    <img 
-                      src={approvingUser.profilePicture} 
-                      alt="Profile" 
-                      className="w-12 h-12 rounded-full"
-                    />
-                  )}
                   <div>
                     <p className="font-medium text-gray-900">
                       {approvingUser.firstName} {approvingUser.lastName}

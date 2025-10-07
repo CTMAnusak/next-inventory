@@ -41,7 +41,6 @@ export interface TransferItemParams {
  * สร้าง InventoryItem ใหม่และอัปเดต InventoryMaster
  */
 export async function createInventoryItem(params: CreateItemParams) {
-  
   try {
     await dbConnect();
   } catch (dbError) {
@@ -63,14 +62,12 @@ export async function createInventoryItem(params: CreateItemParams) {
     notes
   } = params;
   
-  // ใช้ categoryId เป็นหลัก แต่ถ้าไม่มีให้ใช้ category name
   const finalCategory = categoryId;
 
   // Enhanced Item Name validation - check for duplicates in recycle bin
   if (itemName && itemName.trim() !== '') {
     const { checkItemNameInRecycleBin } = await import('./recycle-bin-helpers');
     const recycleBinItem = await checkItemNameInRecycleBin(itemName.trim(), finalCategory);
-    
     if (recycleBinItem) {
       throw new Error(`เพิ่มรายการไม่ได้เพราะชื่อซ้ำกับในถังขยะ: "${itemName.trim()}" (รอกู้คืนใน 30 วัน)`);
     }
@@ -79,22 +76,16 @@ export async function createInventoryItem(params: CreateItemParams) {
   // Enhanced Serial Number validation with Recycle Bin check - allow duplicates across different categories
   if (serialNumber && serialNumber.trim() !== '') {
     const trimmedSerialNumber = serialNumber.trim();
-    
-    // Check if SN exists in active items within the same category
     const existingActiveItem = await InventoryItem.findOne({ 
       serialNumber: trimmedSerialNumber,
-      categoryId: finalCategory, // ตรวจสอบเฉพาะในหมวดหมู่เดียวกัน
-      status: { $ne: 'deleted' } // ยกเว้นรายการที่ถูกลบแล้ว
+      categoryId: finalCategory,
+      status: { $ne: 'deleted' }
     });
-    
     if (existingActiveItem) {
       throw new Error(`ACTIVE_SN_EXISTS:Serial Number "${trimmedSerialNumber}" already exists in this category for item: ${existingActiveItem.itemName}`);
     }
-    
-    // Check if SN exists in recycle bin
     const { checkSerialNumberInRecycleBin } = await import('./recycle-bin-helpers');
     const recycleBinItem = await checkSerialNumberInRecycleBin(trimmedSerialNumber);
-    
     if (recycleBinItem) {
       throw new Error(`RECYCLE_SN_EXISTS:Serial Number "${trimmedSerialNumber}" exists in recycle bin for item: ${recycleBinItem.itemName}`);
     }
@@ -103,93 +94,60 @@ export async function createInventoryItem(params: CreateItemParams) {
   // Enhanced Phone Number validation for SIM cards
   if (numberPhone && numberPhone.trim() !== '' && isSIMCardSync(categoryId)) {
     const trimmedNumberPhone = numberPhone.trim();
-    
-    try {
-      // Check if phone number exists in active items
-      const existingPhoneItem = await InventoryItem.findOne({ 
-        numberPhone: trimmedNumberPhone,
-        categoryId: 'cat_sim_card',
-        statusId: { $ne: 'deleted' } // ยกเว้นรายการที่ถูกลบแล้ว
-      });
-      
-      if (existingPhoneItem) {
-        console.error('❌ Phone number already exists:', trimmedNumberPhone);
-        throw new Error(`ACTIVE_PHONE_EXISTS:Phone Number "${trimmedNumberPhone}" already exists for SIM card: ${existingPhoneItem.itemName}`);
-      }
-      
-      // Check if phone number exists in recycle bin
-      const { checkPhoneNumberInRecycleBin } = await import('./recycle-bin-helpers');
-      const recycleBinPhoneItem = await checkPhoneNumberInRecycleBin(trimmedNumberPhone);
-      
-      if (recycleBinPhoneItem) {
-        throw new Error(`RECYCLE_PHONE_EXISTS:Phone Number "${trimmedNumberPhone}" exists in recycle bin for SIM card: ${recycleBinPhoneItem.itemName}`);
-      }
-      
-    } catch (phoneError) {
-      console.error('❌ Phone number validation error:', phoneError);
-      throw phoneError;
+    const existingPhoneItem = await InventoryItem.findOne({ 
+      numberPhone: trimmedNumberPhone,
+      categoryId: 'cat_sim_card',
+      statusId: { $ne: 'deleted' }
+    });
+    if (existingPhoneItem) {
+      throw new Error(`ACTIVE_PHONE_EXISTS:Phone Number "${trimmedNumberPhone}" already exists for SIM card: ${existingPhoneItem.itemName}`);
+    }
+    const { checkPhoneNumberInRecycleBin } = await import('./recycle-bin-helpers');
+    const recycleBinPhoneItem = await checkPhoneNumberInRecycleBin(trimmedNumberPhone);
+    if (recycleBinPhoneItem) {
+      throw new Error(`RECYCLE_PHONE_EXISTS:Phone Number "${trimmedNumberPhone}" exists in recycle bin for SIM card: ${recycleBinPhoneItem.itemName}`);
     }
   }
 
-  // Validate parameters
   if (addedBy === 'user' && !addedByUserId) {
     throw new Error('User-added items must have addedByUserId');
   }
-
   if (initialOwnerType === 'user_owned' && !userId) {
     throw new Error('User-owned items must have userId');
   }
 
-  // Create InventoryItem - ทำความสะอาด serialNumber และ numberPhone
   const cleanSerialNumber = serialNumber && serialNumber.trim() !== '' ? serialNumber.trim() : undefined;
   const cleanNumberPhone = numberPhone && numberPhone.trim() !== '' ? numberPhone.trim() : undefined;
-  
+
+  const newItem = new InventoryItem({
     itemName,
     categoryId: finalCategory,
     serialNumber: cleanSerialNumber,
     numberPhone: cleanNumberPhone,
     status,
-    initialOwnerType,
-    addedBy
+    currentOwnership: {
+      ownerType: initialOwnerType,
+      userId: userId,
+      ownedSince: new Date(),
+      assignedBy: assignedBy
+    },
+    sourceInfo: {
+      addedBy,
+      addedByUserId,
+      dateAdded: new Date(),
+      initialOwnerType,
+      acquisitionMethod: addedBy === 'user' ? 'self_reported' : 'admin_purchased',
+      notes
+    }
   });
-  
-   const newItem = new InventoryItem({
-     itemName,
-     categoryId: finalCategory, // ใช้ categoryId เป็นหลัก
-     serialNumber: cleanSerialNumber,
-     numberPhone: cleanNumberPhone,
-     status,
-     
-     currentOwnership: {
-       ownerType: initialOwnerType,
-       userId: userId,
-       ownedSince: new Date(),
-       assignedBy: assignedBy
-     },
-     
-     sourceInfo: {
-       addedBy,
-       addedByUserId,
-       dateAdded: new Date(),
-       initialOwnerType,
-       acquisitionMethod: addedBy === 'user' ? 'self_reported' : 'admin_purchased',
-       notes
-     }
-   });
-  
 
   try {
     const savedItem = await newItem.save();
-
-    // Update InventoryMaster
     try {
       await updateInventoryMaster(itemName, finalCategory);
     } catch (masterError) {
       console.error('❌ Failed to update InventoryMaster:', masterError);
-      // Don't throw here - item is already saved
     }
-
-    // Create TransferLog
     try {
       await TransferLog.create({
         itemId: (savedItem._id as any).toString(),
@@ -198,22 +156,15 @@ export async function createInventoryItem(params: CreateItemParams) {
         serialNumber: cleanSerialNumber,
         numberPhone: cleanNumberPhone,
         transferType: addedBy === 'user' ? 'user_report' : 'admin_add',
-        fromOwnership: {
-          ownerType: 'new_item'
-        },
-        toOwnership: {
-          ownerType: initialOwnerType,
-          userId: userId
-        },
+        fromOwnership: { ownerType: 'new_item' },
+        toOwnership: { ownerType: initialOwnerType, userId: userId },
         transferDate: new Date(),
         processedBy: addedByUserId || assignedBy || 'system',
         reason: notes || (addedBy === 'user' ? 'User reported existing equipment' : 'Admin added new equipment')
       });
     } catch (logError) {
       console.error('❌ Failed to create TransferLog:', logError);
-      // Don't throw here - item is already saved
     }
-
     return savedItem;
   } catch (saveError) {
     console.error('❌ Failed to save InventoryItem to database:', saveError);
@@ -221,9 +172,6 @@ export async function createInventoryItem(params: CreateItemParams) {
   }
 }
 
-/**
- * โอนย้าย InventoryItem จาก owner หนึ่งไปอีก owner หนึ่ง
- */
 export async function transferInventoryItem(params: TransferItemParams) {
   const {
     itemId,
@@ -238,25 +186,19 @@ export async function transferInventoryItem(params: TransferItemParams) {
     reason
   } = params;
 
-  // Find the item
   const item = await InventoryItem.findById(itemId);
   if (!item) {
     throw new Error(`InventoryItem not found: ${itemId}`);
   }
-
-  // Validate current ownership
   if (item.currentOwnership.ownerType !== fromOwnerType) {
     throw new Error(`Item ownership mismatch. Expected: ${fromOwnerType}, Actual: ${item.currentOwnership.ownerType}`);
   }
-
   if (fromOwnerType === 'user_owned' && item.currentOwnership.userId !== fromUserId) {
     throw new Error(`Item user mismatch. Expected: ${fromUserId}, Actual: ${item.currentOwnership.userId}`);
   }
 
-  // Store old ownership for logging
   const oldOwnership = { ...item.currentOwnership };
 
-  // Update ownership
   item.currentOwnership = {
     ownerType: toOwnerType,
     userId: toUserId,
@@ -264,7 +206,6 @@ export async function transferInventoryItem(params: TransferItemParams) {
     assignedBy: toOwnerType === 'user_owned' ? processedBy : undefined
   };
 
-  // Add transfer info
   item.transferInfo = {
     transferredFrom: fromOwnerType,
     transferDate: new Date(),
@@ -274,51 +215,33 @@ export async function transferInventoryItem(params: TransferItemParams) {
   };
 
   const savedItem = await item.save();
-
-  // Update InventoryMaster quantities
   await updateInventoryMaster(item.itemName, item.categoryId);
-
-  // Create TransferLog
   await TransferLog.create({
     itemId: (savedItem._id as any).toString(),
     itemName: savedItem.itemName,
     categoryId: savedItem.categoryId,
     serialNumber: savedItem.serialNumber,
     transferType,
-    fromOwnership: {
-      ownerType: fromOwnerType,
-      userId: fromUserId
-    },
-    toOwnership: {
-      ownerType: toOwnerType,
-      userId: toUserId
-    },
+    fromOwnership: { ownerType: fromOwnerType, userId: fromUserId },
+    toOwnership: { ownerType: toOwnerType, userId: toUserId },
     transferDate: new Date(),
     processedBy,
     requestId,
     returnId,
     reason
   });
-
   return savedItem;
 }
 
-/**
- * หา InventoryItem ที่ว่างสำหรับการเบิก
- */
 export async function findAvailableItems(itemName: string, categoryId: string, quantity: number = 1) {
-  // 🔧 CRITICAL FIX: Use consistent status filtering - allow active, maintenance, damaged but exclude deleted
   return await InventoryItem.find({
     itemName,
     categoryId,
     'currentOwnership.ownerType': 'admin_stock',
-    status: { $in: ['active', 'maintenance', 'damaged'] } // ✅ Exclude soft-deleted items
+    status: { $in: ['active', 'maintenance', 'damaged'] }
   }).limit(quantity);
 }
 
-/**
- * หา InventoryItem ที่ user เป็นเจ้าของ
- */
 export async function findUserOwnedItems(userId: string) {
   return await InventoryItem.find({
     'currentOwnership.ownerType': 'user_owned',
@@ -327,157 +250,58 @@ export async function findUserOwnedItems(userId: string) {
   }).sort({ 'currentOwnership.ownedSince': -1 });
 }
 
-/**
- * หา InventoryItem ด้วย Serial Number
- */
 export async function findItemBySerialNumber(serialNumber: string) {
   return await InventoryItem.findOne({ serialNumber });
 }
 
-/**
- * อัปเดต InventoryMaster summary สำหรับ item ทั้งหมด
- */
 export async function refreshAllMasterSummaries() {
   const combinations = await InventoryItem.aggregate([
-    {
-      $group: {
-        _id: {
-          itemName: '$itemName',
-          categoryId: '$categoryId' // ใช้ categoryId แทน category
-        }
-      }
-    }
+    { $group: { _id: { itemName: '$itemName', categoryId: '$categoryId' } } }
   ]);
-
-  const results = [];
+  const results: any[] = [];
   for (const combo of combinations) {
     const result = await updateInventoryMaster(combo._id.itemName, combo._id.categoryId);
     results.push(result);
   }
-
   return results;
 }
 
-/**
- * อัปเดต InventoryMaster สำหรับ item เดียว
- */
 export async function updateInventoryMaster(itemName: string, categoryId: string, options: { skipAutoDetection?: boolean } = {}) {
-  
   try {
-    // Find or create the master record
     let updatedMaster = await InventoryMaster.findOne({ itemName, categoryId });
     if (!updatedMaster) {
-      updatedMaster = new InventoryMaster({ 
-        itemName, 
-        categoryId,
-        totalQuantity: 0,
-        availableQuantity: 0,
-        userOwnedQuantity: 0
+      updatedMaster = new InventoryMaster({ itemName, categoryId, totalQuantity: 0, availableQuantity: 0, userOwnedQuantity: 0 });
+    }
+    const allItems = await InventoryItem.find({ itemName, categoryId, statusId: { $ne: 'deleted' } });
+    const adminStockItems = allItems.filter(item => item.currentOwnership.ownerType === 'admin_stock');
+    const userOwnedItems = allItems.filter(item => item.currentOwnership.ownerType === 'user_owned');
+    updatedMaster.totalQuantity = allItems.length;
+    updatedMaster.availableQuantity = adminStockItems.length;
+    updatedMaster.userOwnedQuantity = userOwnedItems.length;
+    if (!updatedMaster.stockManagement) {
+      updatedMaster.stockManagement = { adminDefinedStock: 0, userContributedCount: 0, currentlyAllocated: 0, realAvailable: 0 } as any;
+    }
+    const userContributedItems = await InventoryItem.find({ itemName, categoryId, 'sourceInfo.addedBy': 'user' });
+    updatedMaster.stockManagement.userContributedCount = userContributedItems.length;
+    const allocatedItems = await InventoryItem.find({ itemName, categoryId, 'currentOwnership.ownerType': 'user_owned', 'sourceInfo.addedBy': 'admin' });
+    updatedMaster.stockManagement.currentlyAllocated = allocatedItems.length;
+    const actualAdminStockItems = await InventoryItem.find({ itemName, categoryId, 'sourceInfo.addedBy': 'admin', 'currentOwnership.ownerType': 'admin_stock', status: { $ne: 'deleted' } });
+    const actualAdminStockCount = actualAdminStockItems.length;
+    const recordedAdminStock = (updatedMaster.stockManagement as any).adminDefinedStock;
+    const shouldRunAutoDetection = (recordedAdminStock === 0 && actualAdminStockCount > 0) || (recordedAdminStock !== actualAdminStockCount);
+    if (!options.skipAutoDetection && shouldRunAutoDetection) {
+      (updatedMaster.stockManagement as any).adminDefinedStock = actualAdminStockCount;
+      if (!updatedMaster.adminStockOperations) updatedMaster.adminStockOperations = [] as any;
+      const operationType = recordedAdminStock === 0 ? 'initial_stock' : 'adjust_stock';
+      const reason = recordedAdminStock === 0 
+        ? `ตรวจพบอุปกรณ์ที่ Admin เคยเพิ่มไว้ ${actualAdminStockCount} ชิ้น (Auto-detection)`
+        : `แก้ไขข้อมูลให้ตรงกับจำนวนจริงใน stock: ${recordedAdminStock} → ${actualAdminStockCount} (Auto-correction)`;
+      (updatedMaster.adminStockOperations as any).push({
+        date: new Date(), adminId: 'system', adminName: 'System Auto-Detection', operationType, previousStock: recordedAdminStock, newStock: actualAdminStockCount, adjustmentAmount: actualAdminStockCount - recordedAdminStock, reason
       });
     }
-  
-   // Calculate quantities from actual InventoryItems
-   const allItems = await InventoryItem.find({
-     itemName,
-     categoryId,
-     statusId: { $ne: 'deleted' }
-   });
-  
-  const adminStockItems = allItems.filter(item => item.currentOwnership.ownerType === 'admin_stock');
-  const userOwnedItems = allItems.filter(item => item.currentOwnership.ownerType === 'user_owned');
-  
-  updatedMaster.totalQuantity = allItems.length;
-  updatedMaster.availableQuantity = adminStockItems.length;
-  updatedMaster.userOwnedQuantity = userOwnedItems.length;
-  
-  // Initialize stock management if not exists
-  if (!updatedMaster.stockManagement) {
-    updatedMaster.stockManagement = {
-      adminDefinedStock: 0,
-      userContributedCount: 0,
-      currentlyAllocated: 0,
-      realAvailable: 0
-    };
-  }
-  
-   // Count user-contributed items (items added by users initially)
-   const userContributedItems = await InventoryItem.find({
-     itemName,
-     categoryId,
-     'sourceInfo.addedBy': 'user'
-   });
-  
-  updatedMaster.stockManagement.userContributedCount = userContributedItems.length;
-  
-   // Calculate currently allocated (items transferred from admin_stock to user_owned)
-   const allocatedItems = await InventoryItem.find({
-     itemName,
-     categoryId: categoryId, // ใช้ categoryId
-     'currentOwnership.ownerType': 'user_owned',
-     'sourceInfo.addedBy': 'admin' // Only count admin-added items that are now with users
-   });
-  
-  updatedMaster.stockManagement.currentlyAllocated = allocatedItems.length;
-  
-   // 🆕 Enhanced Auto-detect admin stock with comprehensive checks
-   // Check actual admin items in stock vs recorded adminDefinedStock
-   // 🔧 CRITICAL FIX: Exclude deleted items from count
-   const actualAdminStockItems = await InventoryItem.find({
-     itemName,
-     categoryId: categoryId, // ใช้ categoryId
-     'sourceInfo.addedBy': 'admin',
-     'currentOwnership.ownerType': 'admin_stock',
-     status: { $ne: 'deleted' } // ✅ Exclude soft-deleted items
-   });
-  
-  const actualAdminStockCount = actualAdminStockItems.length;
-  const recordedAdminStock = updatedMaster.stockManagement.adminDefinedStock;
-  
-  const shouldRunAutoDetection = (
-    (recordedAdminStock === 0 && actualAdminStockCount > 0) ||  // No record but items exist
-    (recordedAdminStock !== actualAdminStockCount)              // Mismatch between recorded and actual
-  );
-  
-    actualItemsInStock: actualAdminStockCount,
-    recordedAdminStock: recordedAdminStock,
-    hasOperations: updatedMaster.adminStockOperations?.length > 0,
-    shouldRun: shouldRunAutoDetection,
-    excludedDeletedItems: true // ✅ Indicates we're properly filtering deleted items
-  });
-  
-  if (options.skipAutoDetection) {
-  } else if (shouldRunAutoDetection) {
-    
-    // Set adminDefinedStock to match actual items in stock
-    updatedMaster.stockManagement.adminDefinedStock = actualAdminStockCount;
-    
-    // Create correction operation log
-    if (!updatedMaster.adminStockOperations) {
-      updatedMaster.adminStockOperations = [] as any;
-    }
-    
-    const operationType = recordedAdminStock === 0 ? 'initial_stock' : 'adjust_stock';
-    const reason = recordedAdminStock === 0 
-      ? `ตรวจพบอุปกรณ์ที่ Admin เคยเพิ่มไว้ ${actualAdminStockCount} ชิ้น (Auto-detection)`
-      : `แก้ไขข้อมูลให้ตรงกับจำนวนจริงใน stock: ${recordedAdminStock} → ${actualAdminStockCount} (Auto-correction)`;
-    
-    updatedMaster.adminStockOperations.push({
-      date: new Date(),
-      adminId: 'system',
-      adminName: 'System Auto-Detection',
-      operationType: operationType,
-      previousStock: recordedAdminStock,
-      newStock: actualAdminStockCount,
-      adjustmentAmount: actualAdminStockCount - recordedAdminStock,
-      reason: reason
-    });
-    
-  }
-  
-  // realAvailable will be auto-calculated in pre-save hook
-  await updatedMaster.save();
-  
-  return updatedMaster;
+    await updatedMaster.save();
+    return updatedMaster;
   } catch (error) {
     console.error('❌ updateInventoryMaster failed:', error);
     console.error('❌ Error stack:', error instanceof Error ? error.stack : 'No stack trace');
@@ -485,342 +309,110 @@ export async function updateInventoryMaster(itemName: string, categoryId: string
   }
 }
 
-/**
- * Helper functions สำหรับ Admin Stock Management
- */
 export async function setAdminStock(itemName: string, categoryId: string, newStock: number, reason: string, adminId: string, adminName: string) {
-  // Find the master record
   const master = await InventoryMaster.findOne({ itemName, categoryId });
-  if (!master) {
-    throw new Error(`InventoryMaster not found for ${itemName} in ${categoryId}`);
-  }
-  
-  // Update admin stock
-  if (!master.stockManagement) {
-    master.stockManagement = {
-      adminDefinedStock: 0,
-      userContributedCount: 0,
-      currentlyAllocated: 0,
-      realAvailable: 0
-    };
-  }
-  
-  const previousStock = master.stockManagement.adminDefinedStock;
-  master.stockManagement.adminDefinedStock = newStock;
-  
-  // Add operation log
-  if (!master.adminStockOperations) {
-    master.adminStockOperations = [] as any;
-  }
-  
-  master.adminStockOperations.push({
-    date: new Date(),
-    adminId,
-    adminName,
-    operationType: 'set_stock',
-    previousStock,
-    newStock,
-    adjustmentAmount: newStock - previousStock,
-    reason
-  });
-  
+  if (!master) throw new Error(`InventoryMaster not found for ${itemName} in ${categoryId}`);
+  if (!master.stockManagement) master.stockManagement = { adminDefinedStock: 0, userContributedCount: 0, currentlyAllocated: 0, realAvailable: 0 } as any;
+  const previousStock = (master.stockManagement as any).adminDefinedStock;
+  (master.stockManagement as any).adminDefinedStock = newStock;
+  if (!master.adminStockOperations) master.adminStockOperations = [] as any;
+  (master.adminStockOperations as any).push({ date: new Date(), adminId, adminName, operationType: 'set_stock', previousStock, newStock, adjustmentAmount: newStock - previousStock, reason });
   return await master.save();
 }
 
 export async function adjustAdminStock(itemName: string, categoryId: string, adjustment: number, reason: string, adminId: string, adminName: string) {
-  // Find the master record
   const master = await InventoryMaster.findOne({ itemName, categoryId });
-  if (!master) {
-    throw new Error(`InventoryMaster not found for ${itemName} in ${categoryId}`);
-  }
-  
-  // Update admin stock
-  if (!master.stockManagement) {
-    master.stockManagement = {
-      adminDefinedStock: 0,
-      userContributedCount: 0,
-      currentlyAllocated: 0,
-      realAvailable: 0
-    };
-  }
-  
-  const previousStock = master.stockManagement.adminDefinedStock;
+  if (!master) throw new Error(`InventoryMaster not found for ${itemName} in ${categoryId}`);
+  if (!master.stockManagement) master.stockManagement = { adminDefinedStock: 0, userContributedCount: 0, currentlyAllocated: 0, realAvailable: 0 } as any;
+  const previousStock = (master.stockManagement as any).adminDefinedStock;
   const newStock = previousStock + adjustment;
-  master.stockManagement.adminDefinedStock = newStock;
-  
-  // Add operation log
-  if (!master.adminStockOperations) {
-    master.adminStockOperations = [] as any;
-  }
-  
-  master.adminStockOperations.push({
-    date: new Date(),
-    adminId,
-    adminName,
-    operationType: 'adjust_stock',
-    previousStock,
-    newStock,
-    adjustmentAmount: adjustment,
-    reason
-  });
-  
+  (master.stockManagement as any).adminDefinedStock = newStock;
+  if (!master.adminStockOperations) master.adminStockOperations = [] as any;
+  (master.adminStockOperations as any).push({ date: new Date(), adminId, adminName, operationType: 'adjust_stock', previousStock, newStock, adjustmentAmount: adjustment, reason });
   return await master.save();
 }
 
 export async function getAdminStockInfo(itemName: string, categoryId: string) {
-  // 🆕 EXACT SAME CODE AS INVENTORY TABLE: Use InventoryMaster.find() directly
   await dbConnect();
-  
-  // Find the specific item (same as Inventory Table logic)
   const item = await InventoryMaster.findOne({ itemName, categoryId });
-  
-  if (!item) {
-    throw new Error(`ไม่พบรายการ ${itemName} ในหมวดหมู่ ${categoryId}`);
-  }
-  
-  // 🆕 EXACTLY SAME LOGIC AS INVENTORY TABLE: Use InventoryMaster fields directly
-    totalQuantity: item.totalQuantity,        // Same as Inventory Table  
-    availableQuantity: item.availableQuantity,// admin_stock items (จำนวนที่เหลือให้เบิก)
-    userOwnedQuantity: item.userOwnedQuantity // user_owned items
-  });
-  
-  // For Stock Modal display purposes:
-  // - "Admin ตั้งไว้" = availableQuantity (items in admin_stock)
-  // - "User เพิ่มมา" = userOwnedQuantity (items with users) 
-  // - "รวมทั้งหมด" = totalQuantity (same as table)
-  
+  if (!item) throw new Error(`ไม่พบรายการ ${itemName} ในหมวดหมู่ ${categoryId}`);
   return {
     itemName: item.itemName,
     categoryId: item.categoryId,
     stockManagement: {
-      adminDefinedStock: item.availableQuantity,                // Items in admin_stock  
-      userContributedCount: item.userOwnedQuantity,             // Items with users
-      currentlyAllocated: item.userOwnedQuantity,               // Items with users
-      realAvailable: item.availableQuantity                     // Items in admin_stock
+      adminDefinedStock: item.availableQuantity,
+      userContributedCount: item.userOwnedQuantity,
+      currentlyAllocated: item.userOwnedQuantity,
+      realAvailable: item.availableQuantity
     },
     adminStockOperations: item.adminStockOperations || [],
     currentStats: {
-      totalQuantity: item.totalQuantity,                        // EXACTLY same as Inventory Table
-      availableQuantity: item.availableQuantity,                // EXACTLY same as Inventory Table  
-      userOwnedQuantity: item.userOwnedQuantity                 // EXACTLY same as Inventory Table
+      totalQuantity: item.totalQuantity,
+      availableQuantity: item.availableQuantity,
+      userOwnedQuantity: item.userOwnedQuantity
     }
   };
 }
 
-
-
-/**
- * ดูประวัติการ transfer ของ item
- */
 export async function getItemTransferHistory(itemId: string) {
   return await TransferLog.find({ itemId }).sort({ transferDate: -1 });
 }
 
-/**
- * 🆕 Sync InventoryItem records to match adminDefinedStock
- * Create or remove admin-added items as needed
- * 
- * 🔧 FIXED: targetAdminStock represents TOTAL desired non-SN items, not total items
- */
 export async function syncAdminStockItems(itemName: string, categoryId: string, targetAdminStock: number, reason: string, adminId: string) {
-  
-  // Get current admin stock items (consistent with updateInventoryMaster counting)
-  // 🔧 CRITICAL FIX: Count ALL admin stock items regardless of who added them originally
-  const currentAdminItems = await InventoryItem.find({
-    itemName,
-    categoryId,
-    'currentOwnership.ownerType': 'admin_stock',
-    status: { $ne: 'deleted' } // ✅ Exclude soft-deleted items (consistent with updateInventoryMaster)
-  });
-  
-  // 🔧 FIXED: targetAdminStock represents desired NON-SN items only
-  // SN items are NOT affected by stock adjustment
+  const currentAdminItems = await InventoryItem.find({ itemName, categoryId, 'currentOwnership.ownerType': 'admin_stock', status: { $ne: 'deleted' } });
   const itemsWithoutSN = currentAdminItems.filter(item => !item.serialNumber);
   const itemsWithSN = currentAdminItems.filter(item => item.serialNumber);
-  
-  const currentTotalCount = currentAdminItems.length; // Total items (with + without SN)
-  const currentWithoutSNCount = itemsWithoutSN.length;
-  const currentWithSNCount = itemsWithSN.length;
-  
-  
-  // Debug: Log each item for verification
-  currentAdminItems.forEach((item, index) => {
-    console.log(`  ${index + 1}. ID: ${item._id}, Status: ${item.statusId}, SN: ${item.serialNumber || 'No SN'}`);
-  });
-  
-  if (currentWithoutSNCount < targetAdminStock) {
-    // Need to create more items WITHOUT serial numbers
-    const itemsToCreate = targetAdminStock - currentWithoutSNCount;
-    
+  if (itemsWithoutSN.length < targetAdminStock) {
+    const itemsToCreate = targetAdminStock - itemsWithoutSN.length;
     for (let i = 0; i < itemsToCreate; i++) {
-      const newItem = await createInventoryItem({
-        itemName,
-        categoryId,
-        // ✅ Explicitly NO serialNumber for admin stock adjustment
-        serialNumber: undefined,
-        addedBy: 'admin',
-        initialOwnerType: 'admin_stock',
-        notes: `${reason} (Auto-created non-SN item ${i + 1}/${itemsToCreate})`
-      });
+      await createInventoryItem({ itemName, categoryId, serialNumber: undefined, addedBy: 'admin', initialOwnerType: 'admin_stock', notes: `${reason} (Auto-created non-SN item ${i + 1}/${itemsToCreate})` });
     }
-  } else if (currentWithoutSNCount > targetAdminStock) {
-    // Need to remove items WITHOUT serial numbers only
-    const itemsToRemove = currentWithoutSNCount - targetAdminStock;
-    console.log(`➖ Need to remove ${itemsToRemove} non-SN admin items (preserving all SN items)`);
-    
-    
-    // 🆕 FIXED: Remove only items without SN that have status "available" AND condition "working"
-    const availableWorkingItems = itemsWithoutSN.filter(item => 
-      item.statusId === 'status_available' && 
-      item.conditionId === 'cond_working'
-    );
-    
-    
+  } else if (itemsWithoutSN.length > targetAdminStock) {
+    const itemsToRemove = itemsWithoutSN.length - targetAdminStock;
+    const availableWorkingItems = itemsWithoutSN.filter(item => item.statusId === 'status_available' && item.conditionId === 'cond_working');
     if (availableWorkingItems.length < itemsToRemove) {
-      console.warn(`⚠️ Warning: Only ${availableWorkingItems.length} items available for deletion, but need to remove ${itemsToRemove}`);
-      itemsWithoutSN.forEach(item => {
-        console.log(`  - ID: ${item._id}, Status: ${item.statusId}, Condition: ${item.conditionId}`);
-      });
       throw new Error(`ไม่สามารถลดจำนวนได้ มีอุปกรณ์ที่สถานะ "มี" และสภาพ "ใช้งานได้" เพียง ${availableWorkingItems.length} ชิ้น แต่ต้องการลด ${itemsToRemove} ชิ้น`);
     }
-    
-    // ✅ SAFE TO REMOVE: Only remove available + working items without SN (newest first)
     const itemsToDelete = availableWorkingItems
-      .sort((a, b) => new Date(b.sourceInfo.dateAdded).getTime() - new Date(a.sourceInfo.dateAdded).getTime())
+      .sort((a, b) => new Date(a.sourceInfo.dateAdded).getTime() - new Date(b.sourceInfo.dateAdded).getTime())
       .slice(0, itemsToRemove);
-    
-    
     for (const item of itemsToDelete) {
-      // 🔧 CRITICAL FIX: Use hard delete for non-SN items to prevent count discrepancy
-      // Only non-SN items with "available" status and "working" condition should be deleted
-      
-      // Create transfer log BEFORE deletion
-      await TransferLog.create({
-        itemId: (item._id as any).toString(),
-        itemName,
-        categoryId,
-        serialNumber: item.serialNumber || 'No SN',
-        transferType: 'ownership_change',                    // ✅ Valid enum value
-        fromOwnership: { 
-          ownerType: 'admin_stock'                           // ✅ Valid enum value
-        },
-        toOwnership: { 
-          ownerType: 'admin_stock'                           // ✅ Valid enum value (indicating removal from stock)
-        },
-        processedBy: adminId,
-        reason: `${reason} (Stock adjustment - item permanently removed)`,
-        notes: `Admin stock reduced by permanently removing non-SN item from inventory`
-      });
-      
-      // Hard delete the item to prevent count discrepancy
+      await TransferLog.create({ itemId: (item._id as any).toString(), itemName, categoryId, serialNumber: item.serialNumber || 'No SN', transferType: 'ownership_change', fromOwnership: { ownerType: 'admin_stock' }, toOwnership: { ownerType: 'admin_stock' }, processedBy: adminId, reason: `${reason} (Stock adjustment - item permanently removed)`, notes: `Admin stock reduced by permanently removing non-SN item from inventory` });
       await InventoryItem.findByIdAndDelete(item._id);
     }
   }
-  
-  // 🔧 FIXED: Calculate final counts based on non-SN items only
-  const finalWithSNCount = currentWithSNCount; // SN items are preserved
-  const finalWithoutSNCount = targetAdminStock; // This is what we set it to
-  const finalTotalCount = finalWithSNCount + finalWithoutSNCount;
-  
 }
 
-/**
- * ดูประวัติการ transfer ของ user
- */
 export async function getUserTransferHistory(userId: string, limit: number = 50) {
-  return await TransferLog.find({
-    $or: [
-      { 'fromOwnership.userId': userId },
-      { 'toOwnership.userId': userId }
-    ]
-  })
-  .sort({ transferDate: -1 })
-  .limit(limit);
+  return await TransferLog.find({ $or: [ { 'fromOwnership.userId': userId }, { 'toOwnership.userId': userId } ] }).sort({ transferDate: -1 }).limit(limit);
 }
 
-/**
- * 🆕 ทำความสะอาดรายการที่ถูก soft delete แล้วในระบบ
- * ใช้สำหรับแก้ไขปัญหาการนับจำนวนที่ไม่ตรงกัน
- */
 export async function cleanupSoftDeletedItems(itemName?: string, categoryId?: string) {
-  
   await dbConnect();
-  
-  // Build query - if itemName and category provided, clean only those items
   const query: any = { status: 'deleted' };
-  if (itemName && categoryId) {
-    query.itemName = itemName;
-    query.categoryId = categoryId;
-  } else {
-  }
-  
-  // Find all soft-deleted items
+  if (itemName && categoryId) { query.itemName = itemName; query.categoryId = categoryId; }
   const softDeletedItems = await InventoryItem.find(query);
-  
-  
-  if (softDeletedItems.length === 0) {
-    return { cleaned: 0, message: 'No soft-deleted items found' };
-  }
-  
-  // Hard delete all soft-deleted items
+  if (softDeletedItems.length === 0) return { cleaned: 0, message: 'No soft-deleted items found' };
   let cleanedCount = 0;
   for (const item of softDeletedItems) {
-    
-    // Create cleanup log in TransferLog
     try {
-      await TransferLog.create({
-        itemId: (item._id as any).toString(),
-        itemName: item.itemName,
-        categoryId: item.categoryId,
-        serialNumber: item.serialNumber || 'No SN',
-        numberPhone: item.numberPhone || undefined,
-        transferType: 'ownership_change',
-        fromOwnership: { 
-          ownerType: 'admin_stock'
-        },
-        toOwnership: { 
-          ownerType: 'admin_stock'
-        },
-        processedBy: 'system_cleanup',
-        reason: `Database cleanup - permanently removing soft-deleted item (originally deleted: ${item.deleteReason || 'Unknown reason'})`,
-        notes: `System cleanup to fix count discrepancy - item was soft-deleted on ${item.deletedAt?.toISOString() || 'unknown date'}`
-      });
-    } catch (logError) {
-      console.error('❌ Failed to create cleanup log:', logError);
-      // Continue with cleanup even if logging fails
-    }
-    
-    // Hard delete the item
+      await TransferLog.create({ itemId: (item._id as any).toString(), itemName: item.itemName, categoryId: item.categoryId, serialNumber: item.serialNumber || 'No SN', numberPhone: item.numberPhone || undefined, transferType: 'ownership_change', fromOwnership: { ownerType: 'admin_stock' }, toOwnership: { ownerType: 'admin_stock' }, processedBy: 'system_cleanup', reason: `Database cleanup - permanently removing soft-deleted item (originally deleted: ${item.deleteReason || 'Unknown reason'})`, notes: `System cleanup to fix count discrepancy - item was soft-deleted on ${item.deletedAt?.toISOString() || 'unknown date'}` });
+    } catch {}
     await InventoryItem.findByIdAndDelete(item._id);
     cleanedCount++;
   }
-  
-  // Update InventoryMaster records for affected items
   if (itemName && categoryId) {
     await updateInventoryMaster(itemName, categoryId);
   } else {
-    // Update all unique combinations
     const uniqueCombinations = [...new Set(softDeletedItems.map(item => `${item.itemName}|${item.categoryId}`))];
-    
     for (const combo of uniqueCombinations) {
       const [name, cat] = combo.split('|');
-      try {
-        await updateInventoryMaster(name, cat);
-      } catch (updateError) {
-        console.error(`❌ Failed to update InventoryMaster for ${name} (${cat}):`, updateError);
-      }
+      try { await updateInventoryMaster(name, cat); } catch {}
     }
   }
-  
-  return { 
-    cleaned: cleanedCount, 
-    message: `Successfully cleaned up ${cleanedCount} soft-deleted items` 
-  };
+  return { cleaned: cleanedCount, message: `Successfully cleaned up ${cleanedCount} soft-deleted items` };
 }
 
-/**
- * เปลี่ยนสถานะของ InventoryItem
- */
 export async function changeItemStatus(
   itemId: string, 
   newStatus: 'active' | 'maintenance' | 'damaged' | 'retired',
@@ -828,47 +420,27 @@ export async function changeItemStatus(
   reason?: string
 ) {
   const item = await InventoryItem.findById(itemId);
-  if (!item) {
-    throw new Error(`InventoryItem not found: ${itemId}`);
-  }
-
+  if (!item) throw new Error(`InventoryItem not found: ${itemId}`);
   const oldStatus = item.statusId;
   item.statusId = newStatus;
   const savedItem = await item.save();
-
-  // Update InventoryMaster
   await updateInventoryMaster(item.itemName, item.categoryId);
-
-  // Log the status change
   await TransferLog.create({
     itemId: (savedItem._id as any).toString(),
     itemName: savedItem.itemName,
     categoryId: savedItem.categoryId,
     serialNumber: savedItem.serialNumber,
     transferType: 'status_change',
-    fromOwnership: {
-      ownerType: item.currentOwnership.ownerType,
-      userId: item.currentOwnership.userId
-    },
-    toOwnership: {
-      ownerType: item.currentOwnership.ownerType,
-      userId: item.currentOwnership.userId
-    },
+    fromOwnership: { ownerType: item.currentOwnership.ownerType, userId: item.currentOwnership.userId },
+    toOwnership: { ownerType: item.currentOwnership.ownerType, userId: item.currentOwnership.userId },
     transferDate: new Date(),
     processedBy: changedBy,
     reason: reason || `Status changed from ${oldStatus} to ${newStatus}`,
-    statusChange: {
-      fromStatus: oldStatus,
-      toStatus: newStatus
-    }
+    statusChange: { fromStatus: oldStatus, toStatus: newStatus }
   });
-
   return savedItem;
 }
 
-/**
- * ลบ InventoryItem (soft delete)
- */
 export async function retireInventoryItem(itemId: string, retiredBy: string, reason?: string) {
   return await changeItemStatus(itemId, 'retired', retiredBy, reason || 'Item retired from inventory');
 }

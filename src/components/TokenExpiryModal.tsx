@@ -28,13 +28,13 @@ export default function TokenExpiryModal({ isOpen, timeLeft, onClose }: TokenExp
         
         <div className="mb-6">
           <p className="text-gray-700 leading-relaxed">
-            เนื่องจากระบบไม่อนุญาติให้ login ค้างไว้สะสมเกิน 7 วัน
+            เซสชันของคุณใกล้หมดอายุแล้ว (ระบบจำกัดการ login ไว้ 7 วัน)
           </p>
           <p className="text-gray-700 leading-relaxed mt-2">
-            <strong className="text-red-600">อีก {timeValue} {timeUnit}</strong> จะครบ 7 วัน
+            <strong className="text-red-600">อีก {timeValue} {timeUnit}</strong> เซสชันจะหมดอายุ
           </p>
           <p className="text-gray-700 leading-relaxed mt-2">
-            กรุณา login เพื่อเข้าใช้งานระบบใหม่อีกครั้ง
+            เมื่อหมดอายุแล้ว ระบบจะแสดงหน้าต่างนับถอยหลัง 10 วินาที แล้วนำคุณไปหน้า Login
           </p>
         </div>
         

@@ -38,8 +38,24 @@ export async function GET(request: NextRequest) {
       
       const superAdminEmail = process.env.SUPER_ADMIN_EMAIL;
       const superAdminPassword = process.env.SUPER_ADMIN_PASSWORD;
+      const superAdminPhone = process.env.SUPER_ADMIN_PHONE || '000-000-0000';
+      const superAdminFirstName = process.env.SUPER_ADMIN_FIRST_NAME || 'Super';
+      const superAdminLastName = process.env.SUPER_ADMIN_LAST_NAME || 'Administrator';
       
       if (superAdminEmail && superAdminPassword) {
+        // ✅ Check if super admin data already exists
+        const existingSuperAdmin = await User.findOne({
+          $or: [
+            { email: superAdminEmail },
+            { phone: superAdminPhone },
+            { firstName: superAdminFirstName, lastName: superAdminLastName }
+          ]
+        });
+        
+        if (existingSuperAdmin) {
+          console.log('Super admin data already exists, skipping creation');
+          superAdmin = existingSuperAdmin;
+        } else {
         const { hashPassword } = await import('@/lib/auth');
         const hashedPassword = await hashPassword(superAdminPassword);
         
@@ -79,14 +95,21 @@ export async function GET(request: NextRequest) {
         });
 
         await superAdmin.save();
+        }
       } else {
       }
     } else if (existingAdmins.length === 0) {
     }
 
     console.log('Checking for demo user...');
-    // Check if demo user already exists
-    const existingDemo = await User.findOne({ email: 'demo@vsqclinic.com' });
+    // ✅ Check if demo user already exists (by email, phone, or name)
+    const existingDemo = await User.findOne({ 
+      $or: [
+        { email: 'demo@vsqclinic.com' },
+        { phone: '099-999-9999' },
+        { firstName: 'Demo', lastName: 'User' }
+      ]
+    });
     
     let demoUser;
     if (!existingDemo) {

@@ -63,16 +63,6 @@ export async function POST(request: NextRequest) {
 
     // Log details before deletion
     const firstItem = groupItems[0];
-      inventoryMasterId,
-      itemName: firstItem.itemName,
-      category: firstItem.category,
-      totalItems: groupItems.length,
-      itemTypes: {
-        withSerialNumber: groupItems.filter(item => item.serialNumber).length,
-        withPhoneNumber: groupItems.filter(item => item.numberPhone).length,
-        other: groupItems.filter(item => !item.serialNumber && !item.numberPhone).length
-      }
-    });
 
     // Delete all items in the group
     const deleteResult = await recycleBin.deleteMany({ 

@@ -58,6 +58,10 @@ export default function EquipmentRequestPage() {
   const [requestItem, setRequestItem] = useState<RequestItem>({
     itemId: '', quantity: 1, serialNumber: '', itemNotes: ''
   });
+  
+  // State for available serial numbers/phone numbers
+  const [availableSerialNumbers, setAvailableSerialNumbers] = useState<string[]>([]);
+  const [selectedSerialNumber, setSelectedSerialNumber] = useState<string>('');
 
   // Multiple items support (prevent duplicates by itemId)
   const [requestItems, setRequestItems] = useState<RequestItem[]>([]);
@@ -85,45 +89,52 @@ export default function EquipmentRequestPage() {
 
   const fetchInventoryItems = async () => {
     try {
-      const [inventoryResponse, configResponse] = await Promise.all([
-        fetch('/api/inventory'),
-        fetch('/api/admin/inventory/config')
-      ]);
-      
-             if (inventoryResponse.ok) {
-         const data = await inventoryResponse.json();
-         const items = data.items || [];
-         setInventoryItems(items);
-         
-         // Debug: Log inventory items
-         
-         // Group items by categoryId ONLY - ไม่ใช้ category name
-         const grouped: {[key: string]: string[]} = {};
-         items.forEach((item: InventoryItem) => {
-           if (item.quantity > 0) { // Only show items with available stock
-             // ใช้ categoryId เท่านั้น - ไม่ fallback ไป category name
-             const categoryId = item.categoryId;
-             
-             if (categoryId) {
-               if (!grouped[categoryId]) {
-                 grouped[categoryId] = [];
-               }
-               if (!grouped[categoryId].includes(item.itemName)) {
-                 grouped[categoryId].push(item.itemName);
-               }
-             } else {
-               console.warn(`⚠️ Equipment Request - Item ${item.itemName} has no categoryId - ข้อมูลไม่ถูกต้อง`);
-             }
-           }
-         });
-         
-         // Debug: Log grouped items
-         setItemsByCategory(grouped);
-       }
+      const configResponse = await fetch('/api/admin/inventory/config');
       
       if (configResponse.ok) {
         const configData = await configResponse.json();
         setCategoryConfigs(configData.categoryConfigs || []);
+        
+        // ✅ ดึงข้อมูลอุปกรณ์ที่สามารถเบิกได้จาก API ที่กรองตามสถานะและสภาพแล้ว
+        const availableResponse = await fetch('/api/equipment-request/available');
+        
+        if (availableResponse.ok) {
+          const availableData = await availableResponse.json();
+          const availableItems = availableData.availableItems || [];
+          
+          console.log('✅ Equipment Request - Loaded available items:', availableItems);
+          
+          // แปลงข้อมูลให้เป็นรูปแบบที่ UI ต้องการ
+          const items = availableItems.map((item: any) => ({
+            _id: item.itemMasterId,
+            itemName: item.itemName,
+            categoryId: item.categoryId,
+            category: item.categoryId, // For backward compatibility
+            quantity: item.availableQuantity,
+            price: 0,
+            serialNumber: item.sampleItems?.[0]?.serialNumber || ''
+          }));
+          
+          setInventoryItems(items);
+          
+          // Group items by categoryId ONLY - กรองเฉพาะอุปกรณ์ที่มีสถานะ "มี" และสภาพ "ใช้งานได้"
+          const grouped: {[key: string]: string[]} = {};
+          availableItems.forEach((item: any) => {
+            const categoryId = item.categoryId;
+            
+            if (categoryId && item.availableQuantity > 0) {
+              if (!grouped[categoryId]) {
+                grouped[categoryId] = [];
+              }
+              if (!grouped[categoryId].includes(item.itemName)) {
+                grouped[categoryId].push(item.itemName);
+              }
+            }
+          });
+          
+          console.log('✅ Equipment Request - Grouped items by category:', grouped);
+          setItemsByCategory(grouped);
+        }
       }
     } catch (error) {
       console.error('Error fetching inventory:', error);
@@ -151,9 +162,80 @@ export default function EquipmentRequestPage() {
   };
 
   // Function to handle item selection from category
-  const handleItemSelect = (itemId: string) => {
+  const handleItemSelect = async (itemId: string) => {
     handleItemChange('itemId', itemId);
     setShowCategorySelector(false);
+    
+    // ✅ ดึง Serial Numbers หรือเบอร์โทรศัพท์ที่พร้อมใช้งาน
+    await fetchAvailableSerialNumbers(itemId);
+  };
+  
+  // ✅ ฟังก์ชันดึง Serial Numbers หรือเบอร์โทรศัพท์ที่พร้อมใช้งาน
+  const fetchAvailableSerialNumbers = async (itemId: string) => {
+    try {
+      const inventoryItem = inventoryItems.find(i => String(i._id) === itemId);
+      if (!inventoryItem) {
+        setAvailableSerialNumbers([]);
+        setSelectedSerialNumber('');
+        return;
+      }
+      
+      // ดึงข้อมูลจาก API ที่กรองตามสถานะและสภาพแล้ว
+      const response = await fetch(
+        `/api/admin/equipment-reports/available-items?itemName=${encodeURIComponent(inventoryItem.itemName)}&category=${encodeURIComponent(inventoryItem.categoryId || '')}`
+      );
+      
+      if (response.ok) {
+        const data = await response.json();
+        
+        // ✅ ดึง Serial Numbers สำหรับอุปกรณ์ทั่วไป
+        const serialNumbers = data.withSerialNumber?.map((item: any) => item.serialNumber).filter((sn: string) => sn) || [];
+        
+        // ✅ ดึงเบอร์โทรศัพท์สำหรับซิมการ์ด
+        const phoneNumbers = data.withPhoneNumber?.map((item: any) => item.numberPhone).filter((phone: string) => phone) || [];
+        
+        // ✅ นับจำนวนอุปกรณ์ที่ไม่มี Serial Number/เบอร์โทร
+        const countWithoutSN = data.withoutSerialNumber?.count || 0;
+        
+        // ใช้ข้อมูลที่มี (SN หรือเบอร์โทร)
+        const hasPhoneNumbers = phoneNumbers.length > 0;
+        const availableOptions: string[] = [];
+        
+        // ✅ ถ้ามีอุปกรณ์ที่ไม่มี SN/เบอร์โทร ให้เพิ่มตัวเลือก "ไม่มี SN" ไว้ด้านบนสุด
+        if (countWithoutSN > 0 && !hasPhoneNumbers) {
+          availableOptions.push(`ไม่มี Serial Number (ไม่เจาะจง) - มี ${countWithoutSN} ชิ้น`);
+        } else if (countWithoutSN > 0 && hasPhoneNumbers) {
+          availableOptions.push(`ไม่มีเบอร์โทรศัพท์ (ไม่เจาะจง) - มี ${countWithoutSN} ชิ้น`);
+        }
+        
+        // ✅ จากนั้นเพิ่ม SN หรือเบอร์โทรที่มี
+        if (hasPhoneNumbers) {
+          availableOptions.push(...phoneNumbers);
+        } else {
+          availableOptions.push(...serialNumbers);
+        }
+        
+        setAvailableSerialNumbers(availableOptions);
+        
+        console.log(`✅ Equipment Request - Found ${serialNumbers.length} with SN, ${phoneNumbers.length} with phone, ${countWithoutSN} without SN/phone`);
+        
+        // ถ้ามีตัวเลือกเดียว (และไม่ใช่ตัวเลือก "ไม่มี SN") ให้เลือกอัตโนมัติ
+        if (availableOptions.length === 1 && !availableOptions[0].includes('ไม่มี')) {
+          setSelectedSerialNumber(availableOptions[0]);
+          handleItemChange('serialNumber', availableOptions[0]);
+        } else {
+          setSelectedSerialNumber('');
+          handleItemChange('serialNumber', '');
+        }
+      } else {
+        setAvailableSerialNumbers([]);
+        setSelectedSerialNumber('');
+      }
+    } catch (error) {
+      console.error('Error fetching serial numbers:', error);
+      setAvailableSerialNumbers([]);
+      setSelectedSerialNumber('');
+    }
   };
 
   // Helper function to get item display name from itemId
@@ -218,6 +300,8 @@ export default function EquipmentRequestPage() {
     });
     setSelectedCategoryId('');
     setEditingItemId(null);
+    setAvailableSerialNumbers([]);
+    setSelectedSerialNumber('');
     toast.success('รีเซทรายการอุปกรณ์เรียบร้อยแล้ว');
   };
 
@@ -365,7 +449,7 @@ export default function EquipmentRequestPage() {
   return (
     <Layout>
       <div className="max-w-5xl mx-auto">
-        <div className="bg-white/90 backdrop-blur-sm rounded-2xl shadow-xl p-8 border border-white/50">
+        <div className="bg-white/90 backdrop-blur-sm rounded-2xl shadow-xl px-5 py-8 sm:p-8 border border-white/50">
           <h1 className="text-2xl font-bold text-gray-900 mb-6">เบิกอุปกรณ์</h1>
 
           {/* User Profile Display */}
@@ -427,7 +511,7 @@ export default function EquipmentRequestPage() {
             {/* Removed overall reason; now using per-item reasons */}
 
             {/* Equipment Items */}
-            <div>
+            <div className='mb-10'>
               <label className="block text-sm font-medium text-gray-700 mb-4">
                 รายการอุปกรณ์ที่ต้องการเบิก *
               </label>
@@ -475,7 +559,7 @@ export default function EquipmentRequestPage() {
                                   !hasItems ? 'opacity-50' : ''
                                 }`}
                               >
-                                {config.name} {!hasItems ? '(ไม่มีอุปกรณ์)' : `(${itemsByCategory[config.id].length} รายการ)`}
+                                {config.name}
                               </div>
                             );
                           })}
@@ -543,7 +627,7 @@ export default function EquipmentRequestPage() {
                 )}
 
                 {/* Step 3: Quantity and Serial Number */}
-                {selectedCategoryId && (
+                {selectedCategoryId && requestItem.itemId && (
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
                     <div>
                       <label className="block text-sm font-medium text-gray-700 mb-1">
@@ -576,20 +660,88 @@ export default function EquipmentRequestPage() {
 
                     <div>
                       <label className="block text-sm font-medium text-gray-700 mb-1">
-                        Serial Number (ถ้ามี)
+                        {(() => {
+                          // ตรวจสอบว่าเป็นซิมการ์ดหรือไม่
+                          const selectedItem = inventoryItems.find(i => String(i._id) === requestItem.itemId);
+                          const isSIMCard = selectedItem?.categoryId === 'cat_sim_card';
+                          return isSIMCard ? 'เบอร์โทรศัพท์ (ถ้ามี)' : 'Serial Number (ถ้ามี)';
+                        })()}
                       </label>
-                    <input
-                        type="text"
-                        value={requestItem.serialNumber}
-                        onChange={(e) => handleItemChange('serialNumber', e.target.value)}
-                        className={`w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 text-gray-900 placeholder-gray-500 ${
-                          (!itemsByCategory[selectedCategoryId] || itemsByCategory[selectedCategoryId].length === 0) 
-                            ? 'bg-gray-50 cursor-not-allowed' 
-                            : ''
-                        }`}
-                        placeholder="ระบุ Serial Number หากมี"
-                        disabled={!itemsByCategory[selectedCategoryId] || itemsByCategory[selectedCategoryId].length === 0}
-                      />
+                      {availableSerialNumbers.length > 0 ? (
+                        <>
+                          <select
+                            value={selectedSerialNumber}
+                            onChange={(e) => {
+                              const value = e.target.value;
+                              setSelectedSerialNumber(value);
+                              
+                              // ✅ ถ้าเลือก "ไม่มี SN" ให้เก็บค่าพิเศษ
+                              if (value.includes('ไม่มี')) {
+                                handleItemChange('serialNumber', ''); // เก็บเป็นค่าว่าง
+                              } else {
+                                handleItemChange('serialNumber', value);
+                              }
+                            }}
+                            className={`w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 text-gray-900 ${
+                              (!itemsByCategory[selectedCategoryId] || itemsByCategory[selectedCategoryId].length === 0) 
+                                ? 'bg-gray-50 cursor-not-allowed' 
+                                : ''
+                            }`}
+                            disabled={!itemsByCategory[selectedCategoryId] || itemsByCategory[selectedCategoryId].length === 0}
+                          >
+                            <option value="">
+                              {(() => {
+                                const selectedItem = inventoryItems.find(i => String(i._id) === requestItem.itemId);
+                                const isSIMCard = selectedItem?.categoryId === 'cat_sim_card';
+                                return isSIMCard ? '-- เลือกเบอร์โทรศัพท์ --' : '-- เลือก Serial Number หรืออุปกรณ์ที่ไม่มี SN --';
+                              })()}
+                            </option>
+                            {availableSerialNumbers.map((sn) => (
+                              <option key={sn} value={sn}>
+                                {sn}
+                              </option>
+                            ))}
+                          </select>
+                          <p className="text-xs text-green-600 mt-1">
+                            ✅ พบตัวเลือกที่พร้อมใช้งาน {availableSerialNumbers.length} รายการ
+                            {(() => {
+                              const hasNoSNOption = availableSerialNumbers.some(sn => sn.includes('ไม่มี'));
+                              if (hasNoSNOption) {
+                                return ' (รวมอุปกรณ์ที่ไม่มี SN)';
+                              }
+                              return '';
+                            })()}
+                          </p>
+                        </>
+                      ) : (
+                        <>
+                          <input
+                            type="text"
+                            value={requestItem.serialNumber}
+                            onChange={(e) => handleItemChange('serialNumber', e.target.value)}
+                            className={`w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 text-gray-900 placeholder-gray-500 ${
+                              (!itemsByCategory[selectedCategoryId] || itemsByCategory[selectedCategoryId].length === 0) 
+                                ? 'bg-gray-50 cursor-not-allowed' 
+                                : ''
+                            }`}
+                            placeholder={(() => {
+                              const selectedItem = inventoryItems.find(i => String(i._id) === requestItem.itemId);
+                              const isSIMCard = selectedItem?.categoryId === 'cat_sim_card';
+                              return isSIMCard ? 'ระบุเบอร์โทรศัพท์ หากต้องการ' : 'ระบุ Serial Number หากต้องการ';
+                            })()}
+                            disabled={!itemsByCategory[selectedCategoryId] || itemsByCategory[selectedCategoryId].length === 0}
+                          />
+                          {requestItem.itemId && (
+                            <p className="text-xs text-gray-500 mt-1">
+                              ℹ️ อุปกรณ์นี้ไม่มี {(() => {
+                                const selectedItem = inventoryItems.find(i => String(i._id) === requestItem.itemId);
+                                const isSIMCard = selectedItem?.categoryId === 'cat_sim_card';
+                                return isSIMCard ? 'เบอร์โทรศัพท์' : 'Serial Number';
+                              })()} ที่พร้อมใช้งาน หรือสามารถกรอกเองได้
+                            </p>
+                          )}
+                        </>
+                      )}
                     </div>
                   </div>
                 )}
@@ -665,7 +817,7 @@ export default function EquipmentRequestPage() {
             </div>
 
             {/* Submit Button */}
-            <div className="flex justify-end">
+            <div className="flex justify-center">
               <button
                 type="submit"
                 disabled={isLoading}

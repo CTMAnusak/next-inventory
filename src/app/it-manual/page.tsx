@@ -34,14 +34,14 @@ export default function ITManualPage() {
   return (
     <Layout>
       <div className="max-w-6xl mx-auto">
-        <div className="bg-white rounded-lg shadow-md p-8">
-          <h1 className="text-2xl font-bold text-gray-900 mb-6 text-center">
+        <div className="bg-white rounded-lg shadow-md px-6 py-8 sm:p-8">
+          <h1 className="text-2xl font-bold text-gray-900 mb-8 text-center">
             คู่มือการใช้งานระบบแจ้งงาน IT
           </h1>
 
           <div className="space-y-8">
             {steps.map((step, index) => (
-              <div key={index} className="flex items-start">
+              <div key={index} className="flex items-start flex-row">
                 <div className={`flex-shrink-0 w-12 h-12 ${step.color} text-white rounded-full flex items-center justify-center mr-4`}>
                   <step.icon className="w-6 h-6" />
                 </div>

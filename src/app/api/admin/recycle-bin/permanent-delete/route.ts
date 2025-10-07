@@ -90,15 +90,6 @@ export async function POST(request: NextRequest) {
       );
     }
 
-      type: itemToDelete.deleteType,
-      itemName: itemToDelete.itemName,
-      category: itemToDelete.category,
-      serialNumber: itemToDelete.serialNumber,
-      deletedCount: deletedCount,
-      deletedBy: `${currentUser.firstName} ${currentUser.lastName}`,
-      originalDeleteDate: itemToDelete.deletedAt
-    });
-
     const message = itemToDelete.deleteType === 'category_bulk' 
       ? `ลบ ${itemToDelete.itemName} (${deletedCount} รายการ) ถาวรจากถังขยะเรียบร้อย`
       : 'ลบรายการถาวรจากถังขยะเรียบร้อย';
@@ -112,7 +103,9 @@ export async function POST(request: NextRequest) {
         category: itemToDelete.category,
         serialNumber: itemToDelete.serialNumber,
         deleteType: itemToDelete.deleteType,
-        deletedCount: deletedCount
+        deletedCount: deletedCount,
+        deletedBy: `${currentUser.firstName} ${currentUser.lastName}`,
+        originalDeleteDate: itemToDelete.deletedAt
       }
     });
 

@@ -3,6 +3,7 @@ import dbConnect from '@/lib/mongodb';
 // ItemMaster removed - using InventoryMaster directly
 import InventoryMaster from '@/models/InventoryMaster';
 import InventoryItem from '@/models/InventoryItem';
+import InventoryConfig from '@/models/InventoryConfig';
 
 // GET - ดึงรายการอุปกรณ์ที่สามารถเบิกได้
 export async function GET(request: NextRequest) {
@@ -14,6 +15,30 @@ export async function GET(request: NextRequest) {
     const search = searchParams.get('search');
     const page = parseInt(searchParams.get('page') || '1');
     const limit = parseInt(searchParams.get('limit') || '50');
+    
+    // Load configs to get "มี" (available) status and "ใช้งานได้" (working) condition
+    const inventoryConfig = await InventoryConfig.findOne({});
+    if (!inventoryConfig) {
+      return NextResponse.json(
+        { error: 'ไม่พบการตั้งค่าระบบ' },
+        { status: 500 }
+      );
+    }
+
+    // Find the "มี" status config (should be status_available)
+    const availableStatus = inventoryConfig.statusConfigs?.find(s => s.name === 'มี');
+    const availableStatusId = availableStatus?.id || 'status_available';
+
+    // Find the "ใช้งานได้" condition config (should be cond_working)
+    const workingCondition = inventoryConfig.conditionConfigs?.find(c => c.name === 'ใช้งานได้');
+    const workingConditionId = workingCondition?.id || 'cond_working';
+
+    console.log('🔍 Equipment Request Filter:', {
+      availableStatusId,
+      workingConditionId,
+      availableStatusName: availableStatus?.name,
+      workingConditionName: workingCondition?.name
+    });
     
     // Build query for InventoryMaster (direct query - no ItemMaster needed)
     const query: any = {};
@@ -39,13 +64,28 @@ export async function GET(request: NextRequest) {
     const availableItems = [];
     
     for (const inventoryMaster of inventoryMasters) {
+      // ✅ นับจำนวนอุปกรณ์ที่มีสถานะ "มี" และสภาพ "ใช้งานได้" เท่านั้น
+      const actualAvailableCount = await InventoryItem.countDocuments({
+        itemName: inventoryMaster.itemName,
+        categoryId: inventoryMaster.categoryId,
+        'currentOwnership.ownerType': 'admin_stock',
+        statusId: availableStatusId,
+        conditionId: workingConditionId,
+        deletedAt: { $exists: false }
+      });
+      
+      // ข้ามรายการที่ไม่มีอุปกรณ์พร้อมใช้งาน
+      if (actualAvailableCount === 0) {
+        continue;
+      }
+      
       // Get sample available items for detailed info
       const sampleItems = await InventoryItem.find({
         itemName: inventoryMaster.itemName,
         categoryId: inventoryMaster.categoryId,
         'currentOwnership.ownerType': 'admin_stock',
-        statusId: 'status_available',
-        conditionId: 'cond_working',
+        statusId: availableStatusId,
+        conditionId: workingConditionId,
         deletedAt: { $exists: false }
       }).limit(3);
       
@@ -54,7 +94,7 @@ export async function GET(request: NextRequest) {
         itemName: inventoryMaster.itemName,
         categoryId: inventoryMaster.categoryId,
         hasSerialNumber: inventoryMaster.itemDetails.withSerialNumber > 0,
-        availableQuantity: inventoryMaster.availableQuantity,
+        availableQuantity: actualAvailableCount, // ✅ ใช้จำนวนที่นับจากอุปกรณ์ที่กรองแล้ว
         totalQuantity: inventoryMaster.totalQuantity,
         statusBreakdown: inventoryMaster.statusBreakdown,
         itemDetails: inventoryMaster.itemDetails,

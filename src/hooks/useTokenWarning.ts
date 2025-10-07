@@ -23,7 +23,10 @@ export function useTokenWarning() {
       try {
         // ตรวจสอบว่าเวลาผ่านไปเพียงพอหรือไม่ (ป้องกันการตรวจสอบซ้ำ)
         const now = Date.now();
-        if (now - lastCheckRef.current < 3000) { // ตรวจสอบอย่างน้อยทุก 3 วินาที
+        // ถ้าใกล้หมดอายุ (เหลือน้อยกว่า 60 วินาที) ให้ตรวจสอบทุกวินาที
+        // ถ้าไม่ใกล้หมดอายุ ให้ตรวจสอบทุก 3 วินาที
+        const throttleTime = (timeToExpiry !== null && timeToExpiry <= 60) ? 500 : 3000;
+        if (now - lastCheckRef.current < throttleTime) {
           return;
         }
         lastCheckRef.current = now;
@@ -69,7 +72,7 @@ export function useTokenWarning() {
           // ลบ cookie
           document.cookie = 'auth-token=; path=/; expires=Thu, 01 Jan 1970 00:00:00 GMT';
           
-          // แสดง logout modal
+          // แสดง logout modal พร้อมนับถอยหลัง 10 วินาที
           setShowLogoutModal(true);
         }
 
@@ -80,7 +83,12 @@ export function useTokenWarning() {
     };
 
     // ตรวจสอบทุก 10 วินาที เพื่อประหยัดทรัพยากร (แต่มี throttling ภายใน)
-    const interval = setInterval(checkTokenExpiry, 10000);
+    // แต่เมื่อใกล้หมดอายุ (เหลือน้อยกว่า 60 วินาที) จะตรวจสอบทุกวินาที
+    const getCheckInterval = () => {
+      return (timeToExpiry !== null && timeToExpiry <= 60) ? 1000 : 10000;
+    };
+    
+    const interval = setInterval(checkTokenExpiry, getCheckInterval());
     
     // ตรวจสอบครั้งแรกทันที
     checkTokenExpiry();
@@ -88,7 +96,7 @@ export function useTokenWarning() {
     return () => {
       clearInterval(interval);
     };
-  }, [router]);
+  }, [router, timeToExpiry]);
 
   // Reset hasWarned เมื่อ login ใหม่ (timeToExpiry กลับมาเป็นค่าสูง)
   useEffect(() => {

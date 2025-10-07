@@ -79,7 +79,6 @@ export default function ITReportPage() {
 
     if (success === 'email_sent') {
       toast.success('ส่งอีเมลแจ้งทีม IT เรียบร้อยแล้ว');
-      setShowGoogleAuth(false);
       setSavedIssueId(null);
       // Clear URL parameters
       window.history.replaceState({}, document.title, window.location.pathname);
@@ -97,7 +96,6 @@ export default function ITReportPage() {
           break;
       }
       toast.error(errorMessage);
-      setShowGoogleAuth(false);
       // Clear URL parameters
       window.history.replaceState({}, document.title, window.location.pathname);
     }
@@ -292,7 +290,7 @@ export default function ITReportPage() {
     return (
       <Layout>
         <div className="max-w-7xl mx-auto">
-          <div className="bg-white/90 backdrop-blur-sm rounded-2xl shadow-xl p-8 border border-white/50">
+          <div className="bg-white/90 backdrop-blur-sm rounded-2xl shadow-xl px-5 py-8 sm:p-8 border border-white/50">
             <div className="animate-pulse">
               <div className="h-8 bg-gray-200 rounded mb-6"></div>
               <div className="space-y-4">
@@ -310,10 +308,10 @@ export default function ITReportPage() {
   return (
     <Layout>
       <div className="max-w-5xl mx-auto">
-        <div className="bg-white/90 backdrop-blur-sm rounded-2xl shadow-xl p-8 border border-white/50">
-          <div className="flex justify-between items-center mb-6">
+        <div className="bg-white/90 backdrop-blur-sm rounded-2xl shadow-xl px-5 py-8 sm:p-8 border border-white/50">
+          <div className="flex flex-col sm:flex-row justify-between items-center mb-6">
             <h1 className="text-2xl font-bold text-gray-900">แจ้งงาน IT</h1>
-            <div className="text-right">
+            <div className="text-center sm:text-right mt-4 sm:mt-0">
               <div className="text-sm text-gray-600">วันที่แจ้ง</div>
               <div className="text-lg font-semibold text-blue-600">
                 {new Date().toLocaleDateString('th-TH', {
@@ -417,7 +415,7 @@ export default function ITReportPage() {
             </div>
 
             {/* Image Upload */}
-            <div>
+            <div className='mb-10'>
               <label className="block text-sm font-medium text-gray-700 mb-1">
                 อัปโหลดรูปภาพ
               </label>
@@ -475,7 +473,7 @@ export default function ITReportPage() {
             </div>
 
             {/* Submit Button */}
-            <div className="flex justify-end">
+            <div className="flex justify-center">
               <button
                 type="submit"
                 disabled={isLoading}

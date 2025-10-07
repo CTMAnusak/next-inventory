@@ -100,9 +100,6 @@ export default function Home() {
 
         {/* Recent Activity or Stats */}
         <div className="bg-white rounded-lg shadow-md p-6">
-          <h2 className="text-xl font-semibold text-gray-900 mb-4">
-            ข้อมูลสำคัญ
-          </h2>
           <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
             <div className="text-center">
               <div className="text-2xl font-bold text-blue-600">สำหรับพนักงาน</div>

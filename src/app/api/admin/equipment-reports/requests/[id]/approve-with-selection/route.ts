@@ -182,19 +182,38 @@ export async function POST(
           // Set default status and condition IDs when approved
           requestLog.items[requestItemIndex].statusOnRequest = 'status_available'; // มี
           requestLog.items[requestItemIndex].conditionOnRequest = 'cond_working'; // ใช้งานได้
-          // ถ้าจำนวนที่ assign ครบตามที่ขอ ถือว่าอนุมัติรายการนี้แล้ว
-          if ((requestLog.items[requestItemIndex] as any).assignedQuantity == null) {
-            (requestLog.items[requestItemIndex] as any).assignedQuantity = 0;
-          }
-          (requestLog.items[requestItemIndex] as any).assignedQuantity += assignedItem.assignedQuantity;
+          
+          // ✅ Fix: Set assignedQuantity to the total assigned quantity for this item
+          (requestLog.items[requestItemIndex] as any).assignedQuantity = assignedItem.assignedQuantity;
+          
+          // Mark this item as approved
+          (requestLog.items[requestItemIndex] as any).itemApproved = true;
+          (requestLog.items[requestItemIndex] as any).approvedAt = new Date();
+          
+          // Debug logging
+          console.log(`🔧 Updated item ${assignedItem.itemName}: assignedQuantity = ${assignedItem.assignedQuantity}, requestedQuantity = ${requestLog.items[requestItemIndex].quantity}`);
         }
       }
 
-      // หากทุก item ในคำขอมี assignedQuantity >= quantity ให้ปิดงานทั้งคำขอ
-      const allDone = requestLog.items.every((it: any) => (it.assignedQuantity || 0) >= it.quantity);
+      // ✅ CRITICAL FIX: Mark the items array as modified so Mongoose saves the changes
+      (requestLog as any).markModified('items');
+
+      // ✅ Fix: Check if all items are fully assigned
+      const allDone = requestLog.items.every((it: any) => {
+        const assignedQty = it.assignedQuantity || 0;
+        const requestedQty = it.quantity || 0;
+        return assignedQty >= requestedQty;
+      });
+      
       if (allDone) {
         requestLog.status = 'completed';
+        requestLog.completedAt = new Date();
+      } else {
+        // If not all items are assigned, mark as partially approved
+        requestLog.status = 'approved';
+        requestLog.approvedAt = new Date();
       }
+      
       await requestLog.save();
 
 

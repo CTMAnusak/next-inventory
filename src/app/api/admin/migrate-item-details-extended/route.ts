@@ -1,7 +1,8 @@
 import { NextRequest, NextResponse } from 'next/server';
 import dbConnect from '@/lib/mongodb';
-import { updateAllItemDetails } from '@/lib/inventory-helpers';
-import { verifyTokenFromRequest } from '@/lib/auth-utils';
+import InventoryMaster from '@/models/InventoryMaster';
+import InventoryItem from '@/models/InventoryItem';
+import { verifyTokenFromRequest } from '@/lib/auth';
 
 /**
  * API Endpoint: Migration สำหรับอัปเดต itemDetails structure
@@ -31,7 +32,6 @@ export async function GET(request: NextRequest) {
 
 
     // ตรวจสอบสถานะปัจจุบัน
-    const { default: InventoryMaster } = await import('@/models/InventoryMaster');
     const masterCount = await InventoryMaster.countDocuments();
     const mastersWithNewStructure = await InventoryMaster.countDocuments({
       'itemDetails.withSerialNumber.count': { $exists: true }

@@ -145,14 +145,51 @@ export async function PUT(
       );
     }
 
-    // Check if email already exists (excluding current user)
-    const existingUser = await User.findOne({ 
+    // ✅ Check for duplicate data - collect all errors first (excluding current user)
+    const duplicateErrors = [];
+
+    // Check email
+    const existingUserByEmail = await User.findOne({ 
       email, 
       _id: { $ne: id } 
     });
-    if (existingUser) {
+    if (existingUserByEmail) {
+      duplicateErrors.push('อีเมลล์นี้มีอยู่ในระบบแล้ว');
+    }
+
+    // Check phone number
+    const existingUserByPhone = await User.findOne({ 
+      phone, 
+      _id: { $ne: id } 
+    });
+    if (existingUserByPhone) {
+      duplicateErrors.push('เบอร์โทรศัพท์นี้มีผู้ใช้งานในระบบแล้ว');
+    }
+
+    // Check full name for individual users
+    if (userType === 'individual' && firstName && lastName) {
+      const existingUserByName = await User.findOne({ 
+        firstName,
+        lastName,
+        _id: { $ne: id }
+      });
+      if (existingUserByName) {
+        duplicateErrors.push(`ชื่อ-นามสกุล "${firstName} ${lastName}" มีผู้ใช้งานในระบบแล้ว`);
+      }
+    }
+
+    // If any duplicates found, return combined error message
+    if (duplicateErrors.length > 0) {
+      const errorMessage = duplicateErrors.length === 1 
+        ? duplicateErrors[0]
+        : `ไม่สามารถอัพเดตผู้ใช้ได้ เนื่องจาก: ${duplicateErrors.join(', ')}`;
+      
       return NextResponse.json(
-        { error: 'อีเมลล์นี้มีอยู่ในระบบแล้ว' },
+        { 
+          error: errorMessage,
+          duplicateFields: duplicateErrors,
+          detailedError: 'ไม่สามารถอัพเดตผู้ใช้ได้ เนื่องจาก:\n• ' + duplicateErrors.join('\n• ')
+        },
         { status: 400 }
       );
     }

@@ -32,6 +32,12 @@ export default function RootLayout({
                 style: {
                   background: '#fff',
                   color: '#333',
+                  fontSize: '14px',
+                  fontWeight: '500',
+                  borderRadius: '8px',
+                  boxShadow: '0 4px 12px rgba(0, 0, 0, 0.15)',
+                  maxWidth: '500px',
+                  padding: '16px',
                 },
                 success: {
                   style: {
@@ -45,9 +51,13 @@ export default function RootLayout({
                     background: '#f8d7da',
                     color: '#721c24',
                     border: '1px solid #f1b0b7',
+                    fontSize: '14px',
+                    lineHeight: '1.5',
+                    position: 'relative',
                   },
                 },
               }}
+              closeButton={true}
             />
           </AuthProvider>
         </ClientOnly>

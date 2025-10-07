@@ -105,12 +105,6 @@ export async function POST(request: NextRequest) {
         );
       }
 
-      // Update profile picture if changed
-      if (googleProfile.picture && googleProfile.picture !== existingUser.profilePicture) {
-        existingUser.profilePicture = googleProfile.picture;
-        await existingUser.save();
-      }
-
       // Create JWT token
       const token = jwt.sign(
         {
@@ -139,8 +133,7 @@ export async function POST(request: NextRequest) {
           userType: existingUser.userType,
           office: existingUser.office,
           userRole: existingUser.userRole,
-          isMainAdmin: existingUser.isMainAdmin,
-          profilePicture: existingUser.profilePicture
+          isMainAdmin: existingUser.isMainAdmin
         }
       });
 

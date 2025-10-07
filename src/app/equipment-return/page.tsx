@@ -48,6 +48,7 @@ interface OwnedEquipment {
   items?: any[];
   itemIdMap?: { [key: string]: string }; // Map serial number to actual itemId
   masterItemId?: string; // เพิ่ม masterItemId สำหรับอ้างอิง InventoryMaster
+  defaultItemId?: string; // เพิ่ม defaultItemId สำหรับอุปกรณ์ไม่มี SN
   // เพิ่มข้อมูลสถานะและสภาพ
   statusId?: string;
   statusName?: string;
@@ -731,7 +732,7 @@ export default function EquipmentReturnPage() {
       const controller = new AbortController();
       const timeoutId = setTimeout(() => controller.abort(), 30000); // 30 second timeout
       
-      let response;
+      let response: Response | undefined;
       let retryCount = 0;
       const maxRetries = 2;
       
@@ -751,7 +752,8 @@ export default function EquipmentReturnPage() {
           
         } catch (fetchError) {
           retryCount++;
-          console.warn(`⚠️ Fetch attempt ${retryCount} failed:`, fetchError.message);
+          const errorMessage = fetchError instanceof Error ? fetchError.message : 'Unknown error';
+          console.warn(`⚠️ Fetch attempt ${retryCount} failed:`, errorMessage);
           
           if (retryCount > maxRetries) {
             clearTimeout(timeoutId);
@@ -763,6 +765,10 @@ export default function EquipmentReturnPage() {
         }
       }
 
+      if (!response) {
+        toast.error('ไม่สามารถเชื่อมต่อกับเซิร์ฟเวอร์ได้');
+        return;
+      }
 
       let data;
       try {
@@ -833,15 +839,21 @@ export default function EquipmentReturnPage() {
       }
     } catch (error) {
       console.error('❌ Network/Unexpected error:', error);
-      console.error('🔍 Error details:', {
-        name: error.name,
-        message: error.message,
-        stack: error.stack
-      });
       
-      if (error.name === 'TypeError' && error.message.includes('fetch')) {
-        toast.error('ไม่สามารถเชื่อมต่อกับเซิร์ฟเวอร์ได้');
+      if (error instanceof Error) {
+        console.error('🔍 Error details:', {
+          name: error.name,
+          message: error.message,
+          stack: error.stack
+        });
+        
+        if (error.name === 'TypeError' && error.message.includes('fetch')) {
+          toast.error('ไม่สามารถเชื่อมต่อกับเซิร์ฟเวอร์ได้');
+        } else {
+          toast.error('เกิดข้อผิดพลาดที่ไม่คาดคิด');
+        }
       } else {
+        console.error('🔍 Unknown error:', error);
         toast.error('เกิดข้อผิดพลาดที่ไม่คาดคิด');
       }
     } finally {
@@ -852,7 +864,7 @@ export default function EquipmentReturnPage() {
   return (
     <Layout>
       <div className="max-w-5xl mx-auto">
-        <div className="bg-white/90 backdrop-blur-sm rounded-2xl shadow-xl p-8 border border-white/50">
+        <div className="bg-white/90 backdrop-blur-sm rounded-2xl shadow-xl px-5 py-8 sm:p-8 border border-white/50">
           <h1 className="text-2xl font-bold text-gray-900 mb-6">คืนอุปกรณ์</h1>
 
           {/* User Profile Display */}
@@ -881,7 +893,7 @@ export default function EquipmentReturnPage() {
 
 
             {/* Return Items */}
-            <div>
+            <div className='mb-10'>
               <label className="block text-sm font-medium text-gray-700 mb-4">
                 รายการอุปกรณ์ที่ต้องการคืน *
               </label>
@@ -1243,7 +1255,7 @@ export default function EquipmentReturnPage() {
             </div>
 
             {/* Submit Button */}
-            <div className="flex justify-end">
+            <div className="flex justify-center">
               <button
                 type="submit"
                 disabled={isLoading}

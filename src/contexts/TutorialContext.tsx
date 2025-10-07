@@ -31,42 +31,42 @@ const tutorialSteps: TutorialStep[] = [
     id: 'dashboard',
     title: '🏠 หน้า Dashboard',
     description: 'นี่คือหน้าหลักของระบบ คุณสามารถดูข้อมูลสรุปและอุปกรณ์ของคุณได้ที่นี่',
-    target: ['[href="/dashboard"]', '[data-tutorial="dashboard-menu"]'], // ไฮไลท์เมนู Dashboard ใน Sidebar
+    target: 'body', // ไม่ไฮไลท์อะไรเฉพาะ แค่แสดง popup
     position: 'right'
   },
   {
     id: 'equipment-request',
     title: '📦 เบิกอุปกรณ์',
     description: 'คลิกที่นี่เพื่อทำการเบิกอุปกรณ์ต่างๆ ที่คุณต้องการใช้งาน',
-    target: ['[href="/equipment-request"]', '[data-tutorial="equipment-request-card"]'],
+    target: '[data-tutorial="equipment-request-card"]',
     position: 'bottom'
   },
   {
     id: 'equipment-return',
     title: '📤 คืนอุปกรณ์',
     description: 'เมื่อใช้งานเสร็จแล้ว คุณสามารถคืนอุปกรณ์ได้ที่เมนูนี้',
-    target: ['[href="/equipment-return"]', '[data-tutorial="equipment-return-card"]'],
+    target: '[data-tutorial="equipment-return-card"]',
     position: 'right'
   },
   {
     id: 'it-report',
     title: '⚠️ แจ้งปัญหา IT',
     description: 'หากพบปัญหาการใช้งานหรือต้องการความช่วยเหลือด้าน IT สามารถแจ้งได้ที่นี่',
-    target: ['[data-tutorial="it-report"]', '[data-tutorial="it-report-card"]'],
+    target: '[data-tutorial="it-report-card"]',
     position: 'right'
   },
   {
     id: 'it-tracking',
     title: '🔍 ติดตามสถานะ',
     description: 'หลังจากแจ้งปัญหา IT แล้ว คุณสามารถติดตามสถานะการดำเนินงานได้ที่นี่',
-    target: ['[href="/it-tracking"]', '[data-tutorial="it-tracking-card"]'],
+    target: '[data-tutorial="it-tracking-card"]',
     position: 'right'
   },
   {
     id: 'contact-it',
     title: '📞 ติดต่อทีม IT',
     description: 'หากต้องการติดต่อทีม IT โดยตรง สามารถคลิกที่เมนูนี้ได้',
-    target: ['[href="/contact"]', '[data-tutorial="contact-it-card"]'],
+    target: '[data-tutorial="contact-it-card"]',
     position: 'right'
   },
   {

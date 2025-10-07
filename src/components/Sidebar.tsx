@@ -133,8 +133,8 @@ export default function Sidebar({ isOpen, onClose }: SidebarProps) {
       icon: Settings,
       isAdmin: true,
       submenu: [
-        { title: 'สรุปรายงานรอทำ', href: '/admin/pending-summary' },
         { title: 'Inventory', href: '/admin/inventory' },
+        { title: 'สรุปรายงานรอทำ', href: '/admin/pending-summary' },
         { title: 'รายงานแจ้งงาน IT', href: '/admin/it-reports' },
         { title: 'รายงานเบิก/คืน', href: '/admin/equipment-reports' },
         { title: 'Dashboard', href: '/admin/dashboard' },

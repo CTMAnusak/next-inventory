@@ -16,6 +16,37 @@ export async function POST(request: NextRequest) {
       );
     }
 
+    // ✅ Additional validation: Check for duplicate data before creating
+    const existingAdminData = await User.findOne({
+      $or: [
+        { email: 'admin@vsqclinic.com' },
+        { phone: '090-272-8102' },
+        { firstName: 'Admin', lastName: 'System' }
+      ]
+    });
+    
+    if (existingAdminData) {
+      return NextResponse.json(
+        { error: 'ข้อมูล Admin มีอยู่ในระบบแล้ว' },
+        { status: 400 }
+      );
+    }
+
+    const existingDemoData = await User.findOne({
+      $or: [
+        { email: 'demo@vsqclinic.com' },
+        { phone: '099-999-9999' },
+        { firstName: 'Demo', lastName: 'User' }
+      ]
+    });
+    
+    if (existingDemoData) {
+      return NextResponse.json(
+        { error: 'ข้อมูล Demo User มีอยู่ในระบบแล้ว' },
+        { status: 400 }
+      );
+    }
+
     // Create default admin user
     const hashedPassword = await hashPassword('admin123');
     

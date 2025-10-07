@@ -27,7 +27,7 @@ export default function DashboardPage() {
   const [editItemId, setEditItemId] = useState<string | null>(null);
   const [showDetailModal, setShowDetailModal] = useState(false);
   const [detailData, setDetailData] = useState<any>(null);
-  const [ownedItems, setOwnedItems] = useState<Array<{ _id?: string; itemName: string; category: string; categoryId?: string; serialNumber?: string; quantity: number; firstName?: string; lastName?: string; nickname?: string; department?: string; phone?: string; statusId?: string; conditionId?: string; statusName?: string; conditionName?: string; notes?: string; currentOwnership?: { ownedSince?: string | Date }; sourceInfo?: { dateAdded?: string | Date }; createdAt?: string | Date; source?: string; editable?: boolean }>>([]);
+  const [ownedItems, setOwnedItems] = useState<Array<{ _id?: string; itemName: string; category: string; categoryId?: string; serialNumber?: string; numberPhone?: string; quantity: number; firstName?: string; lastName?: string; nickname?: string; department?: string; phone?: string; statusId?: string; conditionId?: string; statusName?: string; conditionName?: string; notes?: string; currentOwnership?: { ownedSince?: string | Date }; sourceInfo?: { dateAdded?: string | Date }; createdAt?: string | Date; source?: string; editable?: boolean; hasPendingReturn?: boolean }>>([]);
   const [categoryConfigs, setCategoryConfigs] = useState<ICategoryConfig[]>([]);
   const [statusConfigs, setStatusConfigs] = useState<any[]>([]);
   const [conditionConfigs, setConditionConfigs] = useState<any[]>([]);
@@ -116,6 +116,35 @@ export default function DashboardPage() {
     await fetchOwned();
   }, [fetchOwned]);
 
+  // Cancel return function
+  const handleCancelReturn = async (returnLogId: string, itemId: string) => {
+    if (!confirm('คุณต้องการยกเลิกการคืนอุปกรณ์นี้หรือไม่?')) {
+      return;
+    }
+
+    try {
+      const response = await fetch('/api/user/return-log/cancel', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({ returnLogId, itemId })
+      });
+
+      if (!response.ok) {
+        const error = await response.json();
+        throw new Error(error.error || 'เกิดข้อผิดพลาด');
+      }
+
+      toast.success('ยกเลิกการคืนเรียบร้อยแล้ว');
+      // Refresh data
+      await refreshData();
+    } catch (error) {
+      console.error('Error canceling return:', error);
+      toast.error(error instanceof Error ? error.message : 'เกิดข้อผิดพลาดในการยกเลิกการคืน');
+    }
+  };
+
   const fetchCategories = async () => {
     try {
       const res = await fetch('/api/admin/inventory/config');
@@ -132,10 +161,24 @@ export default function DashboardPage() {
 
   const fetchItemsInCategory = async (categoryId: string) => {
     try {
-      const res = await fetch(`/api/categories/${encodeURIComponent(categoryId)}/items`);
+      // ✅ ใช้ API ใหม่ที่กรองเฉพาะอุปกรณ์ที่มีสถานะ "มี" และสภาพ "ใช้งานได้"
+      const res = await fetch(`/api/user/available-from-stock?categoryId=${encodeURIComponent(categoryId)}`);
       if (res.ok) {
         const data = await res.json();
-        setAvailableItems(data.items || []);
+        // Extract item names from the response
+        const itemNames = data.availableItems?.map((item: any) => item.itemName) || [];
+        setAvailableItems(itemNames);
+        
+        // ✅ ถ้ามีข้อมูลตัวอย่างอุปกรณ์ ให้ตั้งค่า statusId และ conditionId เริ่มต้นในฟอร์ม
+        if (data.filters) {
+          setForm(prev => ({
+            ...prev,
+            status: prev.status || data.filters.statusId,
+            condition: prev.condition || data.filters.conditionId
+          }));
+        }
+        
+        console.log(`✅ Dashboard - Loaded ${itemNames.length} available items from stock (status: ${data.filters?.statusName}, condition: ${data.filters?.conditionName})`);
       }
     } catch (error) {
       console.error('Failed to load category items:', error);
@@ -567,18 +610,16 @@ export default function DashboardPage() {
         </div>
 
         {/* Important Section */}
-        <div className="bg-white/80 backdrop-blur-sm rounded-2xl shadow-lg p-6 border border-white/50">
-          <h2 className="text-xl font-semibold text-gray-900 mb-4">
-            ข้อมูลสำคัญ
-          </h2>
-          <div className="flex items-center justify-between mb-4">
+        <div className="bg-white/80 backdrop-blur-sm rounded-2xl shadow-lg py-8 px-6 border border-white/50">
+          {/* Desktop Layout (768px and above) */}
+          <div className="flex flex-col md:flex-row text-center md:text-left justify-between mb-7 gap-4">
             <div className="text-2xl font-bold text-blue-600">{
               (user?.userType === 'branch'
                 ? `ทรัพย์สินที่มี ของ สาขา${user?.office || ''}`
                 : `ทรัพย์สินที่มี ของ ${[user?.firstName, user?.lastName].filter(Boolean).join(' ')}`
               ).trim()
             }</div>
-            <div className="flex items-center gap-2">
+            <div className="flex items-center justify-center gap-2">
               <button
                 onClick={refreshData}
                 disabled={ownedLoading}
@@ -595,6 +636,7 @@ export default function DashboardPage() {
               </button>
             </div>
           </div>
+
           <div ref={tableContainerRef} className="table-container">
             <table className="min-w-full border border-gray-200 rounded-md">
               <thead>
@@ -805,130 +847,166 @@ export default function DashboardPage() {
                     </td>
                     <td className="px-3 py-2 text-center border-b">
                       <div className="flex items-center justify-center gap-1 flex-wrap">
-                        {/* Edit button */}
-                        <button
-                          onClick={async () => {
-                            try {
-                              // Set edit mode
-                              setEditItemId(row._id || '');
-                              
-                              // Fetch detailed item data from API
-                              const itemId = row._id || (row as any).itemId;
-                              if (itemId) {
-                                const response = await fetch(`/api/inventory/${itemId}`);
-                                if (response.ok) {
-                                  const itemData = await response.json();
-                                  console.log('🔍 Fetched item data for edit:', itemData);
+                        {/* ถ้ามี pending return ให้แสดง badge พร้อมปุ่มยกเลิก */}
+                        {row.hasPendingReturn ? (
+                          <>
+                            <div className="px-3 py-1.5 text-xs font-medium text-orange-700 bg-orange-100 border border-orange-300 rounded-full">
+                              รออนุมัติคืน
+                            </div>
+                            <button
+                              onClick={async () => {
+                                // Find the return log and item ID for this equipment
+                                const returnLogsRes = await fetch('/api/user/return-logs');
+                                if (returnLogsRes.ok) {
+                                  const data = await returnLogsRes.json();
+                                  const logs = data.returnLogs || [];
                                   
-                                  // สำหรับซิมการ์ด ใช้ numberPhone แทน serialNumber
-                                  const categoryId = itemData.categoryId || row.categoryId || row.category;
-                                  const isSimCard = categoryId === 'cat_sim_card';
-                                  const serialNumberValue = isSimCard 
-                                    ? (itemData.numberPhone || row.numberPhone || '')
-                                    : (itemData.serialNumber || row.serialNumber || '');
-                                  
-                                  const formData = {
-                                    itemName: itemData.itemName || row.itemName,
-                                    categoryId: categoryId,
-                                    serialNumber: serialNumberValue,
-                                    quantity: itemData.quantity || row.quantity || 1,
-                                    firstName: row.firstName || '',
-                                    lastName: row.lastName || '',
-                                    nickname: row.nickname || '',
-                                    department: row.department || '',
-                                    phone: row.phone || '',
-                                    status: itemData.statusId || row.statusId || '',
-                                    condition: itemData.conditionId || row.conditionId || '',
-                                    notes: itemData.notes || row.notes || ''
-                                  };
-                                  console.log('🔍 Setting form data:', formData);
-                                  
-                                  setForm(formData);
-                                  setSelectedCategoryId(categoryId);
-                                  // Fetch items in category for dropdown
-                                  await fetchItemsInCategory(itemData.categoryId || row.categoryId || row.category);
-                                } else {
-                                  // Fallback to row data if API fails
-                                  const categoryId = row.categoryId || row.category;
-                                  const isSimCard = categoryId === 'cat_sim_card';
-                                  const serialNumberValue = isSimCard 
-                                    ? (row.numberPhone || '')
-                                    : (row.serialNumber || '');
-                                  
-                                  setForm({
-                                    itemName: row.itemName,
-                                    categoryId: categoryId,
-                                    serialNumber: serialNumberValue,
-                                    quantity: row.quantity || 1,
-                                    firstName: row.firstName || '',
-                                    lastName: row.lastName || '',
-                                    nickname: row.nickname || '',
-                                    department: row.department || '',
-                                    phone: row.phone || '',
-                                    status: row.statusId || '',
-                                    condition: row.conditionId || '',
-                                    notes: row.notes || ''
-                                  });
-                                  setSelectedCategoryId(categoryId);
-                                  // Fetch items in category for dropdown
-                                  await fetchItemsInCategory(row.categoryId || row.category);
+                                  // Find the pending item
+                                  for (const log of logs) {
+                                    const pendingItem = log.items.find((item: any) => 
+                                      item.itemId === row._id && item.approvalStatus === 'pending'
+                                    );
+                                    
+                                    if (pendingItem) {
+                                      await handleCancelReturn(log._id, pendingItem.itemId);
+                                      break;
+                                    }
+                                  }
                                 }
-                              } else {
-                                // Fallback to row data if no ID
-                                const categoryId = row.categoryId || row.category;
-                                const isSimCard = categoryId === 'cat_sim_card';
-                                const serialNumberValue = isSimCard 
-                                  ? (row.numberPhone || '')
-                                  : (row.serialNumber || '');
-                                
-                                setForm({
+                              }}
+                              className="px-3 py-1 text-xs text-red-600 hover:text-red-800 hover:bg-red-50 border border-red-200 rounded"
+                            >
+                              ยกเลิก
+                            </button>
+                          </>
+                        ) : (
+                          <>
+                            {/* Edit button */}
+                            <button
+                              onClick={async () => {
+                                try {
+                                  // Set edit mode
+                                  setEditItemId(row._id || '');
+                                  
+                                  // Fetch detailed item data from API
+                                  const itemId = row._id || (row as any).itemId;
+                                  if (itemId) {
+                                    const response = await fetch(`/api/inventory/${itemId}`);
+                                    if (response.ok) {
+                                      const itemData = await response.json();
+                                      console.log('🔍 Fetched item data for edit:', itemData);
+                                      
+                                      // สำหรับซิมการ์ด ใช้ numberPhone แทน serialNumber
+                                      const categoryId = itemData.categoryId || row.categoryId || row.category;
+                                      const isSimCard = categoryId === 'cat_sim_card';
+                                      const serialNumberValue = isSimCard 
+                                        ? (itemData.numberPhone || row.numberPhone || '')
+                                        : (itemData.serialNumber || row.serialNumber || '');
+                                      
+                                      const formData = {
+                                        itemName: itemData.itemName || row.itemName,
+                                        categoryId: categoryId,
+                                        serialNumber: serialNumberValue,
+                                        quantity: itemData.quantity || row.quantity || 1,
+                                        firstName: row.firstName || '',
+                                        lastName: row.lastName || '',
+                                        nickname: row.nickname || '',
+                                        department: row.department || '',
+                                        phone: row.phone || '',
+                                        status: itemData.statusId || row.statusId || '',
+                                        condition: itemData.conditionId || row.conditionId || '',
+                                        notes: itemData.notes || row.notes || ''
+                                      };
+                                      console.log('🔍 Setting form data:', formData);
+                                      
+                                      setForm(formData);
+                                      setSelectedCategoryId(categoryId);
+                                      // Fetch items in category for dropdown
+                                      await fetchItemsInCategory(itemData.categoryId || row.categoryId || row.category);
+                                    } else {
+                                      // Fallback to row data if API fails
+                                      const categoryId = row.categoryId || row.category;
+                                      const isSimCard = categoryId === 'cat_sim_card';
+                                      const serialNumberValue = isSimCard 
+                                        ? (row.numberPhone || '')
+                                        : (row.serialNumber || '');
+                                      
+                                      setForm({
+                                        itemName: row.itemName,
+                                        categoryId: categoryId,
+                                        serialNumber: serialNumberValue,
+                                        quantity: row.quantity || 1,
+                                        firstName: row.firstName || '',
+                                        lastName: row.lastName || '',
+                                        nickname: row.nickname || '',
+                                        department: row.department || '',
+                                        phone: row.phone || '',
+                                        status: row.statusId || '',
+                                        condition: row.conditionId || '',
+                                        notes: row.notes || ''
+                                      });
+                                      setSelectedCategoryId(categoryId);
+                                      // Fetch items in category for dropdown
+                                      await fetchItemsInCategory(row.categoryId || row.category);
+                                    }
+                                  } else {
+                                    // Fallback to row data if no ID
+                                    const categoryId = row.categoryId || row.category;
+                                    const isSimCard = categoryId === 'cat_sim_card';
+                                    const serialNumberValue = isSimCard 
+                                      ? (row.numberPhone || '')
+                                      : (row.serialNumber || '');
+                                    
+                                    setForm({
+                                      itemName: row.itemName,
+                                      categoryId: categoryId,
+                                      serialNumber: serialNumberValue,
+                                      quantity: row.quantity || 1,
+                                      firstName: row.firstName || '',
+                                      lastName: row.lastName || '',
+                                      nickname: row.nickname || '',
+                                      department: row.department || '',
+                                      phone: row.phone || '',
+                                      status: row.statusId || '',
+                                      condition: row.conditionId || '',
+                                      notes: row.notes || ''
+                                    });
+                                    setSelectedCategoryId(categoryId);
+                                    // Fetch items in category for dropdown
+                                    await fetchItemsInCategory(row.categoryId || row.category);
+                                  }
+                                  
+                                  setShowAddOwned(true);
+                                } catch (error) {
+                                  console.error('Error fetching item data for edit:', error);
+                                  toast.error('ไม่สามารถดึงข้อมูลอุปกรณ์ได้');
+                                }
+                              }}
+                              className="px-3 py-1 text-xs text-blue-600 hover:text-blue-800 hover:bg-blue-50 border border-blue-200 rounded"
+                            >
+                              แก้ไข
+                            </button>
+                            
+                            {/* Return Equipment button */}
+                            <button
+                              onClick={() => {
+                                // Debug: log the data we're sending
+                                console.log('🔍 Return button clicked:', { 
+                                  id: row._id, 
+                                  itemId: (row as any).itemId,
                                   itemName: row.itemName,
-                                  categoryId: categoryId,
-                                  serialNumber: serialNumberValue,
-                                  quantity: row.quantity || 1,
-                                  firstName: row.firstName || '',
-                                  lastName: row.lastName || '',
-                                  nickname: row.nickname || '',
-                                  department: row.department || '',
-                                  phone: row.phone || '',
-                                  status: row.statusId || '',
-                                  condition: row.conditionId || '',
-                                  notes: row.notes || ''
+                                  totalQuantity: (row as any).totalQuantity,
+                                  quantity: row.quantity
                                 });
-                                setSelectedCategoryId(categoryId);
-                                // Fetch items in category for dropdown
-                                await fetchItemsInCategory(row.categoryId || row.category);
-                              }
-                              
-                              setShowAddOwned(true);
-                            } catch (error) {
-                              console.error('Error fetching item data for edit:', error);
-                              toast.error('ไม่สามารถดึงข้อมูลอุปกรณ์ได้');
-                            }
-                          }}
-                          className="px-3 py-1 text-xs text-blue-600 hover:text-blue-800 hover:bg-blue-50 border border-blue-200 rounded"
-                        >
-                          แก้ไข
-                        </button>
-                        
-                        {/* Return Equipment button - temporarily show always for debugging */}
-                        <button
-                          onClick={() => {
-                            // Debug: log the data we're sending
-                            console.log('🔍 Return button clicked:', { 
-                              id: row._id, 
-                              itemId: (row as any).itemId,
-                              itemName: row.itemName,
-                              totalQuantity: (row as any).totalQuantity,
-                              quantity: row.quantity
-                            });
-                            // Navigate to equipment return page with ID only
-                            router.push(`/equipment-return?id=${row._id || (row as any).itemId}`);
-                          }}
-                          className="px-3 py-1 text-xs text-orange-600 hover:text-orange-800 hover:bg-orange-50 border border-orange-200 rounded"
-                        >
-                          คืน
-                        </button>
+                                // Navigate to equipment return page with ID only
+                                router.push(`/equipment-return?id=${row._id || (row as any).itemId}`);
+                              }}
+                              className="px-3 py-1 text-xs text-orange-600 hover:text-orange-800 hover:bg-orange-50 border border-orange-200 rounded"
+                            >
+                              คืน
+                            </button>
+                          </>
+                        )}
                       </div>
                     </td>
                   </tr>
@@ -1091,12 +1169,17 @@ export default function DashboardPage() {
                     </div>
                     
                     <div>
-                      <label className="block text-sm font-medium text-gray-700 mb-1">สถานะ *</label>
+                      <label className="block text-sm font-medium text-gray-700 mb-1">
+                        สถานะ * {!showNewItemInput && form.itemName && '(จากคลังอุปกรณ์)'}
+                      </label>
                       <select
                         value={form.status}
                         onChange={(e) => setForm({ ...form, status: e.target.value })}
-                        className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                        className={`w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 ${
+                          !showNewItemInput && form.itemName ? 'bg-blue-50 cursor-default' : ''
+                        }`}
                         required
+                        disabled={!showNewItemInput && form.itemName !== 'new' && !!form.itemName}
                       >
                         <option value="">เลือกสถานะ</option>
                         {statusConfigs.map((config) => (
@@ -1105,15 +1188,25 @@ export default function DashboardPage() {
                           </option>
                         ))}
                       </select>
+                      {!showNewItemInput && form.itemName && form.status && (
+                        <p className="text-xs text-blue-600 mt-1">
+                          ✅ อุปกรณ์จากคลังมีสถานะ: {getStatusName(form.status)}
+                        </p>
+                      )}
                     </div>
                     
                     <div>
-                      <label className="block text-sm font-medium text-gray-700 mb-1">สภาพอุปกรณ์ *</label>
+                      <label className="block text-sm font-medium text-gray-700 mb-1">
+                        สภาพอุปกรณ์ * {!showNewItemInput && form.itemName && '(จากคลังอุปกรณ์)'}
+                      </label>
                       <select
                         value={form.condition}
                         onChange={(e) => setForm({ ...form, condition: e.target.value })}
-                        className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                        className={`w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 ${
+                          !showNewItemInput && form.itemName ? 'bg-blue-50 cursor-default' : ''
+                        }`}
                         required
+                        disabled={!showNewItemInput && form.itemName !== 'new' && !!form.itemName}
                       >
                         <option value="">เลือกสภาพอุปกรณ์</option>
                         {conditionConfigs.map((config) => (
@@ -1122,6 +1215,11 @@ export default function DashboardPage() {
                           </option>
                         ))}
                       </select>
+                      {!showNewItemInput && form.itemName && form.condition && (
+                        <p className="text-xs text-blue-600 mt-1">
+                          ✅ อุปกรณ์จากคลังมีสภาพ: {getConditionName(form.condition)}
+                        </p>
+                      )}
                     </div>
                     
                     <div>

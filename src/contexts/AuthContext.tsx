@@ -113,7 +113,12 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       // Ignore errors
     }
     setUser(null);
-    router.push('/login');
+    // ใช้ window.location.href แทน router.push เพื่อให้รีเฟรชหน้าเว็บ
+    if (typeof window !== 'undefined') {
+      window.location.href = '/login';
+    } else {
+      router.push('/login');
+    }
   };
 
   useEffect(() => {

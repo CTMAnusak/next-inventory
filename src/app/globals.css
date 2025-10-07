@@ -30,6 +30,33 @@ body {
   font-family: Arial, Helvetica, sans-serif;
 }
 
+/* Loading Animations */
+@keyframes spin-slow {
+  from {
+    transform: rotate(0deg);
+  }
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+@keyframes loading-bar {
+  0% {
+    transform: translateX(-100%);
+  }
+  100% {
+    transform: translateX(100%);
+  }
+}
+
+.animate-spin-slow {
+  animation: spin-slow 3s linear infinite;
+}
+
+.animate-loading-bar {
+  animation: loading-bar 1.5s ease-in-out infinite;
+}
+
 /* StatusCell Component Styles */
 .status-cell {
   position: relative;
@@ -507,4 +534,92 @@ select.admin-inventory-dropdown:focus {
 select.admin-inventory-dropdown * {
   position: relative !important;
   z-index: 10 !important;
+}
+
+/* React Hot Toast close button styling */
+[data-hot-toast-id] {
+  position: relative !important;
+}
+
+/* Close button for react-hot-toast */
+.toast-close-button {
+  position: absolute !important;
+  top: 8px !important;
+  right: 8px !important;
+  background: rgba(0, 0, 0, 0.1) !important;
+  border: none !important;
+  border-radius: 50% !important;
+  width: 24px !important;
+  height: 24px !important;
+  display: flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  cursor: pointer !important;
+  color: inherit !important;
+  font-size: 16px !important;
+  line-height: 1 !important;
+  transition: all 0.2s ease !important;
+  z-index: 10 !important;
+}
+
+.toast-close-button:hover {
+  background: rgba(0, 0, 0, 0.2) !important;
+  transform: scale(1.1) !important;
+}
+
+.toast-close-button::before {
+  content: '×' !important;
+  font-weight: bold !important;
+  font-size: 18px !important;
+}
+
+/* Error toast close button */
+[data-hot-toast-id][aria-live="assertive"] .toast-close-button {
+  background: rgba(114, 28, 36, 0.1) !important;
+  color: #721c24 !important;
+}
+
+[data-hot-toast-id][aria-live="assertive"] .toast-close-button:hover {
+  background: rgba(114, 28, 36, 0.2) !important;
+}
+
+/* Success toast close button */
+[data-hot-toast-id][aria-live="polite"] .toast-close-button {
+  background: rgba(21, 87, 36, 0.1) !important;
+  color: #155724 !important;
+}
+
+[data-hot-toast-id][aria-live="polite"] .toast-close-button:hover {
+  background: rgba(21, 87, 36, 0.2) !important;
+}
+
+/* Toast animations */
+@keyframes toast-enter {
+  0% {
+    transform: translate3d(0, -100%, 0) scale(0.6);
+    opacity: 0;
+  }
+  100% {
+    transform: translate3d(0, 0, 0) scale(1);
+    opacity: 1;
+  }
+}
+
+@keyframes toast-leave {
+  0% {
+    transform: translate3d(0, 0, 0) scale(1);
+    opacity: 1;
+  }
+  100% {
+    transform: translate3d(0, -100%, 0) scale(0.6);
+    opacity: 0;
+  }
+}
+
+.animate-enter {
+  animation: toast-enter 0.35s cubic-bezier(0.21, 1.02, 0.73, 1) forwards;
+}
+
+.animate-leave {
+  animation: toast-leave 0.4s cubic-bezier(0.06, 0.71, 0.55, 1) forwards;
 }

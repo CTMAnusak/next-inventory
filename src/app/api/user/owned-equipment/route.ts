@@ -29,26 +29,35 @@ export async function GET(request: NextRequest) {
       deletedAt: { $exists: false }
     }).sort({ 'currentOwnership.ownedSince': -1 });
 
-    // Get approved return logs to filter out returned items
+    // Get all return logs (approved and pending)
     const ReturnLog = (await import('@/models/ReturnLog')).default;
-    const approvedReturns = await ReturnLog.find({
-      userId: userId,
-      status: 'approved'
+    const allReturns = await ReturnLog.find({
+      userId: userId
     });
 
-    // Create a set of returned item IDs and serial numbers
+    // Create a set of approved returned items to filter out
     const returnedItems = new Set();
-    approvedReturns.forEach(returnLog => {
+    // Create a set of pending return items to mark
+    const pendingReturnItems = new Set();
+    
+    allReturns.forEach(returnLog => {
       returnLog.items.forEach((item: any) => {
-        if (item.serialNumber) {
-          returnedItems.add(`${item.itemId}-${item.serialNumber}`);
-        } else {
-          returnedItems.add(item.itemId);
+        const itemKey = item.serialNumber 
+          ? `${item.itemId}-${item.serialNumber}` 
+          : item.itemId;
+        
+        // If approved, add to returned items (to filter out)
+        if (item.approvalStatus === 'approved') {
+          returnedItems.add(itemKey);
+        }
+        // If pending, add to pending items (to mark with badge)
+        else if (item.approvalStatus === 'pending' || !item.approvalStatus) {
+          pendingReturnItems.add(itemKey);
         }
       });
     });
 
-    // Filter out items that have been returned
+    // Filter out items that have been approved for return
     const availableItems = ownedItems.filter(item => {
       const itemKey = item.serialNumber ? `${item._id}-${item.serialNumber}` : item._id.toString();
       return !returnedItems.has(itemKey);
@@ -66,6 +75,10 @@ export async function GET(request: NextRequest) {
       const conditionConfig = conditionConfigs.find(c => c.id === item.conditionId);
       const categoryConfig = categoryConfigs.find(c => c.id === (item as any).categoryId);
 
+      // Check if this item has pending return
+      const itemKey = item.serialNumber ? `${item._id}-${item.serialNumber}` : item._id.toString();
+      const hasPendingReturn = pendingReturnItems.has(itemKey);
+
       return {
         _id: item._id,
         itemMasterId: (item as any).itemMasterId,
@@ -81,7 +94,8 @@ export async function GET(request: NextRequest) {
         currentOwnership: item.currentOwnership,
         sourceInfo: item.sourceInfo,
         createdAt: item.createdAt,
-        updatedAt: item.updatedAt
+        updatedAt: item.updatedAt,
+        hasPendingReturn // ✅ เพิ่ม flag นี้
       };
     });
     

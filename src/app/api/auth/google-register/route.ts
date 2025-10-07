@@ -7,7 +7,6 @@ interface GoogleProfile {
   id: string;
   email: string;
   name: string;
-  picture?: string;
 }
 
 interface ProfileData {
@@ -35,27 +34,72 @@ export async function POST(request: NextRequest) {
 
     await dbConnect();
 
-    // Check if user already exists
-    const existingUser = await User.findOne({ email: googleProfile.email });
-    if (existingUser) {
-      if (existingUser.registrationMethod === 'google') {
-        if (!existingUser.isApproved) {
-          return NextResponse.json(
-            { error: 'บัญชีของคุณรอการอนุมัติจากผู้ดูแลระบบ' },
-            { status: 400 }
-          );
-        } else {
-          return NextResponse.json(
-            { error: 'บัญชีนี้มีอยู่แล้ว กรุณาเข้าสู่ระบบ' },
-            { status: 400 }
-          );
-        }
+    // ✅ Check for duplicate data - collect all errors first
+    const duplicateErrors = [];
+    let isExistingGoogleUser = false;
+    let existingGoogleUserStatus = null;
+
+    // Check email
+    const existingUserByEmail = await User.findOne({ email: googleProfile.email });
+    if (existingUserByEmail) {
+      if (existingUserByEmail.registrationMethod === 'google') {
+        isExistingGoogleUser = true;
+        existingGoogleUserStatus = existingUserByEmail.isApproved ? 'approved' : 'pending';
+        duplicateErrors.push('อีเมลนี้ถูกใช้งานแล้วในระบบ (Google Account)');
+      } else {
+        duplicateErrors.push('อีเมลนี้ถูกใช้งานแล้วในระบบ');
+      }
+    }
+
+    // Check phone number
+    if (profileData.phone) {
+      const existingUserByPhone = await User.findOne({ phone: profileData.phone });
+      if (existingUserByPhone) {
+        duplicateErrors.push('เบอร์โทรศัพท์นี้มีผู้ใช้งานในระบบแล้ว');
+      }
+    }
+
+    // Check full name for individual users
+    if (profileData.userType === 'individual' && profileData.firstName && profileData.lastName) {
+      const existingUserByName = await User.findOne({ 
+        firstName: profileData.firstName,
+        lastName: profileData.lastName 
+      });
+      if (existingUserByName) {
+        duplicateErrors.push(`ชื่อ-นามสกุล "${profileData.firstName} ${profileData.lastName}" มีผู้ใช้งานในระบบแล้ว`);
+      }
+    }
+
+    // Handle existing Google user cases
+    if (isExistingGoogleUser && duplicateErrors.length === 1) {
+      // Only email duplicate (existing Google user)
+      if (existingGoogleUserStatus === 'pending') {
+        return NextResponse.json(
+          { error: 'บัญชีของคุณรอการอนุมัติจากผู้ดูแลระบบ' },
+          { status: 400 }
+        );
       } else {
         return NextResponse.json(
-          { error: 'อีเมลนี้ถูกใช้งานแล้วในระบบ' },
+          { error: 'บัญชีนี้มีอยู่แล้ว กรุณาเข้าสู่ระบบ' },
           { status: 400 }
         );
       }
+    }
+
+    // If any duplicates found, return combined error message
+    if (duplicateErrors.length > 0) {
+      const errorMessage = duplicateErrors.length === 1 
+        ? duplicateErrors[0]
+        : `ไม่สามารถสมัครสมาชิกได้ เนื่องจาก: ${duplicateErrors.join(', ')}`;
+      
+      return NextResponse.json(
+        { 
+          error: errorMessage,
+          duplicateFields: duplicateErrors,
+          detailedError: 'ไม่สามารถสมัครสมาชิกได้ เนื่องจาก:\n• ' + duplicateErrors.join('\n• ')
+        },
+        { status: 400 }
+      );
     }
 
     // Validate form data based on user type
@@ -108,7 +152,6 @@ export async function POST(request: NextRequest) {
       // Google OAuth specific fields
       registrationMethod: 'google',
       googleId: googleProfile.id,
-      profilePicture: googleProfile.picture,
       isApproved: false, // Needs admin approval
       profileCompleted: true
     });
@@ -126,7 +169,6 @@ export async function POST(request: NextRequest) {
         phone: profileData.phone,
         department: profileData.department,
         requestMessage: profileData.requestMessage,
-        profilePicture: googleProfile.picture,
         registrationMethod: 'google'
       });
     } catch (emailError) {

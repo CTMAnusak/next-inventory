@@ -27,40 +27,19 @@ export default function TutorialOverlay() {
       if (foundElements.length > 0) {
         setTargetElements(foundElements);
         
-        // Use the first element for tooltip positioning
+        // Use the first element for scrolling
         const primaryTarget = foundElements[0];
-        const rect = primaryTarget.getBoundingClientRect();
-        const scrollTop = window.pageYOffset || document.documentElement.scrollTop;
-        const scrollLeft = window.pageXOffset || document.documentElement.scrollLeft;
         
-        let top = 0;
-        let left = 0;
+        // Get viewport dimensions
+        const viewportWidth = window.innerWidth;
+        const isMobile = viewportWidth < 640; // sm breakpoint
         
-        switch (currentStepData.position) {
-          case 'right':
-            top = rect.top + scrollTop + (rect.height / 2) - 100;
-            left = rect.right + scrollLeft + 20;
-            break;
-          case 'left':
-            top = rect.top + scrollTop + (rect.height / 2) - 100;
-            left = rect.left + scrollLeft - 320;
-            break;
-          case 'top':
-            top = rect.top + scrollTop - 220;
-            left = rect.left + scrollLeft + (rect.width / 2) - 150;
-            break;
-          case 'bottom':
-            top = rect.bottom + scrollTop + 20;
-            left = rect.left + scrollLeft + (rect.width / 2) - 150;
-            break;
-        }
+        // Fixed position: Center of viewport (using fixed positioning)
+        const tooltipWidth = isMobile ? Math.min(viewportWidth - 20, 320) : viewportWidth >= 640 && viewportWidth < 1024 ? 340 : 380;
         
-        // Ensure tooltip stays within viewport
-        const maxLeft = window.innerWidth - 320;
-        const maxTop = window.innerHeight - 200;
-        
-        left = Math.max(20, Math.min(left, maxLeft));
-        top = Math.max(20, Math.min(top, maxTop));
+        // Position at center of viewport (fixed position)
+        const top = 0;
+        const left = viewportWidth / 2; // Center horizontally
         
         setTooltipPosition({ top, left });
         
@@ -70,7 +49,15 @@ export default function TutorialOverlay() {
     };
 
     // Delay to ensure DOM is ready
-    setTimeout(findAndHighlightTarget, 100);
+    const timeoutId = setTimeout(findAndHighlightTarget, 100);
+    
+    // Recalculate on window resize
+    window.addEventListener('resize', findAndHighlightTarget);
+    
+    return () => {
+      clearTimeout(timeoutId);
+      window.removeEventListener('resize', findAndHighlightTarget);
+    };
   }, [isActive, currentStep, steps]);
 
   if (!isActive || !steps[currentStep] || targetElements.length === 0) return null;
@@ -79,85 +66,124 @@ export default function TutorialOverlay() {
   const isFirstStep = currentStep === 0;
   const isLastStep = currentStep === steps.length - 1;
 
-  // Create a single overlay with multiple cutouts using SVG mask
+  // Create overlay with highlighted target elements
   const createOverlayMask = () => {
     if (targetElements.length === 0) return null;
+    
+    const isMobile = window.innerWidth < 640;
+    const borderOffset = isMobile ? 3 : 4;
+    const glowSize = isMobile ? 20 : 30;
+    
+    // Check if current step is dashboard (no highlighting needed)
+    const isDashboardStep = currentStepData.id === 'dashboard';
+    
+    if (isDashboardStep) {
+      // For dashboard step, only show dark overlay without highlighting
+      return (
+        <div className="fixed inset-0 pointer-events-none" />
+      );
+    }
     
     // If only one target, use the simple approach that works well
     if (targetElements.length === 1) {
       const targetElement = targetElements[0];
       const rect = targetElement.getBoundingClientRect();
-      const top = rect.top + window.pageYOffset - 4;
-      const left = rect.left + window.pageXOffset - 4;
-      const width = rect.width + 8;
-      const height = rect.height + 8;
+      const top = rect.top - borderOffset;
+      const left = rect.left - borderOffset;
+      const width = rect.width + (borderOffset * 2);
+      const height = rect.height + (borderOffset * 2);
       
       return (
-        <div
-          className="absolute border-4 border-yellow-400 rounded-lg shadow-2xl pointer-events-auto"
-          style={{
-            top,
-            left,
-            width,
-            height,
-            boxShadow: '0 0 0 9999px rgba(0, 0, 0, 0.5), 0 0 30px rgba(255, 193, 7, 0.9)',
-            backgroundColor: 'transparent',
-          }}
-        />
+        <>
+          {/* Dark overlay */}
+          <div
+            className="fixed pointer-events-none"
+            style={{
+              top: 0,
+              left: 0,
+              width: '100%',
+              height: '100%',
+              boxShadow: `0 0 0 9999px rgba(0, 0, 0, 0.75)`,
+              zIndex: 51,
+            }}
+          />
+          
+          {/* Bright content area with backdrop filter */}
+          <div
+            className="fixed rounded-xl pointer-events-none transition-all duration-300"
+            style={{
+              top: `${top}px`,
+              left: `${left}px`,
+              width: `${width}px`,
+              height: `${height}px`,
+              backgroundColor: 'transparent',
+              WebkitBackdropFilter: 'brightness(2.0) contrast(1.25) saturate(1.4)',
+              zIndex: 51,
+            }}
+          />
+          
+          {/* Yellow border on top */}
+          <div
+            className={`fixed rounded-xl shadow-2xl pointer-events-none transition-all duration-300 ${
+              isMobile ? 'border-[4px]' : 'border-[5px]'
+            } border-yellow-400`}
+            style={{
+              top: `${top}px`,
+              left: `${left}px`,
+              width: `${width}px`,
+              height: `${height}px`,
+              boxShadow: `0 0 ${glowSize}px rgba(251, 191, 36, 1)`,
+              backgroundColor: 'transparent',
+              zIndex: 52,
+            }}
+          />
+        </>
       );
     }
     
-    // For multiple targets, use SVG mask approach
-    const maskId = `tutorial-mask-${Date.now()}`;
-    
+    // For multiple targets, use simple fixed positioning
     return (
       <>
-        {/* SVG mask definition */}
-        <svg className="absolute inset-0 w-full h-full pointer-events-none" style={{ zIndex: -1 }}>
-          <defs>
-            <mask id={maskId}>
-              {/* White background allows the overlay to show */}
-              <rect width="100%" height="100%" fill="white" />
-              {/* Black rectangles create holes (transparent areas) */}
-              {targetElements.map((targetElement, index) => {
-                const rect = targetElement.getBoundingClientRect();
-                return (
-                  <rect
-                    key={index}
-                    x={rect.left + window.pageXOffset - 4}
-                    y={rect.top + window.pageYOffset - 4}
-                    width={rect.width + 8}
-                    height={rect.height + 8}
-                    rx="8"
-                    fill="black"
-                  />
-                );
-              })}
-            </mask>
-          </defs>
-        </svg>
-        
-        {/* Dark overlay with mask applied */}
-        <div 
-          className="fixed inset-0 bg-black/50 pointer-events-none"
-          style={{ mask: `url(#${maskId})` }}
-        />
+        {/* Dark overlay with full screen coverage */}
+        <div className="fixed inset-0 pointer-events-none" />
         
         {/* Highlight borders for each target */}
-        {targetElements.map((targetElement, index) => (
-          <div
-            key={`border-${index}`}
-            className="absolute border-4 border-yellow-400 rounded-lg shadow-2xl pointer-events-auto"
-            style={{
-              top: targetElement.getBoundingClientRect().top + window.pageYOffset - 4,
-              left: targetElement.getBoundingClientRect().left + window.pageXOffset - 4,
-              width: targetElement.getBoundingClientRect().width + 8,
-              height: targetElement.getBoundingClientRect().height + 8,
-              backgroundColor: 'transparent',
-              boxShadow: '0 0 30px rgba(255, 193, 7, 0.9)',
-            }}
-          />
-        ))}
+        {targetElements.map((targetElement, index) => {
+          const rect = targetElement.getBoundingClientRect();
+          return (
+            <div key={`highlight-wrapper-${index}`}>
+              {/* Bright content area with backdrop filter */}
+              <div
+                className="fixed rounded-xl pointer-events-none transition-all duration-300"
+                style={{
+                  top: `${rect.top - borderOffset}px`,
+                  left: `${rect.left - borderOffset}px`,
+                  width: `${rect.width + (borderOffset * 2)}px`,
+                  height: `${rect.height + (borderOffset * 2)}px`,
+                  backgroundColor: 'transparent',
+                  WebkitBackdropFilter: 'brightness(2.0) contrast(1.25) saturate(1.4)',
+                  zIndex: 51,
+                }}
+              />
+              
+              {/* Yellow border on top */}
+              <div
+                className={`fixed rounded-xl shadow-2xl pointer-events-none transition-all duration-300 ${
+                  isMobile ? 'border-[4px]' : 'border-[5px]'
+                } border-yellow-400`}
+                style={{
+                  top: `${rect.top - borderOffset}px`,
+                  left: `${rect.left - borderOffset}px`,
+                  width: `${rect.width + (borderOffset * 2)}px`,
+                  height: `${rect.height + (borderOffset * 2)}px`,
+                  backgroundColor: 'transparent',
+                  boxShadow: `0 0 ${glowSize}px rgba(251, 191, 36, 1)`,
+                  zIndex: 52,
+                }}
+              />
+            </div>
+          );
+        })}
       </>
     );
   };
@@ -171,92 +197,86 @@ export default function TutorialOverlay() {
 
       {/* Tooltip */}
       <div
-        className="fixed z-50 bg-white rounded-2xl shadow-2xl border border-gray-200 max-w-sm pointer-events-auto"
+        className="fixed bg-white rounded-2xl shadow-2xl border border-gray-200 pointer-events-auto w-[calc(100vw-20px)] sm:w-[340px] lg:w-[380px] max-w-[380px]"
         style={{
           top: tooltipPosition.top,
           left: tooltipPosition.left,
+          transform: 'translate(-50%, 15%)',
+          zIndex: 60,
         }}
       >
         {/* Header */}
-        <div className="flex items-center justify-between p-4 border-b border-gray-100">
-          <h3 className="text-lg font-semibold text-gray-900">
+        <div className="flex items-center justify-between p-3 sm:p-4 border-b border-gray-100">
+          <h3 className="text-base sm:text-lg font-semibold text-gray-900 leading-tight pr-2">
             {currentStepData.title}
           </h3>
           <button
             onClick={completeTutorial}
-            className="p-1 text-gray-400 hover:text-gray-600 rounded-full hover:bg-gray-100 transition-colors"
+            className="p-1 text-gray-400 hover:text-gray-600 rounded-full hover:bg-gray-100 transition-colors flex-shrink-0"
+            aria-label="ปิด Tutorial"
           >
             <X className="w-5 h-5" />
           </button>
         </div>
 
         {/* Content */}
-        <div className="p-4">
-          <p className="text-gray-700 text-sm leading-relaxed mb-4">
+        <div className="p-3 sm:p-4">
+          <p className="text-gray-700 text-sm sm:text-base leading-relaxed mb-3 sm:mb-4">
             {currentStepData.description}
           </p>
 
           {/* Progress */}
-          <div className="flex items-center justify-between mb-4">
+          <div className="flex items-center justify-between mb-3 sm:mb-4">
             <div className="flex space-x-1">
               {steps.map((_, index) => (
                 <div
                   key={index}
-                  className={`w-2 h-2 rounded-full ${
+                  className={`w-2 h-2 rounded-full transition-colors ${
                     index <= currentStep ? 'bg-blue-500' : 'bg-gray-300'
                   }`}
                 />
               ))}
             </div>
-            <span className="text-xs text-gray-500">
+            <span className="text-xs text-gray-500 ml-2">
               {currentStep + 1} / {steps.length}
             </span>
           </div>
 
           {/* Actions */}
-          <div className="flex items-center justify-between">
-            <div className="flex space-x-2">
+          <div className="flex items-center justify-between gap-2">
+            <div className="flex space-x-1 sm:space-x-2">
               {!isFirstStep && (
                 <button
                   onClick={prevStep}
-                  className="flex items-center space-x-1 px-3 py-2 text-sm text-gray-600 hover:text-gray-800 rounded-lg hover:bg-gray-100 transition-colors"
+                  className="flex items-center space-x-1 px-2 sm:px-3 py-2 text-xs sm:text-sm text-gray-600 hover:text-gray-800 rounded-lg hover:bg-gray-100 transition-colors"
+                  aria-label="ย้อนกลับ"
                 >
-                  <ArrowLeft className="w-4 h-4" />
-                  <span>ย้อนกลับ</span>
+                  <ArrowLeft className="w-4 h-4 flex-shrink-0" />
+                  <span className="hidden sm:inline">ย้อนกลับ</span>
                 </button>
               )}
               
               <button
                 onClick={skipTutorial}
-                className="flex items-center space-x-1 px-3 py-2 text-sm text-gray-500 hover:text-gray-700 rounded-lg hover:bg-gray-100 transition-colors"
+                className="flex items-center space-x-1 px-2 sm:px-3 py-2 text-xs sm:text-sm text-gray-500 hover:text-gray-700 rounded-lg hover:bg-gray-100 transition-colors"
+                aria-label="ข้าม Tutorial"
               >
-                <SkipForward className="w-4 h-4" />
-                <span>ข้าม</span>
+                <SkipForward className="w-4 h-4 flex-shrink-0" />
+                <span className="hidden sm:inline">ข้าม</span>
               </button>
             </div>
 
             <button
               onClick={nextStep}
-              className="flex items-center space-x-2 px-4 py-2 bg-blue-600 text-white text-sm font-medium rounded-lg hover:bg-blue-700 transition-colors"
+              className="flex items-center space-x-1 sm:space-x-2 px-3 sm:px-4 py-2 bg-blue-600 text-white text-xs sm:text-sm font-medium rounded-lg hover:bg-blue-700 transition-colors flex-shrink-0"
+              aria-label={isLastStep ? 'เสร็จสิ้น' : 'ต่อไป'}
             >
               <span>{isLastStep ? 'เสร็จสิ้น' : 'ต่อไป'}</span>
-              {!isLastStep && <ArrowRight className="w-4 h-4" />}
+              {!isLastStep && <ArrowRight className="w-4 h-4 flex-shrink-0" />}
             </button>
           </div>
         </div>
 
-        {/* Arrow pointer */}
-        <div
-          className={`absolute w-0 h-0 ${
-            currentStepData.position === 'right'
-              ? 'border-t-8 border-b-8 border-r-8 border-t-transparent border-b-transparent border-r-white -left-2 top-1/2 transform -translate-y-1/2'
-              : currentStepData.position === 'left'
-              ? 'border-t-8 border-b-8 border-l-8 border-t-transparent border-b-transparent border-l-white -right-2 top-1/2 transform -translate-y-1/2'
-              : currentStepData.position === 'top'
-              ? 'border-l-8 border-r-8 border-t-8 border-l-transparent border-r-transparent border-t-white -bottom-2 left-1/2 transform -translate-x-1/2'
-              : 'border-l-8 border-r-8 border-b-8 border-l-transparent border-r-transparent border-b-white -top-2 left-1/2 transform -translate-x-1/2'
-          }`}
-        />
       </div>
     </>
   );

@@ -28,20 +28,6 @@ export async function POST(request: NextRequest) {
       currentConditionId
     } = await request.json();
 
-      itemId,
-      itemName,
-      category,
-      operation,
-      newSerialNumber,
-      newPhoneNumber,
-      oldSerialNumber,
-      oldPhoneNumber,
-      reason,
-      newStatusId,
-      currentStatusId,
-      newConditionId,
-      currentConditionId
-    };
 
     const hasSerialNumberChange = newSerialNumber && newSerialNumber.trim() && newSerialNumber.trim() !== oldSerialNumber;
     const hasPhoneNumberChange = newPhoneNumber && newPhoneNumber.trim() && newPhoneNumber.trim() !== oldPhoneNumber;
@@ -57,11 +43,7 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // Check if there are any changes to make
-    const hasSerialNumberChange = newSerialNumber && newSerialNumber.trim() && newSerialNumber.trim() !== oldSerialNumber;
-    const hasPhoneNumberChange = newPhoneNumber && newPhoneNumber.trim() && newPhoneNumber.trim() !== oldPhoneNumber;
-    const hasStatusChange = newStatusId && newStatusId !== currentStatusId;
-    const hasConditionChange = newConditionId && newConditionId !== currentConditionId;
+    // Check if there are any changes to make (values computed above)
 
     if (operation === 'edit' && !hasSerialNumberChange && !hasPhoneNumberChange && !hasStatusChange && !hasConditionChange) {
       return NextResponse.json(
@@ -79,16 +61,10 @@ export async function POST(request: NextRequest) {
       // Try to find if item exists with different criteria
       const itemsByName = await InventoryItem.find({ 
         itemName, 
-        category,
+        categoryId: category,
         status: { $ne: 'deleted' }
       }).limit(5);
       
-        itemsByName.map(item => ({
-          id: item._id.toString(),
-          serialNumber: item.serialNumber,
-          status: item.status
-        }));
-
       return NextResponse.json(
         { 
           error: 'ไม่พบรายการอุปกรณ์',
@@ -103,12 +79,6 @@ export async function POST(request: NextRequest) {
       );
     }
     
-      id: existingItem._id.toString(),
-      itemName: existingItem.itemName,
-      category: existingItem.category,
-      serialNumber: existingItem.serialNumber,
-      status: existingItem.status
-    });
 
     if (operation === 'edit') {
       // Edit operation - update serial number or phone number
@@ -212,9 +182,6 @@ export async function POST(request: NextRequest) {
         
         // If status changed from no SN to has SN, or vice versa
         if (!!hadOldSN !== !!hasNewSN) {
-            hadOldSN: !!hadOldSN,
-            hasNewSN: !!hasNewSN
-          });
           // Note: availableQuantity remains the same, just the breakdown changes
           inventoryMaster.updatedAt = new Date();
           await inventoryMaster.save();
@@ -238,15 +205,6 @@ export async function POST(request: NextRequest) {
       const changeText = changes.length > 0 ? changes.join(', ') : 'ข้อมูล';
       const successMessage = `แก้ไข${changeText}สำเร็จ`;
 
-        itemId,
-        category,
-        isSimCard,
-        oldValue: isSimCard ? oldPhoneNumber : oldSerialNumber,
-        newValue: isSimCard ? newPhoneNumber : newSerialNumber,
-        statusChanged,
-        conditionChanged
-      });
-
       return NextResponse.json({
         success: true,
         message: successMessage,
@@ -255,7 +213,7 @@ export async function POST(request: NextRequest) {
           serialNumber: existingItem.serialNumber,
           numberPhone: existingItem.numberPhone,
           itemName: existingItem.itemName,
-          category: existingItem.category,
+          category: (existingItem as any).categoryId || (existingItem as any).category,
           statusId: existingItem.statusId,
           conditionId: existingItem.conditionId
         }
@@ -337,17 +295,7 @@ export async function POST(request: NextRequest) {
         inventoryMasterForDeletion.availableQuantity = Math.max(0, inventoryMasterForDeletion.availableQuantity - 1);
         inventoryMasterForDeletion.updatedAt = new Date();
         await inventoryMasterForDeletion.save();
-
-          itemName,
-          category,
-          newAvailableQuantity: inventoryMasterForDeletion.availableQuantity
-        });
       }
-
-        itemId,
-        serialNumber: existingItem.serialNumber,
-        reason: reason.trim()
-      });
 
       return NextResponse.json({
         success: true,

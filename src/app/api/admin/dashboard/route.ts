@@ -5,6 +5,7 @@ import RequestLog from '@/models/RequestLog';
 import ReturnLog from '@/models/ReturnLog';
 import User from '@/models/User';
 import Inventory from '@/models/Inventory';
+import { getCachedData, setCachedData } from '@/lib/cache-utils';
 
 export async function GET(request: NextRequest) {
   try {
@@ -15,60 +16,117 @@ export async function GET(request: NextRequest) {
     const year = parseInt(searchParams.get('year') || String(new Date().getFullYear()));
     const monthNumber = monthParam && monthParam !== 'all' ? parseInt(monthParam) : undefined;
 
+    // Cache key based on query params
+    const cacheKey = `dashboard_${year}_${monthParam || 'all'}`;
+    const cached = getCachedData(cacheKey);
+    if (cached) {
+      return NextResponse.json(cached);
+    }
+
     // Create date range
     const startDate = monthNumber ? new Date(year, monthNumber - 1, 1) : new Date(year, 0, 1);
     const endDate = monthNumber ? new Date(year, monthNumber, 0, 23, 59, 59) : new Date(year, 11, 31, 23, 59, 59);
 
-    // Fetch all data
-    const [issues, requests, returns, users, inventory] = await Promise.all([
-      IssueLog.find({}),
-      RequestLog.find({}),
-      ReturnLog.find({}),
-      User.find({}),
-      Inventory.find({})
+    // DB-side aggregations and counts
+    const [
+      totalIssues,
+      pendingIssues,
+      inProgressIssues,
+      completedIssues,
+      urgentIssues,
+      totalRequests,
+      totalReturns,
+      totalUsers,
+      totalInventoryItems,
+      lowStockItems,
+      monthlyIssues,
+      monthlyRequests,
+      monthlyReturns,
+      issuesByCategory,
+      requestsByUrgency
+    ] = await Promise.all([
+      IssueLog.estimatedDocumentCount(),
+      IssueLog.countDocuments({ status: 'pending' }),
+      IssueLog.countDocuments({ status: 'in_progress' }),
+      IssueLog.countDocuments({ status: 'completed' }),
+      IssueLog.countDocuments({ urgency: 'very_urgent' }),
+
+      RequestLog.estimatedDocumentCount(),
+      ReturnLog.estimatedDocumentCount(),
+      User.countDocuments({ pendingDeletion: { $ne: true } }),
+      Inventory.estimatedDocumentCount(),
+      Inventory.countDocuments({ quantity: { $lte: 2 }, serialNumber: { $in: [null, '', undefined] } }),
+
+      // monthlyIssues
+      IssueLog.aggregate([
+        ...(monthNumber ? [{ $match: { submittedAt: { $gte: startDate, $lte: endDate } } }] : [{ $match: { submittedAt: { $gte: startDate, $lte: endDate } } }]),
+        { $group: { _id: { y: { $year: '$submittedAt' }, m: { $month: '$submittedAt' } }, count: { $sum: 1 } } },
+        { $project: { _id: 0, month: { $concat: [ { $toString: '$_id.y' }, '-', { $toString: { $cond: [ { $lt: ['$_id.m', 10] }, { $concat: ['0', { $toString: '$_id.m' }] }, { $toString: '$_id.m' } ] } } ] }, count: 1 } },
+        { $sort: { month: 1 } }
+      ]),
+      // monthlyRequests
+      RequestLog.aggregate([
+        ...(monthNumber ? [{ $match: { requestDate: { $gte: startDate, $lte: endDate } } }] : [{ $match: { requestDate: { $gte: startDate, $lte: endDate } } }]),
+        { $group: { _id: { y: { $year: '$requestDate' }, m: { $month: '$requestDate' } }, count: { $sum: 1 } } },
+        { $project: { _id: 0, month: { $concat: [ { $toString: '$_id.y' }, '-', { $toString: { $cond: [ { $lt: ['$_id.m', 10] }, { $concat: ['0', { $toString: '$_id.m' }] }, { $toString: '$_id.m' } ] } } ] }, count: 1 } },
+        { $sort: { month: 1 } }
+      ]),
+      // monthlyReturns
+      ReturnLog.aggregate([
+        ...(monthNumber ? [{ $match: { returnDate: { $gte: startDate, $lte: endDate } } }] : [{ $match: { returnDate: { $gte: startDate, $lte: endDate } } }]),
+        { $group: { _id: { y: { $year: '$returnDate' }, m: { $month: '$returnDate' } }, count: { $sum: 1 } } },
+        { $project: { _id: 0, month: { $concat: [ { $toString: '$_id.y' }, '-', { $toString: { $cond: [ { $lt: ['$_id.m', 10] }, { $concat: ['0', { $toString: '$_id.m' }] }, { $toString: '$_id.m' } ] } } ] }, count: 1 } },
+        { $sort: { month: 1 } }
+      ]),
+      // issuesByCategory in selected period
+      IssueLog.aggregate([
+        { $match: { submittedAt: { $gte: startDate, $lte: endDate } } },
+        { $group: { _id: '$issueCategory', count: { $sum: 1 } } },
+        { $project: { _id: 0, category: { $ifNull: ['$_id', 'อื่นๆ'] }, count: 1 } },
+        { $sort: { count: -1 } }
+      ]),
+      // requestsByUrgency in selected period
+      RequestLog.aggregate([
+        { $match: { requestDate: { $gte: startDate, $lte: endDate } } },
+        { $group: { _id: { $cond: [{ $eq: ['$urgency', 'very_urgent'] }, 'ด่วนมาก', 'ปกติ'] }, count: { $sum: 1 } } },
+        { $project: { _id: 0, urgency: '$_id', count: 1 } },
+        { $sort: { urgency: 1 } }
+      ])
     ]);
 
-    // Filter data for the selected date range
-    const monthlyIssues = issues.filter(issue => {
-      const issueDate = new Date(issue.submittedAt);
-      return issueDate >= startDate && issueDate <= endDate;
-    });
+    // compute percentages for pie charts
+    const issuesTotalInRange = issuesByCategory.reduce((s: number, x: any) => s + x.count, 0);
+    const issuesByCategoryWithPct = issuesByCategory.map((x: any) => ({
+      category: x.category,
+      count: x.count,
+      percentage: issuesTotalInRange > 0 ? (x.count / issuesTotalInRange) * 100 : 0
+    }));
 
-    const monthlyRequests = requests.filter(request => {
-      const requestDate = new Date(request.requestDate);
-      return requestDate >= startDate && requestDate <= endDate;
-    });
+    const requestsTotalInRange = requestsByUrgency.reduce((s: number, x: any) => s + x.count, 0);
+    const requestsByUrgencyWithPct = requestsByUrgency
+      .map((x: any) => ({ urgency: x.urgency, count: x.count, percentage: requestsTotalInRange > 0 ? (x.count / requestsTotalInRange) * 100 : 0 }))
+      .filter((x: any) => x.count > 0);
 
-    const monthlyReturns = returns.filter(returnItem => {
-      const returnDate = new Date(returnItem.returnDate);
-      return returnDate >= startDate && returnDate <= endDate;
-    });
-
-    // Calculate stats
     const stats = {
-      // Total counts
-      totalIssues: issues.length,
-      pendingIssues: issues.filter(i => i.status === 'pending').length,
-      inProgressIssues: issues.filter(i => i.status === 'in_progress').length,
-      completedIssues: issues.filter(i => i.status === 'completed').length,
-      urgentIssues: issues.filter(i => i.urgency === 'very_urgent').length,
-      totalRequests: requests.length,
-      totalReturns: returns.length,
-      totalUsers: users.filter(u => !u.pendingDeletion).length,
-      totalInventoryItems: inventory.length,
-      lowStockItems: inventory.filter(item => item.quantity <= 2 && !item.serialNumber).length,
-
-      // Monthly data for charts
-      monthlyIssues: generateMonthlyData(issues, 'submittedAt'),
-      monthlyRequests: generateMonthlyData(requests, 'requestDate'),
-      monthlyReturns: generateMonthlyData(returns, 'returnDate'),
-
-      // Issues by category for pie chart
-      issuesByCategory: generateCategoryData(monthlyIssues, 'issueCategory'),
-
-      // Requests by urgency for pie chart
-      requestsByUrgency: generateUrgencyData(monthlyRequests)
+      totalIssues,
+      pendingIssues,
+      inProgressIssues,
+      completedIssues,
+      urgentIssues,
+      totalRequests,
+      totalReturns,
+      totalUsers,
+      totalInventoryItems,
+      lowStockItems,
+      monthlyIssues,
+      monthlyRequests,
+      monthlyReturns,
+      issuesByCategory: issuesByCategoryWithPct,
+      requestsByUrgency: requestsByUrgencyWithPct
     };
+
+    // Cache the result for 5 minutes
+    setCachedData(cacheKey, stats);
 
     return NextResponse.json(stats);
   } catch (error) {

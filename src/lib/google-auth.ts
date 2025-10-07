@@ -113,8 +113,7 @@ export async function getUserProfile(accessToken: string) {
     return {
       id: data.id,
       email: data.email,
-      name: data.name,
-      picture: data.picture
+      name: data.name
     };
   } catch (error) {
     console.error('Get user profile error:', error);

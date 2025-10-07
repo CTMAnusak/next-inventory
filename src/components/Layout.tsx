@@ -25,7 +25,19 @@ export default function Layout({ children }: LayoutProps) {
 
   const handleLogout = async () => {
     if (confirm('คุณต้องการออกจากระบบหรือไม่?')) {
-      await logout();
+      try {
+        await logout();
+        // เพิ่มการรีเฟรชหน้าเว็บเพื่อให้แน่ใจว่าไปหน้า login
+        if (typeof window !== 'undefined') {
+          window.location.reload();
+        }
+      } catch (error) {
+        console.error('Logout error:', error);
+        // ถ้า logout ไม่สำเร็จ ให้รีเฟรชหน้าเว็บเพื่อไปหน้า login
+        if (typeof window !== 'undefined') {
+          window.location.href = '/login';
+        }
+      }
     }
   };
 

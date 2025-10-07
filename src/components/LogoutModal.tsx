@@ -1,11 +1,37 @@
 'use client';
 
+import { useEffect, useState } from 'react';
+
 interface LogoutModalProps {
   isOpen: boolean;
   onConfirm: () => void;
 }
 
 export default function LogoutModal({ isOpen, onConfirm }: LogoutModalProps) {
+  const [countdown, setCountdown] = useState(10);
+
+  useEffect(() => {
+    if (!isOpen) {
+      setCountdown(10);
+      return;
+    }
+
+    // เริ่มนับถอยหลัง
+    const interval = setInterval(() => {
+      setCountdown((prev) => {
+        if (prev <= 1) {
+          clearInterval(interval);
+          // เด้งไปหน้า login เมื่อนับถอยหลังเสร็จ
+          onConfirm();
+          return 0;
+        }
+        return prev - 1;
+      });
+    }, 1000);
+
+    return () => clearInterval(interval);
+  }, [isOpen, onConfirm]);
+
   if (!isOpen) return null;
 
   return (
@@ -22,11 +48,16 @@ export default function LogoutModal({ isOpen, onConfirm }: LogoutModalProps) {
         
         <div className="mb-6">
           <p className="text-gray-700 leading-relaxed">
-            เซสชันของคุณได้หมดอายุแล้ว
+            เซสชันของคุณได้หมดอายุแล้ว (ครบ 7 วัน)
           </p>
           <p className="text-gray-700 leading-relaxed mt-2">
             ระบบจะนำคุณไปยังหน้า Login เพื่อเข้าสู่ระบบใหม่
           </p>
+          <div className="mt-4 p-3 bg-red-50 rounded-lg border border-red-200">
+            <p className="text-red-700 font-semibold text-center">
+              เหลือเวลา: <span className="text-2xl font-bold">{countdown}</span> วินาที
+            </p>
+          </div>
         </div>
         
         <div className="flex justify-end">
@@ -34,7 +65,7 @@ export default function LogoutModal({ isOpen, onConfirm }: LogoutModalProps) {
             onClick={onConfirm}
             className="px-6 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 transition-colors font-medium"
           >
-            ไปหน้า Login
+            ไปหน้า Login ทันที
           </button>
         </div>
       </div>

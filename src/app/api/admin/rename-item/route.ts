@@ -1,10 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { verifyTokenFromRequest } from '@/lib/auth';
-
 import { renameItemGlobally, rollbackRename, RenameResult } from '@/scripts/rename-item-global';
-  renameItemGlobally: typeof renameItemGlobally,
-  rollbackRename: typeof rollbackRename
-});
 
 export async function POST(request: NextRequest) {
   try {
@@ -45,8 +41,6 @@ export async function POST(request: NextRequest) {
         );
       }
 
-
-      
       // Execute global rename
       let result: RenameResult;
       try {
@@ -67,19 +61,15 @@ export async function POST(request: NextRequest) {
         }, { status: 500 });
       }
 
-        success: result.success,
-        documentsUpdated: result.documentsUpdated,
-        errors: result.errors.length,
-        errorDetails: result.errors
-      });
-
-
       return NextResponse.json({
         success: result.success,
         message: result.success 
           ? `เปลี่ยนชื่อสำเร็จ: "${oldName}" → "${newName}"` 
           : 'เกิดข้อผิดพลาดในการเปลี่ยนชื่อ',
-        result
+        result,
+        documentsUpdated: result.documentsUpdated,
+        errors: result.errors.length,
+        errorDetails: result.errors
       });
 
     } else if (action === 'rollback') {
@@ -91,7 +81,6 @@ export async function POST(request: NextRequest) {
           { status: 400 }
         );
       }
-
 
       const success = await rollbackRename(backupId);
 
@@ -110,7 +99,6 @@ export async function POST(request: NextRequest) {
           { status: 400 }
         );
       }
-
 
       const result: RenameResult = await renameItemGlobally(
         oldName.trim(),

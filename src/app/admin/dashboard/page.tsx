@@ -342,7 +342,7 @@ export default function AdminDashboardPage() {
             </div>
 
             <div className="bg-white rounded-lg p-6 shadow-md">
-              <h3 className="text-lg font-semibold text-gray-900 mb-4">สรุปประจำเดือน</h3>
+              <h3 className="text-lg font-semibold text-gray-900 mb-4">สรุป</h3>
               <div className="space-y-3">
                 <div className="flex justify-between items-center">
                   <span className="text-sm text-gray-600">แจ้งงาน IT</span>

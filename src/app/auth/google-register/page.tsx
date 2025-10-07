@@ -3,13 +3,13 @@
 import { useState, useEffect } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { toast } from 'react-hot-toast';
+import { customToast } from '@/lib/custom-toast';
 import { Package, User, Building, Phone, Mail, MapPin, Briefcase } from 'lucide-react';
 
 interface GoogleProfile {
   id: string;
   email: string;
   name: string;
-  picture?: string;
 }
 
 interface ProfileCompletionForm {
@@ -136,7 +136,34 @@ export default function GoogleRegisterPage() {
           router.push('/login?message=registration_pending');
         }, 2000);
       } else {
-        toast.error(data.error || 'เกิดข้อผิดพลาด');
+        // Check if it's a duplicate error with multiple fields
+        if (data.duplicateFields && data.duplicateFields.length > 1) {
+          // Show detailed error for multiple duplicates
+          const errorList = data.duplicateFields.map((field: string) => `• ${field}`).join('\n');
+          customToast.error(`ไม่สามารถสมัครสมาชิกได้ เนื่องจาก:\n${errorList}`, { 
+            duration: 15000, // เพิ่มเวลาเพราะมีข้อมูลเยอะ
+            style: {
+              whiteSpace: 'pre-line',
+              textAlign: 'left',
+              maxWidth: '600px',
+              lineHeight: '1.6',
+              padding: '20px',
+              paddingRight: '40px', // เผื่อที่สำหรับปุ่มปิด
+            },
+            dismissible: true, // ให้สามารถปิดได้
+          });
+        } else {
+          // Show simple error for single duplicate or other errors
+          customToast.error(data.error || 'เกิดข้อผิดพลาด', { 
+            duration: 10000,
+            style: {
+              maxWidth: '500px',
+              padding: '18px',
+              paddingRight: '40px', // เผื่อที่สำหรับปุ่มปิด
+            },
+            dismissible: true, // ให้สามารถปิดได้
+          });
+        }
       }
     } catch (error) {
       toast.error('เกิดข้อผิดพลาดในการเชื่อมต่อ');
@@ -175,13 +202,6 @@ export default function GoogleRegisterPage() {
           {/* Google Profile Info */}
           <div className="bg-gray-50 rounded-lg p-4 mb-6">
             <div className="flex items-center space-x-4">
-              {googleProfile.picture && (
-                <img 
-                  src={googleProfile.picture} 
-                  alt="Profile" 
-                  className="w-12 h-12 rounded-full"
-                />
-              )}
               <div>
                 <p className="font-medium text-gray-900">
                   <Mail className="w-4 h-4 inline mr-2" />

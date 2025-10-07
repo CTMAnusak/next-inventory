@@ -1235,6 +1235,28 @@ export default function AdminInventoryPage() {
     return filtered;
   };
 
+  // Filter and search functions for SIM phone number items
+  const getFilteredPhoneNumberItems = () => {
+    if (!availableItems?.withPhoneNumber) {
+      return [];
+    }
+
+    let filtered = availableItems.withPhoneNumber;
+
+    // Filter by source (admin/user)
+    if (itemFilterBy !== 'all') {
+      filtered = filtered.filter((item: any) => item.addedBy === itemFilterBy);
+    }
+
+    // Search by phone number
+    if (itemSearchTerm.trim()) {
+      const term = itemSearchTerm.toLowerCase();
+      filtered = filtered.filter((item: any) => item.numberPhone?.toLowerCase().includes(term));
+    }
+
+    return filtered;
+  };
+
   const handleSaveEditItem = async () => {
     if (!editingItemId || !stockItem) {
       console.error('❌ Missing required data:', { editingItemId, stockItem: !!stockItem });
@@ -1465,7 +1487,7 @@ export default function AdminInventoryPage() {
         } else if (data.deletionType === 'partial') {
           toast.success(`🗑️ ${data.message}`);
           if (data.warning) {
-            toast.warning(data.warning, { duration: 5000 });
+            toast(data.warning, { icon: '⚠️', duration: 5000 });
           }
         }
         
@@ -4135,26 +4157,6 @@ export default function AdminInventoryPage() {
                     </div>
                   ) : availableItems ? (
                     <div className="border rounded-lg p-4">
-                      {/* Header */}
-                      <div className="flex items-center justify-between mb-4">
-                        <div className="flex items-center">
-                          <span className="px-2 py-1 text-xs bg-gray-500 text-white rounded">
-                            รวม {availableItems ? 
-                              (availableItems.withSerialNumber?.length || 0) + 
-                              (availableItems.withPhoneNumber?.length || 0) + 
-                              (availableItems.withoutSerialNumber?.count || 0) : 
-                              'กำลังโหลด...'
-                            } ชิ้น
-                          </span>
-                          {availableItems?.withoutSerialNumber && availableItems.withoutSerialNumber.count > 0 && (
-                            <span className="ml-2 px-2 py-1 text-xs bg-gray-200 text-gray-700 rounded">
-                              รายการที่ไม่มี Serial Number: {availableItems.withoutSerialNumber.count} ชิ้น
-                            </span>
-                          )}
-                        </div>
-                      </div>
-
-
                       {/* Items with Serial Numbers */}
                       {!isSIMCardSync(stockItem?.categoryId || '') && (
                         <div className="mb-4">
@@ -4230,16 +4232,14 @@ export default function AdminInventoryPage() {
                                     className="p-3 border rounded-lg hover:bg-gray-50"
                                   >
                                     <div className="flex items-center justify-between">
-                                      <div className="flex items-center">
+                                      <div className="flex items-center space-x-2">
                                         <span className="text-sm font-mono text-blue-600 font-medium">
                                           {item.serialNumber}
                                         </span>
                                         <span className="ml-2 text-xs text-gray-500">
                                           เพิ่มโดย: {item.addedBy === 'admin' ? 'Admin' : 'User'}
                                         </span>
-                                      </div>
-                                      <div className="flex items-center space-x-2">
-                                        {/* Status and Condition Display */}
+                                        {/* Status and Condition on the left side */}
                                         {item.statusId && (
                                           <span className="px-2 py-1 text-xs bg-green-100 text-green-800 rounded font-medium">
                                             {getStatusName(item.statusId)}
@@ -4250,7 +4250,8 @@ export default function AdminInventoryPage() {
                                             {getConditionText(item.conditionId)}
                                           </span>
                                         )}
-                                        
+                                      </div>
+                                      <div className="flex items-center space-x-2">
                                         <button
                                           onClick={() => handleEditItem(item)}
                                           className="px-3 py-1 text-xs bg-blue-100 text-blue-700 rounded hover:bg-blue-200"
@@ -4311,12 +4312,12 @@ export default function AdminInventoryPage() {
                       {isSIMCardSync(stockItem?.categoryId || '') && (
                         <div className="mb-4">
                           <h4 className="text-sm font-semibold text-gray-800 mb-2 flex items-center">
-                            📱 ซิมการ์ดที่มีเบอร์โทรศัพท์ ({availableItems?.withPhoneNumber ? availableItems.withPhoneNumber.length : '...'} ชิ้น)
+                            📱 ซิมการ์ดที่มีเบอร์โทรศัพท์ ({availableItems?.withPhoneNumber ? getFilteredPhoneNumberItems().length : '...'} ชิ้น)
                           </h4>
                           
-                          {/* Show search only if there are items */}
+                          {/* Show search and filter only if there are items */}
                           {availableItems?.withPhoneNumber && availableItems.withPhoneNumber.length > 0 && (
-                            <div className="mb-4">
+                            <div className="mb-4 space-y-3">
                               <div className="relative">
                                 <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 w-4 h-4 text-gray-400" />
                                 <input
@@ -4327,29 +4328,68 @@ export default function AdminInventoryPage() {
                                   className="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
                                 />
                               </div>
+                              <div className="flex items-center space-x-2">
+                                <button
+                                  onClick={() => setItemFilterBy('all')}
+                                  className={`px-3 py-1 text-xs rounded-md transition-colors ${
+                                    itemFilterBy === 'all'
+                                      ? 'bg-blue-100 text-blue-700 border border-blue-200'
+                                      : 'bg-gray-100 text-gray-600 border border-gray-200 hover:bg-gray-200'
+                                  }`}
+                                >
+                                  ทั้งหมด ({availableItems ? availableItems.withPhoneNumber.length : '...'})
+                                </button>
+                                <button
+                                  onClick={() => setItemFilterBy('admin')}
+                                  className={`px-3 py-1 text-xs rounded-md transition-colors ${
+                                    itemFilterBy === 'admin'
+                                      ? 'bg-blue-100 text-blue-700 border border-blue-200'
+                                      : 'bg-gray-100 text-gray-600 border border-gray-200 hover:bg-gray-200'
+                                  }`}
+                                >
+                                  Admin ({availableItems ? availableItems.withPhoneNumber.filter((item: any) => item.addedBy === 'admin').length : '...'})
+                                </button>
+                                <button
+                                  onClick={() => setItemFilterBy('user')}
+                                  className={`px-3 py-1 text-xs rounded-md transition-colors ${
+                                    itemFilterBy === 'user'
+                                      ? 'bg-blue-100 text-blue-700 border border-blue-200'
+                                      : 'bg-gray-200 text-gray-600 border border-gray-200 hover:bg-gray-200'
+                                  }`}
+                                >
+                                  User ({availableItems ? availableItems.withPhoneNumber.filter((item: any) => item.addedBy === 'user').length : '...'})
+                                </button>
+                              </div>
                             </div>
                           )}
 
                           <div className="space-y-2 max-h-64 overflow-y-auto">
                             {availableItems?.withPhoneNumber && availableItems.withPhoneNumber.length > 0 ? (
-                              availableItems.withPhoneNumber
-                                .filter((item: any) => !itemSearchTerm || item.numberPhone.includes(itemSearchTerm))
-                                .length > 0 ? (
-                                availableItems.withPhoneNumber
-                                  .filter((item: any) => !itemSearchTerm || item.numberPhone.includes(itemSearchTerm))
-                                  .map((item: any) => (
+                              getFilteredPhoneNumberItems().length > 0 ? (
+                                getFilteredPhoneNumberItems().map((item: any) => (
                                     <div
                                       key={`${item.itemId}-${item.numberPhone}`}
                                       className="p-3 border rounded-lg hover:bg-gray-50"
                                     >
                                       <div className="flex items-center justify-between">
-                                        <div className="flex items-center">
+                                        <div className="flex items-center space-x-2">
                                           <span className="text-sm font-mono text-green-600 font-medium">
                                             {item.numberPhone}
                                           </span>
                                           <span className="ml-2 text-xs text-gray-500">
                                             เพิ่มโดย: {item.addedBy === 'admin' ? 'Admin' : 'User'}
                                           </span>
+                                          {/* Status and Condition Display (same style as SN list) */}
+                                          {item.statusId && (
+                                            <span className="px-2 py-1 text-xs bg-green-100 text-green-800 rounded font-medium">
+                                              {getStatusName(item.statusId)}
+                                            </span>
+                                          )}
+                                          {item.conditionId && (
+                                            <span className="px-2 py-1 text-xs bg-yellow-100 text-yellow-800 rounded font-medium">
+                                              {getConditionText(item.conditionId)}
+                                            </span>
+                                          )}
                                         </div>
                                         <div className="flex space-x-2">
                                           <button
@@ -4370,15 +4410,23 @@ export default function AdminInventoryPage() {
                                   ))
                               ) : (
                                 <div className="text-center py-8 text-gray-500">
-                                  {itemSearchTerm ? (
+                                  {itemSearchTerm || itemFilterBy !== 'all' ? (
                                     <div>
-                                      <p>ไม่พบเบอร์โทรศัพท์ที่ตรงกับการค้นหา</p>
+                                      <p>ไม่พบเบอร์โทรศัพท์ที่ตรงกับเงื่อนไข</p>
                                       <button
                                         onClick={() => setItemSearchTerm('')}
                                         className="mt-2 text-sm text-blue-600 hover:text-blue-800 underline"
                                       >
                                         ล้างการค้นหา
                                       </button>
+                                      {itemFilterBy !== 'all' && (
+                                        <button
+                                          onClick={() => setItemFilterBy('all')}
+                                          className="ml-3 mt-2 text-sm text-blue-600 hover:text-blue-800 underline"
+                                        >
+                                          แสดงทั้งหมด
+                                        </button>
+                                      )}
                                     </div>
                                   ) : (
                                     <p>ไม่มีซิมการ์ดที่มีเบอร์โทรศัพท์</p>

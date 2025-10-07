@@ -49,29 +49,63 @@ export async function GET(request: NextRequest) {
       );
     }
 
-    // ✅ Get valid statusIds from configs (not hardcoded)
-    const validStatusIds = inventoryConfig.statusConfigs?.map(s => s.id) || [];
+    // ✅ หาสถานะ "มี" และสภาพ "ใช้งานได้" จาก config
+    const availableStatus = inventoryConfig.statusConfigs?.find(s => s.name === 'มี');
+    const availableStatusId = availableStatus?.id || 'status_available';
+    
+    const workingCondition = inventoryConfig.conditionConfigs?.find(c => c.name === 'ใช้งานได้');
+    const workingConditionId = workingCondition?.id || 'cond_working';
+
+    console.log('✅ Equipment Reports Filter:', {
+      availableStatusId,
+      workingConditionId,
+      availableStatusName: availableStatus?.name,
+      workingConditionName: workingCondition?.name
+    });
+
+    // ✅ Convert category NAME to category ID
+    // category parameter can be either ID (cat_xxx) or NAME (Monitor, Notebook, etc.)
+    let categoryId = category;
+    
+    // Check if category is a name (not an ID)
+    if (!category.startsWith('cat_')) {
+      // Find category ID from name
+      const categoryConfig = inventoryConfig.categoryConfigs?.find(c => c.name === category);
+      if (categoryConfig) {
+        categoryId = categoryConfig.id;
+        console.log(`✅ Converted category name "${category}" to ID "${categoryId}"`);
+      } else {
+        console.log(`⚠️ Category name "${category}" not found in config, using as-is`);
+      }
+    }
 
     // ✅ Second check InventoryMaster to get consistent count (same as main inventory)
     // Try exact match first, then fuzzy match for category
     let inventoryMaster = await InventoryMaster.findOne({
       itemName: itemName,
-      categoryId: category
+      categoryId: categoryId
     });
 
     // If not found and category is "ไม่ระบุ", try to find by itemName only
-    if (!inventoryMaster && category === 'ไม่ระบุ') {
+    if (!inventoryMaster && (category === 'ไม่ระบุ' || categoryId === 'ไม่ระบุ')) {
       inventoryMaster = await InventoryMaster.findOne({
         itemName: itemName
       });
       
       if (inventoryMaster) {
+        console.log(`✅ Found inventoryMaster by itemName only (category was "ไม่ระบุ")`);
       }
     }
 
     if (!inventoryMaster) {
       // Debug: Let's see what InventoryMaster records exist for this itemName
       const allItemRecords = await InventoryMaster.find({ itemName: itemName });
+      console.log(`❌ No InventoryMaster found for itemName="${itemName}" categoryId="${categoryId}"`);
+      console.log(`📋 Available InventoryMaster records for this itemName:`, allItemRecords.map(r => ({
+        itemName: r.itemName,
+        categoryId: r.categoryId,
+        category: inventoryConfig.categoryConfigs?.find(c => c.id === r.categoryId)?.name
+      })));
       
       return NextResponse.json(
         { error: `ไม่พบข้อมูลอุปกรณ์ ${itemName} ในหมวดหมู่ ${category}` },
@@ -86,15 +120,17 @@ export async function GET(request: NextRequest) {
       itemName: itemName,
       categoryId: actualCategoryId,
       ownerType: 'admin_stock',
-      statusId: ['status_available', 'status_maintenance', 'status_damaged', 'status_missing']
+      statusId: availableStatusId,
+      conditionId: workingConditionId
     });
     
-    // ✅ Use dynamic statusIds from configs instead of hardcoded values
+    // ✅ กรองเฉพาะสถานะ "มี" และสภาพ "ใช้งานได้" เท่านั้น
     const availableItems = await InventoryItem.find({
       itemName: itemName,
       categoryId: actualCategoryId, // Use the actual categoryId from InventoryMaster
       'currentOwnership.ownerType': 'admin_stock',
-      statusId: { $in: validStatusIds }, // ✅ Use statusIds from database configs
+      statusId: availableStatusId, // ✅ เฉพาะสถานะ "มี"
+      conditionId: workingConditionId, // ✅ เฉพาะสภาพ "ใช้งานได้"
       deletedAt: { $exists: false } // ยกเว้นรายการที่ถูกลบ
     }).sort({ 
       serialNumber: 1,  // เรียงตาม SN ก่อน
