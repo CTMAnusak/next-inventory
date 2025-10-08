@@ -61,6 +61,7 @@ export default function EquipmentReturnPage() {
   const searchParams = useSearchParams();
   const [isLoading, setIsLoading] = useState(false);
   const [isSubmitted, setIsSubmitted] = useState(false);
+  const [validationErrors, setValidationErrors] = useState<{[key: string]: string}>({});
   const [ownedEquipment, setOwnedEquipment] = useState<OwnedEquipment[]>([]);
   const [filteredEquipment, setFilteredEquipment] = useState<OwnedEquipment[]>([]);
   
@@ -109,6 +110,36 @@ export default function EquipmentReturnPage() {
     fetchConfigs();
   }, []);
 
+  // Cleanup object URLs on component unmount
+  useEffect(() => {
+    return () => {
+      if (returnItem.image) {
+        URL.revokeObjectURL(URL.createObjectURL(returnItem.image));
+      }
+    };
+  }, [returnItem.image]);
+
+  // Load personal info from URL parameters for branch users
+  useEffect(() => {
+    const firstName = searchParams.get('firstName');
+    const lastName = searchParams.get('lastName');
+    const nickname = searchParams.get('nickname');
+    const department = searchParams.get('department');
+    const phone = searchParams.get('phone');
+    
+    // Pre-fill form data if parameters are provided (for branch users)
+    if (firstName || lastName) {
+      setFormData(prev => ({
+        ...prev,
+        firstName: firstName || prev.firstName,
+        lastName: lastName || prev.lastName,
+        nickname: nickname || prev.nickname,
+        department: department || prev.department,
+        phone: phone || prev.phone,
+      }));
+    }
+  }, [searchParams]);
+
   // Simplified useEffect to handle URL parameters for pre-filling data
   useEffect(() => {
     const category = searchParams.get('category');
@@ -148,11 +179,12 @@ export default function EquipmentReturnPage() {
           const totalQuantity = foundItem.totalQuantity || foundItem.quantity || 1;
           const hasSerialNumbers = foundItem.serialNumbers && foundItem.serialNumbers.length > 0;
           
-          if (hasSerialNumbers) {
-            toast.success(`พบ ${foundItem.itemName} ที่มี Serial Number กรุณาเลือกรายการที่ต้องการคืน`);
-          } else if (totalQuantity > 1) {
-            toast.success(`พบ ${foundItem.itemName} ${totalQuantity} ชิ้น กรุณาเลือกรายการที่ต้องการคืน`);
-          }
+          // Removed notification toasts as requested
+          // if (hasSerialNumbers) {
+          //   toast.success(`พบ ${foundItem.itemName} ที่มี Serial Number กรุณาเลือกรายการที่ต้องการคืน`);
+          // } else if (totalQuantity > 1) {
+          //   toast.success(`พบ ${foundItem.itemName} ${totalQuantity} ชิ้น กรุณาเลือกรายการที่ต้องการคืน`);
+          // }
           setHasShownNotification(true);
         }
       } else {
@@ -543,6 +575,10 @@ export default function EquipmentReturnPage() {
   };
 
   const handleFileChange = (file: File | null) => {
+    // Clean up previous object URL to prevent memory leaks
+    if (returnItem.image) {
+      URL.revokeObjectURL(URL.createObjectURL(returnItem.image));
+    }
     handleItemChange('image', file);
   };
 
@@ -594,9 +630,13 @@ export default function EquipmentReturnPage() {
     setIsSubmitted(true);
 
     try {
-      // Validate form
-      if (!formData.returnDate) {
-        toast.error('กรุณากรอกข้อมูลให้ครบถ้วน');
+      // Clear previous validation errors
+      setValidationErrors({});
+
+      // Specific validation for return date
+      if (!formData.returnDate || formData.returnDate.trim() === '') {
+        setValidationErrors({ returnDate: 'กรุณาเลือกวันที่คืนอุปกรณ์' });
+        toast.error('กรุณาเลือกวันที่คืนอุปกรณ์');
         setIsLoading(false);
         return;
       }
@@ -617,104 +657,52 @@ export default function EquipmentReturnPage() {
         return;
       }
 
-      // Validate items - ต้องมีอย่างน้อยหนึ่งรายการ (ในรายการหรือฟอร์มปัจจุบัน)
-      const hasCurrentItem = returnItem.itemName && returnItem.itemId && returnItem.itemId !== 'undefined' && returnItem.quantity > 0;
-      const hasItemsInList = returnItems.length > 0;
-      
-      if (!hasCurrentItem && !hasItemsInList) {
-        console.log('❌ No items to return');
-        toast.error('กรุณาเลือกอุปกรณ์และรายการที่ต้องการคืนให้ครบถ้วน');
+      // Validate items - ต้องมีรายการในรายการที่จะคืนเท่านั้น
+      if (returnItems.length === 0) {
+        console.log('❌ No items in return list');
+        toast.error('กรุณาเพิ่มรายการอุปกรณ์ที่ต้องการคืนในรายการด้านล่างก่อนกดบันทึก');
         setIsLoading(false);
         return;
       }
       
-      // ตรวจสอบจำนวนไม่เกินที่ครอบครอง (สำหรับอุปกรณ์ไม่มี SN)
-      if (maxQuantity > 0 && returnItem.quantity > maxQuantity) {
-        console.log('❌ Quantity exceeds maximum allowed');
-        toast.error(`จำนวนที่ต้องการคืนเกินจำนวนที่ครอบครอง (สูงสุด ${maxQuantity} ชิ้น)`);
-        setIsLoading(false);
-        return;
-      }
-      
-      // ถ้ามีรายการปัจจุบันและมี availableOptions ต้องเลือก selectedOption ด้วย
-      if (hasCurrentItem && returnItem.availableOptions && returnItem.availableOptions.length > 0) {
-        if (!returnItem.selectedOption || returnItem.selectedOption.length === 0) {
-          console.log('❌ Item failed selectedOption validation');
-          toast.error('กรุณาเลือกรายการอุปกรณ์ที่ต้องการคืน');
-          setIsLoading(false);
-          return;
-        }
-      }
-      
 
-      // Upload image and prepare return data
-      let imagePath = '';
-      if (returnItem.image) {
-        try {
-          imagePath = await uploadImage(returnItem.image);
-        } catch (error) {
-          console.error('Image upload failed:', error);
-          // Continue without image if upload fails
-        }
-      }
 
-      // ใช้ Serial Number และ ItemId ที่ถูกต้องจากการเลือก
-      let finalSerialNumber = '';
-      let finalItemId = returnItem.itemId; // Default to current itemId
-      
-      if (returnItem.availableOptions && returnItem.selectedOption) {
-        // หา Serial Number และ ItemId จาก option ที่เลือก
-        const selectedOption = returnItem.availableOptions.find(opt => opt.value === returnItem.selectedOption);
-        finalSerialNumber = selectedOption?.serialNumber || '';
-        finalItemId = selectedOption?.itemId || returnItem.itemId; // Use actual itemId from option
+
+
+      // Build items array - ใช้เฉพาะรายการในลิสต์เท่านั้น
+      let itemsArrayInput = [...returnItems];
+
+      // Upload images for all items first
+      const itemsWithUploadedImages = await Promise.all(
+        itemsArrayInput.map(async (ri) => {
+          let imagePath = '';
+          if (ri.image && ri.image instanceof File) {
+            try {
+              imagePath = await uploadImage(ri.image);
+            } catch (error) {
+              console.error('Image upload failed for item:', ri.itemName, error);
+              // Continue without image if upload fails
+            }
+          }
           
-      } else {
-        // ใช้ Serial Number ที่มีอยู่แล้ว (กรณีมีชิ้นเดียว)
-        finalSerialNumber = returnItem.serialNumber || '';
+          // For options-based selection, prefer option-derived ids
+          const selectedOption = ri.availableOptions?.find(opt => opt.value === ri.selectedOption);
+          const finalId = selectedOption?.itemId || ri.itemId;
+          const finalSN = selectedOption?.serialNumber || ri.serialNumber || '';
           
-      }
-
-      const returnItemData = {
-        itemId: finalItemId, // Use correct actual itemId
-        itemName: returnItem.itemName,
-        quantity: returnItem.quantity,
-        serialNumber: finalSerialNumber || undefined,
-        assetNumber: returnItem.assetNumber || undefined,
-        image: imagePath || undefined,
-      };
-
-
-
-      // Build items array - รวมทั้งรายการในลิสต์และรายการปัจจุบัน (ถ้ามี)
-      let itemsArrayInput = [...returnItems]; // เริ่มจากรายการที่เพิ่มแล้ว
-      
-      // เพิ่มรายการปัจจุบัน (ถ้ามีและไม่ซ้ำ)
-      if (hasCurrentItem) {
-        const currentKey = `${returnItem.itemId}-${returnItem.serialNumber || ''}-${returnItem.selectedOption || ''}`;
-        const isDuplicate = returnItems.some(it => `${it.itemId}-${it.serialNumber || ''}-${it.selectedOption || ''}` === currentKey);
-        
-        if (!isDuplicate) {
-          itemsArrayInput.push(returnItem);
-        }
-      }
-
-      const itemsArray = itemsArrayInput.map((ri) => {
-        // For options-based selection, prefer option-derived ids
-        const selectedOption = ri.availableOptions?.find(opt => opt.value === ri.selectedOption);
-        const finalId = selectedOption?.itemId || ri.itemId;
-        const finalSN = selectedOption?.serialNumber || ri.serialNumber || '';
-        return {
-          itemId: finalId,
-          quantity: ri.quantity,
-          serialNumber: finalSN || '',
-          assetNumber: ri.assetNumber || '',
-          image: ri.image || undefined,
-          masterItemId: (ri as any).masterItemId,
-          itemNotes: ri.itemNotes || '',
-          statusOnReturn: ri.statusOnReturn || 'status_available',
-          conditionOnReturn: ri.conditionOnReturn || 'cond_working'
-        };
-      });
+          return {
+            itemId: finalId,
+            quantity: ri.quantity,
+            serialNumber: finalSN || '',
+            assetNumber: ri.assetNumber || '',
+            image: imagePath || undefined,
+            masterItemId: (ri as any).masterItemId,
+            itemNotes: ri.itemNotes || '',
+            statusOnReturn: ri.statusOnReturn || 'status_available',
+            conditionOnReturn: ri.conditionOnReturn || 'cond_working'
+          };
+        })
+      );
 
       const returnData = {
         // Use user profile data for individual users, form data for branch users
@@ -725,7 +713,7 @@ export default function EquipmentReturnPage() {
         office: user?.office || '',
         phone: user?.userType === 'individual' ? (user.phone || '') : formData.phone,
         returnDate: formData.returnDate,
-        items: itemsArray
+        items: itemsWithUploadedImages
       };
 
       // Add timeout and retry logic
@@ -875,6 +863,7 @@ export default function EquipmentReturnPage() {
             }}
             onInputChange={handleInputChange}
             title="ข้อมูลผู้คืนอุปกรณ์"
+            lockPersonalInfo={!!(formData.firstName && formData.lastName)} // Lock if data is pre-filled from URL
           />
 
           <form onSubmit={handleSubmit} className={`space-y-6 ${isSubmitted ? 'form-submitted' : ''}`}>
@@ -885,10 +874,20 @@ export default function EquipmentReturnPage() {
               </label>
               <DatePicker
                 value={formData.returnDate}
-                onChange={(date) => setFormData(prev => ({ ...prev, returnDate: date }))}
+                onChange={(date) => {
+                  setFormData(prev => ({ ...prev, returnDate: date }));
+                  // Clear validation error when user selects a date
+                  if (validationErrors.returnDate) {
+                    setValidationErrors(prev => ({ ...prev, returnDate: '' }));
+                  }
+                }}
                 placeholder="dd/mm/yyyy"
                 required
+                className={validationErrors.returnDate ? 'border-red-500 focus:ring-red-500' : ''}
               />
+              {validationErrors.returnDate && (
+                <p className="text-red-500 text-sm mt-1">{validationErrors.returnDate}</p>
+              )}
             </div>
 
 
@@ -1146,9 +1145,18 @@ export default function EquipmentReturnPage() {
                         <div className="mt-1 flex justify-center px-6 pt-5 pb-6 border-2 border-gray-300 border-dashed rounded-md">
                           <div className="space-y-1 text-center">
                             {returnItem.image ? (
-                              <div>
+                              <div className="w-full">
                                 <div className="text-sm text-gray-600 mb-2">
                                   ไฟล์ที่เลือก: {returnItem.image.name}
+                                </div>
+                                {/* แสดงรูปภาพที่อัพโหลด */}
+                                <div className="mb-3">
+                                  <img
+                                    src={URL.createObjectURL(returnItem.image)}
+                                    alt="รูปภาพที่อัพโหลด"
+                                    className="max-w-full max-h-48 mx-auto rounded-lg shadow-sm border border-gray-200"
+                                    style={{ maxWidth: '300px', maxHeight: '200px', objectFit: 'contain' }}
+                                  />
                                 </div>
                                 <button
                                   type="button"
@@ -1222,9 +1230,10 @@ export default function EquipmentReturnPage() {
                   </div>
                 </div>
 
-                {returnItems.length > 0 && (
-                  <div className="mt-4 border border-gray-200 rounded-lg">
-                    <div className="p-3 font-medium text-gray-700">รายการที่จะคืน</div>
+                {/* รายการที่จะคืน - แสดงตลอดเวลา */}
+                <div className="mt-4 border border-gray-200 rounded-lg">
+                  <div className="p-3 font-medium text-gray-700">รายการที่จะคืน</div>
+                  {returnItems.length > 0 ? (
                     <ul className="divide-y divide-gray-100">
                       {returnItems.map((it, idx) => (
                         <li key={`${it.itemId}-${it.serialNumber || idx}`} className="flex items-center justify-between p-3">
@@ -1250,8 +1259,21 @@ export default function EquipmentReturnPage() {
                         </li>
                       ))}
                     </ul>
+                  ) : (
+                    <div className="p-4 text-center text-gray-500">
+                      <div className="text-sm">ยังไม่มีรายการอุปกรณ์</div>
+                      <div className="text-xs mt-1">กรุณาเลือกอุปกรณ์และกด "เพิ่มเข้ารายการ" เพื่อเพิ่มรายการที่ต้องการคืน</div>
+                    </div>
+                  )}
+                  
+                  {/* หมายเหตุอธิบาย */}
+                  <div className="px-3 pb-3">
+                    <div className="text-xs text-gray-500 bg-blue-50 p-2 rounded border-l-4 border-blue-200">
+                      <div className="font-medium text-blue-800 mb-1">💡 หมายเหตุ:</div>
+                      <div>เฉพาะอุปกรณ์ที่อยู่ในรายการนี้เท่านั้นที่จะถูกส่งคืน กรุณาเพิ่มรายการอุปกรณ์ที่ต้องการคืนให้ครบถ้วนก่อนกดบันทึก</div>
+                    </div>
                   </div>
-                )}
+                </div>
             </div>
 
             {/* Submit Button */}

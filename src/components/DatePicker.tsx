@@ -196,7 +196,11 @@ export default function DatePicker({
           onBlur={handleInputBlur}
           onKeyDown={handleInputKeyDown}
           placeholder={placeholder}
-          className="w-full px-3 py-2 pr-10 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 text-gray-900 placeholder-gray-500"
+          className={`w-full px-3 py-2 pr-10 border rounded-md focus:outline-none focus:ring-2 text-gray-900 placeholder-gray-500 ${
+            className.includes('border-red-500') 
+              ? 'border-red-500 focus:ring-red-500' 
+              : 'border-gray-300 focus:ring-blue-500'
+          }`}
           required={required}
         />
         <button

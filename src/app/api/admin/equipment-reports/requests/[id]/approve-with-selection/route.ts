@@ -75,12 +75,12 @@ export async function POST(
         );
       }
 
-      // ✅ Enhanced validation: Handle insufficient stock cases
+      // ✅ Enhanced validation: Check if admin selected items
       if (selection.selectedItems.length !== selection.requestedQuantity) {
         if (selection.selectedItems.length === 0) {
-          // Case: No items available to select (insufficient stock)
+          // Case: Admin didn't select any items
           return NextResponse.json(
-            { error: `ไม่สามารถอนุมัติได้: ไม่มี ${selection.itemName} เพียงพอในคลัง (ขอ ${selection.requestedQuantity} ชิ้น แต่ไม่มีให้เลือก)` },
+            { error: `กรุณาเลือกอุปกรณ์สำหรับ ${selection.itemName} (ต้องเลือก ${selection.requestedQuantity} ชิ้น)` },
             { status: 400 }
           );
         } else {
@@ -129,7 +129,7 @@ export async function POST(
 
           // Transfer ownership using helper function
           const transferResult = await transferInventoryItem({
-            itemId: inventoryItem._id.toString(),
+            itemId: (inventoryItem._id as any).toString(),
             fromOwnerType: 'admin_stock',
             toOwnerType: 'user_owned',
             toUserId: requestLog.userId || 'unknown',
@@ -156,7 +156,8 @@ export async function POST(
           category: selection.category,
           assignedSerialNumbers: assignedSerialNumbers,
           assignedQuantity: totalAssigned,
-          masterId: selection.masterId
+          masterId: selection.masterId,
+          assignedItemIds: selection.selectedItems.map(item => item.itemId) // ✅ เพิ่ม assignedItemIds
         });
       }
 
@@ -179,38 +180,37 @@ export async function POST(
             requestLog.items[requestItemIndex].assignedSerialNumbers!.push(...assignedItem.assignedSerialNumbers);
           }
 
+          // ✅ CRITICAL FIX: Add assignedItemIds to RequestLog
+          if (!(requestLog.items[requestItemIndex] as any).assignedItemIds) {
+            (requestLog.items[requestItemIndex] as any).assignedItemIds = [];
+          }
+          if (assignedItem.assignedItemIds && assignedItem.assignedItemIds.length > 0) {
+            (requestLog.items[requestItemIndex] as any).assignedItemIds.push(...assignedItem.assignedItemIds);
+          }
+
           // Set default status and condition IDs when approved
           requestLog.items[requestItemIndex].statusOnRequest = 'status_available'; // มี
           requestLog.items[requestItemIndex].conditionOnRequest = 'cond_working'; // ใช้งานได้
           
-          // ✅ Fix: Set assignedQuantity to the total assigned quantity for this item
-          (requestLog.items[requestItemIndex] as any).assignedQuantity = assignedItem.assignedQuantity;
+          // ✅ Fix: Add to existing assignedQuantity instead of replacing
+          const currentAssigned = (requestLog.items[requestItemIndex] as any).assignedQuantity || 0;
+          (requestLog.items[requestItemIndex] as any).assignedQuantity = currentAssigned + assignedItem.assignedQuantity;
           
           // Mark this item as approved
           (requestLog.items[requestItemIndex] as any).itemApproved = true;
           (requestLog.items[requestItemIndex] as any).approvedAt = new Date();
           
           // Debug logging
-          console.log(`🔧 Updated item ${assignedItem.itemName}: assignedQuantity = ${assignedItem.assignedQuantity}, requestedQuantity = ${requestLog.items[requestItemIndex].quantity}`);
+          console.log(`🔧 Updated item ${assignedItem.itemName}: added ${assignedItem.assignedQuantity}, total assignedQuantity = ${(requestLog.items[requestItemIndex] as any).assignedQuantity}, requestedQuantity = ${requestLog.items[requestItemIndex].quantity}`);
         }
       }
 
       // ✅ CRITICAL FIX: Mark the items array as modified so Mongoose saves the changes
       (requestLog as any).markModified('items');
 
-      // ✅ Fix: Check if all items are fully assigned
-      const allDone = requestLog.items.every((it: any) => {
-        const assignedQty = it.assignedQuantity || 0;
-        const requestedQty = it.quantity || 0;
-        return assignedQty >= requestedQty;
-      });
-      
-      if (allDone) {
-        requestLog.status = 'completed';
-        requestLog.completedAt = new Date();
-      } else {
-        // If not all items are assigned, mark as partially approved
-        requestLog.status = 'approved';
+      // ✅ Set status to approved (item-by-item approval, no need for completed status)
+      requestLog.status = 'approved';
+      if (!requestLog.approvedAt) {
         requestLog.approvedAt = new Date();
       }
       
@@ -220,7 +220,6 @@ export async function POST(
       return NextResponse.json({
         message: 'อนุมัติและมอบหมายอุปกรณ์เรียบร้อยแล้ว',
         requestId: id,
-        requestCompleted: requestLog.status === 'completed',
         transferredItems: transferResults.length,
         assignedItems: assignedItems.map(item => ({
           itemName: item.itemName,

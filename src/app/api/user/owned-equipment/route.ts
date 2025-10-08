@@ -28,6 +28,11 @@ export async function GET(request: NextRequest) {
       'currentOwnership.userId': userId,
       deletedAt: { $exists: false }
     }).sort({ 'currentOwnership.ownedSince': -1 });
+    
+    console.log(`📦 Found ${ownedItems.length} owned items for user ${userId}`);
+    ownedItems.forEach((item, idx) => {
+      console.log(`  Item ${idx + 1}: _id=${item._id}, itemName="${(item as any).itemName}"`);
+    });
 
     // Get all return logs (approved and pending)
     const ReturnLog = (await import('@/models/ReturnLog')).default;
@@ -63,6 +68,68 @@ export async function GET(request: NextRequest) {
       return !returnedItems.has(itemKey);
     });
     
+    // Get request logs to fetch delivery location
+    const RequestLog = (await import('@/models/RequestLog')).default;
+    console.log(`🔍 Searching for RequestLog with userId: ${userId}, status: approved, requestType: request`);
+    
+    const approvedRequests = await RequestLog.find({
+      userId: userId,
+      status: 'approved', // ✅ ใช้ approved เท่านั้น (อนุมัติทีละรายการ)
+      requestType: 'request'
+    }).lean();
+    
+    console.log(`📊 Query result: Found ${approvedRequests.length} requests`);
+    if (approvedRequests.length > 0) {
+      approvedRequests.forEach((req, idx) => {
+        console.log(`  Request ${idx + 1}: _id=${req._id}, deliveryLocation="${req.deliveryLocation}", items=${req.items?.length || 0}`);
+      });
+    }
+    
+    // Build maps of itemId -> deliveryLocation and find most recent requester info for branch users
+    const itemToDeliveryLocationMap = new Map();
+    
+    // For branch users, get the most recent personal info from any approved request
+    let mostRecentRequesterInfo: {
+      firstName?: string;
+      lastName?: string;
+      nickname?: string;
+      department?: string;
+      phone?: string;
+      office?: string;
+    } | null = null;
+    
+    console.log(`🔍 Found ${approvedRequests.length} approved requests for user ${userId}`);
+    
+    approvedRequests.forEach((req, reqIndex) => {
+      console.log(`📦 Request ${reqIndex + 1}: deliveryLocation = "${req.deliveryLocation}"`);
+      console.log(`📦 Request ${reqIndex + 1}: items count = ${req.items?.length || 0}`);
+      
+      // Extract requester info from this request (for branch users)
+      if ((req as any).requesterFirstName || (req as any).requesterLastName) {
+        mostRecentRequesterInfo = {
+          firstName: (req as any).requesterFirstName,
+          lastName: (req as any).requesterLastName,
+          nickname: (req as any).requesterNickname,
+          department: (req as any).requesterDepartment,
+          phone: (req as any).requesterPhone,
+          office: (req as any).requesterOffice,
+        };
+        console.log(`📝 Found requester info:`, mostRecentRequesterInfo);
+      }
+      
+      req.items?.forEach((item: any, itemIndex: number) => {
+        console.log(`  📋 Item ${itemIndex + 1}: assignedItemIds = [${item.assignedItemIds?.join(', ') || 'none'}]`);
+        
+        item.assignedItemIds?.forEach((itemId: string) => {
+          // Map delivery location
+          itemToDeliveryLocationMap.set(itemId, req.deliveryLocation || '');
+          console.log(`    🔗 Mapped itemId "${itemId}" -> deliveryLocation "${req.deliveryLocation || 'empty'}"`);
+        });
+      });
+    });
+    
+    console.log(`📍 Total items mapped: ${itemToDeliveryLocationMap.size}`);
+    
     // Get configurations for display
     const config = await InventoryConfig.findOne({});
     const statusConfigs = config?.statusConfigs || [];
@@ -78,6 +145,11 @@ export async function GET(request: NextRequest) {
       // Check if this item has pending return
       const itemKey = item.serialNumber ? `${item._id}-${item.serialNumber}` : item._id.toString();
       const hasPendingReturn = pendingReturnItems.has(itemKey);
+      
+      // Get delivery location from request log (if item came from request)
+      const itemIdStr = String(item._id);
+      const deliveryLocation = itemToDeliveryLocationMap.get(itemIdStr) || '';
+      console.log(`🎯 Item "${(item as any).itemName}" (ID: ${itemIdStr}) -> deliveryLocation: "${deliveryLocation}"`);
 
       return {
         _id: item._id,
@@ -95,7 +167,15 @@ export async function GET(request: NextRequest) {
         sourceInfo: item.sourceInfo,
         createdAt: item.createdAt,
         updatedAt: item.updatedAt,
-        hasPendingReturn // ✅ เพิ่ม flag นี้
+        deliveryLocation: deliveryLocation, // ✅ เพิ่มสถานที่จัดส่ง
+        hasPendingReturn, // ✅ เพิ่ม flag นี้
+        // ✅ ใส่ข้อมูลส่วนตัวจากใบเบิก (สำหรับผู้ใช้ประเภทสาขา - ใช้ข้อมูลจากใบเบิกล่าสุด)
+        firstName: mostRecentRequesterInfo?.firstName || undefined,
+        lastName: mostRecentRequesterInfo?.lastName || undefined,
+        nickname: mostRecentRequesterInfo?.nickname || undefined,
+        department: mostRecentRequesterInfo?.department || undefined,
+        phone: mostRecentRequesterInfo?.phone || undefined,
+        office: mostRecentRequesterInfo?.office || undefined
       };
     });
     

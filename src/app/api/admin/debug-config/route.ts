@@ -15,20 +15,20 @@ export async function GET() {
     const config = await InventoryConfig.findOne({}).lean();
     
     
-    if (config?.statusConfigs) {
+    if (config && 'statusConfigs' in config) {
     }
     
     const result = {
       debug: {
         hasConfig: !!config,
-        configId: config?._id,
-        statusConfigsLength: config?.statusConfigs?.length || 0,
-        categoryConfigsLength: config?.categoryConfigs?.length || 0,
+        configId: config && '_id' in config ? config._id : null,
+        statusConfigsLength: config && 'statusConfigs' in config ? config.statusConfigs?.length || 0 : 0,
+        categoryConfigsLength: config && 'categoryConfigs' in config ? config.categoryConfigs?.length || 0 : 0,
         allFields: config ? Object.keys(config) : []
       },
       rawData: config,
-      statusConfigs: config?.statusConfigs || [],
-      categoryConfigs: config?.categoryConfigs || []
+      statusConfigs: config && 'statusConfigs' in config ? config.statusConfigs || [] : [],
+      categoryConfigs: config && 'categoryConfigs' in config ? config.categoryConfigs || [] : []
     };
     
     return NextResponse.json(result);

@@ -111,7 +111,7 @@ export async function POST(request: NextRequest) {
         
         
         for (const item of items) {
-          if (!item.itemName || !item.category) {
+          if (!item.itemName || !item.categoryId) {
             console.warn(`⚠️ Skipping invalid item:`, item);
             continue;
           }
@@ -121,19 +121,19 @@ export async function POST(request: NextRequest) {
               const InventoryItem = (await import('@/models/InventoryItem')).default;
               const softDeletedItems = await InventoryItem.find({
                 itemName: item.itemName,
-                category: item.category,
+                category: item.categoryId,
                 status: 'deleted'
               });
               
               results.push({
                 itemName: item.itemName,
-                category: item.category,
+                category: item.categoryId,
                 preview: true,
                 softDeletedCount: softDeletedItems.length
               });
             } else {
-              const result = await cleanupSoftDeletedItems(item.itemName, item.category);
-              results.push({ itemName: item.itemName, category: item.category, ...result });
+              const result = await cleanupSoftDeletedItems(item.itemName, item.categoryId);
+              results.push({ itemName: item.itemName, category: item.categoryId, ...result });
               totalCleaned += result.cleaned;
             }
           } catch (itemError) {
@@ -154,11 +154,11 @@ export async function POST(request: NextRequest) {
           const softDeletedItems = await InventoryItem.find({ status: 'deleted' });
           
           const preview = softDeletedItems.reduce((acc: any, item) => {
-            const key = `${item.itemName}|${item.category}`;
+            const key = `${item.itemName}|${item.categoryId}`;
             if (!acc[key]) {
               acc[key] = {
                 itemName: item.itemName,
-                category: item.category,
+                category: item.categoryId,
                 count: 0
               };
             }
@@ -258,14 +258,14 @@ export async function GET(request: NextRequest) {
     
     let itemQuery: any = {};
     if (itemName) itemQuery.itemName = itemName;
-    if (category) itemQuery.category = category;
+    if (category) itemQuery.categoryId = category;
 
     if (analysisType === 'soft-deleted-only') {
-      itemQuery.status = 'deleted';
-      const softDeletedItems = await InventoryItem.find(itemQuery).select('itemName category serialNumber numberPhone deletedAt deleteReason');
+      itemQuery.statusId = 'status_deleted';
+      const softDeletedItems = await InventoryItem.find(itemQuery).select('itemName categoryId serialNumber numberPhone deletedAt deleteReason');
       const summary = softDeletedItems.reduce((acc: any, item) => {
-        const key = `${item.itemName}|${item.category}`;
-        if (!acc[key]) { acc[key] = { itemName: item.itemName, category: item.category, count: 0, items: [] }; }
+        const key = `${item.itemName}|${item.categoryId}`;
+        if (!acc[key]) { acc[key] = { itemName: item.itemName, category: item.categoryId, count: 0, items: [] }; }
         acc[key].count++;
         acc[key].items.push({ id: item._id, serialNumber: item.serialNumber, numberPhone: item.numberPhone, deletedAt: item.deletedAt, deleteReason: item.deleteReason });
         return acc;
@@ -276,20 +276,20 @@ export async function GET(request: NextRequest) {
     const allItems = await InventoryItem.find(itemQuery);
     const itemGroups: any = {};
     for (const item of allItems) {
-      const key = `${item.itemName}|${item.category}`;
-      if (!itemGroups[key]) { itemGroups[key] = { itemName: item.itemName, category: item.category, allItems: [], activeItems: [], softDeletedItems: [] }; }
+      const key = `${item.itemName}|${item.categoryId}`;
+      if (!itemGroups[key]) { itemGroups[key] = { itemName: item.itemName, category: item.categoryId, allItems: [], activeItems: [], softDeletedItems: [] }; }
       itemGroups[key].allItems.push(item);
-      if (item.status === 'deleted') {
+      if (item.statusId === 'status_deleted') {
         itemGroups[key].softDeletedItems.push({ id: item._id, serialNumber: item.serialNumber, numberPhone: item.numberPhone, deletedAt: item.deletedAt, deleteReason: item.deleteReason });
       } else {
-        itemGroups[key].activeItems.push({ id: item._id, serialNumber: item.serialNumber, status: item.status, ownerType: item.currentOwnership?.ownerType });
+        itemGroups[key].activeItems.push({ id: item._id, serialNumber: item.serialNumber, status: item.statusId, ownerType: item.currentOwnership?.ownerType });
       }
     }
 
     const analysisResults: any[] = [];
     let totalProblems = 0;
     for (const [key, group] of Object.entries(itemGroups)) {
-      const masterItem = await InventoryMaster.findOne({ itemName: (group as any).itemName, category: (group as any).category });
+      const masterItem = await InventoryMaster.findOne({ itemName: (group as any).itemName, categoryId: (group as any).category });
       const totalInItems = (group as any).allItems.length;
       const activeInItems = (group as any).activeItems.length;
       const softDeletedCount = (group as any).softDeletedItems.length;

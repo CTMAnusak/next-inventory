@@ -50,10 +50,10 @@ export async function GET(request: NextRequest) {
     }
 
     // ✅ หาสถานะ "มี" และสภาพ "ใช้งานได้" จาก config
-    const availableStatus = inventoryConfig.statusConfigs?.find(s => s.name === 'มี');
+    const availableStatus = inventoryConfig.statusConfigs?.find((s: any) => s.name === 'มี');
     const availableStatusId = availableStatus?.id || 'status_available';
     
-    const workingCondition = inventoryConfig.conditionConfigs?.find(c => c.name === 'ใช้งานได้');
+    const workingCondition = inventoryConfig.conditionConfigs?.find((c: any) => c.name === 'ใช้งานได้');
     const workingConditionId = workingCondition?.id || 'cond_working';
 
     console.log('✅ Equipment Reports Filter:', {
@@ -70,7 +70,7 @@ export async function GET(request: NextRequest) {
     // Check if category is a name (not an ID)
     if (!category.startsWith('cat_')) {
       // Find category ID from name
-      const categoryConfig = inventoryConfig.categoryConfigs?.find(c => c.name === category);
+      const categoryConfig = inventoryConfig.categoryConfigs?.find((c: any) => c.name === category);
       if (categoryConfig) {
         categoryId = categoryConfig.id;
         console.log(`✅ Converted category name "${category}" to ID "${categoryId}"`);
@@ -104,7 +104,7 @@ export async function GET(request: NextRequest) {
       console.log(`📋 Available InventoryMaster records for this itemName:`, allItemRecords.map(r => ({
         itemName: r.itemName,
         categoryId: r.categoryId,
-        category: inventoryConfig.categoryConfigs?.find(c => c.id === r.categoryId)?.name
+        category: inventoryConfig.categoryConfigs?.find((c: any) => c.id === r.categoryId)?.name
       })));
       
       return NextResponse.json(
@@ -142,7 +142,7 @@ export async function GET(request: NextRequest) {
       itemName: item.itemName,
       serialNumber: item.serialNumber,
       numberPhone: item.numberPhone,
-      status: item.status,
+      // status: item.status, // removed - using statusId instead
       statusId: item.statusId,
       conditionId: item.conditionId,
       hasConditionId: !!item.conditionId,
@@ -171,7 +171,7 @@ export async function GET(request: NextRequest) {
       status: { $ne: 'deleted' } // ✅ Exclude soft-deleted items for accurate debugging
     });
     allAdminStockItems.forEach((item, index) => {
-      console.log(`  ${index + 1}. Status: ${item.status}, StatusId: ${item.statusId}, ConditionId: ${item.conditionId}, SN: ${item.serialNumber || 'No SN'}, ID: ${item._id}`);
+      console.log(`  ${index + 1}. StatusId: ${item.statusId}, ConditionId: ${item.conditionId}, SN: ${item.serialNumber || 'No SN'}, ID: ${item._id}`);
     });
     
     // Debug: Check if conditionId is missing from available items
@@ -242,17 +242,17 @@ export async function GET(request: NextRequest) {
       totalAvailable: availableItems.length,
       // ✅ Include configs in response for client-side ID to name mapping
       configs: {
-        statusConfigs: inventoryConfig.statusConfigs?.map(s => ({
+        statusConfigs: inventoryConfig.statusConfigs?.map((s: any) => ({
           id: s.id,
           name: s.name,
           order: s.order
         })) || [],
-        conditionConfigs: inventoryConfig.conditionConfigs?.map(c => ({
+        conditionConfigs: inventoryConfig.conditionConfigs?.map((c: any) => ({
           id: c.id,
           name: c.name,
           order: c.order
         })) || [],
-        categoryConfigs: inventoryConfig.categoryConfigs?.map(cat => ({
+        categoryConfigs: inventoryConfig.categoryConfigs?.map((cat: any) => ({
           id: cat.id,
           name: cat.name,
           order: cat.order

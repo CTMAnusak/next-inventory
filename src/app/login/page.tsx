@@ -43,7 +43,7 @@ export default function LoginPage() {
       if (decodedError.includes('ไม่พบบัญชีผู้ใช้') || error === 'no_account') {
         setErrorData({
           title: '❌ ไม่พบบัญชีผู้ใช้',
-          message: decodedError,
+          message: 'บัญชีผู้ใช้ไม่พบในระบบ',
           details: 'กรุณาสมัครสมาชิกด้วย Google หรือติดต่อผู้ดูแลระบบหากปัญหายังคงมีอยู่',
           type: 'error'
         });

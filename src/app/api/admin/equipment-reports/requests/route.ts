@@ -78,12 +78,13 @@ export async function GET() {
         return {
           ...requestData,
           // Add user data directly to request object for easier access in UI
-          firstName: resolvedUser?.firstName || 'Unknown User',
-          lastName: resolvedUser?.lastName || '',
-          nickname: resolvedUser?.nickname || '',
-          department: resolvedUser?.department || '',
-          office: resolvedUser?.office || '',
-          phone: resolvedUser?.phone || '',
+          // Priority: stored requester info (for branch users) > resolved user > fallback
+          firstName: (req as any).requesterFirstName || resolvedUser?.firstName || 'Unknown User',
+          lastName: (req as any).requesterLastName || resolvedUser?.lastName || '',
+          nickname: (req as any).requesterNickname || resolvedUser?.nickname || '',
+          department: (req as any).requesterDepartment || resolvedUser?.department || '',
+          office: (req as any).requesterOffice || resolvedUser?.office || '',
+          phone: (req as any).requesterPhone || resolvedUser?.phone || '',
           items: enrichedItems
         };
       })

@@ -4,6 +4,7 @@ import RequestLog from '@/models/RequestLog';
 import { verifyToken } from '@/lib/auth';
 import InventoryMaster from '@/models/InventoryMaster';
 import InventoryItem from '@/models/InventoryItem';
+import InventoryConfig from '@/models/InventoryConfig';
 import { findAvailableItems } from '@/lib/inventory-helpers';
 
 export async function POST(request: NextRequest) {
@@ -66,6 +67,25 @@ export async function POST(request: NextRequest) {
         { error: 'กรุณาเข้าสู่ระบบ' },
         { status: 401 }
       );
+    }
+
+    // Load inventory config to get correct status and condition IDs
+    const inventoryConfig = await InventoryConfig.findOne({});
+    let availableStatusId = 'status_available';
+    let workingConditionId = 'cond_working';
+    
+    if (inventoryConfig) {
+      // Find the "มี" status config
+      const availableStatus = inventoryConfig.statusConfigs?.find(s => s.name === 'มี');
+      if (availableStatus) {
+        availableStatusId = availableStatus.id;
+      }
+      
+      // Find the "ใช้งานได้" condition config
+      const workingCondition = inventoryConfig.conditionConfigs?.find(c => c.name === 'ใช้งานได้');
+      if (workingCondition) {
+        workingConditionId = workingCondition.id;
+      }
     }
 
     // Check for pending requests first
@@ -135,7 +155,10 @@ export async function POST(request: NextRequest) {
           // ✅ บันทึก serialNumbers เป็น array (ตาม model)
           serialNumbers: item.serialNumber ? [item.serialNumber] : undefined,
           availableItemIds: availableItems.map(it => it._id.toString()),
-          itemNotes: item.itemNotes || undefined
+          itemNotes: item.itemNotes || undefined,
+          // ✅ บันทึกสถานะและสภาพของอุปกรณ์ที่เบิก (เพราะอุปกรณ์ที่แสดงให้เบิกได้มีสถานะ "มี" และสภาพ "ใช้งานได้")
+          statusOnRequest: availableStatusId, // มี
+          conditionOnRequest: workingConditionId // ใช้งานได้
         };
 
         validatedItems.push(cleanItems);
@@ -152,6 +175,13 @@ export async function POST(request: NextRequest) {
     // Create new request log with new structure (real-time lookup)
     const requestLogData = {
       userId: currentUserId,
+      // Store user info for branch users (who don't have user profiles)
+      requesterFirstName: requestData.firstName || undefined,
+      requesterLastName: requestData.lastName || undefined,
+      requesterNickname: requestData.nickname || undefined,
+      requesterDepartment: requestData.department || undefined,
+      requesterPhone: requestData.phone || undefined,
+      requesterOffice: requestData.office || undefined,
       requestDate: new Date(requestData.requestDate),
       urgency: requestData.urgency,
       deliveryLocation: requestData.deliveryLocation,

@@ -2468,7 +2468,7 @@ export default function AdminInventoryPage() {
 
           {/* Table */}
           <div ref={tableContainerRef} className="table-container">
-            <table className=" min-w-full divide-y divide-gray-200">
+            <table className="min-w-full divide-y divide-gray-200">
               <thead className="bg-blue-600">
                 <tr>
                   <th className="px-6 py-3 text-center text-xs font-medium text-white uppercase tracking-wider">

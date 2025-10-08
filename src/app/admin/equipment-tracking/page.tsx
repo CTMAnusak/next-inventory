@@ -63,6 +63,7 @@ export default function AdminEquipmentTrackingPage() {
   const [officeFilter, setOfficeFilter] = useState('');
   const [dateAddedFilter, setDateAddedFilter] = useState('');
   const [sourceFilter, setSourceFilter] = useState('');
+  const [deliveryLocationFilter, setDeliveryLocationFilter] = useState('');
 
   // Pagination
   const [currentPage, setCurrentPage] = useState(1);
@@ -87,7 +88,7 @@ export default function AdminEquipmentTrackingPage() {
 
   useEffect(() => {
     applyFilters();
-  }, [trackingData, searchTerm, itemFilter, categoryFilter, statusFilter, conditionFilter, departmentFilter, officeFilter, dateAddedFilter, sourceFilter]);
+  }, [trackingData, searchTerm, itemFilter, categoryFilter, statusFilter, conditionFilter, departmentFilter, officeFilter, dateAddedFilter, sourceFilter, deliveryLocationFilter]);
 
   const fetchTrackingData = async () => {
     setLoading(true);
@@ -154,9 +155,13 @@ export default function AdminEquipmentTrackingPage() {
       // Source filter (request or user-owned)
       const matchesSource = !sourceFilter || record.source === sourceFilter;
 
+      // Delivery Location filter
+      const matchesDeliveryLocation = !deliveryLocationFilter || 
+        (record.deliveryLocation && record.deliveryLocation.toLowerCase().includes(deliveryLocationFilter.toLowerCase()));
+
       return matchesSearch && matchesItem && matchesCategory && matchesStatus && 
              matchesCondition && matchesDepartment && matchesOffice && 
-             matchesDateAdded && matchesSource;
+             matchesDateAdded && matchesSource && matchesDeliveryLocation;
     });
 
     setFilteredData(filtered);
@@ -173,6 +178,7 @@ export default function AdminEquipmentTrackingPage() {
     setOfficeFilter('');
     setDateAddedFilter('');
     setSourceFilter('');
+    setDeliveryLocationFilter('');
   };
 
   // Get unique values for filters
@@ -228,6 +234,11 @@ export default function AdminEquipmentTrackingPage() {
   const offices = useMemo(() => {
     if (!Array.isArray(trackingData)) return [];
     return [...new Set(trackingData.map(record => record.office).filter(Boolean))];
+  }, [trackingData]);
+
+  const deliveryLocations = useMemo(() => {
+    if (!Array.isArray(trackingData)) return [];
+    return [...new Set(trackingData.map(record => record.deliveryLocation).filter(Boolean))];
   }, [trackingData]);
 
   // Pagination
@@ -420,6 +431,24 @@ export default function AdminEquipmentTrackingPage() {
                 
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-1">
+                    สถานที่จัดส่ง
+                  </label>
+                  <select
+                    value={deliveryLocationFilter}
+                    onChange={(e) => setDeliveryLocationFilter(e.target.value)}
+                    className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 text-gray-900"
+                  >
+                    <option value="">ทั้งหมด</option>
+                    {deliveryLocations.map((location) => (
+                      <option key={location} value={location}>
+                        {location}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+                
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">
                     วันที่เพิ่มอุปกรณ์
                   </label>
                   <DatePicker
@@ -452,40 +481,43 @@ export default function AdminEquipmentTrackingPage() {
               <table className="min-w-full divide-y divide-gray-200">
                 <thead className="bg-blue-600">
                   <tr>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-white uppercase tracking-wider">
+                    <th className="px-6 py-3 text-center text-xs font-medium text-white uppercase tracking-wider">
                       หมวดหมู่
                     </th>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-white uppercase tracking-wider">
+                    <th className="px-6 py-3 text-center text-xs font-medium text-white uppercase tracking-wider">
                       อุปกรณ์
                     </th>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-white uppercase tracking-wider">
+                    <th className="px-6 py-3 text-center text-xs font-medium text-white uppercase tracking-wider">
                       Serial Number
                     </th>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-white uppercase tracking-wider">
+                    <th className="px-6 py-3 text-center text-xs font-medium text-white uppercase tracking-wider">
                       สถานะ
                     </th>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-white uppercase tracking-wider">
+                    <th className="px-6 py-3 text-center text-xs font-medium text-white uppercase tracking-wider">
                       สภาพ
                     </th>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-white uppercase tracking-wider">
+                    <th className="px-6 py-3 text-center text-xs font-medium text-white uppercase tracking-wider">
                       วันที่เพิ่มอุปกรณ์
                     </th>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-white uppercase tracking-wider">
+                    <th className="px-6 py-3 text-center text-xs font-medium text-white uppercase tracking-wider">
                       ชื่อ-นามสกุล (ชื่อเล่น)
                     </th>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-white uppercase tracking-wider">
+                    <th className="px-6 py-3 text-center text-xs font-medium text-white uppercase tracking-wider">
                       แผนก
                     </th>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-white uppercase tracking-wider">
+                    <th className="px-6 py-3 text-center text-xs font-medium text-white uppercase tracking-wider">
                       ออฟฟิศ/สาขา
                     </th>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-white uppercase tracking-wider">
+                    <th className="px-6 py-3 text-center text-xs font-medium text-white uppercase tracking-wider">
                       เบอร์โทร
                     </th>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-white uppercase tracking-wider">
+                    <th className="px-6 py-3 text-center text-xs font-medium text-white uppercase tracking-wider">
+                      สถานที่จัดส่ง
+                    </th>
+                    <th className="px-6 py-3 text-center text-xs font-medium text-white uppercase tracking-wider">
                       จำนวน
                     </th>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-white uppercase tracking-wider">
+                    <th className="px-6 py-3 text-center text-xs font-medium text-white uppercase tracking-wider">
                       แหล่งที่มา
                     </th>
                   </tr>
@@ -494,7 +526,7 @@ export default function AdminEquipmentTrackingPage() {
                   {currentItems.map((record, index) => (
                       <tr key={`${record._id}-${index}`} className={`hover:bg-gray-100 ${index % 2 === 0 ? 'bg-white' : 'bg-blue-50'}`}>
                         {/* 1. หมวดหมู่ */}
-                        <td className="px-6 py-4 whitespace-nowrap">
+                        <td className="px-6 py-4 whitespace-nowrap text-center">
                           <span className={`inline-flex px-2 py-1 text-xs font-semibold rounded-full ${
                             (record.categoryName || record.category) === 'ไม่ระบุ' 
                               ? 'bg-gray-100 text-gray-800' 
@@ -509,14 +541,14 @@ export default function AdminEquipmentTrackingPage() {
                         </td>
                         
                         {/* 2. อุปกรณ์ */}
-                        <td className="px-6 py-4 whitespace-nowrap">
-                          <div className="text-sm font-medium text-gray-900">
+                        <td className="px-6 py-4 whitespace-nowrap text-center">
+                          <div className="text-sm font-medium text-gray-900 flex justify-center">
                             {record.currentItemName}
                           </div>
                         </td>
                         
                         {/* 3. Serial Number */}
-                        <td className="px-6 py-4 text-sm text-gray-900 text-selectable">
+                        <td className="px-6 py-4 text-sm text-gray-900 text-selectable text-center">
                           {record.serialNumber ? (
                             <span className="inline-flex px-2 py-1 text-xs font-semibold rounded-full bg-purple-100 text-purple-800">
                               {record.serialNumber}
@@ -529,7 +561,7 @@ export default function AdminEquipmentTrackingPage() {
                         </td>
                         
                         {/* 4. สถานะ */}
-                        <td className="px-6 py-4 whitespace-nowrap">
+                        <td className="px-6 py-4 whitespace-nowrap text-center">
                           <span className={`inline-flex px-2 py-1 text-xs font-semibold rounded-full ${
                             record.statusName === 'มี' 
                               ? 'bg-green-100 text-green-800' 
@@ -542,7 +574,7 @@ export default function AdminEquipmentTrackingPage() {
                         </td>
                         
                         {/* 5. สภาพ */}
-                        <td className="px-6 py-4 whitespace-nowrap">
+                        <td className="px-6 py-4 whitespace-nowrap text-center">
                           <span className={`inline-flex px-2 py-1 text-xs font-semibold rounded-full ${
                             record.conditionName === 'ใช้งานได้' 
                               ? 'bg-blue-100 text-blue-800' 
@@ -555,8 +587,8 @@ export default function AdminEquipmentTrackingPage() {
                         </td>
                         
                         {/* 6. วันที่เพิ่มอุปกรณ์ */}
-                        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                          <div className="flex flex-col">
+                        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900 text-center">
+                          <div className="flex flex-col items-center">
                             <span className="font-medium">
                               {new Date(record.dateAdded || record.requestDate).toLocaleDateString('th-TH', {
                                 year: 'numeric',
@@ -574,9 +606,9 @@ export default function AdminEquipmentTrackingPage() {
                         </td>
                         
                         {/* 7. ชื่อ-นามสกุล (ชื่อเล่น) */}
-                        <td className="px-6 py-4 whitespace-nowrap">
-                          <div className="flex items-center">
-                            <div>
+                        <td className="px-6 py-4 whitespace-nowrap text-center">
+                          <div className="flex items-center justify-center">
+                            <div className="text-center">
                               <div className={`text-sm font-medium ${
                                 record.pendingDeletion 
                                   ? 'text-orange-600' 
@@ -604,7 +636,7 @@ export default function AdminEquipmentTrackingPage() {
                         
                         {/* 8. แผนก */}
                         <td 
-                          className="px-6 py-4 text-sm text-gray-900 text-selectable"
+                          className="px-6 py-4 text-sm text-gray-900 text-selectable text-center"
                           style={{ userSelect: 'text', cursor: 'text' }}
                         >
                           {record.department || '-'}
@@ -612,7 +644,7 @@ export default function AdminEquipmentTrackingPage() {
                         
                         {/* 9. ออฟฟิศ/สาขา */}
                         <td 
-                          className="px-6 py-4 text-sm text-gray-900 text-selectable"
+                          className="px-6 py-4 text-sm text-gray-900 text-selectable text-center"
                           style={{ userSelect: 'text', cursor: 'text' }}
                         >
                           {record.office || '-'}
@@ -620,14 +652,30 @@ export default function AdminEquipmentTrackingPage() {
                         
                         {/* 10. เบอร์โทร */}
                         <td 
-                          className="px-6 py-4 text-sm text-gray-900 text-selectable"
+                          className="px-6 py-4 text-sm text-gray-900 text-selectable text-center"
                           style={{ userSelect: 'text', cursor: 'text' }}
                         >
                           {record.phone || '-'}
                         </td>
                         
-                        {/* 11. จำนวน */}
-                        <td className="px-6 py-4 text-sm text-gray-900 text-selectable">
+                        {/* 11. สถานที่จัดส่ง */}
+                        <td 
+                          className="px-6 py-4 text-sm text-gray-900 text-selectable text-center"
+                          style={{ userSelect: 'text', cursor: 'text' }}
+                        >
+                          <div className="flex items-center justify-center">
+                            <span className={`inline-flex px-2 py-1 text-xs font-semibold rounded-full ${
+                              record.source === 'request' 
+                                ? 'bg-blue-100 text-blue-800' 
+                                : 'bg-gray-100 text-gray-600'
+                            }`}>
+                              {record.deliveryLocation || '-'}
+                            </span>
+                          </div>
+                        </td>
+                        
+                        {/* 12. จำนวน */}
+                        <td className="px-6 py-4 text-sm text-gray-900 text-selectable text-center">
                           <span className={`inline-flex px-2 py-1 text-xs font-semibold rounded-full ${
                             record.quantity > 1 
                               ? 'bg-green-100 text-green-800' 
@@ -637,8 +685,8 @@ export default function AdminEquipmentTrackingPage() {
                           </span>
                         </td>
                         
-                        {/* 12. แหล่งที่มา */}
-                        <td className="px-6 py-4 whitespace-nowrap">
+                        {/* 13. แหล่งที่มา */}
+                        <td className="px-6 py-4 whitespace-nowrap text-center">
                           <span className={`inline-flex px-2 py-1 text-xs font-semibold rounded-full ${
                             record.source === 'request' 
                               ? 'bg-blue-100 text-blue-800' 
@@ -648,10 +696,10 @@ export default function AdminEquipmentTrackingPage() {
                           </span>
                         </td>
                       </tr>
-                    ))
-                  }
+                    ))}
                 </tbody>
               </table>
+            )}
           </div>
 
           {/* Empty State */}

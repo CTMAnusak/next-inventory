@@ -22,6 +22,29 @@ export async function GET() {
     // ตรวจสอบและเพิ่ม default configs ถ้าไม่มี
     let needsSave = false;
     
+    // เพิ่ม default categories ถ้าไม่มี
+    if (!config.categoryConfigs || config.categoryConfigs.length === 0) {
+      config.categoryConfigs = [
+        {
+          id: 'cat_sim_card',
+          name: 'ซิมการ์ด',
+          isSystemCategory: true,
+          order: 1,
+          createdAt: new Date(),
+          updatedAt: new Date()
+        },
+        {
+          id: 'cat_unassigned',
+          name: 'ไม่ระบุ',
+          isSystemCategory: true,
+          order: 999,
+          createdAt: new Date(),
+          updatedAt: new Date()
+        }
+      ] as any;
+      needsSave = true;
+    }
+    
     // เพิ่ม default statuses ถ้าไม่มี
     if (!config.statusConfigs || config.statusConfigs.length === 0) {
       config.statusConfigs = [
@@ -77,6 +100,7 @@ export async function GET() {
     }
     
     return NextResponse.json({
+      categoryConfigs: config.categoryConfigs.sort((a: any, b: any) => a.order - b.order),
       statusConfigs: config.statusConfigs.sort((a: any, b: any) => a.order - b.order),
       conditionConfigs: config.conditionConfigs.sort((a: any, b: any) => a.order - b.order)
     });

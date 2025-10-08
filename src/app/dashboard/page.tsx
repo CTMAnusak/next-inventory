@@ -27,7 +27,7 @@ export default function DashboardPage() {
   const [editItemId, setEditItemId] = useState<string | null>(null);
   const [showDetailModal, setShowDetailModal] = useState(false);
   const [detailData, setDetailData] = useState<any>(null);
-  const [ownedItems, setOwnedItems] = useState<Array<{ _id?: string; itemName: string; category: string; categoryId?: string; serialNumber?: string; numberPhone?: string; quantity: number; firstName?: string; lastName?: string; nickname?: string; department?: string; phone?: string; statusId?: string; conditionId?: string; statusName?: string; conditionName?: string; notes?: string; currentOwnership?: { ownedSince?: string | Date }; sourceInfo?: { dateAdded?: string | Date }; createdAt?: string | Date; source?: string; editable?: boolean; hasPendingReturn?: boolean }>>([]);
+  const [ownedItems, setOwnedItems] = useState<Array<{ _id?: string; itemName: string; category: string; categoryId?: string; serialNumber?: string; numberPhone?: string; quantity: number; firstName?: string; lastName?: string; nickname?: string; department?: string; phone?: string; statusId?: string; conditionId?: string; statusName?: string; conditionName?: string; notes?: string; currentOwnership?: { ownedSince?: string | Date }; sourceInfo?: { dateAdded?: string | Date }; createdAt?: string | Date; source?: string; editable?: boolean; hasPendingReturn?: boolean; deliveryLocation?: string }>>([]);
   const [categoryConfigs, setCategoryConfigs] = useState<ICategoryConfig[]>([]);
   const [statusConfigs, setStatusConfigs] = useState<any[]>([]);
   const [conditionConfigs, setConditionConfigs] = useState<any[]>([]);
@@ -87,6 +87,20 @@ export default function DashboardPage() {
       clearTimeout(timeoutId);
       const responseData = ownedRes.ok ? await ownedRes.json() : { items: [] };
       const ownedEquipment = responseData.items || [];
+      
+      // 🔍 Debug: Log delivery location for each item
+      console.log('================================');
+      console.log('📦 Dashboard - Owned Equipment Data:');
+      console.log(`🔑 Current User ID: ${user?.id}`);
+      console.log(`👤 User Info: ${user?.firstName} ${user?.lastName}`);
+      console.log('--------------------------------');
+      ownedEquipment.forEach((item: any, idx: number) => {
+        console.log(`  ${idx + 1}. ${item.itemName} (ID: ${item._id})`);
+        console.log(`     📍 deliveryLocation: "${item.deliveryLocation || 'empty'}"`);
+        console.log(`     👤 userId: ${item.currentOwnership?.userId || 'N/A'}`);
+      });
+      console.log('================================');
+      
       // Show each owned item as an individual row (no grouping/combining)
       setOwnedItems(ownedEquipment);
       setDataLoaded(true); // Mark as loaded to prevent duplicate calls
@@ -638,7 +652,7 @@ export default function DashboardPage() {
           </div>
 
           <div ref={tableContainerRef} className="table-container">
-            <table className="min-w-full border border-gray-200 rounded-md">
+            <table className="min-w-full divide-y divide-gray-200">
               <thead>
                 <tr className="bg-blue-600">
                   <th className="px-3 py-2 text-center border-b text-white">วันที่เพิ่ม</th>
@@ -648,6 +662,7 @@ export default function DashboardPage() {
                   <th className="px-3 py-2 text-center border-b text-white">แผนก</th>
                   <th className="px-3 py-2 text-center border-b text-white">ออฟฟิศ/สาขา</th>
                   <th className="px-3 py-2 text-center border-b text-white">เบอร์โทร</th>
+                  <th className="px-3 py-2 text-center border-b text-white">สถานที่จัดส่ง</th>
                   <th className="px-3 py-2 text-center border-b text-white">ชื่ออุปกรณ์</th>
                   <th className="px-3 py-2 text-center border-b text-white">หมวดหมู่</th>
                   <th className="px-3 py-2 text-center border-b text-white">สภาพ</th>
@@ -659,13 +674,13 @@ export default function DashboardPage() {
               <tbody>
                 {ownedLoading ? (
                   <tr>
-                    <td colSpan={13} className="px-3 py-6 text-center text-gray-500">
+                    <td colSpan={14} className="px-3 py-6 text-center text-gray-500">
                       <RefreshCw className="inline-block w-4 h-4 mr-2 animate-spin text-gray-400" /> กำลังโหลดข้อมูล
                     </td>
                   </tr>
                 ) : ownedItems.length === 0 ? (
                   <tr>
-                    <td colSpan={13} className="px-3 py-6 text-center text-gray-500">
+                    <td colSpan={14} className="px-3 py-6 text-center text-gray-500">
                       ยังไม่มีอุปกรณ์ในความครอบครอง
                     </td>
                   </tr>
@@ -723,6 +738,11 @@ export default function DashboardPage() {
                           ? (row.phone || '-')
                           : (user?.phone || '-')
                         }
+                      </div>
+                    </td>
+                    <td className="px-3 py-2 text-center border-b">
+                      <div className="text-gray-900">
+                        {(row as any).deliveryLocation || '-'}
                       </div>
                     </td>
                     <td className="px-3 py-2 text-center border-b">
@@ -881,9 +901,10 @@ export default function DashboardPage() {
                           </>
                         ) : (
                           <>
-                            {/* Edit button */}
-                            <button
-                              onClick={async () => {
+                            {/* Edit button - Only show for user-owned items */}
+                            {row.source === 'user-owned' && (
+                              <button
+                                onClick={async () => {
                                 try {
                                   // Set edit mode
                                   setEditItemId(row._id || '');
@@ -923,6 +944,14 @@ export default function DashboardPage() {
                                       setSelectedCategoryId(categoryId);
                                       // Fetch items in category for dropdown
                                       await fetchItemsInCategory(itemData.categoryId || row.categoryId || row.category);
+                                      // Ensure the current item is in the available items list
+                                      const itemName = itemData.itemName || row.itemName;
+                                      setAvailableItems(prev => {
+                                        if (!prev.includes(itemName)) {
+                                          return [...prev, itemName];
+                                        }
+                                        return prev;
+                                      });
                                     } else {
                                       // Fallback to row data if API fails
                                       const categoryId = row.categoryId || row.category;
@@ -948,6 +977,13 @@ export default function DashboardPage() {
                                       setSelectedCategoryId(categoryId);
                                       // Fetch items in category for dropdown
                                       await fetchItemsInCategory(row.categoryId || row.category);
+                                      // Ensure the current item is in the available items list
+                                      setAvailableItems(prev => {
+                                        if (!prev.includes(row.itemName)) {
+                                          return [...prev, row.itemName];
+                                        }
+                                        return prev;
+                                      });
                                     }
                                   } else {
                                     // Fallback to row data if no ID
@@ -974,6 +1010,13 @@ export default function DashboardPage() {
                                     setSelectedCategoryId(categoryId);
                                     // Fetch items in category for dropdown
                                     await fetchItemsInCategory(row.categoryId || row.category);
+                                    // Ensure the current item is in the available items list
+                                    setAvailableItems(prev => {
+                                      if (!prev.includes(row.itemName)) {
+                                        return [...prev, row.itemName];
+                                      }
+                                      return prev;
+                                    });
                                   }
                                   
                                   setShowAddOwned(true);
@@ -982,24 +1025,31 @@ export default function DashboardPage() {
                                   toast.error('ไม่สามารถดึงข้อมูลอุปกรณ์ได้');
                                 }
                               }}
-                              className="px-3 py-1 text-xs text-blue-600 hover:text-blue-800 hover:bg-blue-50 border border-blue-200 rounded"
-                            >
-                              แก้ไข
-                            </button>
+                                className="px-3 py-1 text-xs text-blue-600 hover:text-blue-800 hover:bg-blue-50 border border-blue-200 rounded"
+                              >
+                                แก้ไข
+                              </button>
+                            )}
                             
                             {/* Return Equipment button */}
                             <button
                               onClick={() => {
-                                // Debug: log the data we're sending
-                                console.log('🔍 Return button clicked:', { 
-                                  id: row._id, 
-                                  itemId: (row as any).itemId,
-                                  itemName: row.itemName,
-                                  totalQuantity: (row as any).totalQuantity,
-                                  quantity: row.quantity
+                                // Build URL with personal info for branch users
+                                const params = new URLSearchParams({
+                                  id: (row._id || (row as any).itemId) as string
                                 });
-                                // Navigate to equipment return page with ID only
-                                router.push(`/equipment-return?id=${row._id || (row as any).itemId}`);
+                                
+                                // For branch users, include personal info from the row
+                                if (user?.userType === 'branch' && row.firstName) {
+                                  params.set('firstName', row.firstName);
+                                  params.set('lastName', row.lastName || '');
+                                  params.set('nickname', row.nickname || '');
+                                  params.set('department', row.department || '');
+                                  params.set('phone', row.phone || '');
+                                }
+                                
+                                // Navigate to equipment return page with all params
+                                router.push(`/equipment-return?${params.toString()}`);
                               }}
                               className="px-3 py-1 text-xs text-orange-600 hover:text-orange-800 hover:bg-orange-50 border border-orange-200 rounded"
                             >
@@ -1013,6 +1063,41 @@ export default function DashboardPage() {
                 ))}
               </tbody>
             </table>
+          </div>
+          
+          {/* Information Note */}
+          <div className="mt-4 p-4 bg-blue-50 border border-blue-200 rounded-lg">
+            <h4 className="text-sm font-medium text-blue-900 mb-3">หมายเหตุ:</h4>
+            
+            {/* การแก้ไขข้อมูล */}
+            <div className="mb-4">
+              <h5 className="text-sm font-semibold text-blue-900 mb-2">🔧 การแก้ไขข้อมูล</h5>
+              <ul className="text-sm text-blue-800 space-y-1 ml-4">
+                <li className="flex items-start">
+                  <span className="text-green-600 mr-2">✓</span>
+                  <span>อุปกรณ์ที่เพิ่มผ่านปุ่ม "<strong>เพิ่มอุปกรณ์ที่มี</strong>" สามารถแก้ไขข้อมูลได้</span>
+                </li>
+                <li className="flex items-start">
+                  <span className="text-orange-600 mr-2">⚠</span>
+                  <span>อุปกรณ์ที่ได้จาก<strong>การเบิกอุปกรณ์</strong> ไม่สามารถแก้ไขข้อมูลได้ (เพื่อความถูกต้องของประวัติการเบิก)</span>
+                </li>
+              </ul>
+            </div>
+
+            {/* สถานที่จัดส่ง */}
+            <div>
+              <h5 className="text-sm font-semibold text-blue-900 mb-2">📍 สถานที่จัดส่ง</h5>
+              <ul className="text-sm text-blue-800 space-y-1 ml-4">
+                <li className="flex items-start">
+                  <span className="text-green-600 mr-2">✓</span>
+                  <span>อุปกรณ์ที่ได้จาก<strong>การเบิกอุปกรณ์</strong> จะแสดงสถานที่จัดส่งที่กรอกไว้ตอนเบิก</span>
+                </li>
+                <li className="flex items-start">
+                  <span className="text-gray-500 mr-2">—</span>
+                  <span>อุปกรณ์ที่เพิ่มผ่าน "<strong>เพิ่มอุปกรณ์ที่มี</strong>" จะแสดง "<strong>-</strong>" เพราะไม่ได้มาจากการเบิก</span>
+                </li>
+              </ul>
+            </div>
           </div>
         </div>
 
@@ -1072,8 +1157,9 @@ export default function DashboardPage() {
                   <select
                     value={selectedCategoryId}
                     onChange={(e) => handleCategoryChange(e.target.value)}
-                    className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                    className={`w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 ${editItemId ? 'bg-gray-100 cursor-not-allowed' : ''}`}
                     required
+                    disabled={!!editItemId}
                   >
                     <option value="">เลือกหมวดหมู่</option>
                     {categoryConfigs
@@ -1101,8 +1187,9 @@ export default function DashboardPage() {
                     <select
                       value={showNewItemInput ? 'new' : form.itemName}
                       onChange={(e) => handleItemSelection(e.target.value)}
-                      className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                      className={`w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 ${editItemId ? 'bg-gray-100 cursor-not-allowed' : ''}`}
                       required
+                      disabled={!!editItemId}
                     >
                       <option value="">เลือกอุปกรณ์</option>
                       {availableItems.map((item) => (
@@ -1229,7 +1316,7 @@ export default function DashboardPage() {
                         onChange={(e) => setForm({ ...form, notes: e.target.value })}
                         className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
                         rows={3}
-                        placeholder="ระบุหมายเหตุเพิ่มเติม (ถ้ามี)"
+                        placeholder={editItemId ? "แก้ไขอุปกรณ์ที่มี" : "ระบุหมายเหตุเพิ่มเติม (ถ้ามี)"}
                       />
                     </div>
                   </>

@@ -70,12 +70,13 @@ export async function GET() {
 
         const base = returnLog.toObject();
         return Object.assign(base, {
-          firstName: resolvedUser?.firstName || 'Unknown User',
-          lastName: resolvedUser?.lastName || '',
-          nickname: resolvedUser?.nickname || '',
-          department: resolvedUser?.department || '',
-          office: resolvedUser?.office || '',
-          phoneNumber: resolvedUser?.phone || base.phoneNumber || '',
+          // Priority: stored returner info (for branch users) > resolved user > fallback
+          firstName: (returnLog as any).returnerFirstName || resolvedUser?.firstName || 'Unknown User',
+          lastName: (returnLog as any).returnerLastName || resolvedUser?.lastName || '',
+          nickname: (returnLog as any).returnerNickname || resolvedUser?.nickname || '',
+          department: (returnLog as any).returnerDepartment || resolvedUser?.department || '',
+          office: (returnLog as any).returnerOffice || resolvedUser?.office || '',
+          phoneNumber: (returnLog as any).returnerPhone || resolvedUser?.phone || base.phoneNumber || '',
           items: enrichedItems
         });
       })

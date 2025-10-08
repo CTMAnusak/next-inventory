@@ -113,7 +113,7 @@ export async function POST(
         newStatusId,
         newConditionId,
         payload.userId,
-        `คืนจาก ${returnLog.firstName} ${returnLog.lastName}`
+        `คืนจาก ${(returnLog as any).requesterName || 'ผู้ใช้'}`
       );
       
       // Transfer back to admin stock if condition is working

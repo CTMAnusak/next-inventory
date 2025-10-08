@@ -1009,7 +1009,7 @@ export default function AdminUsersPage() {
                     รหัสผ่าน *
                   </label>
                   <input
-                    type="password"
+                    type="text"
                     name="password"
                     value={formData.password}
                     onChange={handleInputChange}
@@ -1210,12 +1210,13 @@ export default function AdminUsersPage() {
                     รหัสผ่านใหม่ (เว้นว่างหากไม่ต้องการเปลี่ยน)
                   </label>
                   <input
-                    type="password"
+                    type="text"
                     name="password"
                     value={formData.password}
                     onChange={handleInputChange}
                     className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 text-gray-900"
                     minLength={6}
+                    placeholder="กรอกรหัสผ่านใหม่"
                   />
                 </div>
                 

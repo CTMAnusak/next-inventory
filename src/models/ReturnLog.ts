@@ -18,6 +18,13 @@ export interface IReturnItem {
 export interface IReturnLog extends Document {
   // User info - store only userId for real-time lookup
   userId: string; // Reference to User._id for real-time lookup
+  // Store user info for branch users (who don't have user profiles)
+  returnerFirstName?: string; // ชื่อผู้คืนอุปกรณ์ (สำหรับผู้ใช้ประเภทสาขา)
+  returnerLastName?: string; // นามสกุลผู้คืนอุปกรณ์ (สำหรับผู้ใช้ประเภทสาขา)
+  returnerNickname?: string; // ชื่อเล่นผู้คืนอุปกรณ์ (สำหรับผู้ใช้ประเภทสาขา)
+  returnerDepartment?: string; // แผนกผู้คืนอุปกรณ์ (สำหรับผู้ใช้ประเภทสาขา)
+  returnerPhone?: string; // เบอร์โทรผู้คืนอุปกรณ์ (สำหรับผู้ใช้ประเภทสาขา)
+  returnerOffice?: string; // ออฟฟิศ/สาขาผู้คืนอุปกรณ์ (สำหรับผู้ใช้ประเภทสาขา)
   returnDate: Date; // วันที่คืน
   items: IReturnItem[]; // รายการอุปกรณ์ที่คืน (แต่ละรายการมี approvalStatus แยกกัน)
   notes?: string; // หมายเหตุรวมการคืน
@@ -47,6 +54,13 @@ const ReturnItemSchema = new Schema<IReturnItem>({
 
 const ReturnLogSchema = new Schema<IReturnLog>({
   userId: { type: String, required: true },  // Reference to User._id
+  // Store user info for branch users (who don't have user profiles)
+  returnerFirstName: { type: String }, // ชื่อผู้คืนอุปกรณ์ (สำหรับผู้ใช้ประเภทสาขา)
+  returnerLastName: { type: String }, // นามสกุลผู้คืนอุปกรณ์ (สำหรับผู้ใช้ประเภทสาขา)
+  returnerNickname: { type: String }, // ชื่อเล่นผู้คืนอุปกรณ์ (สำหรับผู้ใช้ประเภทสาขา)
+  returnerDepartment: { type: String }, // แผนกผู้คืนอุปกรณ์ (สำหรับผู้ใช้ประเภทสาขา)
+  returnerPhone: { type: String }, // เบอร์โทรผู้คืนอุปกรณ์ (สำหรับผู้ใช้ประเภทสาขา)
+  returnerOffice: { type: String }, // ออฟฟิศ/สาขาผู้คืนอุปกรณ์ (สำหรับผู้ใช้ประเภทสาขา)
   returnDate: { type: Date, required: true },
   items: [ReturnItemSchema],
   notes: { type: String }

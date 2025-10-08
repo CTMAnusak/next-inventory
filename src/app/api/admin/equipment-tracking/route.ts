@@ -59,7 +59,7 @@ export async function GET(request: NextRequest) {
     
     // Fetch approved request logs to determine which items came from requests
     const approvedRequests = await RequestLog.find({
-      status: 'approved',
+      status: 'approved', // ✅ ใช้ approved เท่านั้น (อนุมัติทีละรายการ)
       requestType: 'request'
     }).lean();
     
@@ -70,7 +70,8 @@ export async function GET(request: NextRequest) {
         item.assignedItemIds?.forEach((itemId: string) => {
           itemToRequestMap.set(itemId, {
             requestDate: req.requestDate,
-            userId: req.userId
+            userId: req.userId,
+            deliveryLocation: req.deliveryLocation || '' // เพิ่มสถานที่จัดส่งจาก RequestLog
           });
         });
       });
@@ -102,6 +103,7 @@ export async function GET(request: NextRequest) {
         // Determine source: 'request' (เบิก) or 'user-owned' (เพิ่มเอง)
         let source = 'user-owned';
         let dateAdded = item.sourceInfo?.dateAdded || item.currentOwnership?.ownedSince || item.createdAt;
+        let deliveryLocationValue = user?.office || ''; // Default to office
       
       // Check if this item came from a request
       const requestInfo = itemToRequestMap.get(String(item._id));
@@ -109,6 +111,8 @@ export async function GET(request: NextRequest) {
         source = 'request';
         if (requestInfo) {
           dateAdded = requestInfo.requestDate;
+          // ใช้สถานที่จัดส่งจาก RequestLog ถ้ามี ไม่งั้นใช้ office ของ user
+          deliveryLocationValue = requestInfo.deliveryLocation || user?.office || '';
         } else if (item.transferInfo?.transferDate) {
           dateAdded = item.transferInfo.transferDate;
         }
@@ -149,7 +153,7 @@ export async function GET(request: NextRequest) {
           submittedAt: dateAdded,
           requestDate: dateAdded,
           urgency: 'normal',
-          deliveryLocation: user?.office || '',
+          deliveryLocation: deliveryLocationValue, // ใช้สถานที่จัดส่งจาก RequestLog ถ้าเป็นการเบิก
           reason: source === 'request' ? 'การเบิกอุปกรณ์' : 'อุปกรณ์ที่มีอยู่เดิม'
         });
       } catch (itemError: any) {

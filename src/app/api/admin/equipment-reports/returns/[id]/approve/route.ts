@@ -53,7 +53,7 @@ export async function POST(
       );
     }
 
-    if (returnLog.status === 'completed') {
+    if ((returnLog as any).status === 'completed') {
       return NextResponse.json(
         { 
           message: 'คำขอคืนนี้ได้รับการอนุมัติแล้ว',
@@ -69,7 +69,7 @@ export async function POST(
     const transferResults: any[] = [];
     
     // Get user ID for finding owned items
-    const userIdToFind = returnLog.userId || `${returnLog.firstName}-${returnLog.lastName}`;
+    const userIdToFind = returnLog.userId || `${(returnLog as any).firstName}-${(returnLog as any).lastName}`;
     
     for (const item of returnLog.items) {
       
@@ -94,8 +94,8 @@ export async function POST(
 
           if (adminStockItem) {
             transferResults.push({
-              itemId: adminStockItem._id.toString(),
-              itemName: item.itemName || 'Unknown Item',
+              itemId: (adminStockItem._id as any).toString(),
+              itemName: (item as any).itemName || 'Unknown Item',
               serialNumber: item.serialNumber,
               transferType: 'already_returned',
               success: true,
@@ -118,18 +118,18 @@ export async function POST(
 
         // Transfer back to admin stock
         const transferredItem = await transferInventoryItem({
-          itemId: inventoryItem._id.toString(),
+          itemId: (inventoryItem._id as any).toString(),
           fromOwnerType: 'user_owned',
           fromUserId: userIdToFind,
           toOwnerType: 'admin_stock',
           transferType: 'return_completed',
           processedBy: adminId,
           returnId: id,
-          reason: `Equipment returned by ${returnLog.firstName} ${returnLog.lastName} via return log ${id}`
+          reason: `Equipment returned by ${(returnLog as any).firstName} ${(returnLog as any).lastName} via return log ${id}`
         });
 
         transferResults.push({
-          itemId: transferredItem._id.toString(),
+          itemId: (transferredItem._id as any).toString(),
           itemName: transferredItem.itemName,
           serialNumber: transferredItem.serialNumber,
           transferType: 'return_completed',
@@ -145,7 +145,7 @@ export async function POST(
             {
               $or: [
                 { _id: item.itemId }, // ใช้ itemId เป็นหลัก
-                ...(item.masterItemId ? [{ masterItemId: item.masterItemId }] : []) // fallback ใช้ masterItemId
+                ...((item as any).masterItemId ? [{ masterItemId: (item as any).masterItemId }] : []) // fallback ใช้ masterItemId
               ]
             },
             {
@@ -164,11 +164,11 @@ export async function POST(
 
 
         if (userOwnedItems.length === 0) {
-          console.warn(`⚠️ No items without SN found for user ${userIdToFind} - item: ${item.itemName}`);
+          console.warn(`⚠️ No items without SN found for user ${userIdToFind} - item: ${(item as any).itemName}`);
           
           // Check if items are already in admin_stock
           const adminStockItems = await InventoryItem.find({
-            itemName: item.itemName,
+            itemName: (item as any).itemName,
             $or: [
               { serialNumber: { $exists: false } },
               { serialNumber: '' },
@@ -180,8 +180,8 @@ export async function POST(
           if (adminStockItems.length > 0) {
             for (const adminStockItem of adminStockItems) {
               transferResults.push({
-                itemId: adminStockItem._id.toString(),
-                itemName: item.itemName || 'Unknown Item',
+                itemId: (adminStockItem._id as any).toString(),
+                itemName: (item as any).itemName || 'Unknown Item',
                 serialNumber: null,
                 transferType: 'already_returned',
                 success: true,
@@ -193,14 +193,14 @@ export async function POST(
 
           // Try to find the item without strict matching to see what's wrong
           const debugItems = await InventoryItem.find({
-            itemName: item.itemName,
+            itemName: (item as any).itemName,
             $or: [
               { serialNumber: { $exists: false } },
               { serialNumber: '' },
               { serialNumber: null }
             ]
           });
-          console.warn(`🔍 Debug - Items with name "${item.itemName}" exist:`, debugItems.map(i => ({
+          console.warn(`🔍 Debug - Items with name "${(item as any).itemName}" exist:`, debugItems.map(i => ({
             _id: i._id,
             serialNumber: i.serialNumber,
             ownerType: i.currentOwnership.ownerType,
@@ -223,18 +223,18 @@ export async function POST(
           const inventoryItem = userOwnedItems[i];
           
           const transferredItem = await transferInventoryItem({
-            itemId: inventoryItem._id.toString(),
+            itemId: (inventoryItem._id as any).toString(),
             fromOwnerType: 'user_owned',
             fromUserId: userIdToFind,
             toOwnerType: 'admin_stock',
             transferType: 'return_completed',
             processedBy: adminId,
             returnId: id,
-            reason: `Equipment returned by ${returnLog.firstName} ${returnLog.lastName} via return log ${id} (${i + 1}/${item.quantity})`
+            reason: `Equipment returned by ${(returnLog as any).firstName} ${(returnLog as any).lastName} via return log ${id} (${i + 1}/${item.quantity})`
           });
 
           transferResults.push({
-            itemId: transferredItem._id.toString(),
+            itemId: (transferredItem._id as any).toString(),
             itemName: transferredItem.itemName,
             serialNumber: transferredItem.serialNumber || null,
             transferType: 'return_completed',
@@ -246,7 +246,7 @@ export async function POST(
     }
 
     // Mark return log as completed
-    returnLog.status = 'completed';
+    (returnLog as any).status = 'completed';
     await returnLog.save();
 
     // Verify that items were actually transferred
@@ -264,20 +264,20 @@ export async function POST(
     
     for (const item of returnLog.items) {
       try {
-        const masterResult = await updateInventoryMaster(item.itemName, item.categoryId);
+        const masterResult = await updateInventoryMaster((item as any).itemName, (item as any).categoryId);
         masterUpdateResults.push({
-          itemName: item.itemName,
-          categoryId: item.categoryId,
+          itemName: (item as any).itemName,
+          categoryId: (item as any).categoryId,
           success: true,
           result: masterResult
         });
       } catch (error) {
-        console.error(`❌ Failed to update InventoryMaster for ${item.itemName}:`, error);
+        console.error(`❌ Failed to update InventoryMaster for ${(item as any).itemName}:`, error);
         masterUpdateResults.push({
-          itemName: item.itemName,
-          category: item.category,
+          itemName: (item as any).itemName,
+          category: (item as any).category,
           success: false,
-          error: error.message
+          error: (error as any).message
         });
       }
     }
@@ -309,7 +309,7 @@ export async function POST(
         verificationResults.push({
           itemId: result.itemId,
           verified: false,
-          error: error.message,
+          error: (error as any).message,
           transferType: result.transferType
         });
       }

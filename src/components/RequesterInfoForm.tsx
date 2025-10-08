@@ -15,9 +15,10 @@ interface RequesterInfoFormProps {
   onInputChange: (e: React.ChangeEvent<HTMLInputElement>) => void;
   showEmail?: boolean;
   title?: string;
+  lockPersonalInfo?: boolean; // New prop to lock personal info fields (except phone)
 }
 
-export default function RequesterInfoForm({ formData, onInputChange, showEmail = false, title = "ข้อมูลผู้ขอเบิก" }: RequesterInfoFormProps) {
+export default function RequesterInfoForm({ formData, onInputChange, showEmail = false, title = "ข้อมูลผู้ขอเบิก", lockPersonalInfo = false }: RequesterInfoFormProps) {
   const { user } = useAuth();
 
   if (!user) return null;
@@ -88,9 +89,11 @@ export default function RequesterInfoForm({ formData, onInputChange, showEmail =
                 name="firstName"
                 value={formData.firstName}
                 onChange={onInputChange}
-                className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 text-gray-900"
+                className={`w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 text-gray-900 ${lockPersonalInfo ? 'bg-gray-100 cursor-not-allowed' : ''}`}
                 placeholder="ชื่อ"
                 required
+                disabled={lockPersonalInfo}
+                readOnly={lockPersonalInfo}
               />
             </div>
             <div className="bg-white rounded-lg p-3 border border-gray-200">
@@ -102,9 +105,11 @@ export default function RequesterInfoForm({ formData, onInputChange, showEmail =
                 name="lastName"
                 value={formData.lastName}
                 onChange={onInputChange}
-                className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 text-gray-900"
+                className={`w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 text-gray-900 ${lockPersonalInfo ? 'bg-gray-100 cursor-not-allowed' : ''}`}
                 placeholder="นามสกุล"
                 required
+                disabled={lockPersonalInfo}
+                readOnly={lockPersonalInfo}
               />
             </div>
           </div>
@@ -120,9 +125,11 @@ export default function RequesterInfoForm({ formData, onInputChange, showEmail =
                 name="nickname"
                 value={formData.nickname}
                 onChange={onInputChange}
-                className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 text-gray-900"
+                className={`w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 text-gray-900 ${lockPersonalInfo ? 'bg-gray-100 cursor-not-allowed' : ''}`}
                 placeholder="ชื่อเล่น"
                 required
+                disabled={lockPersonalInfo}
+                readOnly={lockPersonalInfo}
               />
             </div>
             <div className="bg-white rounded-lg p-3 border border-gray-200">
@@ -134,9 +141,11 @@ export default function RequesterInfoForm({ formData, onInputChange, showEmail =
                 name="department"
                 value={formData.department}
                 onChange={onInputChange}
-                className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 text-gray-900"
+                className={`w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 text-gray-900 ${lockPersonalInfo ? 'bg-gray-100 cursor-not-allowed' : ''}`}
                 placeholder="แผนก"
                 required
+                disabled={lockPersonalInfo}
+                readOnly={lockPersonalInfo}
               />
             </div>
           </div>

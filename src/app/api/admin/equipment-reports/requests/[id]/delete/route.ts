@@ -20,7 +20,7 @@ export async function DELETE(
       );
     }
 
-    const requestId = params.id;
+    const { id: requestId } = await params;
 
     // Find the request
     const requestLog = await RequestLog.findById(requestId);

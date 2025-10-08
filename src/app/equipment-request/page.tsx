@@ -38,6 +38,7 @@ export default function EquipmentRequestPage() {
   const { user, loading } = useAuth();
   const [isLoading, setIsLoading] = useState(false);
   const [isSubmitted, setIsSubmitted] = useState(false);
+  const [validationErrors, setValidationErrors] = useState<{[key: string]: string}>({});
   const [inventoryItems, setInventoryItems] = useState<InventoryItem[]>([]);
   const [categoryConfigs, setCategoryConfigs] = useState<ICategoryConfig[]>([]);
   
@@ -256,6 +257,13 @@ export default function EquipmentRequestPage() {
       toast.error('ไม่สามารถเลือกอุปกรณ์ซ้ำได้');
       return;
     }
+    
+    // ✅ ตรวจสอบ Serial Number - ต้องเลือกจริงๆ ไม่ใช่ placeholder
+    if (availableSerialNumbers.length > 0 && (!selectedSerialNumber || selectedSerialNumber === '')) {
+      toast.error('กรุณาเลือกอุปกรณ์ที่มีหรือไม่มี Serial Number');
+      return;
+    }
+    
     setRequestItems(prev => [...prev, { ...requestItem }]);
     // Reset selectors to default for next addition
     setRequestItem({ itemId: '', quantity: 1, serialNumber: '', itemNotes: '' });
@@ -315,8 +323,26 @@ export default function EquipmentRequestPage() {
       await fetchInventoryItems();
 
       // Validate form using user profile data
-      if (!user || !formData.requestDate || !formData.deliveryLocation) {
-        toast.error('กรุณากรอกข้อมูลให้ครบถ้วน');
+      if (!user) {
+        toast.error('กรุณาเข้าสู่ระบบ');
+        setIsLoading(false);
+        return;
+      }
+
+      // Clear previous validation errors
+      setValidationErrors({});
+
+      // Specific validation for request date
+      if (!formData.requestDate || formData.requestDate.trim() === '') {
+        setValidationErrors({ requestDate: 'กรุณาเลือกวันที่ต้องการเบิก' });
+        toast.error('กรุณาเลือกวันที่ต้องการเบิก');
+        setIsLoading(false);
+        return;
+      }
+
+      // Validate delivery location
+      if (!formData.deliveryLocation || formData.deliveryLocation.trim() === '') {
+        toast.error('กรุณากรอกสถานที่รับอุปกรณ์');
         setIsLoading(false);
         return;
       }
@@ -330,45 +356,15 @@ export default function EquipmentRequestPage() {
         }
       }
 
-      // Validate item: allow either the current selection OR the list below
-      const hasCurrent = Boolean(requestItem.itemId) && (requestItem.quantity || 0) > 0;
-      const hasList = requestItems.length > 0;
-      if (!hasCurrent && !hasList) {
-        toast.error('กรุณาเลือกอุปกรณ์อย่างน้อย 1 รายการ (จากตัวเลือกหรือจากรายการที่เลือกด้านล่าง)');
+      // Validate item: only allow items from the list (not from current form)
+      if (requestItems.length === 0) {
+        toast.error('กรุณาเพิ่มรายการอุปกรณ์ที่ต้องการเบิกในรายการด้านล่างก่อนกดบันทึก');
         setIsLoading(false);
         return;
       }
 
-      // If user is submitting with the current selection, optionally check availability for it
-      if (hasCurrent) {
-        const inventoryItem = inventoryItems.find(i => String(i._id) === requestItem.itemId);
-        if (!inventoryItem) {
-          toast.error('ไม่พบข้อมูลอุปกรณ์ที่เลือก');
-          setIsLoading(false);
-          return;
-        }
-        const availableStock = inventoryItem.quantity || 0;
-        if (availableStock <= 0) {
-          toast.error(`${inventoryItem.itemName} ไม่มีสต็อกเหลือ (คงเหลือ: 0 ชิ้น)`);
-          setIsLoading(false);
-          return;
-        }
-        if (availableStock < requestItem.quantity) {
-          toast.error(`${inventoryItem.itemName} มีสต็อกไม่เพียงพอ (คงเหลือ: ${availableStock} ชิ้น)`);
-          setIsLoading(false);
-          return;
-        }
-      }
-
-      // Build items payload (if user added multiple items)
-      // Compose items: include list + current selection if not duplicate
+      // Use only items from the list
       const selectedItems: RequestItem[] = [...requestItems];
-      if (
-        hasCurrent &&
-        !selectedItems.some(it => it.itemId === requestItem.itemId)
-      ) {
-        selectedItems.push(requestItem);
-      }
 
       const requestData = {
         // Use user profile data for individual users, form data for branch users
@@ -471,10 +467,20 @@ export default function EquipmentRequestPage() {
                 </label>
                 <DatePicker
                   value={formData.requestDate}
-                  onChange={(date) => setFormData(prev => ({ ...prev, requestDate: date }))}
+                  onChange={(date) => {
+                    setFormData(prev => ({ ...prev, requestDate: date }));
+                    // Clear validation error when user selects a date
+                    if (validationErrors.requestDate) {
+                      setValidationErrors(prev => ({ ...prev, requestDate: '' }));
+                    }
+                  }}
                   placeholder="dd/mm/yyyy"
                   required
+                  className={validationErrors.requestDate ? 'border-red-500 focus:ring-red-500' : ''}
                 />
+                {validationErrors.requestDate && (
+                  <p className="text-red-500 text-sm mt-1">{validationErrors.requestDate}</p>
+                )}
               </div>
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-1">
@@ -693,7 +699,7 @@ export default function EquipmentRequestPage() {
                               {(() => {
                                 const selectedItem = inventoryItems.find(i => String(i._id) === requestItem.itemId);
                                 const isSIMCard = selectedItem?.categoryId === 'cat_sim_card';
-                                return isSIMCard ? '-- เลือกเบอร์โทรศัพท์ --' : '-- เลือก Serial Number หรืออุปกรณ์ที่ไม่มี SN --';
+                                return isSIMCard ? '-- เลือกเบอร์โทรศัพท์ --' : '-- เลือกอุปกรณ์ที่มีหรือไม่มี Serial Number --';
                               })()}
                             </option>
                             {availableSerialNumbers.map((sn) => (
@@ -783,9 +789,10 @@ export default function EquipmentRequestPage() {
                 </div>
               </div>
 
-              {requestItems.length > 0 && (
-                <div className="mt-4 border border-gray-200 rounded-lg">
-                  <div className="p-3 font-medium text-gray-700">รายการที่เลือก</div>
+              {/* รายการที่จะเบิก - แสดงตลอดเวลา */}
+              <div className="mt-4 border border-gray-200 rounded-lg">
+                <div className="p-3 font-medium text-gray-700">รายการที่จะเบิก</div>
+                {requestItems.length > 0 ? (
                   <ul className="divide-y divide-gray-100">
                     {requestItems.map(item => (
                       <li key={item.itemId} className="flex items-center justify-between p-3">
@@ -811,8 +818,21 @@ export default function EquipmentRequestPage() {
                       </li>
                     ))}
                   </ul>
+                ) : (
+                  <div className="p-4 text-center text-gray-500">
+                    <div className="text-sm">ยังไม่มีรายการอุปกรณ์</div>
+                    <div className="text-xs mt-1">กรุณาเลือกอุปกรณ์และกด "เพิ่มเข้ารายการ" เพื่อเพิ่มรายการที่ต้องการเบิก</div>
+                  </div>
+                )}
+                
+                {/* หมายเหตุอธิบาย */}
+                <div className="px-3 pb-3">
+                  <div className="text-xs text-gray-500 bg-blue-50 p-2 rounded border-l-4 border-blue-200">
+                    <div className="font-medium text-blue-800 mb-1">💡 หมายเหตุ:</div>
+                    <div>เฉพาะอุปกรณ์ที่อยู่ในรายการนี้เท่านั้นที่จะถูกส่งเบิก กรุณาเพิ่มรายการอุปกรณ์ที่ต้องการเบิกให้ครบถ้วนก่อนกดบันทึก</div>
+                  </div>
                 </div>
-              )}
+              </div>
 
             </div>
 

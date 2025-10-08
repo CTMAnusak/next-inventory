@@ -134,6 +134,26 @@ export default function AdminITReportsPage() {
     applyFilters();
   }, [issues, activeTab, searchTerm, urgencyFilter, categoryFilter, dateFilter]);
 
+  // Handle escape key to close image modal
+  useEffect(() => {
+    const handleEscapeKey = (event: KeyboardEvent) => {
+      if (event.key === 'Escape' && showImageModal) {
+        setShowImageModal(false);
+      }
+    };
+
+    if (showImageModal) {
+      document.addEventListener('keydown', handleEscapeKey);
+      // Prevent body scroll when modal is open
+      document.body.style.overflow = 'hidden';
+    }
+
+    return () => {
+      document.removeEventListener('keydown', handleEscapeKey);
+      document.body.style.overflow = 'unset';
+    };
+  }, [showImageModal]);
+
   const fetchIssues = async () => {
     setLoading(true);
     try {
@@ -947,18 +967,25 @@ export default function AdminITReportsPage() {
 
         {/* Image Modal */}
         {showImageModal && selectedImage && (
-          <div className="fixed inset-0 bg-black/80 flex items-center justify-center z-60">
-            <div className="relative max-w-4xl max-h-[90vh] p-4">
+          <div 
+            className="fixed inset-0 bg-black/80 flex items-center justify-center z-60"
+            onClick={() => setShowImageModal(false)}
+          >
+            <div 
+              className="relative max-w-4xl max-h-[90vh] p-4"
+              onClick={(e) => e.stopPropagation()}
+            >
               <button
                 onClick={() => setShowImageModal(false)}
-                className="absolute top-4 right-4 text-white hover:text-gray-300 z-10"
+                className="absolute top-2 right-2 bg-black/50 hover:bg-black/70 text-white rounded-full p-2 z-10 transition-all duration-200"
+                title="ปิดรูปภาพ"
               >
-                <X className="w-8 h-8" />
+                <X className="w-6 h-6" />
               </button>
               <img
                 src={selectedImage}
                 alt="Full size"
-                className="max-w-full max-h-full object-contain rounded-lg"
+                className="max-w-full max-h-full object-contain rounded-lg shadow-2xl"
               />
             </div>
           </div>

@@ -1,6 +1,7 @@
 'use client';
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
+import { createPortal } from 'react-dom';
 
 interface StatusCellProps {
   item: {
@@ -32,6 +33,8 @@ const StatusCell: React.FC<StatusCellProps> = ({
 }) => {
   const [showTooltip, setShowTooltip] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
+  const infoButtonRef = useRef<HTMLButtonElement | null>(null);
+  const [tooltipPosition, setTooltipPosition] = useState<{ top: number; left: number } | null>(null);
   // Auto-fetch breakdown whenever it's missing and we're not already loading
   useEffect(() => {
     if (!breakdown && onFetchBreakdown && !isLoading) {
@@ -47,6 +50,16 @@ const StatusCell: React.FC<StatusCellProps> = ({
   // Fetch breakdown data when tooltip is shown
   const handleMouseEnter = async (event: React.MouseEvent) => {
     setShowTooltip(true);
+    // Position tooltip relative to the info button, but render via portal (body)
+    const target = (event.currentTarget as HTMLElement) || infoButtonRef.current;
+    if (target) {
+      const rect = target.getBoundingClientRect();
+      // Place tooltip below the icon and center horizontally
+      setTooltipPosition({
+        top: Math.round(rect.bottom + 8),
+        left: Math.round(rect.left + rect.width / 2)
+      });
+    }
     
     if (!breakdown && onFetchBreakdown) {
       setIsLoading(true);
@@ -122,6 +135,7 @@ const StatusCell: React.FC<StatusCellProps> = ({
       </span>
       <button 
         className="info-button"
+        ref={infoButtonRef}
         onMouseEnter={handleMouseEnter}
         onMouseLeave={handleMouseLeave}
         title="ดูข้อมูลเพิ่มเติม"
@@ -129,14 +143,10 @@ const StatusCell: React.FC<StatusCellProps> = ({
         ℹ️
       </button>
       
-      {showTooltip && (
-        <div 
+      {showTooltip && tooltipPosition && typeof document !== 'undefined' && createPortal(
+        <div
           className="tooltip"
-          style={{
-            top: '50%',
-            left: '50%',
-            transform: 'translate(-50%, -50%)'
-          }}
+          style={{ top: tooltipPosition.top, left: tooltipPosition.left, transform: 'translateX(-50%)' }}
         >
           <div className="tooltip-content">
             {isLoading ? (
@@ -188,7 +198,8 @@ const StatusCell: React.FC<StatusCellProps> = ({
               <div className="error">ไม่สามารถโหลดข้อมูลได้</div>
             )}
           </div>
-        </div>
+        </div>,
+        document.body
       )}
     </div>
   );

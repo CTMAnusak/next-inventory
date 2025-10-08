@@ -144,9 +144,15 @@ export async function POST(request: NextRequest) {
 
     const returnLogData = {
       userId: currentUserId,
+      // Store user info for branch users (who don't have user profiles)
+      returnerFirstName: returnData.firstName || undefined,
+      returnerLastName: returnData.lastName || undefined,
+      returnerNickname: returnData.nickname || undefined,
+      returnerDepartment: returnData.department || undefined,
+      returnerPhone: returnData.phone || undefined,
+      returnerOffice: returnData.office || undefined,
       returnDate: new Date(returnData.returnDate),
       items: cleanItems,
-      status: 'pending',
       notes: returnData.notes || undefined
     };
 

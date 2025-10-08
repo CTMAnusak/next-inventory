@@ -58,6 +58,9 @@ interface RequestLog {
     statusOnRequest?: string; // เพิ่ม statusOnRequest property
     conditionOnRequest?: string; // เพิ่ม conditionOnRequest property
     assignedPhoneNumbers?: string[]; // เพิ่ม assignedPhoneNumbers property
+    assignedQuantity?: number; // จำนวนที่ Admin assign ให้แล้ว
+    itemApproved?: boolean; // สถานะว่ารายการนี้ได้รับการอนุมัติแล้วหรือยัง
+    approvedAt?: string; // วันที่อนุมัติรายการนี้
   }>;
   submittedAt: string;
   status?: 'pending' | 'completed'; // เพิ่ม status
@@ -323,11 +326,11 @@ export default function AdminEquipmentReportsPage() {
         const itemKey = `${item.itemName || 'unknown'}-${(item as any).category || 'ไม่ระบุ'}`;
         const selectedItems = itemSelections[itemKey] || [];
         
-        // ✅ Enhanced validation: Handle insufficient stock cases
+        // ✅ Enhanced validation: Check if admin selected items
         if (selectedItems.length !== item.quantity) {
           if (selectedItems.length === 0) {
-            // Case: No items available (SerialNumberSelector shows insufficient stock)
-            throw new Error(`ไม่สามารถอนุมัติได้: ไม่มี ${item.itemName} เพียงพอในคลัง (ขอ ${item.quantity} ชิ้น)`);
+            // Case: Admin didn't select any items
+            throw new Error(`กรุณาเลือกรายการอุปกรณ์สำหรับ ${item.itemName} (ต้องเลือก ${item.quantity} ชิ้น)`);
           } else {
             // Case: Admin needs to select more items
             throw new Error(`กรุณาเลือก ${item.itemName} ให้ครบ ${item.quantity} ชิ้น (เลือกแล้ว ${selectedItems.length} ชิ้น)`);
@@ -587,6 +590,26 @@ export default function AdminEquipmentReportsPage() {
     setSelectedImage(`/assets/ReturnLog/${imageName}`);
     setShowImageModal(true);
   };
+
+  // Handle escape key to close image modal
+  useEffect(() => {
+    const handleEscapeKey = (event: KeyboardEvent) => {
+      if (event.key === 'Escape' && showImageModal) {
+        setShowImageModal(false);
+      }
+    };
+
+    if (showImageModal) {
+      document.addEventListener('keydown', handleEscapeKey);
+      // Prevent body scroll when modal is open
+      document.body.style.overflow = 'hidden';
+    }
+
+    return () => {
+      document.removeEventListener('keydown', handleEscapeKey);
+      document.body.style.overflow = 'unset';
+    };
+  }, [showImageModal]);
 
 
 
@@ -1259,18 +1282,25 @@ export default function AdminEquipmentReportsPage() {
 
         {/* Image Modal */}
         {showImageModal && selectedImage && (
-          <div className="fixed inset-0 bg-black/80 flex items-center justify-center z-60">
-            <div className="relative max-w-4xl max-h-[90vh] p-4">
+          <div 
+            className="fixed inset-0 bg-black/80 flex items-center justify-center z-60"
+            onClick={() => setShowImageModal(false)}
+          >
+            <div 
+              className="relative max-w-4xl max-h-[90vh] p-4"
+              onClick={(e) => e.stopPropagation()}
+            >
               <button
                 onClick={() => setShowImageModal(false)}
-                className="absolute top-4 right-4 text-white hover:text-gray-300 z-10"
+                className="absolute top-2 right-2 bg-black/50 hover:bg-black/70 text-white rounded-full p-2 z-10 transition-all duration-200"
+                title="ปิดรูปภาพ"
               >
-                <X className="w-8 h-8" />
+                <X className="w-6 h-6" />
               </button>
               <img
                 src={selectedImage}
                 alt="Return item"
-                className="max-w-full max-h-full object-contain rounded-lg"
+                className="max-w-full max-h-full object-contain rounded-lg shadow-2xl"
                 onError={(e) => {
                   console.error('Failed to load image:', selectedImage);
                   const target = e.target as HTMLImageElement;

@@ -11,11 +11,21 @@ export interface IRequestItem {
   itemNotes?: string; // หมายเหตุของรายการเบิก (ไม่บังคับ)
   statusOnRequest?: string; // ID ของสถานะ (สภาพอุปกรณ์: มี/หาย) เมื่ออนุมัติ
   conditionOnRequest?: string; // ID ของสภาพ (สถานะอุปกรณ์: ใช้งานได้/ชำรุด) เมื่ออนุมัติ
+  assignedQuantity?: number; // จำนวนที่ Admin assign ให้แล้ว
+  itemApproved?: boolean; // สถานะว่ารายการนี้ได้รับการอนุมัติแล้วหรือยัง
+  approvedAt?: Date; // วันที่อนุมัติรายการนี้
 }
 
 export interface IRequestLog extends Document {
   // User info - store only userId for real-time lookup
   userId: string; // Reference to User._id for real-time lookup
+  // Store user info for branch users (who don't have user profiles)
+  requesterFirstName?: string; // ชื่อผู้ขอเบิก (สำหรับผู้ใช้ประเภทสาขา)
+  requesterLastName?: string; // นามสกุลผู้ขอเบิก (สำหรับผู้ใช้ประเภทสาขา)
+  requesterNickname?: string; // ชื่อเล่นผู้ขอเบิก (สำหรับผู้ใช้ประเภทสาขา)
+  requesterDepartment?: string; // แผนกผู้ขอเบิก (สำหรับผู้ใช้ประเภทสาขา)
+  requesterPhone?: string; // เบอร์โทรผู้ขอเบิก (สำหรับผู้ใช้ประเภทสาขา)
+  requesterOffice?: string; // ออฟฟิศ/สาขาผู้ขอเบิก (สำหรับผู้ใช้ประเภทสาขา)
   requestDate: Date; // วันที่ต้องการเบิก
   urgency: 'very_urgent' | 'normal'; // ความเร่งด่วน
   deliveryLocation: string; // สถานที่จัดส่ง
@@ -46,11 +56,21 @@ const RequestItemSchema = new Schema<IRequestItem>({
   availableItemIds: [{ type: String, required: false }],  // Available items for admin selection
   itemNotes: { type: String },
   statusOnRequest: { type: String }, // ID ของสถานะ (สภาพอุปกรณ์: มี/หาย) เมื่ออนุมัติ
-  conditionOnRequest: { type: String } // ID ของสภาพ (สถานะอุปกรณ์: ใช้งานได้/ชำรุด) เมื่ออนุมัติ
+  conditionOnRequest: { type: String }, // ID ของสภาพ (สถานะอุปกรณ์: ใช้งานได้/ชำรุด) เมื่ออนุมัติ
+  assignedQuantity: { type: Number, default: 0 }, // จำนวนที่ Admin assign ให้แล้ว
+  itemApproved: { type: Boolean, default: false }, // สถานะว่ารายการนี้ได้รับการอนุมัติแล้วหรือยัง
+  approvedAt: { type: Date } // วันที่อนุมัติรายการนี้
 });
 
 const RequestLogSchema = new Schema<IRequestLog>({
   userId: { type: String, required: true },  // Reference to User._id
+  // Store user info for branch users (who don't have user profiles)
+  requesterFirstName: { type: String }, // ชื่อผู้ขอเบิก (สำหรับผู้ใช้ประเภทสาขา)
+  requesterLastName: { type: String }, // นามสกุลผู้ขอเบิก (สำหรับผู้ใช้ประเภทสาขา)
+  requesterNickname: { type: String }, // ชื่อเล่นผู้ขอเบิก (สำหรับผู้ใช้ประเภทสาขา)
+  requesterDepartment: { type: String }, // แผนกผู้ขอเบิก (สำหรับผู้ใช้ประเภทสาขา)
+  requesterPhone: { type: String }, // เบอร์โทรผู้ขอเบิก (สำหรับผู้ใช้ประเภทสาขา)
+  requesterOffice: { type: String }, // ออฟฟิศ/สาขาผู้ขอเบิก (สำหรับผู้ใช้ประเภทสาขา)
   requestDate: { type: Date, required: true },
   urgency: { 
     type: String, 

@@ -58,14 +58,10 @@ export async function POST(
       const inventoryItem = await Inventory.findById(item.itemId);
       
       if (inventoryItem) {
-        // Check if there's enough available quantity
-        if (inventoryItem.quantity >= item.quantity) {
-          // Reduce available quantity
-          inventoryItem.quantity -= item.quantity;
-          await inventoryItem.save();
-          
-        } else {
-        }
+        // Note: InventoryMaster doesn't have quantity field
+        // This logic might need to be updated based on your inventory system
+        console.log(`Processing item: ${inventoryItem.itemName}`);
+        
       } else {
       }
     }
