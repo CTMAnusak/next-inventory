@@ -381,6 +381,12 @@ export default function DashboardPage() {
           dateAdded: new Date().toISOString(),
           user_id: user?.id || undefined,
           userRole: 'user',
+          // ✅ เพิ่มข้อมูลผู้ใช้สาขา (สำหรับการแสดงผลในหน้าติดตามอุปกรณ์)
+          firstName: form.firstName || undefined,
+          lastName: form.lastName || undefined,
+          nickname: form.nickname || undefined,
+          department: form.department || undefined,
+          phone: form.phone || undefined,
           // สำหรับซิมการ์ด ส่ง numberPhone แทน serialNumber
           ...(isSIMCardSync(selectedCategoryId) && form.serialNumber && {
             numberPhone: form.serialNumber,
@@ -400,7 +406,13 @@ export default function DashboardPage() {
         
         if (!inventoryRes.ok) {
           const errorData = await inventoryRes.json();
-          console.error('❌ Inventory creation failed:', errorData);
+          console.error('❌ Inventory creation failed:', {
+            status: inventoryRes.status,
+            statusText: inventoryRes.statusText,
+            error: errorData.error,
+            details: errorData.details,
+            payload: newInventoryPayload
+          });
           // Show error in popup modal instead of toast
           setSimpleErrorMessage(`ไม่สามารถสร้างอุปกรณ์ใหม่ได้: ${errorData.error || 'Unknown error'}`);
           setShowSimpleError(true);
@@ -483,6 +495,12 @@ export default function DashboardPage() {
           statusId: form.status || undefined,
           conditionId: form.condition || undefined,
           notes: form.notes || undefined,
+          // ✅ เพิ่มข้อมูลผู้ใช้สาขา (สำหรับการแสดงผลในหน้าติดตามอุปกรณ์)
+          firstName: form.firstName || undefined,
+          lastName: form.lastName || undefined,
+          nickname: form.nickname || undefined,
+          department: form.department || undefined,
+          phone: form.phone || undefined,
           // สำหรับซิมการ์ด ส่ง numberPhone แทน serialNumber
           ...(isSIMCardSync(selectedCategoryId) && form.serialNumber && {
             numberPhone: form.serialNumber

@@ -36,6 +36,16 @@ export interface IInventoryItem extends Document {
     returnId?: string;          // Link ไป ReturnLog
   };
   
+  // ข้อมูลผู้ใช้สาขา (สำหรับการแสดงผลในหน้าติดตามอุปกรณ์)
+  requesterInfo?: {
+    firstName?: string;
+    lastName?: string;
+    nickname?: string;
+    department?: string;
+    phone?: string;
+    office?: string;
+  };
+  
   // ข้อมูลการลบ (soft delete)
   deletedAt?: Date;
   deleteReason?: string;
@@ -160,6 +170,28 @@ const InventoryItemSchema = new Schema<IInventoryItem>({
     },
     returnId: {
       type: String  // Link to ReturnLog
+    }
+  },
+  
+  // ข้อมูลผู้ใช้สาขา (สำหรับการแสดงผลในหน้าติดตามอุปกรณ์)
+  requesterInfo: {
+    firstName: {
+      type: String
+    },
+    lastName: {
+      type: String
+    },
+    nickname: {
+      type: String
+    },
+    department: {
+      type: String
+    },
+    phone: {
+      type: String
+    },
+    office: {
+      type: String
     }
   },
   

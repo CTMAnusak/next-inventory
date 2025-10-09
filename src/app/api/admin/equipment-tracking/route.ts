@@ -65,13 +65,14 @@ export async function GET(request: NextRequest) {
     
     // Build a map of itemId -> requestLog for quick lookup
     const itemToRequestMap = new Map();
+    
     approvedRequests.forEach(req => {
       req.items?.forEach((item: any) => {
         item.assignedItemIds?.forEach((itemId: string) => {
           itemToRequestMap.set(itemId, {
             requestDate: req.requestDate,
             userId: req.userId,
-            deliveryLocation: req.deliveryLocation || '' // เพิ่มสถานที่จัดส่งจาก RequestLog
+            deliveryLocation: req.deliveryLocation || ''
           });
         });
       });
@@ -96,46 +97,74 @@ export async function GET(request: NextRequest) {
           console.warn(`⚠️ User ${userId} not found for item ${item._id}`);
         }
         
-        // Apply department and office filters if specified
-        if (department && user?.department !== department) continue;
-        if (office && user?.office !== office) continue;
+        // ✅ ดึงข้อมูลจาก User collection เป็นหลัก
+        let firstName = user?.firstName || '';
+        let lastName = user?.lastName || '';
+        let nickname = user?.nickname || '';
+        let userDepartment = user?.department || '';
+        let userPhone = user?.phone || '';
+        let userOffice = user?.office || '';
+        
+        // 🔍 Debug: Log item data
+        console.log(`\n📦 Processing item: ${item.itemName} (${item._id})`);
+        console.log(`   User Type: ${user?.userType}`);
+        console.log(`   User data:`, { firstName, lastName, nickname, userDepartment });
+        console.log(`   Item requesterInfo:`, (item as any).requesterInfo);
+        
+        // ✅ สำหรับอุปกรณ์ที่เพิ่มเอง: ดึงข้อมูลจาก requesterInfo ใน InventoryItem
+        // (ใช้สำหรับผู้ใช้สาขาที่กรอกข้อมูลเพิ่มเติมตอนเพิ่มอุปกรณ์)
+        const itemRequesterInfo = (item as any).requesterInfo;
+        if (itemRequesterInfo && (itemRequesterInfo.firstName || itemRequesterInfo.lastName)) {
+          console.log(`   ✅ Using requesterInfo from item`);
+          firstName = itemRequesterInfo.firstName || firstName;
+          lastName = itemRequesterInfo.lastName || lastName;
+          nickname = itemRequesterInfo.nickname || nickname;
+          userDepartment = itemRequesterInfo.department || userDepartment;
+          userPhone = itemRequesterInfo.phone || userPhone;
+          userOffice = itemRequesterInfo.office || userOffice;
+        }
+        
+        console.log(`   Final data:`, { firstName, lastName, nickname, userDepartment });
         
         // Determine source: 'request' (เบิก) or 'user-owned' (เพิ่มเอง)
         let source = 'user-owned';
         let dateAdded = item.sourceInfo?.dateAdded || item.currentOwnership?.ownedSince || item.createdAt;
-        let deliveryLocationValue = user?.office || ''; // Default to office
+        let deliveryLocationValue = userOffice || ''; // Default to office
       
-      // Check if this item came from a request
-      const requestInfo = itemToRequestMap.get(String(item._id));
-      if (requestInfo || item.transferInfo?.requestId) {
-        source = 'request';
-        if (requestInfo) {
-          dateAdded = requestInfo.requestDate;
-          // ใช้สถานที่จัดส่งจาก RequestLog ถ้ามี ไม่งั้นใช้ office ของ user
-          deliveryLocationValue = requestInfo.deliveryLocation || user?.office || '';
-        } else if (item.transferInfo?.transferDate) {
-          dateAdded = item.transferInfo.transferDate;
+        // Check if this item came from a request
+        const requestInfo = itemToRequestMap.get(String(item._id));
+        if (requestInfo || item.transferInfo?.requestId) {
+          source = 'request';
+          if (requestInfo) {
+            dateAdded = requestInfo.requestDate;
+            deliveryLocationValue = requestInfo.deliveryLocation || userOffice || '';
+          } else if (item.transferInfo?.transferDate) {
+            dateAdded = item.transferInfo.transferDate;
+          }
         }
-      }
-      
-      // Get category name
-      const categoryConfig = categoryConfigs.find((c: any) => c.id === item.categoryId);
-      
-      // Get status name
-      const statusConfig = statusConfigs.find((s: any) => s.id === item.statusId);
-      
-      // Get condition name
-      const conditionConfig = conditionConfigs.find((c: any) => c.id === item.conditionId);
-      
+        
+        // Apply department and office filters if specified
+        if (department && userDepartment !== department) continue;
+        if (office && userOffice !== office) continue;
+        
+        // Get category name
+        const categoryConfig = categoryConfigs.find((c: any) => c.id === item.categoryId);
+        
+        // Get status name
+        const statusConfig = statusConfigs.find((s: any) => s.id === item.statusId);
+        
+        // Get condition name
+        const conditionConfig = conditionConfigs.find((c: any) => c.id === item.conditionId);
+        
         trackingRecords.push({
           _id: String(item._id),
           userId: userId || '',
-          firstName: user?.firstName || '',
-          lastName: user?.lastName || '',
-          nickname: user?.nickname || '',
-          department: user?.department || '',
-          office: user?.office || '',
-          phone: user?.phone || '',
+          firstName: firstName, // จาก User collection
+          lastName: lastName,   // จาก User collection
+          nickname: nickname,   // จาก User collection
+          department: userDepartment, // จาก User collection
+          office: userOffice,   // จาก User collection
+          phone: userPhone,     // จาก User collection
           pendingDeletion: user?.pendingDeletion || false,
           itemId: String(item._id),
           itemName: item.itemName || 'ไม่ระบุ',
@@ -153,7 +182,7 @@ export async function GET(request: NextRequest) {
           submittedAt: dateAdded,
           requestDate: dateAdded,
           urgency: 'normal',
-          deliveryLocation: deliveryLocationValue, // ใช้สถานที่จัดส่งจาก RequestLog ถ้าเป็นการเบิก
+          deliveryLocation: deliveryLocationValue,
           reason: source === 'request' ? 'การเบิกอุปกรณ์' : 'อุปกรณ์ที่มีอยู่เดิม'
         });
       } catch (itemError: any) {

@@ -207,6 +207,18 @@ export async function POST(request: NextRequest) {
     const hasSerialNumber = itemData.serialNumber && itemData.serialNumber.trim() !== '';
     const hasPhoneNumber = itemData.numberPhone && itemData.numberPhone.trim() !== '';
     
+    // ✅ เตรียม requesterInfo สำหรับผู้ใช้สาขา
+    const requesterInfo = (itemData.firstName || itemData.lastName || itemData.department) ? {
+      firstName: itemData.firstName || undefined,
+      lastName: itemData.lastName || undefined,
+      nickname: itemData.nickname || undefined,
+      department: itemData.department || undefined,
+      phone: itemData.phone || undefined,
+      office: currentUser.office || undefined
+    } : undefined;
+    
+    console.log('📝 Inventory API - requesterInfo prepared:', requesterInfo);
+    
     if (hasSerialNumber || hasPhoneNumber) {
       // Create single item with serial number or phone number
       itemsToCreate.push({
@@ -220,7 +232,8 @@ export async function POST(request: NextRequest) {
         userId: currentUser.user_id,
         statusId: itemData.statusId || 'status_available',
         conditionId: itemData.conditionId,
-        notes: itemData.notes || 'Added by user via dashboard'
+        notes: itemData.notes || 'Added by user via dashboard',
+        requesterInfo: requesterInfo // ✅ เพิ่ม requesterInfo
       });
     } else {
       // Create multiple items without serial numbers or phone numbers
@@ -235,7 +248,8 @@ export async function POST(request: NextRequest) {
           userId: currentUser.user_id,
           statusId: itemData.statusId || 'status_available',
           conditionId: itemData.conditionId,
-          notes: itemData.notes || `Added by user via dashboard (${i + 1}/${quantity})`
+          notes: itemData.notes || `Added by user via dashboard (${i + 1}/${quantity})`,
+          requesterInfo: requesterInfo // ✅ เพิ่ม requesterInfo
         });
       }
     }

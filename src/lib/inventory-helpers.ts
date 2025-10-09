@@ -24,6 +24,15 @@ export interface CreateItemParams {
   userId?: string;
   assignedBy?: string;
   notes?: string;
+  // ✅ เพิ่มข้อมูลผู้ใช้สาขา
+  requesterInfo?: {
+    firstName?: string;
+    lastName?: string;
+    nickname?: string;
+    department?: string;
+    phone?: string;
+    office?: string;
+  };
 }
 
 export interface TransferItemParams {
@@ -61,7 +70,8 @@ export async function createInventoryItem(params: CreateItemParams) {
     initialOwnerType,
     userId,
     assignedBy,
-    notes
+    notes,
+    requesterInfo
   } = params;
 
   // Validate categoryId exists
@@ -186,7 +196,7 @@ export async function createInventoryItem(params: CreateItemParams) {
   
   // Creating new InventoryItem
   
-  const newItem = new InventoryItem({
+  const itemData: any = {
     itemName,
     categoryId,
     serialNumber: cleanSerialNumber,
@@ -209,7 +219,15 @@ export async function createInventoryItem(params: CreateItemParams) {
       acquisitionMethod: addedBy === 'user' ? 'self_reported' : 'admin_purchased',
       notes: cleanNotes
     }
-  });
+  };
+  
+  // ✅ เพิ่มข้อมูลผู้ใช้สาขา (เฉพาะเมื่อมีข้อมูล)
+  if (requesterInfo) {
+    console.log('💾 Saving requesterInfo:', requesterInfo);
+    itemData.requesterInfo = requesterInfo;
+  }
+  
+  const newItem = new InventoryItem(itemData);
   
 
   try {

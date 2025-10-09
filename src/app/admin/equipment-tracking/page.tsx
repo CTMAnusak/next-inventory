@@ -613,7 +613,7 @@ export default function AdminEquipmentTrackingPage() {
                                 record.pendingDeletion 
                                   ? 'text-orange-600' 
                                   : !record.firstName 
-                                  ? 'text-gray-500 italic' 
+                                  ? 'text-gray-500' 
                                   : 'text-gray-900'
                               }`}>
                                 {record.firstName && record.lastName ? (
@@ -622,7 +622,7 @@ export default function AdminEquipmentTrackingPage() {
                                     {record.pendingDeletion && ' (รอลบ)'}
                                   </>
                                 ) : (
-                                  '(ผู้ใช้ถูกลบแล้ว)'
+                                  '-'
                                 )}
                               </div>
                               {record.nickname && (

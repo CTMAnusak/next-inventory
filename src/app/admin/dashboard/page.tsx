@@ -10,21 +10,30 @@ import {
   AlertTriangle,
   Package,
   Users,
-  FileText
+  FileText,
+  UserPlus
 } from 'lucide-react';
 import { toast } from 'react-hot-toast';
 
 interface DashboardStats {
+  // การ์ดด้านบน (ทั้งหมด)
   totalIssues: number;
-  pendingIssues: number;
-  inProgressIssues: number;
-  completedIssues: number;
   totalRequests: number;
   totalReturns: number;
   totalUsers: number;
   totalInventoryItems: number;
+  userAddedItems: number;
   lowStockItems: number;
+  // กล่อง "สถานะแจ้งงาน IT" (อิงช่วงเวลา)
+  pendingIssues: number;
+  inProgressIssues: number;
+  completedIssues: number;
   urgentIssues: number;
+  normalIssues: number;
+  // กล่อง "สถานะคลังสินค้า" (อิงช่วงเวลา)
+  totalInventoryItemsInPeriod: number;
+  lowStockItemsInPeriod: number;
+  // Charts
   monthlyIssues: Array<{ month: string; count: number }>;
   monthlyRequests: Array<{ month: string; count: number }>;
   monthlyReturns: Array<{ month: string; count: number }>;
@@ -250,12 +259,18 @@ export default function AdminDashboardPage() {
 
           {/* Stats Cards */}
           {stats && (
-            <div className="grid max-[768px]:grid-cols-1 max-[1120px]:grid-cols-2 grid-cols-4 grid-cols-4 gap-6">
+            <div className="grid max-[768px]:grid-cols-1 max-[1120px]:grid-cols-2 max-[1400px]:grid-cols-3 grid-cols-5 gap-6">
               <StatCard
                 title="แจ้งงาน IT ทั้งหมด"
                 value={stats.totalIssues}
                 icon={AlertTriangle}
                 color="bg-red-500"
+              />
+              <StatCard
+                title="User เพิ่มเองทั้งหมด"
+                value={stats.userAddedItems}
+                icon={UserPlus}
+                color="bg-orange-500"
               />
               <StatCard
                 title="เบิกอุปกรณ์ทั้งหมด"
@@ -303,19 +318,23 @@ export default function AdminDashboardPage() {
               <div className="space-y-3">
                 <div className="flex justify-between items-center">
                   <span className="text-sm text-gray-600">รอดำเนินการ</span>
-                  <span className="font-semibold text-yellow-600">{stats.pendingIssues}</span>
+                  <span className="font-semibold text-yellow-600">{stats.pendingIssues || 0}</span>
                 </div>
                 <div className="flex justify-between items-center">
                   <span className="text-sm text-gray-600">ดำเนินการแล้ว</span>
-                  <span className="font-semibold text-blue-600">{stats.inProgressIssues}</span>
+                  <span className="font-semibold text-blue-600">{stats.inProgressIssues || 0}</span>
                 </div>
                 <div className="flex justify-between items-center">
                   <span className="text-sm text-gray-600">ปิดงานแล้ว</span>
-                  <span className="font-semibold text-green-600">{stats.completedIssues}</span>
+                  <span className="font-semibold text-green-600">{stats.completedIssues || 0}</span>
+                </div>
+                <div className="flex justify-between items-center border-t pt-2">
+                  <span className="text-sm text-red-600 font-medium">ด่วนมาก</span>
+                  <span className="font-semibold text-red-600">{stats.urgentIssues || 0}</span>
                 </div>
                 <div className="flex justify-between items-center">
-                  <span className="text-sm text-red-600 font-medium">ด่วนมาก</span>
-                  <span className="font-semibold text-red-600">{stats.urgentIssues}</span>
+                  <span className="text-sm text-gray-600 font-medium">ปกติ</span>
+                  <span className="font-semibold text-gray-600">{stats.normalIssues || 0}</span>
                 </div>
               </div>
             </div>
@@ -325,19 +344,12 @@ export default function AdminDashboardPage() {
               <div className="space-y-3">
                 <div className="flex justify-between items-center">
                   <span className="text-sm text-gray-600">รายการทั้งหมด</span>
-                  <span className="font-semibold text-blue-600">{stats.totalInventoryItems}</span>
+                  <span className="font-semibold text-blue-600">{stats.totalInventoryItemsInPeriod || 0}</span>
                 </div>
                 <div className="flex justify-between items-center">
-                  <span className="text-sm text-red-600 font-medium">สินค้าใกล้หมด</span>
-                  <span className="font-semibold text-red-600">{stats.lowStockItems}</span>
+                  <span className="text-sm text-red-600 font-medium">สินค้าใกล้หมด (≤ 2)</span>
+                  <span className="font-semibold text-red-600">{stats.lowStockItemsInPeriod || 0}</span>
                 </div>
-                {stats.lowStockItems > 0 && (
-                  <div className="mt-2 p-2 bg-red-50 rounded border border-red-200">
-                    <p className="text-xs text-red-700">
-                      ⚠️ มีสินค้าใกล้หมด {stats.lowStockItems} รายการ
-                    </p>
-                  </div>
-                )}
               </div>
             </div>
 
@@ -361,6 +373,10 @@ export default function AdminDashboardPage() {
                   <span className="font-semibold text-green-600">
                     {selectedMonth === 'all' ? stats.monthlyReturns.filter(m => m.month.startsWith(`${selectedYear}-`)).reduce((sum, m) => sum + m.count, 0) : (stats.monthlyReturns.find(m => m.month === `${selectedYear}-${(selectedMonth as number).toString().padStart(2, '0')}`)?.count || 0)}
                   </span>
+                </div>
+                <div className="flex justify-between items-center">
+                  <span className="text-sm text-gray-600">User เพิ่มเองทั้งหมด</span>
+                  <span className="font-semibold text-orange-600">{stats.userAddedItems}</span>
                 </div>
               </div>
             </div>

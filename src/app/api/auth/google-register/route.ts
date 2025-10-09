@@ -139,10 +139,10 @@ export async function POST(request: NextRequest) {
     // Create new user
     const newUser = new User({
       user_id: nextUserId,
-      firstName: profileData.firstName,
-      lastName: profileData.lastName,
-      nickname: profileData.nickname,
-      department: profileData.department,
+      firstName: profileData.userType === 'individual' ? profileData.firstName : undefined,
+      lastName: profileData.userType === 'individual' ? profileData.lastName : undefined,
+      nickname: profileData.userType === 'individual' ? profileData.nickname : undefined,
+      department: profileData.userType === 'individual' ? profileData.department : undefined,
       office: profileData.office,
       phone: profileData.phone,
       email: googleProfile.email,

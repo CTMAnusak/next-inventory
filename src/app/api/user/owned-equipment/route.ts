@@ -151,6 +151,21 @@ export async function GET(request: NextRequest) {
       const deliveryLocation = itemToDeliveryLocationMap.get(itemIdStr) || '';
       console.log(`🎯 Item "${(item as any).itemName}" (ID: ${itemIdStr}) -> deliveryLocation: "${deliveryLocation}"`);
 
+      // ✅ ดึงข้อมูลจาก item.requesterInfo (สำหรับอุปกรณ์ที่เพิ่มเอง)
+      const itemRequesterInfo = (item as any).requesterInfo;
+      
+      console.log(`📝 Item "${(item as any).itemName}": requesterInfo =`, itemRequesterInfo);
+      
+      // ลำดับความสำคัญ: item.requesterInfo > mostRecentRequesterInfo
+      const finalFirstName = itemRequesterInfo?.firstName || mostRecentRequesterInfo?.firstName || undefined;
+      const finalLastName = itemRequesterInfo?.lastName || mostRecentRequesterInfo?.lastName || undefined;
+      const finalNickname = itemRequesterInfo?.nickname || mostRecentRequesterInfo?.nickname || undefined;
+      const finalDepartment = itemRequesterInfo?.department || mostRecentRequesterInfo?.department || undefined;
+      const finalPhone = itemRequesterInfo?.phone || mostRecentRequesterInfo?.phone || undefined;
+      const finalOffice = itemRequesterInfo?.office || mostRecentRequesterInfo?.office || undefined;
+      
+      console.log(`   Final: ${finalFirstName} ${finalLastName}, department: ${finalDepartment}`);
+      
       return {
         _id: item._id,
         itemMasterId: (item as any).itemMasterId,
@@ -169,13 +184,14 @@ export async function GET(request: NextRequest) {
         updatedAt: item.updatedAt,
         deliveryLocation: deliveryLocation, // ✅ เพิ่มสถานที่จัดส่ง
         hasPendingReturn, // ✅ เพิ่ม flag นี้
-        // ✅ ใส่ข้อมูลส่วนตัวจากใบเบิก (สำหรับผู้ใช้ประเภทสาขา - ใช้ข้อมูลจากใบเบิกล่าสุด)
-        firstName: mostRecentRequesterInfo?.firstName || undefined,
-        lastName: mostRecentRequesterInfo?.lastName || undefined,
-        nickname: mostRecentRequesterInfo?.nickname || undefined,
-        department: mostRecentRequesterInfo?.department || undefined,
-        phone: mostRecentRequesterInfo?.phone || undefined,
-        office: mostRecentRequesterInfo?.office || undefined
+        source: 'user-owned', // ✅ เพิ่ม source เพื่อให้แสดงปุ่มแก้ไข
+        // ✅ ใส่ข้อมูลส่วนตัว (ดึงจาก item.requesterInfo หรือ RequestLog)
+        firstName: finalFirstName,
+        lastName: finalLastName,
+        nickname: finalNickname,
+        department: finalDepartment,
+        phone: finalPhone,
+        office: finalOffice
       };
     });
     
@@ -218,7 +234,13 @@ export async function POST(request: NextRequest) {
       statusId = 'status_available',
       conditionId = 'cond_working',
       quantity = 1,
-      notes
+      notes,
+      // ✅ รับข้อมูลผู้ใช้สาขา
+      firstName,
+      lastName,
+      nickname,
+      department,
+      phone
     } = equipmentData;
     
     // Validate required fields
@@ -241,6 +263,10 @@ export async function POST(request: NextRequest) {
     
     const createdItems = [];
     
+    // Get user's office for requesterInfo
+    const User = (await import('@/models/User')).default;
+    const currentUser = await User.findOne({ user_id: payload.userId });
+    
     // Create multiple items if quantity > 1
     for (let i = 0; i < quantity; i++) {
       const itemData = {
@@ -254,7 +280,16 @@ export async function POST(request: NextRequest) {
         addedByUserId: payload.userId,
         initialOwnerType: 'user_owned' as const,
         userId: payload.userId,
-        notes: notes || undefined
+        notes: notes || undefined,
+        // ✅ เพิ่มข้อมูลผู้ใช้สาขา (สำหรับผู้ใช้ประเภทสาขาเท่านั้น)
+        requesterInfo: (firstName || lastName || department) ? {
+          firstName: firstName || undefined,
+          lastName: lastName || undefined,
+          nickname: nickname || undefined,
+          department: department || undefined,
+          phone: phone || undefined,
+          office: currentUser?.office || undefined
+        } : undefined
       };
       
       const newItem = await createInventoryItem(itemData);

@@ -34,28 +34,62 @@ export async function GET(request: NextRequest) {
       inProgressIssues,
       completedIssues,
       urgentIssues,
+      normalIssues,
       totalRequests,
       totalReturns,
       totalUsers,
       totalInventoryItems,
+      userAddedItems,
       lowStockItems,
+      // สำหรับกล่อง "สถานะแจ้งงาน IT" (อิงช่วงเวลา)
+      pendingIssuesInPeriod,
+      inProgressIssuesInPeriod,
+      completedIssuesInPeriod,
+      urgentIssuesInPeriod,
+      normalIssuesInPeriod,
+      // สำหรับกล่อง "สถานะคลังสินค้า" (อิงช่วงเวลา)
+      totalInventoryItemsInPeriod,
+      lowStockItemsInPeriod,
       monthlyIssues,
       monthlyRequests,
       monthlyReturns,
       issuesByCategory,
       requestsByUrgency
     ] = await Promise.all([
+      // การ์ดด้านบน: นับทั้งหมด (ไม่อิงเดือน/ปี)
       IssueLog.estimatedDocumentCount(),
       IssueLog.countDocuments({ status: 'pending' }),
       IssueLog.countDocuments({ status: 'in_progress' }),
       IssueLog.countDocuments({ status: 'completed' }),
       IssueLog.countDocuments({ urgency: 'very_urgent' }),
+      IssueLog.countDocuments({ urgency: 'normal' }),
 
       RequestLog.estimatedDocumentCount(),
       ReturnLog.estimatedDocumentCount(),
       User.countDocuments({ pendingDeletion: { $ne: true } }),
       Inventory.estimatedDocumentCount(),
-      Inventory.countDocuments({ quantity: { $lte: 2 }, serialNumber: { $in: [null, '', undefined] } }),
+      Inventory.countDocuments({ 'currentOwnership.ownerType': 'user_owned', 'sourceInfo.addedBy': 'user' }),
+      // นับสินค้าใกล้หมด (availableQuantity <= 2 และไม่มี serial number/phone number) - ข้อมูลปัจจุบันทั้งหมด
+      Inventory.countDocuments({ 
+        availableQuantity: { $lte: 2 }, 
+        'itemDetails.withSerialNumber.count': 0,
+        'itemDetails.withPhoneNumber.count': 0
+      }),
+
+      // กล่อง "สถานะแจ้งงาน IT" (อิงช่วงเวลา)
+      IssueLog.countDocuments({ status: 'pending', submittedAt: { $gte: startDate, $lte: endDate } }),
+      IssueLog.countDocuments({ status: 'in_progress', submittedAt: { $gte: startDate, $lte: endDate } }),
+      IssueLog.countDocuments({ status: 'completed', submittedAt: { $gte: startDate, $lte: endDate } }),
+      IssueLog.countDocuments({ urgency: 'very_urgent', submittedAt: { $gte: startDate, $lte: endDate } }),
+      IssueLog.countDocuments({ urgency: 'normal', submittedAt: { $gte: startDate, $lte: endDate } }),
+
+      // กล่อง "สถานะคลังสินค้า" (ข้อมูลปัจจุบัน - ไม่อิงช่วงเวลา)
+      Inventory.estimatedDocumentCount(),
+      Inventory.countDocuments({ 
+        availableQuantity: { $lte: 2 }, 
+        'itemDetails.withSerialNumber.count': 0,
+        'itemDetails.withPhoneNumber.count': 0
+      }),
 
       // monthlyIssues
       IssueLog.aggregate([
@@ -108,16 +142,24 @@ export async function GET(request: NextRequest) {
       .filter((x: any) => x.count > 0);
 
     const stats = {
+      // การ์ดด้านบน (ทั้งหมด - ไม่อิงเดือน/ปี)
       totalIssues,
-      pendingIssues,
-      inProgressIssues,
-      completedIssues,
-      urgentIssues,
       totalRequests,
       totalReturns,
       totalUsers,
       totalInventoryItems,
+      userAddedItems,
       lowStockItems,
+      // กล่อง "สถานะแจ้งงาน IT" (อิงช่วงเวลา)
+      pendingIssues: pendingIssuesInPeriod,
+      inProgressIssues: inProgressIssuesInPeriod,
+      completedIssues: completedIssuesInPeriod,
+      urgentIssues: urgentIssuesInPeriod,
+      normalIssues: normalIssuesInPeriod,
+      // กล่อง "สถานะคลังสินค้า" (อิงช่วงเวลา)
+      totalInventoryItemsInPeriod,
+      lowStockItemsInPeriod,
+      // Charts และ aggregations (อิงช่วงเวลา)
       monthlyIssues,
       monthlyRequests,
       monthlyReturns,

@@ -163,7 +163,7 @@ export default function AdminInventoryPage() {
   const [statusFilter, setStatusFilter] = useState('');
   const [conditionFilter, setConditionFilter] = useState('');
   const [typeFilter, setTypeFilter] = useState('');
-  const [lowStockFilter, setLowStockFilter] = useState<number | null>(null);
+  const [lowStockFilter, setLowStockFilter] = useState<number | null>(2);
   const [deletableFilter, setDeletableFilter] = useState<string>(''); // 🆕 Filter สำหรับสถานะการลบ
   
   // Drag scroll ref
@@ -2513,7 +2513,7 @@ export default function AdminInventoryPage() {
                   const threshold = lowStockFilter !== null ? lowStockFilter : 2;
                   const isLowStock = item.quantity <= threshold && !hasSerials;
                   return (
-                    <tr key={item._id} className={isLowStock ? 'bg-red-50' : (index % 2 === 0 ? 'bg-white' : 'bg-blue-50')}>
+                    <tr key={item._id} className={isLowStock ? 'bg-red-100' : (index % 2 === 0 ? 'bg-white' : 'bg-blue-50')}>
                       <td className="px-6 py-4 text-sm font-medium text-gray-900 text-center text-selectable">
                         {item.itemName}
                       </td>

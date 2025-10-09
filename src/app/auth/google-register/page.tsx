@@ -48,7 +48,7 @@ export default function GoogleRegisterPage() {
         const profile: GoogleProfile = JSON.parse(decodeURIComponent(profileData));
         setGoogleProfile(profile);
         
-        // แยกชื่อจาก Google name
+        // แยกชื่อจาก Google name (เฉพาะผู้ใช้ประเภทบุคคล)
         const nameParts = profile.name.split(' ');
         setFormData(prev => ({
           ...prev,
@@ -78,6 +78,31 @@ export default function GoogleRegisterPage() {
           [name]: numbersOnly
         }));
       }
+      return;
+    }
+    
+    // Clear firstName/lastName when switching to branch user type
+    if (name === 'userType' && value === 'branch') {
+      setFormData(prev => ({
+        ...prev,
+        [name]: value,
+        firstName: '',
+        lastName: '',
+        nickname: '',
+        department: ''
+      }));
+      return;
+    }
+    
+    // Restore firstName/lastName from Google profile when switching back to individual
+    if (name === 'userType' && value === 'individual' && googleProfile) {
+      const nameParts = googleProfile.name.split(' ');
+      setFormData(prev => ({
+        ...prev,
+        [name]: value,
+        firstName: nameParts[0] || '',
+        lastName: nameParts.slice(1).join(' ') || ''
+      }));
       return;
     }
     
