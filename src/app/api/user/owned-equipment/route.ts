@@ -166,6 +166,13 @@ export async function GET(request: NextRequest) {
       
       console.log(`   Final: ${finalFirstName} ${finalLastName}, department: ${finalDepartment}`);
       
+      // ✅ กำหนด source ตามการได้มาของอุปกรณ์
+      // - self_reported = เพิ่มเองผ่าน "เพิ่มอุปกรณ์ที่มี" → แสดงปุ่มแก้ไข
+      // - transferred = ได้จากการเบิก → ไม่แสดงปุ่มแก้ไข
+      const acquisitionMethod = item.sourceInfo?.acquisitionMethod;
+      const source = acquisitionMethod === 'self_reported' ? 'user-owned' : 'request';
+      console.log(`   📝 Item "${(item as any).itemName}" - acquisitionMethod: ${acquisitionMethod} → source: ${source} (editable: ${source === 'user-owned'})`);
+      
       return {
         _id: item._id,
         itemMasterId: (item as any).itemMasterId,
@@ -184,7 +191,7 @@ export async function GET(request: NextRequest) {
         updatedAt: item.updatedAt,
         deliveryLocation: deliveryLocation, // ✅ เพิ่มสถานที่จัดส่ง
         hasPendingReturn, // ✅ เพิ่ม flag นี้
-        source: 'user-owned', // ✅ เพิ่ม source เพื่อให้แสดงปุ่มแก้ไข
+        source: source, // ✅ กำหนด source ตามวิธีการได้มา
         // ✅ ใส่ข้อมูลส่วนตัว (ดึงจาก item.requesterInfo หรือ RequestLog)
         firstName: finalFirstName,
         lastName: finalLastName,

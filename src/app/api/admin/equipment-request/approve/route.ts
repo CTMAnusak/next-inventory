@@ -93,7 +93,16 @@ export async function POST(request: NextRequest) {
             toUserId: requestLog.userId.toString(),
             transferType: 'request_approved',
             processedBy: payload.userId,
-            requestId: requestId
+            requestId: requestId,
+            // ✅ คัดลอกข้อมูลผู้ใช้สาขาจาก RequestLog
+            requesterInfo: {
+              firstName: requestLog.requesterFirstName,
+              lastName: requestLog.requesterLastName,
+              nickname: requestLog.requesterNickname,
+              department: requestLog.requesterDepartment,
+              phone: requestLog.requesterPhone,
+              office: requestLog.requesterOffice
+            }
           });
           
           transferredItems.push({

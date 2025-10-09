@@ -46,6 +46,15 @@ export interface TransferItemParams {
   requestId?: string;
   returnId?: string;
   reason?: string;
+  // ✅ เพิ่มข้อมูลผู้ใช้สาขา (สำหรับการเบิกอุปกรณ์)
+  requesterInfo?: {
+    firstName?: string;
+    lastName?: string;
+    nickname?: string;
+    department?: string;
+    phone?: string;
+    office?: string;
+  };
 }
 
 /**
@@ -299,7 +308,8 @@ export async function transferInventoryItem(params: TransferItemParams) {
     processedBy,
     requestId,
     returnId,
-    reason
+    reason,
+    requesterInfo
   } = params;
 
   // Find the item
@@ -333,6 +343,18 @@ export async function transferInventoryItem(params: TransferItemParams) {
     requestId,
     returnId
   };
+
+  // ✅ คัดลอกข้อมูลผู้ใช้สาขา (เมื่อโอนให้ user_owned)
+  if (toOwnerType === 'user_owned' && requesterInfo) {
+    item.requesterInfo = {
+      firstName: requesterInfo.firstName,
+      lastName: requesterInfo.lastName,
+      nickname: requesterInfo.nickname,
+      department: requesterInfo.department,
+      phone: requesterInfo.phone,
+      office: requesterInfo.office
+    };
+  }
 
   const savedItem = await item.save();
 

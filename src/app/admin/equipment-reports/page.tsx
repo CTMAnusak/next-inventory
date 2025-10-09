@@ -323,14 +323,20 @@ export default function AdminEquipmentReportsPage() {
       
       // Validate selections
       const selections = selectedRequest.items.map(item => {
-        const itemKey = `${item.itemName || 'unknown'}-${(item as any).category || 'ไม่ระบุ'}`;
+        // ✅ Use consistent itemKey generation (same as in modal rendering)
+        const itemKey = `${item.itemName || 'unknown'}-${item.category || 'ไม่ระบุ'}`;
         const selectedItems = itemSelections[itemKey] || [];
         
         // ✅ Enhanced validation: Check if admin selected items
         if (selectedItems.length !== item.quantity) {
           if (selectedItems.length === 0) {
             // Case: Admin didn't select any items
-            throw new Error(`กรุณาเลือกรายการอุปกรณ์สำหรับ ${item.itemName} (ต้องเลือก ${item.quantity} ชิ้น)`);
+            // ✅ Check if this might be a timing issue (modal just opened)
+            if (Object.keys(itemSelections).length === 0) {
+              throw new Error(`กรุณารอให้ระบบโหลดรายการอุปกรณ์เสร็จสิ้น แล้วเลือกอุปกรณ์ก่อนอนุมัติ`);
+            } else {
+              throw new Error(`กรุณาเลือกรายการอุปกรณ์สำหรับ ${item.itemName} (ต้องเลือก ${item.quantity} ชิ้น)`);
+            }
           } else {
             // Case: Admin needs to select more items
             throw new Error(`กรุณาเลือก ${item.itemName} ให้ครบ ${item.quantity} ชิ้น (เลือกแล้ว ${selectedItems.length} ชิ้น)`);
@@ -1411,10 +1417,34 @@ export default function AdminEquipmentReportsPage() {
               <div className="px-6 py-4 border-t border-gray-200">
                 <div className="flex items-center justify-between">
                   <div className="text-sm text-gray-600">
-                    {Object.keys(itemSelections).length > 0 && (
-                      <span>
-                        เลือกแล้ว: {Object.values(itemSelections).reduce((total, items) => total + items.length, 0)} ชิ้น
-                      </span>
+                    {selectedRequest && (
+                      <div className="space-y-1">
+                        <div>
+                          เลือกแล้ว: {Object.values(itemSelections).reduce((total, items) => total + items.length, 0)} ชิ้น
+                          จากที่ต้องการ: {selectedRequest.items.reduce((total, item) => total + item.quantity, 0)} ชิ้น
+                        </div>
+                        {/* ✅ Show selection status for each item */}
+                        <div className="flex flex-wrap gap-2">
+                          {selectedRequest.items.map((item, idx) => {
+                            const itemKey = `${item.itemName || 'unknown'}-${item.category || 'ไม่ระบุ'}`;
+                            const selectedItems = itemSelections[itemKey] || [];
+                            const isComplete = selectedItems.length === item.quantity;
+                            return (
+                              <span
+                                key={idx}
+                                className={`inline-flex items-center px-2 py-1 rounded-full text-xs font-medium ${
+                                  isComplete 
+                                    ? 'bg-green-100 text-green-800' 
+                                    : 'bg-orange-100 text-orange-800'
+                                }`}
+                              >
+                                {item.itemName}: {selectedItems.length}/{item.quantity}
+                                {isComplete ? ' ✓' : ''}
+                              </span>
+                            );
+                          })}
+                        </div>
+                      </div>
                     )}
                   </div>
                    <div className="flex justify-center items-center space-x-4">
@@ -1456,7 +1486,15 @@ export default function AdminEquipmentReportsPage() {
                      {/* ปุ่มอนุมัติและมอบหมาย */}
                      <button
                        onClick={handleApproveWithSelection}
-                       disabled={isApproving || !selectedRequest || Object.keys(itemSelections).length !== selectedRequest.items.length}
+                       disabled={isApproving || !selectedRequest || (() => {
+                         // ✅ Check if all items have the correct number of selections
+                         if (!selectedRequest) return true;
+                         return selectedRequest.items.some(item => {
+                           const itemKey = `${item.itemName || 'unknown'}-${item.category || 'ไม่ระบุ'}`;
+                           const selectedItems = itemSelections[itemKey] || [];
+                           return selectedItems.length !== item.quantity;
+                         });
+                       })()}
                        className="px-4 py-2 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 disabled:opacity-50 disabled:cursor-not-allowed flex items-center space-x-2"
                      >
                        {isApproving && (

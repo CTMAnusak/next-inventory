@@ -136,7 +136,16 @@ export async function POST(
             transferType: 'request_approved',
             processedBy: adminId,
             requestId: id,
-            reason: `Equipment request approved and assigned. Request: ${requestLog.reason}`
+            reason: `Equipment request approved and assigned. Request: ${requestLog.reason}`,
+            // ✅ คัดลอกข้อมูลผู้ใช้สาขาจาก RequestLog
+            requesterInfo: {
+              firstName: requestLog.requesterFirstName,
+              lastName: requestLog.requesterLastName,
+              nickname: requestLog.requesterNickname,
+              department: requestLog.requesterDepartment,
+              phone: requestLog.requesterPhone,
+              office: requestLog.requesterOffice
+            }
           });
 
           transferResults.push(transferResult);

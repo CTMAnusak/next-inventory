@@ -151,7 +151,12 @@ export default function EquipmentRequestPage() {
   };
 
   const handleItemChange = (field: keyof RequestItem, value: string | number) => {
-    setRequestItem(prev => ({ ...prev, [field]: value }));
+    // ไม่ให้แก้ไข quantity - ล็อคไว้ที่ 1
+    if (field === 'quantity') {
+      setRequestItem(prev => ({ ...prev, [field]: 1 }));
+    } else {
+      setRequestItem(prev => ({ ...prev, [field]: value }));
+    }
   };
 
   // Function to handle category selection for item
@@ -249,8 +254,8 @@ export default function EquipmentRequestPage() {
 
   // Add current selected item into list with duplicate prevention
   const addRequestItem = () => {
-    if (!requestItem.itemId || !requestItem.quantity || requestItem.quantity <= 0) {
-      toast.error('กรุณาเลือกอุปกรณ์และระบุจำนวนให้ถูกต้อง');
+    if (!requestItem.itemId) {
+      toast.error('กรุณาเลือกอุปกรณ์');
       return;
     }
     if (requestItems.some(it => it.itemId === requestItem.itemId)) {
@@ -642,24 +647,15 @@ export default function EquipmentRequestPage() {
                       <input
                         type="number"
                         min="1"
-                        max={(() => {
-                          if (!requestItem.itemId) return 1;
-                          const inventoryItem = inventoryItems.find(i => String(i._id) === requestItem.itemId);
-                          if (!inventoryItem) return 1;
-                          const availableStock = inventoryItem.quantity || 0;
-                          return availableStock > 0 ? availableStock : 1;
-                        })()}
-                        value={requestItem.quantity}
-                        onChange={(e) => {
-                          const n = Number(e.target.value);
-                          handleItemChange('quantity', Number.isNaN(n) || n <= 0 ? 1 : n);
-                        }}
-                        className={`w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 text-gray-900 ${
+                        max="1"
+                        value="1"
+                        readOnly
+                        className={`w-full px-3 py-2 border border-gray-300 rounded-md bg-gray-100 text-gray-600 cursor-not-allowed ${
                           (!itemsByCategory[selectedCategoryId] || itemsByCategory[selectedCategoryId].length === 0) 
                             ? 'bg-gray-50 cursor-not-allowed' 
                             : ''
                         }`}
-                        disabled={!itemsByCategory[selectedCategoryId] || itemsByCategory[selectedCategoryId].length === 0}
+                        disabled={true}
                         required
                       />
                     </div>
