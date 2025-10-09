@@ -33,6 +33,8 @@ interface DashboardStats {
   // กล่อง "สถานะคลังสินค้า" (อิงช่วงเวลา)
   totalInventoryItemsInPeriod: number;
   lowStockItemsInPeriod: number;
+  // กล่อง "สรุป" (อิงช่วงเวลา)
+  userAddedItemsInPeriod: number;
   // Charts
   monthlyIssues: Array<{ month: string; count: number }>;
   monthlyRequests: Array<{ month: string; count: number }>;
@@ -376,7 +378,7 @@ export default function AdminDashboardPage() {
                 </div>
                 <div className="flex justify-between items-center">
                   <span className="text-sm text-gray-600">User เพิ่มเองทั้งหมด</span>
-                  <span className="font-semibold text-orange-600">{stats.userAddedItems}</span>
+                  <span className="font-semibold text-orange-600">{stats.userAddedItemsInPeriod}</span>
                 </div>
               </div>
             </div>

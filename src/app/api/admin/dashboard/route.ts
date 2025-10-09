@@ -51,6 +51,8 @@ export async function GET(request: NextRequest) {
       // สำหรับกล่อง "สถานะคลังสินค้า" (อิงช่วงเวลา)
       totalInventoryItemsInPeriod,
       lowStockItemsInPeriod,
+      // สำหรับกล่อง "สรุป" (อิงช่วงเวลา)
+      userAddedItemsInPeriod,
       monthlyIssues,
       monthlyRequests,
       monthlyReturns,
@@ -84,12 +86,23 @@ export async function GET(request: NextRequest) {
       IssueLog.countDocuments({ urgency: 'very_urgent', submittedAt: { $gte: startDate, $lte: endDate } }),
       IssueLog.countDocuments({ urgency: 'normal', submittedAt: { $gte: startDate, $lte: endDate } }),
 
-      // กล่อง "สถานะคลังสินค้า" (ข้อมูลปัจจุบัน - ไม่อิงช่วงเวลา)
-      InventoryItem.estimatedDocumentCount(),
+      // กล่อง "สถานะคลังสินค้า" (อิงช่วงเวลา - สำหรับรายการที่เพิ่มในช่วงเวลานั้น)
+      InventoryItem.countDocuments({ 
+        'sourceInfo.dateAdded': { $gte: startDate, $lte: endDate },
+        deletedAt: { $exists: false }
+      }),
       InventoryMaster.countDocuments({ 
         availableQuantity: { $lte: 2, $gt: 0 }, // มีจำนวนคงเหลือ 1-2 ชิ้น
         'itemDetails.withSerialNumber.count': 0, // ไม่มี Serial Number
-        'itemDetails.withPhoneNumber.count': 0   // ไม่มีเบอร์โทรศัพท์
+        'itemDetails.withPhoneNumber.count': 0,   // ไม่มีเบอร์โทรศัพท์
+        lastUpdated: { $gte: startDate, $lte: endDate } // อิงตามช่วงเวลาที่อัปเดตล่าสุด
+      }),
+      
+      // สำหรับกล่อง "สรุป" - User เพิ่มเองในช่วงเวลา
+      InventoryItem.countDocuments({ 
+        'currentOwnership.ownerType': 'user_owned', 
+        'sourceInfo.addedBy': 'user',
+        'sourceInfo.dateAdded': { $gte: startDate, $lte: endDate }
       }),
 
       // monthlyIssues
@@ -160,6 +173,8 @@ export async function GET(request: NextRequest) {
       // กล่อง "สถานะคลังสินค้า" (อิงช่วงเวลา)
       totalInventoryItemsInPeriod,
       lowStockItemsInPeriod,
+      // กล่อง "สรุป" (อิงช่วงเวลา)
+      userAddedItemsInPeriod,
       // Charts และ aggregations (อิงช่วงเวลา)
       monthlyIssues,
       monthlyRequests,
