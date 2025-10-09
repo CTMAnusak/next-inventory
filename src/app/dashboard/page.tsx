@@ -117,12 +117,13 @@ export default function DashboardPage() {
     }
   }, [user?.firstName, user?.lastName, user?.office, user?.id]);
 
+  // ✅ โหลดข้อมูลอุปกรณ์เมื่อ user โหลดเสร็จ
   useEffect(() => {
-    // Only fetch once when user data is available and not already loaded
-    if (user && user.firstName && user.lastName && user.office && !dataLoaded && !ownedLoading) {
+    if (user && !loading && !dataLoaded) {
+      console.log('🔄 Dashboard - User loaded, fetching owned equipment...');
       fetchOwned();
     }
-  }, [user?.firstName, user?.lastName, user?.office, dataLoaded, ownedLoading, fetchOwned]);
+  }, [user, loading, dataLoaded, fetchOwned]);
 
   // Force refresh function for manual refresh
   const refreshData = useCallback(async () => {
@@ -1145,25 +1146,57 @@ export default function DashboardPage() {
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                       <div>
                         <label className="block text-sm font-medium text-gray-700 mb-1">ชื่อ *</label>
-                        <input type="text" value={form.firstName} onChange={(e) => setForm({ ...form, firstName: e.target.value })} className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500" placeholder="ชื่อผู้รับอุปกรณ์" />
+                        <input 
+                          type="text" 
+                          value={form.firstName} 
+                          onChange={(e) => setForm({ ...form, firstName: e.target.value })} 
+                          className={`w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 ${editItemId ? 'bg-gray-100 cursor-not-allowed' : ''}`}
+                          placeholder="ชื่อผู้รับอุปกรณ์" 
+                          disabled={!!editItemId}
+                        />
                       </div>
                       <div>
                         <label className="block text-sm font-medium text-gray-700 mb-1">นามสกุล *</label>
-                        <input type="text" value={form.lastName} onChange={(e) => setForm({ ...form, lastName: e.target.value })} className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500" placeholder="นามสกุลผู้รับอุปกรณ์" />
+                        <input 
+                          type="text" 
+                          value={form.lastName} 
+                          onChange={(e) => setForm({ ...form, lastName: e.target.value })} 
+                          className={`w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 ${editItemId ? 'bg-gray-100 cursor-not-allowed' : ''}`}
+                          placeholder="นามสกุลผู้รับอุปกรณ์" 
+                          disabled={!!editItemId}
+                        />
                       </div>
                     </div>
                     <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                       <div>
                         <label className="block text-sm font-medium text-gray-700 mb-1">ชื่อเล่น</label>
-                        <input type="text" value={form.nickname} onChange={(e) => setForm({ ...form, nickname: e.target.value })} className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500" />
+                        <input 
+                          type="text" 
+                          value={form.nickname} 
+                          onChange={(e) => setForm({ ...form, nickname: e.target.value })} 
+                          className={`w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 ${editItemId ? 'bg-gray-100 cursor-not-allowed' : ''}`}
+                          disabled={!!editItemId}
+                        />
                       </div>
                       <div>
                         <label className="block text-sm font-medium text-gray-700 mb-1">แผนก</label>
-                        <input type="text" value={form.department} onChange={(e) => setForm({ ...form, department: e.target.value })} className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500" />
+                        <input 
+                          type="text" 
+                          value={form.department} 
+                          onChange={(e) => setForm({ ...form, department: e.target.value })} 
+                          className={`w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 ${editItemId ? 'bg-gray-100 cursor-not-allowed' : ''}`}
+                          disabled={!!editItemId}
+                        />
                       </div>
                       <div>
                         <label className="block text-sm font-medium text-gray-700 mb-1">เบอร์โทรศัพท์</label>
-                        <input type="tel" value={form.phone} onChange={(e) => setForm({ ...form, phone: e.target.value.replace(/[^0-9]/g, '').slice(0, 10) })} className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500" placeholder="0XXXXXXXXX" />
+                        <input 
+                          type="tel" 
+                          value={form.phone} 
+                          onChange={(e) => setForm({ ...form, phone: e.target.value.replace(/[^0-9]/g, '').slice(0, 10) })} 
+                          className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500" 
+                          placeholder="0XXXXXXXXX" 
+                        />
                       </div>
                     </div>
                   </>
@@ -1270,21 +1303,28 @@ export default function DashboardPage() {
                     </div>
                     <div>
                       <label className="block text-sm font-medium text-gray-700 mb-1">จำนวน *</label>
-                      <input type="number" min={1} max={1} value={1} readOnly className="w-full px-3 py-2 border border-gray-300 rounded-md bg-gray-100 text-gray-600 cursor-not-allowed" />
+                      <input 
+                        type="number" 
+                        min={1} 
+                        max={1} 
+                        value={1} 
+                        readOnly 
+                        className={`w-full px-3 py-2 border border-gray-300 rounded-md ${editItemId ? 'bg-gray-100 text-gray-600 cursor-not-allowed' : 'bg-gray-100 text-gray-600 cursor-not-allowed'}`} 
+                      />
                     </div>
                     
                     <div>
                       <label className="block text-sm font-medium text-gray-700 mb-1">
-                        สถานะ * {!showNewItemInput && form.itemName && '(จากคลังอุปกรณ์)'}
+                        สถานะ * {!showNewItemInput && form.itemName && !editItemId && '(จากคลังอุปกรณ์)'}
                       </label>
                       <select
                         value={form.status}
                         onChange={(e) => setForm({ ...form, status: e.target.value })}
                         className={`w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 ${
-                          !showNewItemInput && form.itemName ? 'bg-blue-50 cursor-default' : ''
+                          !showNewItemInput && form.itemName && !editItemId ? 'bg-blue-50 cursor-default' : ''
                         }`}
                         required
-                        disabled={!showNewItemInput && form.itemName !== 'new' && !!form.itemName}
+                        disabled={!showNewItemInput && form.itemName !== 'new' && !!form.itemName && !editItemId}
                       >
                         <option value="">เลือกสถานะ</option>
                         {statusConfigs.map((config) => (
@@ -1293,7 +1333,7 @@ export default function DashboardPage() {
                           </option>
                         ))}
                       </select>
-                      {!showNewItemInput && form.itemName && form.status && (
+                      {!showNewItemInput && form.itemName && form.status && !editItemId && (
                         <p className="text-xs text-blue-600 mt-1">
                           ✅ อุปกรณ์จากคลังมีสถานะ: {getStatusName(form.status)}
                         </p>
@@ -1302,16 +1342,16 @@ export default function DashboardPage() {
                     
                     <div>
                       <label className="block text-sm font-medium text-gray-700 mb-1">
-                        สภาพอุปกรณ์ * {!showNewItemInput && form.itemName && '(จากคลังอุปกรณ์)'}
+                        สภาพอุปกรณ์ * {!showNewItemInput && form.itemName && !editItemId && '(จากคลังอุปกรณ์)'}
                       </label>
                       <select
                         value={form.condition}
                         onChange={(e) => setForm({ ...form, condition: e.target.value })}
                         className={`w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 ${
-                          !showNewItemInput && form.itemName ? 'bg-blue-50 cursor-default' : ''
+                          !showNewItemInput && form.itemName && !editItemId ? 'bg-blue-50 cursor-default' : ''
                         }`}
                         required
-                        disabled={!showNewItemInput && form.itemName !== 'new' && !!form.itemName}
+                        disabled={!showNewItemInput && form.itemName !== 'new' && !!form.itemName && !editItemId}
                       >
                         <option value="">เลือกสภาพอุปกรณ์</option>
                         {conditionConfigs.map((config) => (
@@ -1320,7 +1360,7 @@ export default function DashboardPage() {
                           </option>
                         ))}
                       </select>
-                      {!showNewItemInput && form.itemName && form.condition && (
+                      {!showNewItemInput && form.itemName && form.condition && !editItemId && (
                         <p className="text-xs text-blue-600 mt-1">
                           ✅ อุปกรณ์จากคลังมีสภาพ: {getConditionName(form.condition)}
                         </p>

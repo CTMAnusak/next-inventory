@@ -343,11 +343,11 @@ export default function AdminDashboardPage() {
               <h3 className="text-lg font-semibold text-gray-900 mb-4">สถานะคลังสินค้า</h3>
               <div className="space-y-3">
                 <div className="flex justify-between items-center">
-                  <span className="text-sm text-gray-600">รายการทั้งหมด</span>
+                  <span className="text-sm text-gray-600">จำนวนทั้งหมด</span>
                   <span className="font-semibold text-blue-600">{stats.totalInventoryItemsInPeriod || 0}</span>
                 </div>
                 <div className="flex justify-between items-center">
-                  <span className="text-sm text-red-600 font-medium">สินค้าใกล้หมด (≤ 2)</span>
+                  <span className="text-sm text-red-600 font-medium">รายการทั่วไป (ไม่รวม SN/เบอร์) ใกล้หมด (≤ 2)</span>
                   <span className="font-semibold text-red-600">{stats.lowStockItemsInPeriod || 0}</span>
                 </div>
               </div>

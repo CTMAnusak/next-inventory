@@ -4,7 +4,8 @@ import IssueLog from '@/models/IssueLog';
 import RequestLog from '@/models/RequestLog';
 import ReturnLog from '@/models/ReturnLog';
 import User from '@/models/User';
-import Inventory from '@/models/Inventory';
+import InventoryItem from '@/models/InventoryItem';
+import InventoryMaster from '@/models/InventoryMaster';
 import { getCachedData, setCachedData } from '@/lib/cache-utils';
 
 export async function GET(request: NextRequest) {
@@ -67,13 +68,13 @@ export async function GET(request: NextRequest) {
       RequestLog.estimatedDocumentCount(),
       ReturnLog.estimatedDocumentCount(),
       User.countDocuments({ pendingDeletion: { $ne: true } }),
-      Inventory.estimatedDocumentCount(),
-      Inventory.countDocuments({ 'currentOwnership.ownerType': 'user_owned', 'sourceInfo.addedBy': 'user' }),
-      // นับสินค้าใกล้หมด (availableQuantity <= 2 และไม่มี serial number/phone number) - ข้อมูลปัจจุบันทั้งหมด
-      Inventory.countDocuments({ 
-        availableQuantity: { $lte: 2 }, 
-        'itemDetails.withSerialNumber.count': 0,
-        'itemDetails.withPhoneNumber.count': 0
+      InventoryItem.estimatedDocumentCount(),
+      InventoryItem.countDocuments({ 'currentOwnership.ownerType': 'user_owned', 'sourceInfo.addedBy': 'user' }),
+      // นับแถวสินค้าใกล้หมด (availableQuantity <= 2 และไม่มี serial number) - นับจำนวนแถว ไม่ใช่จำนวน items
+      InventoryMaster.countDocuments({ 
+        availableQuantity: { $lte: 2, $gt: 0 }, // มีจำนวนคงเหลือ 1-2 ชิ้น
+        'itemDetails.withSerialNumber.count': 0, // ไม่มี Serial Number
+        'itemDetails.withPhoneNumber.count': 0   // ไม่มีเบอร์โทรศัพท์
       }),
 
       // กล่อง "สถานะแจ้งงาน IT" (อิงช่วงเวลา)
@@ -84,11 +85,11 @@ export async function GET(request: NextRequest) {
       IssueLog.countDocuments({ urgency: 'normal', submittedAt: { $gte: startDate, $lte: endDate } }),
 
       // กล่อง "สถานะคลังสินค้า" (ข้อมูลปัจจุบัน - ไม่อิงช่วงเวลา)
-      Inventory.estimatedDocumentCount(),
-      Inventory.countDocuments({ 
-        availableQuantity: { $lte: 2 }, 
-        'itemDetails.withSerialNumber.count': 0,
-        'itemDetails.withPhoneNumber.count': 0
+      InventoryItem.estimatedDocumentCount(),
+      InventoryMaster.countDocuments({ 
+        availableQuantity: { $lte: 2, $gt: 0 }, // มีจำนวนคงเหลือ 1-2 ชิ้น
+        'itemDetails.withSerialNumber.count': 0, // ไม่มี Serial Number
+        'itemDetails.withPhoneNumber.count': 0   // ไม่มีเบอร์โทรศัพท์
       }),
 
       // monthlyIssues
