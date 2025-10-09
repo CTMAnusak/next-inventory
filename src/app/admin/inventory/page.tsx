@@ -163,7 +163,9 @@ export default function AdminInventoryPage() {
   const [statusFilter, setStatusFilter] = useState('');
   const [conditionFilter, setConditionFilter] = useState('');
   const [typeFilter, setTypeFilter] = useState('');
-  const [lowStockFilter, setLowStockFilter] = useState<number | null>(2);
+  const [lowStockFilter, setLowStockFilter] = useState<number | null>(null);
+  const [stockDisplayMode, setStockDisplayMode] = useState<'all' | 'low_stock'>('all');
+  const [lowStockThreshold, setLowStockThreshold] = useState<number>(2);
   const [deletableFilter, setDeletableFilter] = useState<string>(''); // 🆕 Filter สำหรับสถานะการลบ
   
   // Drag scroll ref
@@ -432,7 +434,7 @@ export default function AdminInventoryPage() {
 
   useEffect(() => {
     applyFilters();
-  }, [items, searchTerm, categoryFilter, statusFilter, conditionFilter, typeFilter, lowStockFilter, serialNumberFilter, deletableFilter]);
+  }, [items, searchTerm, categoryFilter, statusFilter, conditionFilter, typeFilter, lowStockFilter, serialNumberFilter, deletableFilter, stockDisplayMode, lowStockThreshold]);
 
   // Update stockValue when stockInfo changes for adjust_stock operation
   useEffect(() => {
@@ -668,11 +670,12 @@ export default function AdminInventoryPage() {
     let grouped = Array.from(groupedMap.values());
 
     // Apply low stock filter AFTER grouping (exclude groups that have serial numbers)
-    if (lowStockFilter !== null) {
+    if (stockDisplayMode === 'low_stock') {
       grouped = grouped.filter(
-        (g) => g.quantity <= lowStockFilter && (!g.serialNumbers || g.serialNumbers.length === 0)
+        (g) => g.quantity <= lowStockThreshold && (!g.serialNumbers || g.serialNumbers.length === 0)
       );
     }
+    // If stockDisplayMode is 'all', we don't filter by stock level
 
     // 🆕 Apply deletable filter
     if (deletableFilter) {
@@ -695,7 +698,7 @@ export default function AdminInventoryPage() {
 
     // Sort by low stock items first (non-serial groups only), then by date added
     grouped.sort((a, b) => {
-      const threshold = lowStockFilter !== null ? lowStockFilter : 2;
+      const threshold = lowStockThreshold;
       const aIsLowStock = a.quantity <= threshold && (!a.serialNumbers || a.serialNumbers.length === 0);
       const bIsLowStock = b.quantity <= threshold && (!b.serialNumbers || b.serialNumbers.length === 0);
       if (aIsLowStock && !bIsLowStock) return -1;
@@ -2450,18 +2453,40 @@ export default function AdminInventoryPage() {
                 </div>
               </div>
               <div className="flex items-center space-x-2">
-                <label className="text-sm text-gray-700 whitespace-nowrap">
-                  สินค้าใกล้หมด ≤
-                </label>
-                <input
-                  type="number"
-                  min="0"
-                  value={lowStockFilter || ''}
-                  onChange={(e) => setLowStockFilter(e.target.value ? parseInt(e.target.value) : null)}
-                  placeholder="0"
-                  className="w-16 px-2 py-1 text-sm border border-gray-300 rounded focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-                />
-                <span className="text-sm text-gray-700">ชิ้น</span>
+                <select
+                  value={stockDisplayMode}
+                  onChange={(e) => {
+                    const mode = e.target.value as 'all' | 'low_stock';
+                    setStockDisplayMode(mode);
+                    // Update lowStockFilter based on mode
+                    if (mode === 'all') {
+                      setLowStockFilter(null);
+                    } else {
+                      setLowStockFilter(lowStockThreshold);
+                    }
+                  }}
+                  className="px-3 py-1 text-sm border border-gray-300 rounded focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                >
+                  <option value="all">แสดงจำนวนทั้งหมด</option>
+                  <option value="low_stock">สินค้าใกล้หมด ≤</option>
+                </select>
+                {stockDisplayMode === 'low_stock' && (
+                  <>
+                    <input
+                      type="number"
+                      min="0"
+                      value={lowStockThreshold}
+                      onChange={(e) => {
+                        const value = parseInt(e.target.value) || 0;
+                        setLowStockThreshold(value);
+                        setLowStockFilter(value);
+                      }}
+                      placeholder="0"
+                      className="w-16 px-2 py-1 text-sm border border-gray-300 rounded focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                    />
+                    <span className="text-sm text-gray-700">ชิ้น</span>
+                  </>
+                )}
               </div>
             </div>
           )}
@@ -2510,7 +2535,7 @@ export default function AdminInventoryPage() {
                 )}
                 {currentItems.map((item, index) => {
                   const hasSerials = Array.isArray(item.serialNumbers) && item.serialNumbers.length > 0;
-                  const threshold = lowStockFilter !== null ? lowStockFilter : 2;
+                  const threshold = lowStockThreshold;
                   const isLowStock = item.quantity <= threshold && !hasSerials;
                   return (
                     <tr key={item._id} className={isLowStock ? 'bg-red-100' : (index % 2 === 0 ? 'bg-white' : 'bg-blue-50')}>
