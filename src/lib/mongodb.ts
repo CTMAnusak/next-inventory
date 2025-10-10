@@ -1,6 +1,20 @@
 import mongoose from 'mongoose';
+import * as dotenv from 'dotenv';
+import * as path from 'path';
+import * as fs from 'fs';
 
-const MONGODB_URI = process.env.MONGODB_URI;
+// 🔧 Force load from .env.local to override system environment variables
+const envLocalPath = path.resolve(process.cwd(), '.env.local');
+if (fs.existsSync(envLocalPath)) {
+  const envConfig = dotenv.parse(fs.readFileSync(envLocalPath, 'utf8'));
+  // Override MONGODB_URI if it exists in .env.local
+  if (envConfig.MONGODB_URI) {
+    process.env.MONGODB_URI = envConfig.MONGODB_URI;
+    console.log('✅ MONGODB_URI loaded from .env.local');
+  }
+}
+
+const MONGODB_URI = process.env.MONGODB_URI as string;
 
 if (!MONGODB_URI) {
   throw new Error(
