@@ -9,6 +9,7 @@ import { useAuth } from '@/contexts/AuthContext';
 import { enableDragScroll } from '@/lib/drag-scroll';
 import { isSIMCardSync } from '@/lib/sim-card-helpers';
 import SimpleErrorModal from '@/components/SimpleErrorModal';
+import CancelReturnModal from '@/components/CancelReturnModal';
 
 interface ICategoryConfig {
   id: string;
@@ -47,6 +48,15 @@ export default function DashboardPage() {
   // Simple Error Modal State
   const [showSimpleError, setShowSimpleError] = useState(false);
   const [simpleErrorMessage, setSimpleErrorMessage] = useState('');
+  
+  // Cancel Return Modal State
+  const [showCancelReturnModal, setShowCancelReturnModal] = useState(false);
+  const [cancelReturnData, setCancelReturnData] = useState<{
+    returnLogId: string;
+    itemId: string;
+    equipmentName: string;
+  } | null>(null);
+  const [cancelReturnLoading, setCancelReturnLoading] = useState(false);
   
   // Drag scroll ref
   const tableContainerRef = useRef<HTMLDivElement>(null);
@@ -131,19 +141,34 @@ export default function DashboardPage() {
     await fetchOwned();
   }, [fetchOwned]);
 
-  // Cancel return function
-  const handleCancelReturn = async (returnLogId: string, itemId: string) => {
-    if (!confirm('คุณต้องการยกเลิกการคืนอุปกรณ์นี้หรือไม่?')) {
-      return;
-    }
+  // Cancel return function - แสดง modal ยืนยัน
+  const handleCancelReturn = async (returnLogId: string, itemId: string, equipmentName?: string) => {
+    // หาชื่ออุปกรณ์จาก ownedItems ถ้าไม่ได้ส่งมา
+    const equipment = equipmentName || ownedItems.find(item => item._id === itemId)?.itemName || 'อุปกรณ์';
+    
+    setCancelReturnData({
+      returnLogId,
+      itemId,
+      equipmentName: equipment
+    });
+    setShowCancelReturnModal(true);
+  };
 
+  // ฟังก์ชันยืนยันการยกเลิกการคืน
+  const confirmCancelReturn = async () => {
+    if (!cancelReturnData) return;
+
+    setCancelReturnLoading(true);
     try {
       const response = await fetch('/api/user/return-log/cancel', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json'
         },
-        body: JSON.stringify({ returnLogId, itemId })
+        body: JSON.stringify({ 
+          returnLogId: cancelReturnData.returnLogId, 
+          itemId: cancelReturnData.itemId 
+        })
       });
 
       if (!response.ok) {
@@ -152,12 +177,24 @@ export default function DashboardPage() {
       }
 
       toast.success('ยกเลิกการคืนเรียบร้อยแล้ว');
+      // ปิด modal และรีเซ็ตข้อมูล
+      setShowCancelReturnModal(false);
+      setCancelReturnData(null);
       // Refresh data
       await refreshData();
     } catch (error) {
       console.error('Error canceling return:', error);
       toast.error(error instanceof Error ? error.message : 'เกิดข้อผิดพลาดในการยกเลิกการคืน');
+    } finally {
+      setCancelReturnLoading(false);
     }
+  };
+
+  // ฟังก์ชันปิด modal ยกเลิกการคืน
+  const closeCancelReturnModal = () => {
+    if (cancelReturnLoading) return; // ป้องกันการปิดขณะกำลังโหลด
+    setShowCancelReturnModal(false);
+    setCancelReturnData(null);
   };
 
   const fetchCategories = async () => {
@@ -907,7 +944,7 @@ export default function DashboardPage() {
                                     );
                                     
                                     if (pendingItem) {
-                                      await handleCancelReturn(log._id, pendingItem.itemId);
+                                      await handleCancelReturn(log._id, pendingItem.itemId, row.itemName);
                                       break;
                                     }
                                   }
@@ -1057,6 +1094,14 @@ export default function DashboardPage() {
                                 const params = new URLSearchParams({
                                   id: (row._id || (row as any).itemId) as string
                                 });
+                                
+                                // ✅ เพิ่ม serialNumber หรือ numberPhone เพื่อล็อคค่าในหน้าคืน
+                                if (row.serialNumber) {
+                                  params.set('serialNumber', row.serialNumber);
+                                }
+                                if (row.numberPhone) {
+                                  params.set('numberPhone', row.numberPhone);
+                                }
                                 
                                 // For branch users, include personal info from the row
                                 if (user?.userType === 'branch' && row.firstName) {
@@ -1518,6 +1563,15 @@ export default function DashboardPage() {
         )}
 
         {/* Simple Error Modal */}
+        {/* Cancel Return Modal */}
+        <CancelReturnModal
+          isOpen={showCancelReturnModal}
+          onClose={closeCancelReturnModal}
+          onConfirm={confirmCancelReturn}
+          equipmentName={cancelReturnData?.equipmentName}
+          isLoading={cancelReturnLoading}
+        />
+
         <SimpleErrorModal
           isOpen={showSimpleError}
           onClose={() => setShowSimpleError(false)}

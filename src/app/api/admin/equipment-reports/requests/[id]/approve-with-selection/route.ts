@@ -223,7 +223,21 @@ export async function POST(
         requestLog.approvedAt = new Date();
       }
       
+      // 🔍 Debug: Log assignedItemIds before save
+      console.log('\n🔍 DEBUG: Before saving RequestLog');
+      console.log(`   RequestLog ID: ${requestLog._id}`);
+      console.log(`   Status: ${requestLog.status}`);
+      requestLog.items.forEach((item: any, idx: number) => {
+        console.log(`   Item ${idx}:`);
+        console.log(`      masterId: ${item.masterId}`);
+        console.log(`      assignedItemIds: ${item.assignedItemIds ? `[${item.assignedItemIds.join(', ')}]` : 'undefined/empty'}`);
+        console.log(`      assignedQuantity: ${item.assignedQuantity || 0}`);
+        console.log(`      itemApproved: ${item.itemApproved || false}`);
+      });
+      
       await requestLog.save();
+      
+      console.log('✅ RequestLog saved successfully');
 
 
       return NextResponse.json({

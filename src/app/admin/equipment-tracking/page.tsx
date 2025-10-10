@@ -488,7 +488,7 @@ export default function AdminEquipmentTrackingPage() {
                       อุปกรณ์
                     </th>
                     <th className="px-6 py-3 text-center text-xs font-medium text-white uppercase tracking-wider">
-                      Serial Number
+                      รายละเอียด
                     </th>
                     <th className="px-6 py-3 text-center text-xs font-medium text-white uppercase tracking-wider">
                       สถานะ
@@ -555,7 +555,7 @@ export default function AdminEquipmentTrackingPage() {
                             </span>
                           ) : (
                             <span className="inline-flex px-2 py-1 text-xs font-semibold rounded-full bg-gray-100 text-gray-600">
-                              ไม่มี SN
+                              ไม่มี SN/เบอร์
                             </span>
                           )}
                         </td>

@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from 'react';
 import { useAuth } from '@/contexts/AuthContext';
-import { useSearchParams } from 'next/navigation';
+import { useSearchParams, useRouter } from 'next/navigation';
 import Layout from '@/components/Layout';
 import { toast } from 'react-hot-toast';
 import { Search, Upload, ChevronDown, RefreshCw } from 'lucide-react';
@@ -14,12 +14,15 @@ interface ReturnItem {
   itemName: string;
   quantity: number;
   serialNumber?: string;
+  numberPhone?: string;
   assetNumber?: string;
   image?: File | null;
   category?: string;
+  categoryId?: string;
   inventorySerialNumber?: string;
   availableOptions?: Array<{
     serialNumber?: string;
+    numberPhone?: string;
     displayName: string;
     value: string;
     itemId: string;
@@ -37,14 +40,17 @@ interface OwnedEquipment {
   itemId: string;
   itemName: string;
   category: string;
+  categoryId?: string;
   quantity: number;
   serialNumber?: string;
+  numberPhone?: string;
   inventorySerialNumber?: string;
   displayName: string;
   displayCategory: string;
   searchText: string;
   totalQuantity?: number;
   serialNumbers?: string[];
+  numberPhones?: string[];
   items?: any[];
   itemIdMap?: { [key: string]: string }; // Map serial number to actual itemId
   masterItemId?: string; // เพิ่ม masterItemId สำหรับอ้างอิง InventoryMaster
@@ -59,6 +65,7 @@ interface OwnedEquipment {
 export default function EquipmentReturnPage() {
   const { user } = useAuth();
   const searchParams = useSearchParams();
+  const router = useRouter();
   const [isLoading, setIsLoading] = useState(false);
   const [isSubmitted, setIsSubmitted] = useState(false);
   const [validationErrors, setValidationErrors] = useState<{[key: string]: string}>({});
@@ -83,9 +90,11 @@ export default function EquipmentReturnPage() {
     itemName: '', 
     quantity: 1, 
     serialNumber: '', 
+    numberPhone: '',
     assetNumber: '', 
     image: null,
     category: '',
+    categoryId: '',
     inventorySerialNumber: '',
     availableOptions: undefined,
     selectedOption: '',
@@ -146,6 +155,9 @@ export default function EquipmentReturnPage() {
     const itemName = searchParams.get('itemName');
     const itemId = searchParams.get('itemId');
     const id = searchParams.get('id'); // support linking with ?id=
+    // ✅ ดึง serialNumber และ numberPhone จาก URL
+    const urlSerialNumber = searchParams.get('serialNumber');
+    const urlNumberPhone = searchParams.get('numberPhone');
 
     if ((category || itemName || itemId || id) && ownedEquipment.length > 0) {
       
@@ -170,9 +182,30 @@ export default function EquipmentReturnPage() {
       }
 
       if (foundItem) {
-        // Use the existing selectEquipment function to handle the selection
-        // This will automatically set up the proper options and notifications
-        selectEquipment(foundItem);
+        // ✅ ตรวจสอบว่ามีการส่ง serialNumber หรือ numberPhone มาหรือไม่
+        // ถ้ามี = กดจากปุ่ม "คืน" ในตาราง → ไม่แสดง dropdown และล็อคค่า
+        const isFromTableAction = !!(urlSerialNumber || urlNumberPhone);
+        
+        if (isFromTableAction) {
+          // กรณีที่ 1 & 2: กดจากปุ่ม "คืน" ในตาราง
+          // ไม่แสดง dropdown และล็อคค่า SN/เบอร์
+          handleItemChange('itemId', foundItem._id || foundItem.itemId);
+          handleItemChange('itemName', foundItem.itemName);
+          handleItemChange('quantity', 1);
+          handleItemChange('serialNumber', urlSerialNumber || '');
+          handleItemChange('numberPhone', urlNumberPhone || '');
+          handleItemChange('category', foundItem.category);
+          handleItemChange('categoryId', foundItem.categoryId);
+          handleItemChange('inventorySerialNumber', urlSerialNumber || '');
+          handleItemChange('availableOptions', undefined); // ✅ ไม่แสดง dropdown
+          handleItemChange('selectedOption', '');
+          handleItemChange('statusOnReturn', (foundItem as any).statusId || 'status_available');
+          handleItemChange('conditionOnReturn', (foundItem as any).conditionId || 'cond_working');
+        } else {
+          // กรณีที่ 3: เข้ามาจากเมนู (ไม่มีการส่ง SN/เบอร์มา)
+          // ใช้ logic เดิม - แสดง dropdown ตามปกติ
+          selectEquipment(foundItem);
+        }
         
         // Show notification only once for URL prefill
         if (!hasShownNotification) {
@@ -274,24 +307,28 @@ export default function EquipmentReturnPage() {
         const processedEquipment: OwnedEquipment[] = (data.items || []).map((item: any) => {
           const displayName = item.itemName || 'ไม่ระบุชื่อ';
           const displayCategory = item.category || 'ไม่ระบุหมวดหมู่';
-          const searchText = `${displayName} ${displayCategory} ${item.serialNumber || ''}`.toLowerCase();
+          const searchText = `${displayName} ${displayCategory} ${item.serialNumber || ''} ${item.numberPhone || ''}`.toLowerCase();
           
           return {
             _id: item._id,
             itemId: item._id, // ใช้ _id เป็น itemId
             itemName: displayName,
             category: displayCategory,
+            categoryId: item.categoryId,
             quantity: 1, // แต่ละรายการมี 1 ชิ้น
             serialNumber: item.serialNumber,
+            numberPhone: item.numberPhone,
             inventorySerialNumber: item.serialNumber,
             displayName: displayName,
             displayCategory: displayCategory,
             searchText: searchText,
             totalQuantity: 1,
             serialNumbers: item.serialNumber ? [item.serialNumber] : [],
+            numberPhones: item.numberPhone ? [item.numberPhone] : [],
             items: [{
               actualItemId: item._id,
-              serialNumber: item.serialNumber
+              serialNumber: item.serialNumber,
+              numberPhone: item.numberPhone
             }],
             itemIdMap: item.serialNumber ? { [item.serialNumber]: item._id } : {},
             masterItemId: item.itemMasterId,
@@ -413,6 +450,19 @@ export default function EquipmentReturnPage() {
         });
       });
       
+      // เพิ่มรายการที่มีเบอร์โทรศัพท์ (สำหรับซิมการ์ด)
+      const numberPhones = equipment.numberPhones || [];
+      numberPhones.forEach(phone => {
+        const actualItemId = equipment.itemIdMap?.[phone] || equipment.itemId;
+        availableOptions.push({
+          numberPhone: phone,
+          displayName: `${equipment.itemName} (เบอร์: ${phone})`,
+          value: `phone_${phone}`,
+          itemId: actualItemId,
+          inventorySerialNumber: ''
+        });
+      });
+      
       // เพิ่มรายการที่ไม่มี SN (ถ้ามี) - แสดงเป็นรายการเดียวพร้อมช่องจำนวน
       const totalWithSN = serialNumbers.length;
       const totalWithoutSN = totalQuantity - totalWithSN;
@@ -439,9 +489,11 @@ export default function EquipmentReturnPage() {
         handleItemChange('itemName', equipment.itemName);
         handleItemChange('quantity', 1);
         handleItemChange('category', equipment.category);
+        handleItemChange('categoryId', equipment.categoryId);
         handleItemChange('availableOptions', availableOptions);
         handleItemChange('selectedOption', only.value);
         handleItemChange('serialNumber', only.serialNumber || '');
+        handleItemChange('numberPhone', only.numberPhone || '');
         handleItemChange('inventorySerialNumber', only.serialNumber || '');
         // ดึงค่าสถานะและสภาพจากอุปกรณ์
         handleItemChange('statusOnReturn', (equipment as any).statusId || 'status_available');
@@ -459,9 +511,11 @@ export default function EquipmentReturnPage() {
         handleItemChange('itemName', equipment.itemName);
         handleItemChange('quantity', 1);
         handleItemChange('category', equipment.category);
+        handleItemChange('categoryId', equipment.categoryId);
         handleItemChange('availableOptions', availableOptions);
         handleItemChange('selectedOption', '');
         handleItemChange('serialNumber', '');
+        handleItemChange('numberPhone', '');
         handleItemChange('inventorySerialNumber', '');
         // ดึงค่าสถานะและสภาพจากอุปกรณ์
         handleItemChange('statusOnReturn', (equipment as any).statusId || 'status_available');
@@ -482,7 +536,9 @@ export default function EquipmentReturnPage() {
       handleItemChange('itemName', equipment.itemName);
       handleItemChange('quantity', equipment.quantity || 1);
       handleItemChange('serialNumber', equipment.serialNumber || ''); // Ensure SN is set for single item with SN
+      handleItemChange('numberPhone', equipment.numberPhone || ''); // Ensure phone number is set
       handleItemChange('category', equipment.category);
+      handleItemChange('categoryId', equipment.categoryId);
       handleItemChange('inventorySerialNumber', equipment.serialNumber || '');
       handleItemChange('availableOptions', undefined);
       handleItemChange('selectedOption', '');
@@ -527,9 +583,11 @@ export default function EquipmentReturnPage() {
       itemName: '', 
       quantity: 1, 
       serialNumber: '', 
+      numberPhone: '',
       assetNumber: '', 
       image: null,
       category: '',
+      categoryId: '',
       inventorySerialNumber: '',
       availableOptions: undefined,
       selectedOption: '',
@@ -607,9 +665,11 @@ export default function EquipmentReturnPage() {
       itemName: '', 
       quantity: 1, 
       serialNumber: '', 
+      numberPhone: '',
       assetNumber: '', 
       image: null,
       category: '',
+      categoryId: '',
       inventorySerialNumber: '',
       availableOptions: undefined,
       selectedOption: '',
@@ -690,10 +750,14 @@ export default function EquipmentReturnPage() {
           const finalId = selectedOption?.itemId || ri.itemId;
           const finalSN = selectedOption?.serialNumber || ri.serialNumber || '';
           
+          // For SIM cards, prefer numberPhone over serialNumber
+          const finalPhone = selectedOption?.numberPhone || ri.numberPhone || '';
+          
           return {
             itemId: finalId,
             quantity: ri.quantity,
             serialNumber: finalSN || '',
+            numberPhone: finalPhone || '',
             assetNumber: ri.assetNumber || '',
             image: imagePath || undefined,
             masterItemId: (ri as any).masterItemId,
@@ -772,7 +836,11 @@ export default function EquipmentReturnPage() {
 
       if (response.ok) {
         toast.success('ส่งข้อมูลเรียบร้อยแล้ว');
-        // Reset form
+        
+        // Redirect to clean URL without query parameters
+        router.push('/equipment-return');
+        
+        // Reset form immediately
         setIsSubmitted(false);
         setFormData({
           firstName: '',
@@ -783,14 +851,20 @@ export default function EquipmentReturnPage() {
           office: '',
           returnDate: new Date().toISOString().split('T')[0],
         });
+        
+        setReturnItems([]); // รีเซ็ตรายการที่จะคืน
+        
+        // รีเซ็ตฟอร์มอุปกรณ์เหมือนกดปุ่มรีเซทรายการ
         setReturnItem({
           itemId: '', 
           itemName: '', 
           quantity: 1, 
           serialNumber: '', 
+          numberPhone: '',
           assetNumber: '', 
           image: null,
           category: '',
+          categoryId: '',
           inventorySerialNumber: '',
           availableOptions: undefined,
           selectedOption: '',
@@ -798,10 +872,14 @@ export default function EquipmentReturnPage() {
           statusOnReturn: 'status_available',
           conditionOnReturn: 'cond_working'
         });
-        setReturnItems([]); // รีเซ็ตรายการที่จะคืน
         setEditingIndex(null);
+        setSearchTerm('');
         setMaxQuantity(0);
         setRemainingQuantity(0);
+        setShowEquipmentDropdown(false);
+        setShowOptionDropdown(false);
+        setFilteredEquipment([]);
+        setHasShownNotification(false);
       } else {
         console.error('❌ Equipment return error:', {
           status: response.status,
@@ -998,6 +1076,7 @@ export default function EquipmentReturnPage() {
                                   onClick={() => {
                                     handleItemChange('selectedOption', option.value);
                                     handleItemChange('serialNumber', option.serialNumber || '');
+                                    handleItemChange('numberPhone', option.numberPhone || '');
                                     handleItemChange('inventorySerialNumber', option.serialNumber || '');
                                     handleItemChange('itemId', option.itemId);
                                     
@@ -1049,7 +1128,7 @@ export default function EquipmentReturnPage() {
                         />
                       </div>
 
-                      {/* Quantity, Serial Number, Asset Number */}
+                      {/* Quantity, Serial Number/Phone Number, Asset Number */}
                       <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-4">
                         <div>
                           <label className="block text-sm font-medium text-gray-700 mb-1">
@@ -1061,7 +1140,8 @@ export default function EquipmentReturnPage() {
                             max={maxQuantity > 0 ? maxQuantity : (returnItem.quantity || 1)}
                             value={returnItem.quantity || 1}
                             onChange={(e) => handleItemChange('quantity', parseInt(e.target.value) || 1)}
-                            className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 text-gray-900"
+                            className="w-full px-3 py-2 border border-gray-300 rounded-md bg-gray-50 text-gray-700 cursor-not-allowed"
+                            disabled
                             required
                           />
                           {/* แสดงข้อความจำนวนสูงสุดและจำนวนที่เหลือสำหรับอุปกรณ์ไม่มี SN */}
@@ -1074,11 +1154,17 @@ export default function EquipmentReturnPage() {
 
                         <div>
                           <label className="block text-sm font-medium text-gray-700 mb-1">
-                            Serial Number
+                            {returnItem.category?.toLowerCase().includes('ซิมการ์ด') 
+                              ? 'เบอร์โทรศัพท์' 
+                              : 'Serial Number'}
                           </label>
                           <input
                             type="text"
-                            value={returnItem.serialNumber || ''}
+                            value={
+                              returnItem.category?.toLowerCase().includes('ซิมการ์ด')
+                                ? (returnItem.numberPhone || '')
+                                : (returnItem.serialNumber || '')
+                            }
                             className="w-full px-3 py-2 border border-gray-300 rounded-md bg-gray-50 text-gray-700 cursor-not-allowed"
                             disabled
                           />
@@ -1236,9 +1322,13 @@ export default function EquipmentReturnPage() {
                   {returnItems.length > 0 ? (
                     <ul className="divide-y divide-gray-100">
                       {returnItems.map((it, idx) => (
-                        <li key={`${it.itemId}-${it.serialNumber || idx}`} className="flex items-center justify-between p-3">
+                        <li key={`${it.itemId}-${it.serialNumber || it.numberPhone || idx}`} className="flex items-center justify-between p-3">
                           <div className="text-gray-900">
-                            {it.itemName} {it.serialNumber ? `(SN: ${it.serialNumber})` : ''} × {it.quantity}
+                            {it.itemName} 
+                            {it.category?.toLowerCase().includes('ซิมการ์ด') 
+                              ? (it.numberPhone ? ` (เบอร์: ${it.numberPhone})` : '') 
+                              : (it.serialNumber ? ` (SN: ${it.serialNumber})` : '')} 
+                            × {it.quantity}
                           </div>
                           <div className="flex items-center gap-3">
                             <button

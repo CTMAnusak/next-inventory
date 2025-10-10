@@ -67,8 +67,16 @@ export async function GET(request: NextRequest) {
       IssueLog.countDocuments({ urgency: 'very_urgent' }),
       IssueLog.countDocuments({ urgency: 'normal' }),
 
-      RequestLog.estimatedDocumentCount(),
-      ReturnLog.estimatedDocumentCount(),
+      // นับจำนวนรายการอุปกรณ์ทั้งหมดที่เบิก (นับ items ไม่ใช่ documents)
+      RequestLog.aggregate([
+        { $unwind: '$items' },
+        { $count: 'total' }
+      ]).then(result => result[0]?.total || 0),
+      // นับจำนวนรายการอุปกรณ์ทั้งหมดที่คืน (นับ items ไม่ใช่ documents)
+      ReturnLog.aggregate([
+        { $unwind: '$items' },
+        { $count: 'total' }
+      ]).then(result => result[0]?.total || 0),
       User.countDocuments({ pendingDeletion: { $ne: true } }),
       InventoryItem.estimatedDocumentCount(),
       InventoryItem.countDocuments({ 'currentOwnership.ownerType': 'user_owned', 'sourceInfo.addedBy': 'user' }),

@@ -29,9 +29,11 @@ export async function GET(request: NextRequest) {
       deletedAt: { $exists: false }
     }).sort({ 'currentOwnership.ownedSince': -1 });
     
-    console.log(`📦 Found ${ownedItems.length} owned items for user ${userId}`);
+    console.log(`\n📦 Found ${ownedItems.length} owned items for user ${userId}`);
     ownedItems.forEach((item, idx) => {
-      console.log(`  Item ${idx + 1}: _id=${item._id}, itemName="${(item as any).itemName}"`);
+      console.log(`   ${idx + 1}. ${(item as any).itemName} (${item._id})`);
+      console.log(`      SN: ${item.serialNumber || 'ไม่มี'}`);
+      console.log(`      ownedSince: ${item.currentOwnership?.ownedSince}`);
     });
 
     // Get all return logs (approved and pending)
@@ -70,20 +72,12 @@ export async function GET(request: NextRequest) {
     
     // Get request logs to fetch delivery location
     const RequestLog = (await import('@/models/RequestLog')).default;
-    console.log(`🔍 Searching for RequestLog with userId: ${userId}, status: approved, requestType: request`);
     
     const approvedRequests = await RequestLog.find({
       userId: userId,
-      status: 'approved', // ✅ ใช้ approved เท่านั้น (อนุมัติทีละรายการ)
+      status: 'approved',
       requestType: 'request'
     }).lean();
-    
-    console.log(`📊 Query result: Found ${approvedRequests.length} requests`);
-    if (approvedRequests.length > 0) {
-      approvedRequests.forEach((req, idx) => {
-        console.log(`  Request ${idx + 1}: _id=${req._id}, deliveryLocation="${req.deliveryLocation}", items=${req.items?.length || 0}`);
-      });
-    }
     
     // Build maps of itemId -> deliveryLocation and find most recent requester info for branch users
     const itemToDeliveryLocationMap = new Map();
@@ -98,11 +92,9 @@ export async function GET(request: NextRequest) {
       office?: string;
     } | null = null;
     
-    console.log(`🔍 Found ${approvedRequests.length} approved requests for user ${userId}`);
-    
-    approvedRequests.forEach((req, reqIndex) => {
-      console.log(`📦 Request ${reqIndex + 1}: deliveryLocation = "${req.deliveryLocation}"`);
-      console.log(`📦 Request ${reqIndex + 1}: items count = ${req.items?.length || 0}`);
+    approvedRequests.forEach((req) => {
+      console.log(`\n📋 Processing RequestLog ID: ${req._id}`);
+      console.log(`   Status: ${req.status}, DeliveryLocation: ${req.deliveryLocation}`);
       
       // Extract requester info from this request (for branch users)
       if ((req as any).requesterFirstName || (req as any).requesterLastName) {
@@ -114,21 +106,20 @@ export async function GET(request: NextRequest) {
           phone: (req as any).requesterPhone,
           office: (req as any).requesterOffice,
         };
-        console.log(`📝 Found requester info:`, mostRecentRequesterInfo);
       }
       
-      req.items?.forEach((item: any, itemIndex: number) => {
-        console.log(`  📋 Item ${itemIndex + 1}: assignedItemIds = [${item.assignedItemIds?.join(', ') || 'none'}]`);
+      req.items?.forEach((item: any, idx: number) => {
+        console.log(`   📦 Item ${idx}: ${item.itemName || 'unknown'}`);
+        console.log(`      assignedItemIds: ${item.assignedItemIds ? `[${item.assignedItemIds.join(', ')}]` : 'undefined/empty'}`);
+        console.log(`      assignedQuantity: ${item.assignedQuantity || 0}, itemApproved: ${item.itemApproved || false}`);
         
         item.assignedItemIds?.forEach((itemId: string) => {
           // Map delivery location
           itemToDeliveryLocationMap.set(itemId, req.deliveryLocation || '');
-          console.log(`    🔗 Mapped itemId "${itemId}" -> deliveryLocation "${req.deliveryLocation || 'empty'}"`);
+          console.log(`      ✅ Mapped itemId ${itemId} -> deliveryLocation: "${req.deliveryLocation}"`);
         });
       });
     });
-    
-    console.log(`📍 Total items mapped: ${itemToDeliveryLocationMap.size}`);
     
     // Get configurations for display
     const config = await InventoryConfig.findOne({});
@@ -149,12 +140,9 @@ export async function GET(request: NextRequest) {
       // Get delivery location from request log (if item came from request)
       const itemIdStr = String(item._id);
       const deliveryLocation = itemToDeliveryLocationMap.get(itemIdStr) || '';
-      console.log(`🎯 Item "${(item as any).itemName}" (ID: ${itemIdStr}) -> deliveryLocation: "${deliveryLocation}"`);
 
       // ✅ ดึงข้อมูลจาก item.requesterInfo (สำหรับอุปกรณ์ที่เพิ่มเอง)
       const itemRequesterInfo = (item as any).requesterInfo;
-      
-      console.log(`📝 Item "${(item as any).itemName}": requesterInfo =`, itemRequesterInfo);
       
       // ลำดับความสำคัญ: item.requesterInfo > mostRecentRequesterInfo
       const finalFirstName = itemRequesterInfo?.firstName || mostRecentRequesterInfo?.firstName || undefined;
@@ -164,14 +152,14 @@ export async function GET(request: NextRequest) {
       const finalPhone = itemRequesterInfo?.phone || mostRecentRequesterInfo?.phone || undefined;
       const finalOffice = itemRequesterInfo?.office || mostRecentRequesterInfo?.office || undefined;
       
-      console.log(`   Final: ${finalFirstName} ${finalLastName}, department: ${finalDepartment}`);
-      
       // ✅ กำหนด source ตามการได้มาของอุปกรณ์
       // - self_reported = เพิ่มเองผ่าน "เพิ่มอุปกรณ์ที่มี" → แสดงปุ่มแก้ไข
       // - transferred = ได้จากการเบิก → ไม่แสดงปุ่มแก้ไข
       const acquisitionMethod = item.sourceInfo?.acquisitionMethod;
       const source = acquisitionMethod === 'self_reported' ? 'user-owned' : 'request';
-      console.log(`   📝 Item "${(item as any).itemName}" - acquisitionMethod: ${acquisitionMethod} → source: ${source} (editable: ${source === 'user-owned'})`);
+      
+      // ✅ ตรวจสอบว่าเป็นซิมการ์ดหรือไม่
+      const isSIMCard = (item as any).categoryId === 'cat_sim_card';
       
       return {
         _id: item._id,
@@ -180,7 +168,8 @@ export async function GET(request: NextRequest) {
         categoryId: (item as any).categoryId || 'ไม่ระบุ',
         category: categoryConfig?.name || 'ไม่ระบุ',
         serialNumber: item.serialNumber,
-        numberPhone: item.numberPhone,
+        // ✅ ใช้ numberPhone เฉพาะซิมการ์ดเท่านั้น
+        numberPhone: isSIMCard ? item.numberPhone : undefined,
         statusId: item.statusId,
         statusName: statusConfig?.name || 'ไม่ระบุ',
         conditionId: item.conditionId,

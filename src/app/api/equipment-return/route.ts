@@ -99,6 +99,15 @@ export async function POST(request: NextRequest) {
             'currentOwnership.userId': currentUserId,
             deletedAt: { $exists: false }
           });
+        } else if (item.numberPhone) {
+          // Find by itemId and phone number (for SIM cards)
+          inventoryItem = await InventoryItem.findOne({
+            _id: item.itemId,
+            numberPhone: item.numberPhone,
+            'currentOwnership.ownerType': 'user_owned',
+            'currentOwnership.userId': currentUserId,
+            deletedAt: { $exists: false }
+          });
         } else {
           // Find by itemId without serial number - สำหรับอุปกรณ์ไม่มี SN
           inventoryItem = await InventoryItem.findOne({
@@ -135,6 +144,7 @@ export async function POST(request: NextRequest) {
       itemId: item.itemId,
       quantity: item.quantity,
       serialNumber: item.serialNumber || undefined,
+      numberPhone: item.numberPhone || undefined,
       assetNumber: item.assetNumber || undefined,
       image: item.image || undefined,
       statusOnReturn: item.statusOnReturn || 'status_available',
