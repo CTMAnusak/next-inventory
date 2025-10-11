@@ -59,8 +59,8 @@ export async function sendITReportEmail(data: EmailData): Promise<boolean> {
         issue_category: data.issueCategory + (data.customCategory ? ` - ${data.customCategory}` : ''),
         urgency: data.urgency === 'very_urgent' ? 'ด่วนมาก' : 'ปกติ',
         description: data.description,
-        report_date: data.reportDate.toLocaleDateString('th-TH'),
-        report_time: data.reportDate.toLocaleTimeString('th-TH'),
+        report_date: data.reportDate.toLocaleDateString('th-TH', { timeZone: 'Asia/Bangkok' }),
+        report_time: data.reportDate.toLocaleTimeString('th-TH', { timeZone: 'Asia/Bangkok' }),
         
         // รูปภาพ (ถ้ามี)
         images: data.images && data.images.length > 0 

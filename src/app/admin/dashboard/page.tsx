@@ -73,7 +73,7 @@ export default function AdminDashboardPage() {
   const generateMonths = () => {
     const months = Array.from({ length: 12 }, (_, i) => ({
       value: i + 1,
-      label: new Date(2024, i, 1).toLocaleDateString('th-TH', { month: 'long' })
+      label: new Date(2024, i, 1).toLocaleDateString('th-TH', { month: 'long', timeZone: 'Asia/Bangkok' })
     }));
     return [{ value: 'all' as const, label: 'ทั้งหมด' }, ...months];
   };

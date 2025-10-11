@@ -204,10 +204,11 @@ export default function ITTrackingPage() {
                         <div>
                           <p className="text-sm text-gray-600">วันที่แจ้ง</p>
                           <p className="text-gray-900">
-                            {new Date(issue.reportDate).toLocaleDateString('th-TH')} {' '}
+                            {new Date(issue.reportDate).toLocaleDateString('th-TH', { timeZone: 'Asia/Bangkok' })} {' '}
                             {new Date(issue.reportDate).toLocaleTimeString('th-TH', { 
                               hour: '2-digit', 
-                              minute: '2-digit' 
+                              minute: '2-digit',
+                              timeZone: 'Asia/Bangkok'
                             })}
                           </p>
                         </div>
@@ -362,11 +363,12 @@ export default function ITTrackingPage() {
                               weekday: 'long',
                               year: 'numeric',
                               month: 'long',
-                              day: 'numeric'
+                              day: 'numeric',
+                              timeZone: 'Asia/Bangkok'
                             })}
                           </p>
                           <p className="text-gray-600 text-sm">
-                            {new Date(selectedIssue.reportDate).toLocaleTimeString('th-TH')}
+                            {new Date(selectedIssue.reportDate).toLocaleTimeString('th-TH', { timeZone: 'Asia/Bangkok' })}
                           </p>
                         </div>
                         
@@ -378,11 +380,12 @@ export default function ITTrackingPage() {
                                 weekday: 'long',
                                 year: 'numeric',
                                 month: 'long',
-                                day: 'numeric'
+                                day: 'numeric',
+                                timeZone: 'Asia/Bangkok'
                               })}
                             </p>
                             <p className="text-gray-600 text-sm">
-                              {new Date(selectedIssue.completedDate).toLocaleTimeString('th-TH')}
+                              {new Date(selectedIssue.completedDate).toLocaleTimeString('th-TH', { timeZone: 'Asia/Bangkok' })}
                             </p>
                           </div>
                         )}

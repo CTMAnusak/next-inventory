@@ -318,13 +318,15 @@ export default function ITReportPage() {
                   weekday: 'long',
                   year: 'numeric',
                   month: 'long',
-                  day: 'numeric'
+                  day: 'numeric',
+                  timeZone: 'Asia/Bangkok'
                 })}
               </div>
               <div className="text-sm text-gray-500">
                 {new Date().toLocaleTimeString('th-TH', {
                   hour: '2-digit',
-                  minute: '2-digit'
+                  minute: '2-digit',
+                  timeZone: 'Asia/Bangkok'
                 })} น.
               </div>
             </div>

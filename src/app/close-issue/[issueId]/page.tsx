@@ -175,14 +175,14 @@ export default function CloseIssuePage() {
               <div>
                 <span className="font-medium text-gray-700">วันที่แจ้ง:</span>
                 <span className="ml-2 text-gray-900">
-                  {new Date(issue.submittedAt).toLocaleDateString('th-TH')}
+                  {new Date(issue.submittedAt).toLocaleDateString('th-TH', { timeZone: 'Asia/Bangkok' })}
                 </span>
               </div>
               {issue.updatedAt && (
                 <div>
                   <span className="font-medium text-gray-700">วันที่ดำเนินการเสร็จ:</span>
                   <span className="ml-2 text-gray-900">
-                    {new Date(issue.updatedAt).toLocaleDateString('th-TH')}
+                    {new Date(issue.updatedAt).toLocaleDateString('th-TH', { timeZone: 'Asia/Bangkok' })}
                   </span>
                 </div>
               )}

@@ -154,8 +154,9 @@ export async function GET(request: NextRequest) {
       
       // ✅ กำหนด source ตามการได้มาของอุปกรณ์
       // - self_reported = เพิ่มเองผ่าน "เพิ่มอุปกรณ์ที่มี" → แสดงปุ่มแก้ไข
-      // - transferred = ได้จากการเบิก → ไม่แสดงปุ่มแก้ไข
+      // - transferred / admin_purchased = ได้จากการเบิก → ไม่แสดงปุ่มแก้ไข
       const acquisitionMethod = item.sourceInfo?.acquisitionMethod;
+      // ✅ ถ้าเป็น self_reported → source: 'user-owned', นอกนั้น → source: 'request'
       const source = acquisitionMethod === 'self_reported' ? 'user-owned' : 'request';
       
       // ✅ ตรวจสอบว่าเป็นซิมการ์ดหรือไม่

@@ -172,10 +172,25 @@ export default function RequesterInfoForm({ formData, onInputChange, showEmail =
                 type="tel"
                 name="phone"
                 value={formData.phone}
-                onChange={onInputChange}
+                onChange={(e) => {
+                  // Allow only numbers and limit to 10 digits
+                  const value = e.target.value.replace(/\D/g, '').slice(0, 10);
+                  const syntheticEvent = {
+                    ...e,
+                    target: {
+                      ...e.target,
+                      name: 'phone',
+                      value: value
+                    }
+                  } as React.ChangeEvent<HTMLInputElement>;
+                  onInputChange(syntheticEvent);
+                }}
                 className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 text-gray-900"
-                placeholder="เบอร์โทร"
+                placeholder="กรอกเบอร์โทรศัพท์ 10 หลัก"
                 required
+                pattern="[0-9]{10}"
+                title="กรุณากรอกเบอร์โทรศัพท์ 10 หลัก (ตัวเลขเท่านั้น)"
+                maxLength={10}
               />
             </div>
           </div>

@@ -2592,7 +2592,7 @@ export default function AdminInventoryPage() {
                         />
                       </td>
                       <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500 text-center">
-                        {new Date(item.dateAdded).toLocaleDateString('th-TH')}
+                        {new Date(item.dateAdded).toLocaleDateString('th-TH', { timeZone: 'Asia/Bangkok' })}
                       </td>
                       <td className="px-6 py-4 whitespace-nowrap text-center text-sm font-medium relative">
                         <div className="flex justify-center space-x-2">

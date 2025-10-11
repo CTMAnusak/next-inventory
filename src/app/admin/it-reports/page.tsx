@@ -557,7 +557,7 @@ export default function AdminITReportsPage() {
                     className={issue.urgency === 'very_urgent' ? 'bg-yellow-50' : (index % 2 === 0 ? 'bg-white' : 'bg-blue-50')}
                   >
                     <td className="px-6 py-4 text-sm text-gray-500 text-center text-selectable">
-                      {new Date(issue.reportDate).toLocaleDateString('th-TH')}
+                      {new Date(issue.reportDate).toLocaleDateString('th-TH', { timeZone: 'Asia/Bangkok' })}
                     </td>
                     <td className="px-6 py-4 text-center">
                       {getUrgencyBadge(issue.urgency)}
@@ -628,7 +628,7 @@ export default function AdminITReportsPage() {
                     )}
                     {activeTab !== 'pending' && activeTab !== 'in_progress' && (
                       <td className="px-6 py-4 text-sm text-gray-500 text-center text-selectable">
-                        {issue.updatedAt ? new Date(issue.updatedAt).toLocaleDateString('th-TH') : '-'}
+                        {issue.updatedAt ? new Date(issue.updatedAt).toLocaleDateString('th-TH', { timeZone: 'Asia/Bangkok' }) : '-'}
                       </td>
                     )}
 
@@ -812,11 +812,12 @@ export default function AdminITReportsPage() {
                         weekday: 'long',
                         year: 'numeric',
                         month: 'long',
-                        day: 'numeric'
+                        day: 'numeric',
+                        timeZone: 'Asia/Bangkok'
                       })}
                     </p>
                     <p className="text-gray-600 text-sm">
-                      {new Date(selectedIssue.reportDate).toLocaleTimeString('th-TH')}
+                      {new Date(selectedIssue.reportDate).toLocaleTimeString('th-TH', { timeZone: 'Asia/Bangkok' })}
                     </p>
                   </div>
                   
@@ -830,11 +831,12 @@ export default function AdminITReportsPage() {
                         weekday: 'long',
                         year: 'numeric',
                         month: 'long',
-                        day: 'numeric'
+                        day: 'numeric',
+                        timeZone: 'Asia/Bangkok'
                       })}
                     </p>
                     <p className="text-gray-600 text-sm">
-                      {new Date(selectedIssue.updatedAt || selectedIssue.reportDate).toLocaleTimeString('th-TH')}
+                      {new Date(selectedIssue.updatedAt || selectedIssue.reportDate).toLocaleTimeString('th-TH', { timeZone: 'Asia/Bangkok' })}
                     </p>
                   </div>
                 </div>
@@ -868,7 +870,8 @@ export default function AdminITReportsPage() {
                             weekday: 'long',
                             year: 'numeric',
                             month: 'long',
-                            day: 'numeric'
+                            day: 'numeric',
+                            timeZone: 'Asia/Bangkok'
                           })}
                         </p>
                       </div>
@@ -882,7 +885,8 @@ export default function AdminITReportsPage() {
                             weekday: 'long',
                             year: 'numeric',
                             month: 'long',
-                            day: 'numeric'
+                            day: 'numeric',
+                            timeZone: 'Asia/Bangkok'
                           })}
                         </p>
                       </div>
@@ -927,8 +931,9 @@ export default function AdminITReportsPage() {
                                 weekday: 'long',
                                 year: 'numeric',
                                 month: 'long',
-                                day: 'numeric'
-                              })} เวลา {new Date(selectedIssue.userFeedback.submittedAt).toLocaleTimeString('th-TH')}
+                                day: 'numeric',
+                                timeZone: 'Asia/Bangkok'
+                              })} เวลา {new Date(selectedIssue.userFeedback.submittedAt).toLocaleTimeString('th-TH', { timeZone: 'Asia/Bangkok' })}
                             </p>
                           </div>
                         </div>

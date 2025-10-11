@@ -37,8 +37,8 @@ export async function sendIssueNotification(issueData: any) {
             </div>
 
             <div style="margin: 15px 0;">
-              <p><strong>➢ วันที่แจ้ง:</strong> ${new Date(issueData.reportDate).toLocaleDateString('th-TH')} 
-                 <strong>เวลาที่แจ้ง:</strong> ${new Date(issueData.reportDate).toLocaleTimeString('th-TH')}</p>
+              <p><strong>➢ วันที่แจ้ง:</strong> ${new Date(issueData.reportDate).toLocaleDateString('th-TH', { timeZone: 'Asia/Bangkok' })} 
+                 <strong>เวลาที่แจ้ง:</strong> ${new Date(issueData.reportDate).toLocaleTimeString('th-TH', { timeZone: 'Asia/Bangkok' })}</p>
               <p><strong>➢ สถานะ:</strong> รอดำเนินการ</p>
             </div>
 
@@ -128,7 +128,7 @@ export async function sendJobAcceptedNotification(issueData: any) {
 
         <div style="background-color: #e3f2fd; padding: 15px; margin: 10px 0; border-radius: 5px; border-left: 4px solid #1976d2;">
           <p style="margin: 0;"><strong>📍 สถานะปัจจุบัน:</strong> <span style="color: #1976d2; font-weight: bold;">กำลังดำเนินการ</span></p>
-          <p style="margin: 5px 0 0 0; font-size: 0.9em; color: #666;">รับงานเมื่อ: ${new Date().toLocaleDateString('th-TH')} เวลา ${new Date().toLocaleTimeString('th-TH')}</p>
+          <p style="margin: 5px 0 0 0; font-size: 0.9em; color: #666;">รับงานเมื่อ: ${new Date().toLocaleDateString('th-TH', { timeZone: 'Asia/Bangkok' })} เวลา ${new Date().toLocaleTimeString('th-TH', { timeZone: 'Asia/Bangkok' })}</p>
         </div>
 
         ${issueData.assignedAdmin ? `
@@ -194,7 +194,7 @@ export async function sendWorkCompletedNotification(issueData: any) {
 
         <div style="background-color: #e8f5e8; padding: 15px; margin: 10px 0; border-radius: 5px; border-left: 4px solid #2e7d32;">
           <p style="margin: 0;"><strong>📍 สถานะปัจจุบัน:</strong> <span style="color: #2e7d32; font-weight: bold;">ส่งงานเรียบร้อยแล้ว - รอการตรวจสอบ</span></p>
-          <p style="margin: 5px 0 0 0; font-size: 0.9em; color: #666;">ส่งงานเมื่อ: ${new Date().toLocaleDateString('th-TH')} เวลา ${new Date().toLocaleTimeString('th-TH')}</p>
+          <p style="margin: 5px 0 0 0; font-size: 0.9em; color: #666;">ส่งงานเมื่อ: ${new Date().toLocaleDateString('th-TH', { timeZone: 'Asia/Bangkok' })} เวลา ${new Date().toLocaleTimeString('th-TH', { timeZone: 'Asia/Bangkok' })}</p>
         </div>
 
         ${issueData.assignedAdmin ? `
@@ -271,7 +271,7 @@ export async function sendUserApprovalNotification(issueData: any, userFeedback:
 
             <div style="background-color: ${statusBg}; padding: 15px; margin: 10px 0; border-radius: 5px; border-left: 4px solid ${statusColor};">
               <p style="margin: 0;"><strong>📍 ผลการตรวจสอบ:</strong> <span style="color: ${statusColor}; font-weight: bold;">${statusText}</span></p>
-              <p style="margin: 5px 0 0 0; font-size: 0.9em; color: #666;">ตรวจสอบเมื่อ: ${new Date(userFeedback.submittedAt).toLocaleDateString('th-TH')} เวลา ${new Date(userFeedback.submittedAt).toLocaleTimeString('th-TH')}</p>
+              <p style="margin: 5px 0 0 0; font-size: 0.9em; color: #666;">ตรวจสอบเมื่อ: ${new Date(userFeedback.submittedAt).toLocaleDateString('th-TH', { timeZone: 'Asia/Bangkok' })} เวลา ${new Date(userFeedback.submittedAt).toLocaleTimeString('th-TH', { timeZone: 'Asia/Bangkok' })}</p>
             </div>
 
             <div style="margin: 15px 0;">
@@ -517,12 +517,12 @@ export async function sendIssueUpdateNotification(issueData: any) {
 
         <div style="background-color: ${statusInfo.bgColor}; padding: 15px; margin: 10px 0; border-radius: 5px; border-left: 4px solid ${statusInfo.color};">
           <p style="margin: 0;"><strong>📍 สถานะปัจจุบัน:</strong> <span style="color: ${statusInfo.color}; font-weight: bold;">${statusInfo.text}</span></p>
-          <p style="margin: 5px 0 0 0; font-size: 0.9em; color: #666;">อัพเดตเมื่อ: ${new Date().toLocaleDateString('th-TH')} เวลา ${new Date().toLocaleTimeString('th-TH')}</p>
+          <p style="margin: 5px 0 0 0; font-size: 0.9em; color: #666;">อัพเดตเมื่อ: ${new Date().toLocaleDateString('th-TH', { timeZone: 'Asia/Bangkok' })} เวลา ${new Date().toLocaleTimeString('th-TH', { timeZone: 'Asia/Bangkok' })}</p>
         </div>
 
         <div style="margin: 15px 0;">
-          <p><strong>➢ วันที่แจ้ง:</strong> ${new Date(issueData.reportDate).toLocaleDateString('th-TH')} 
-             <strong>เวลาที่แจ้ง:</strong> ${new Date(issueData.reportDate).toLocaleTimeString('th-TH')}</p>
+          <p><strong>➢ วันที่แจ้ง:</strong> ${new Date(issueData.reportDate).toLocaleDateString('th-TH', { timeZone: 'Asia/Bangkok' })} 
+             <strong>เวลาที่แจ้ง:</strong> ${new Date(issueData.reportDate).toLocaleTimeString('th-TH', { timeZone: 'Asia/Bangkok' })}</p>
         </div>
 
         <div style="margin: 15px 0;">

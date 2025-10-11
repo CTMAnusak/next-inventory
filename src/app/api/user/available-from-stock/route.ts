@@ -8,11 +8,14 @@ import { verifyToken } from '@/lib/auth';
 /**
  * GET /api/user/available-from-stock
  * 
- * ดึงรายการอุปกรณ์ที่สามารถเลือกจากคลังอุปกรณ์สำหรับเพิ่มอุปกรณ์ที่มี (Dashboard)
- * กรองเฉพาะอุปกรณ์ที่มี:
- * - สถานะ: มี (status_available)
- * - สภาพ: ใช้งานได้ (cond_working)
- * - เจ้าของ: admin_stock
+ * ดึงรายการอุปกรณ์ทั้งหมดในหมวดหมู่สำหรับเพิ่มอุปกรณ์ที่มี (Dashboard)
+ * 
+ * NOTE: API นี้แสดงอุปกรณ์ทั้งหมดที่มีในระบบ (จาก InventoryMaster)
+ * ไม่ว่าจะเหลือในคลังหรือไม่ก็ตาม เพราะผู้ใช้กำลังบันทึกอุปกรณ์ที่ตัวเองมีอยู่แล้ว
+ * ไม่ใช่การเบิกจากคลัง
+ * 
+ * สำหรับอุปกรณ์ที่มีในคลัง (admin_stock) จะแนบข้อมูลตัวอย่าง (sampleItem)
+ * ที่มีสถานะ "มี" และสภาพ "ใช้งานได้" เพื่อให้ผู้ใช้สามารถเลือกได้สะดวก
  * 
  * Query Parameters:
  * - categoryId: หมวดหมู่อุปกรณ์ (required)
@@ -59,7 +62,7 @@ export async function GET(request: NextRequest) {
     const workingCondition = inventoryConfig.conditionConfigs?.find(c => c.name === 'ใช้งานได้');
     const workingConditionId = workingCondition?.id || 'cond_working';
 
-    console.log('🔍 Dashboard Available Stock Filter:', {
+    console.log('🔍 Dashboard Equipment List Filter:', {
       categoryId,
       availableStatusId,
       workingConditionId,
@@ -67,13 +70,13 @@ export async function GET(request: NextRequest) {
       workingConditionName: workingCondition?.name
     });
     
-    // Get all InventoryMasters in this category
+    // ✅ Get ALL InventoryMasters in this category (ไม่กรอง availableQuantity)
+    // เพราะผู้ใช้กำลังบันทึกอุปกรณ์ที่ตัวเองมี ไม่ใช่การเบิกจากคลัง
     const inventoryMasters = await InventoryMaster.find({
-      categoryId: categoryId,
-      availableQuantity: { $gt: 0 }
+      categoryId: categoryId
     }).sort({ itemName: 1 });
     
-    // For each InventoryMaster, check if there are items with status "มี" and condition "ใช้งานได้"
+    // For each InventoryMaster, try to get sample item from admin_stock (if available)
     const availableItems: {
       itemName: string;
       availableCount: number;
@@ -89,7 +92,7 @@ export async function GET(request: NextRequest) {
     }[] = [];
     
     for (const inventoryMaster of inventoryMasters) {
-      // Count items with correct status and condition
+      // Count items in admin_stock with status "มี" and condition "ใช้งานได้"
       const count = await InventoryItem.countDocuments({
         itemName: inventoryMaster.itemName,
         categoryId: inventoryMaster.categoryId,
@@ -99,34 +102,33 @@ export async function GET(request: NextRequest) {
         deletedAt: { $exists: false }
       });
       
-      if (count > 0) {
-        // Get one sample item to show statusId and conditionId
-        const sampleItem = await InventoryItem.findOne({
-          itemName: inventoryMaster.itemName,
-          categoryId: inventoryMaster.categoryId,
-          'currentOwnership.ownerType': 'admin_stock',
-          statusId: availableStatusId,
-          conditionId: workingConditionId,
-          deletedAt: { $exists: false }
-        });
-        
-        availableItems.push({
-          itemName: inventoryMaster.itemName,
-          availableCount: count,
-          sampleItem: sampleItem ? {
-            itemId: sampleItem._id.toString(),
-            statusId: sampleItem.statusId || availableStatusId,
-            statusName: availableStatus?.name || 'มี',
-            conditionId: sampleItem.conditionId || workingConditionId,
-            conditionName: workingCondition?.name || 'ใช้งานได้',
-            serialNumber: sampleItem.serialNumber,
-            numberPhone: sampleItem.numberPhone
-          } : null
-        });
-      }
+      // Try to get one sample item from admin_stock
+      const sampleItem = await InventoryItem.findOne({
+        itemName: inventoryMaster.itemName,
+        categoryId: inventoryMaster.categoryId,
+        'currentOwnership.ownerType': 'admin_stock',
+        statusId: availableStatusId,
+        conditionId: workingConditionId,
+        deletedAt: { $exists: false }
+      });
+      
+      // ✅ แสดงอุปกรณ์ทั้งหมด ไม่ว่าจะมี sampleItem หรือไม่
+      availableItems.push({
+        itemName: inventoryMaster.itemName,
+        availableCount: count,
+        sampleItem: sampleItem ? {
+          itemId: sampleItem._id.toString(),
+          statusId: sampleItem.statusId || availableStatusId,
+          statusName: availableStatus?.name || 'มี',
+          conditionId: sampleItem.conditionId || workingConditionId,
+          conditionName: workingCondition?.name || 'ใช้งานได้',
+          serialNumber: sampleItem.serialNumber,
+          numberPhone: sampleItem.numberPhone
+        } : null
+      });
     }
     
-    console.log(`✅ Found ${availableItems.length} available item types in category ${categoryId}`);
+    console.log(`✅ Found ${availableItems.length} equipment types in category ${categoryId}`);
     
     return NextResponse.json({
       categoryId,

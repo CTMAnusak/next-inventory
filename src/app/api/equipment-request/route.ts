@@ -26,6 +26,17 @@ export async function POST(request: NextRequest) {
       }
     }
 
+    // Validate phone number if provided (10 digits only)
+    if (requestData.phone) {
+      const phoneRegex = /^[0-9]{10}$/;
+      if (!phoneRegex.test(requestData.phone)) {
+        return NextResponse.json(
+          { error: 'เบอร์โทรศัพท์ต้องเป็นตัวเลข 10 หลัก' },
+          { status: 400 }
+        );
+      }
+    }
+
     // Validate items
     if (!Array.isArray(requestData.items) || requestData.items.length === 0) {
       return NextResponse.json(

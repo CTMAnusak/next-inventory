@@ -615,13 +615,15 @@ export default function AdminEquipmentTrackingPage() {
                               {new Date(record.dateAdded || record.requestDate).toLocaleDateString('th-TH', {
                                 year: 'numeric',
                                 month: 'short',
-                                day: 'numeric'
+                                day: 'numeric',
+                                timeZone: 'Asia/Bangkok'
                               })}
                             </span>
                             <span className="text-xs text-gray-500">
                               {new Date(record.dateAdded || record.requestDate).toLocaleTimeString('th-TH', {
                                 hour: '2-digit',
-                                minute: '2-digit'
+                                minute: '2-digit',
+                                timeZone: 'Asia/Bangkok'
                               })}
                             </span>
                           </div>

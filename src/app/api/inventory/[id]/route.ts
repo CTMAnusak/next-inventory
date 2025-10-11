@@ -85,7 +85,13 @@ export async function PUT(
       numberPhone,
       statusId,
       conditionId,
-      notes
+      notes,
+      // ✅ เพิ่มรองรับข้อมูลผู้ใช้สาขา
+      firstName,
+      lastName,
+      nickname,
+      department,
+      phone
     } = updateData;
 
     // Find the item
@@ -119,6 +125,20 @@ export async function PUT(
       if (!item.sourceInfo) item.sourceInfo = {};
       item.sourceInfo.notes = notes;
       updateFields.sourceInfo = item.sourceInfo;
+    }
+
+    // ✅ อัพเดทข้อมูลผู้ใช้สาขา (ถ้ามี)
+    if (firstName !== undefined || lastName !== undefined || nickname !== undefined || 
+        department !== undefined || phone !== undefined) {
+      if (!item.requesterInfo) item.requesterInfo = {};
+      
+      if (firstName !== undefined) item.requesterInfo.firstName = firstName;
+      if (lastName !== undefined) item.requesterInfo.lastName = lastName;
+      if (nickname !== undefined) item.requesterInfo.nickname = nickname;
+      if (department !== undefined) item.requesterInfo.department = department;
+      if (phone !== undefined) item.requesterInfo.phone = phone;
+      
+      updateFields.requesterInfo = item.requesterInfo;
     }
 
     const updatedItem = await InventoryItem.findByIdAndUpdate(

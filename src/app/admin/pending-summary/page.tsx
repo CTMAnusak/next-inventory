@@ -375,7 +375,7 @@ export default function PendingSummaryPage() {
                         <td className="px-6 py-4 text-sm text-gray-500 text-center">
                           <div className="flex items-center justify-center space-x-1">
                             {icon && <span className="text-base">{icon}</span>}
-                            <span>{new Date(issue.reportDate).toLocaleDateString('th-TH')}</span>
+                            <span>{new Date(issue.reportDate).toLocaleDateString('th-TH', { timeZone: 'Asia/Bangkok' })}</span>
                           </div>
                         </td>
                         <td className="px-6 py-4 text-center">
@@ -480,7 +480,7 @@ export default function PendingSummaryPage() {
                           <td className="px-6 py-4 text-sm text-gray-500 text-center">
                             <div className="flex items-center justify-center space-x-1">
                               {icon && <span className="text-base">{icon}</span>}
-                              <span>{new Date(request.requestDate).toLocaleDateString('th-TH')}</span>
+                              <span>{new Date(request.requestDate).toLocaleDateString('th-TH', { timeZone: 'Asia/Bangkok' })}</span>
                             </div>
                           </td>
                           <td className="px-6 py-4 text-sm text-gray-900 text-center">
@@ -588,7 +588,7 @@ export default function PendingSummaryPage() {
                             <td className="px-6 py-4 text-sm text-gray-500 text-center">
                               <div className="flex items-center justify-center space-x-1">
                                 {icon && <span className="text-base">{icon}</span>}
-                                <span>{new Date(returnLog.returnDate).toLocaleDateString('th-TH')}</span>
+                                <span>{new Date(returnLog.returnDate).toLocaleDateString('th-TH', { timeZone: 'Asia/Bangkok' })}</span>
                               </div>
                             </td>
                             <td className="px-6 py-4 text-sm text-gray-900 text-center">
@@ -709,7 +709,7 @@ export default function PendingSummaryPage() {
                         <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
                           <div className="flex items-center space-x-1">
                             {icon && <span className="text-base">{icon}</span>}
-                            <span>{new Date(user.createdAt).toLocaleDateString('th-TH')}</span>
+                            <span>{new Date(user.createdAt).toLocaleDateString('th-TH', { timeZone: 'Asia/Bangkok' })}</span>
                           </div>
                         </td>
                         <td className="px-6 py-4 text-sm font-semibold text-gray-900 text-center">

@@ -81,8 +81,19 @@ export default function SerialNumberSelector({
 
   // Auto-select requested serial numbers when available items are loaded
   useEffect(() => {
-    if (availableItems && requestedSerialNumbers && requestedSerialNumbers.length > 0) {
+    if (!availableItems) return;
+
+    // ✅ ตรวจสอบว่า user เลือก Serial Number เจาะจงมาหรือไม่
+    const hasRequestedSerialNumbers = requestedSerialNumbers && 
+      requestedSerialNumbers.length > 0 && 
+      requestedSerialNumbers.some(sn => sn && sn.trim() !== '');
+
+    if (hasRequestedSerialNumbers) {
+      // User เลือก Serial Number เจาะจง -> auto-select SN ที่ user ระบุ
       autoSelectRequestedSerialNumbers();
+    } else {
+      // User เลือก "ไม่มี Serial Number (ไม่เจาะจง)" -> auto-select อุปกรณ์ไม่มี SN
+      autoSelectNoSerialNumber();
     }
   }, [availableItems, requestedSerialNumbers]);
 
@@ -180,6 +191,32 @@ export default function SerialNumberSelector({
     // ✅ ไม่แสดง error เลย ให้แอดมินเลือกได้อย่างอิสระ
     // แค่ pre-select ให้ตาม user request
     setError('');
+  };
+
+  const autoSelectNoSerialNumber = () => {
+    if (!availableItems || availableItems.withoutSerialNumber.count === 0) {
+      return;
+    }
+
+    // ✅ Auto-select items without serial numbers up to requested quantity
+    // This happens when user selected "ไม่มี Serial Number (ไม่เจาะจง)" in the request form
+    // Admin can still uncheck and select other items if desired
+    const itemsToAdd: SelectedItem[] = [];
+    const availableWithoutSN = [...availableItems.withoutSerialNumber.items].reverse(); // LIFO - newest first
+    
+    const needToAdd = Math.min(
+      requestedQuantity,
+      availableWithoutSN.length
+    );
+    
+    for (let i = 0; i < needToAdd; i++) {
+      itemsToAdd.push({
+        itemId: availableWithoutSN[i].itemId,
+        serialNumber: undefined
+      });
+    }
+    
+    setSelectedItems(itemsToAdd);
   };
 
   const handleAutoSelect = () => {

@@ -747,7 +747,7 @@ export default function AdminUsersPage() {
                       </div>
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                      {new Date(user.createdAt).toLocaleDateString('th-TH')}
+                      {new Date(user.createdAt).toLocaleDateString('th-TH', { timeZone: 'Asia/Bangkok' })}
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
                       <div className="flex justify-end space-x-2">

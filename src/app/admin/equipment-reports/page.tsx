@@ -882,7 +882,7 @@ export default function AdminEquipmentReportsPage() {
                         <tr key={`${requestLog._id}-${itemIndex}`} className={rowBgClass}>
                         {/* วันที่เบิก */}
                         <td className="px-6 py-4 text-sm text-gray-500 text-center text-selectable">
-                          {requestLog.requestDate ? new Date(requestLog.requestDate).toLocaleDateString('th-TH') : '-'}
+                          {requestLog.requestDate ? new Date(requestLog.requestDate).toLocaleDateString('th-TH', { timeZone: 'Asia/Bangkok' }) : '-'}
                         </td>
                         {/* ชื่อผู้เบิก */}
                         <td className="px-6 py-4 text-sm text-center text-selectable">
@@ -946,21 +946,33 @@ export default function AdminEquipmentReportsPage() {
                                 return <span>-</span>;
                               }
                               
-                              // ✅ ถ้าไม่ใช่ซิมการ์ด แสดง Serial Number ตามปกติ
-                              if (Array.isArray(item.assignedSerialNumbers) && item.assignedSerialNumbers.length > 0) {
-                                return item.assignedSerialNumbers.map((sn: string, idx: number) => (
-                                  <span key={idx} className="text-xs bg-green-100 text-green-800 px-2 py-1 rounded">
-                                    {sn}
-                                  </span>
-                                ));
-                              } else if (Array.isArray(item.serialNumbers) && item.serialNumbers.length > 0) {
-                                return item.serialNumbers.map((sn: string, idx: number) => (
-                                  <span key={idx} className="text-xs bg-orange-100 text-orange-800 px-2 py-1 rounded">
-                                    {sn}
-                                  </span>
-                                ));
+                              // ✅ CRITICAL FIX: ถ้ารายการอนุมัติแล้ว ให้แสดงเฉพาะ assignedSerialNumbers
+                              // (ไม่ว่าจะมี SN หรือไม่มี - ถ้าไม่มีแสดง "-")
+                              const isApproved = (item as any).itemApproved || ((item as any).assignedQuantity && (item as any).assignedQuantity > 0);
+                              
+                              if (isApproved) {
+                                // แสดง assignedSerialNumbers (ที่แอดมินเลือกจริง)
+                                if (Array.isArray(item.assignedSerialNumbers) && item.assignedSerialNumbers.length > 0) {
+                                  return item.assignedSerialNumbers.map((sn: string, idx: number) => (
+                                    <span key={idx} className="text-xs bg-green-100 text-green-800 px-2 py-1 rounded">
+                                      {sn}
+                                    </span>
+                                  ));
+                                } else {
+                                  // แอดมินเลือกอุปกรณ์ที่ไม่มี SN
+                                  return <span>-</span>;
+                                }
                               } else {
-                                return <span>-</span>;
+                                // ยังไม่อนุมัติ - แสดง serialNumbers (ที่ผู้ใช้เลือกมา)
+                                if (Array.isArray(item.serialNumbers) && item.serialNumbers.length > 0) {
+                                  return item.serialNumbers.map((sn: string, idx: number) => (
+                                    <span key={idx} className="text-xs bg-orange-100 text-orange-800 px-2 py-1 rounded">
+                                      {sn}
+                                    </span>
+                                  ));
+                                } else {
+                                  return <span>-</span>;
+                                }
                               }
                             })()}
                           </div>
@@ -1117,7 +1129,7 @@ export default function AdminEquipmentReportsPage() {
                         <tr key={`${returnLog._id}-${itemIndex}`} className={rowBgClass}>
                         {/* วันที่คืน */}
                         <td className="px-6 py-4 text-sm text-gray-500 text-center text-selectable">
-                          {returnLog.returnDate ? new Date(returnLog.returnDate).toLocaleDateString('th-TH') : '-'}
+                          {returnLog.returnDate ? new Date(returnLog.returnDate).toLocaleDateString('th-TH', { timeZone: 'Asia/Bangkok' }) : '-'}
                         </td>
                         {/* ชื่อผู้คืน */}
                         <td className="px-6 py-4 text-sm text-center text-selectable">

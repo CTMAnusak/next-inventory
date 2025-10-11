@@ -359,6 +359,14 @@ export default function EquipmentRequestPage() {
           setIsLoading(false);
           return;
         }
+        
+        // Validate phone number format (10 digits)
+        const phoneRegex = /^[0-9]{10}$/;
+        if (!phoneRegex.test(formData.phone)) {
+          toast.error('กรุณากรอกเบอร์โทรศัพท์ให้ถูกต้อง (10 หลัก)');
+          setIsLoading(false);
+          return;
+        }
       }
 
       // Validate item: only allow items from the list (not from current form)

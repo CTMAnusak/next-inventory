@@ -318,6 +318,14 @@ export default function DashboardPage() {
           statusId: form.status || 'status_available',
           conditionId: form.condition || 'cond_working',
           notes: form.notes || '',
+          // ✅ เพิ่มข้อมูลผู้ใช้สาขา (สำหรับการแสดงผลในหน้าติดตามอุปกรณ์)
+          ...(user?.userType === 'branch' && {
+            firstName: form.firstName || undefined,
+            lastName: form.lastName || undefined,
+            nickname: form.nickname || undefined,
+            department: form.department || undefined,
+            phone: form.phone || undefined,
+          }),
           // สำหรับซิมการ์ด ส่ง numberPhone แทน serialNumber
           ...(isSIMCardSync(selectedCategoryId) && form.serialNumber && {
             numberPhone: form.serialNumber,
@@ -358,8 +366,37 @@ export default function DashboardPage() {
       return;
     }
     
-    // Validate required fields
-    if (!selectedCategoryId || selectedCategoryId === 'new' || (user?.userType === 'branch' && (!form.firstName || !form.lastName))) {
+    // Validate required fields for branch users
+    if (user?.userType === 'branch') {
+      if (!form.firstName?.trim()) {
+        toast.error('กรุณากรอกชื่อ');
+        setIsSubmitting(false);
+        return;
+      }
+      if (!form.lastName?.trim()) {
+        toast.error('กรุณากรอกนามสกุล');
+        setIsSubmitting(false);
+        return;
+      }
+      if (!form.nickname?.trim()) {
+        toast.error('กรุณากรอกชื่อเล่น');
+        setIsSubmitting(false);
+        return;
+      }
+      if (!form.department?.trim()) {
+        toast.error('กรุณากรอกแผนก');
+        setIsSubmitting(false);
+        return;
+      }
+      if (!form.phone?.trim()) {
+        toast.error('กรุณากรอกเบอร์โทรศัพท์');
+        setIsSubmitting(false);
+        return;
+      }
+    }
+    
+    // Validate category selection
+    if (!selectedCategoryId || selectedCategoryId === 'new') {
       toast.error('กรุณาเลือกหมวดหมู่');
       setIsSubmitting(false);
       return;
@@ -386,16 +423,31 @@ export default function DashboardPage() {
       return;
     }
     
-    // Validate phone number for SIM Card
-    if (isSIMCardSync(selectedCategoryId) && form.serialNumber) {
-      const phoneNumber = form.serialNumber.trim();
-      if (phoneNumber.length !== 10) {
+    // Validate phone number for branch user
+    if (user?.userType === 'branch' && form.phone) {
+      const phoneNumber = form.phone.trim();
+      if (phoneNumber.length > 0 && phoneNumber.length !== 10) {
         toast.error('เบอร์โทรศัพท์ต้องเป็น 10 หลักเท่านั้น');
         setIsSubmitting(false);
         return;
       }
-      if (!/^[0-9]{10}$/.test(phoneNumber)) {
+      if (phoneNumber.length > 0 && !/^[0-9]{10}$/.test(phoneNumber)) {
         toast.error('เบอร์โทรศัพท์ต้องเป็นตัวเลข 10 หลักเท่านั้น');
+        setIsSubmitting(false);
+        return;
+      }
+    }
+    
+    // Validate phone number for SIM Card
+    if (isSIMCardSync(selectedCategoryId) && form.serialNumber) {
+      const phoneNumber = form.serialNumber.trim();
+      if (phoneNumber.length !== 10) {
+        toast.error('เบอร์โทรศัพท์ (Serial Number) ต้องเป็น 10 หลักเท่านั้น');
+        setIsSubmitting(false);
+        return;
+      }
+      if (!/^[0-9]{10}$/.test(phoneNumber)) {
+        toast.error('เบอร์โทรศัพท์ (Serial Number) ต้องเป็นตัวเลข 10 หลักเท่านั้น');
         setIsSubmitting(false);
         return;
       }
@@ -749,7 +801,7 @@ export default function DashboardPage() {
                           if (!dateValue) return '-';
                           const d = new Date(dateValue);
                           if (isNaN(d.getTime())) return '-';
-                          return d.toLocaleDateString('th-TH', { year: 'numeric', month: 'short', day: 'numeric' });
+                          return d.toLocaleDateString('th-TH', { year: 'numeric', month: 'short', day: 'numeric', timeZone: 'Asia/Bangkok' });
                         })()}
                       </div>
                     </td>
@@ -1214,34 +1266,43 @@ export default function DashboardPage() {
                     </div>
                     <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                       <div>
-                        <label className="block text-sm font-medium text-gray-700 mb-1">ชื่อเล่น</label>
+                        <label className="block text-sm font-medium text-gray-700 mb-1">ชื่อเล่น *</label>
                         <input 
                           type="text" 
                           value={form.nickname} 
                           onChange={(e) => setForm({ ...form, nickname: e.target.value })} 
                           className={`w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 ${editItemId ? 'bg-gray-100 cursor-not-allowed' : ''}`}
                           disabled={!!editItemId}
+                          placeholder="ชื่อเล่น"
                         />
                       </div>
                       <div>
-                        <label className="block text-sm font-medium text-gray-700 mb-1">แผนก</label>
+                        <label className="block text-sm font-medium text-gray-700 mb-1">แผนก *</label>
                         <input 
                           type="text" 
                           value={form.department} 
                           onChange={(e) => setForm({ ...form, department: e.target.value })} 
                           className={`w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 ${editItemId ? 'bg-gray-100 cursor-not-allowed' : ''}`}
                           disabled={!!editItemId}
+                          placeholder="แผนก"
                         />
                       </div>
                       <div>
-                        <label className="block text-sm font-medium text-gray-700 mb-1">เบอร์โทรศัพท์</label>
+                        <label className="block text-sm font-medium text-gray-700 mb-1">เบอร์โทรศัพท์ *</label>
                         <input 
                           type="tel" 
                           value={form.phone} 
                           onChange={(e) => setForm({ ...form, phone: e.target.value.replace(/[^0-9]/g, '').slice(0, 10) })} 
                           className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500" 
-                          placeholder="0XXXXXXXXX" 
+                          placeholder="0XXXXXXXXX"
+                          pattern="[0-9]{10}"
+                          maxLength={10}
                         />
+                        {form.phone && form.phone.length > 0 && form.phone.length < 10 && (
+                          <p className="text-xs text-red-600 mt-1">
+                            กรุณากรอกเบอร์โทรศัพท์ให้ครบ 10 หลัก (ปัจจุบัน {form.phone.length} หลัก)
+                          </p>
+                        )}
                       </div>
                     </div>
                   </>

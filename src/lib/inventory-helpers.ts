@@ -344,6 +344,11 @@ export async function transferInventoryItem(params: TransferItemParams) {
     returnId
   };
 
+  // ✅ อัปเดต acquisitionMethod เป็น 'transferred' เมื่อโอนจาก admin_stock ให้ user
+  if (fromOwnerType === 'admin_stock' && toOwnerType === 'user_owned') {
+    item.sourceInfo.acquisitionMethod = 'transferred';
+  }
+
   // ✅ คัดลอกข้อมูลผู้ใช้สาขา (เมื่อโอนให้ user_owned)
   if (toOwnerType === 'user_owned' && requesterInfo) {
     item.requesterInfo = {

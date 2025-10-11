@@ -226,7 +226,7 @@ export async function POST(
             (requestLog.items[requestItemIndex] as any).assignedPhoneNumbers = [];
           }
 
-          // Add assigned serial numbers
+          // ✅ เพิ่ม Serial Numbers ที่แอดมินเลือก
           if (assignedItem.assignedSerialNumbers && assignedItem.assignedSerialNumbers.length > 0) {
             requestLog.items[requestItemIndex].assignedSerialNumbers!.push(...assignedItem.assignedSerialNumbers);
           }
