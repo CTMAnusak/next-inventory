@@ -33,7 +33,9 @@ interface EquipmentTracking {
   currentItemName: string;
   quantity: number;
   serialNumber?: string;
+  numberPhone?: string; // ✅ เพิ่มเบอร์โทรศัพท์สำหรับซิมการ์ด
   category: string;
+  categoryId?: string; // ✅ เพิ่ม categoryId สำหรับเช็คประเภทอุปกรณ์
   categoryName?: string;
   status: string;
   statusName?: string;
@@ -126,7 +128,8 @@ export default function AdminEquipmentTrackingPage() {
         record.office.toLowerCase().includes(searchTerm.toLowerCase()) ||
         record.phone.includes(searchTerm) ||
         record.currentItemName.toLowerCase().includes(searchTerm.toLowerCase()) ||
-        (record.serialNumber && record.serialNumber.toLowerCase().includes(searchTerm.toLowerCase()));
+        (record.serialNumber && record.serialNumber.toLowerCase().includes(searchTerm.toLowerCase())) ||
+        (record.numberPhone && record.numberPhone.includes(searchTerm)); // ✅ เพิ่มการค้นหาเบอร์โทรศัพท์
 
       // Item filter
       const matchesItem = !itemFilter || 
@@ -287,7 +290,7 @@ export default function AdminEquipmentTrackingPage() {
                 value={searchTerm}
                 onChange={(e) => setSearchTerm(e.target.value)}
                 className="w-full pl-10 pr-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 text-gray-900 text-lg"
-                placeholder="ค้นหาผู้เบิก, อุปกรณ์, Serial Number, แผนก, สาขา..."
+                placeholder="ค้นหาผู้เบิก, อุปกรณ์, Serial Number, เบอร์โทร, แผนก, สาขา..."
               />
             </div>
           </div>
@@ -547,17 +550,36 @@ export default function AdminEquipmentTrackingPage() {
                           </div>
                         </td>
                         
-                        {/* 3. Serial Number */}
+                        {/* 3. รายละเอียด (Serial Number / เบอร์โทรศัพท์) */}
                         <td className="px-6 py-4 text-sm text-gray-900 text-selectable text-center">
-                          {record.serialNumber ? (
-                            <span className="inline-flex px-2 py-1 text-xs font-semibold rounded-full bg-purple-100 text-purple-800">
-                              {record.serialNumber}
-                            </span>
-                          ) : (
-                            <span className="inline-flex px-2 py-1 text-xs font-semibold rounded-full bg-gray-100 text-gray-600">
-                              ไม่มี SN/เบอร์
-                            </span>
-                          )}
+                          {(() => {
+                            const isSimCard = record.categoryId === 'cat_sim_card';
+                            
+                            // ✅ ถ้าเป็นซิมการ์ดและมีเบอร์โทร แสดงเบอร์โทร
+                            if (isSimCard && record.numberPhone) {
+                              return (
+                                <span className="inline-flex px-2 py-1 text-xs font-semibold rounded-full bg-green-100 text-green-800">
+                                  {record.numberPhone}
+                                </span>
+                              );
+                            }
+                            // ✅ ถ้ามี Serial Number แสดง SN
+                            else if (record.serialNumber) {
+                              return (
+                                <span className="inline-flex px-2 py-1 text-xs font-semibold rounded-full bg-purple-100 text-purple-800">
+                                  {record.serialNumber}
+                                </span>
+                              );
+                            }
+                            // ✅ ถ้าไม่มีทั้ง SN และเบอร์โทร
+                            else {
+                              return (
+                                <span className="inline-flex px-2 py-1 text-xs font-semibold rounded-full bg-gray-100 text-gray-600">
+                                  ไม่มี SN/เบอร์
+                                </span>
+                              );
+                            }
+                          })()}
                         </td>
                         
                         {/* 4. สถานะ */}

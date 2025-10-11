@@ -33,6 +33,13 @@ interface ReturnItem {
   itemNotes?: string;
   statusOnReturn?: string; // สถานะอุปกรณ์เมื่อคืน
   conditionOnReturn?: string; // สภาพอุปกรณ์เมื่อคืน
+  // ข้อมูลผู้คืนอุปกรณ์ของรายการนี้
+  returnerFirstName?: string;
+  returnerLastName?: string;
+  returnerNickname?: string;
+  returnerDepartment?: string;
+  returnerPhone?: string;
+  returnerOffice?: string;
 }
 
 interface OwnedEquipment {
@@ -60,6 +67,13 @@ interface OwnedEquipment {
   statusName?: string;
   conditionId?: string;
   conditionName?: string;
+  // เพิ่มข้อมูลผู้ครอบครอง
+  firstName?: string;
+  lastName?: string;
+  nickname?: string;
+  department?: string;
+  phone?: string;
+  office?: string;
 }
 
 export default function EquipmentReturnPage() {
@@ -100,7 +114,13 @@ export default function EquipmentReturnPage() {
     selectedOption: '',
     itemNotes: '',
     statusOnReturn: 'status_available',
-    conditionOnReturn: 'cond_working'
+    conditionOnReturn: 'cond_working',
+    returnerFirstName: '',
+    returnerLastName: '',
+    returnerNickname: '',
+    returnerDepartment: '',
+    returnerPhone: '',
+    returnerOffice: ''
   });
 
   const [showEquipmentDropdown, setShowEquipmentDropdown] = useState<boolean>(false);
@@ -336,7 +356,14 @@ export default function EquipmentReturnPage() {
             statusId: item.statusId,
             statusName: item.statusName,
             conditionId: item.conditionId,
-            conditionName: item.conditionName
+            conditionName: item.conditionName,
+            // ✅ เพิ่มข้อมูลผู้ครอบครอง
+            firstName: item.firstName,
+            lastName: item.lastName,
+            nickname: item.nickname,
+            department: item.department,
+            phone: item.phone,
+            office: item.office
           };
         });
         
@@ -423,6 +450,26 @@ export default function EquipmentReturnPage() {
   const selectEquipment = (equipment: OwnedEquipment) => {
     // Reset notification flag when selecting new equipment
     setHasShownNotification(false);
+    
+    // ✅ ดึงข้อมูลผู้ครอบครองมาใส่ในฟอร์ม (สำหรับผู้ใช้ประเภท branch)
+    if (user?.userType === 'branch') {
+      setFormData(prev => ({
+        ...prev,
+        firstName: equipment.firstName || prev.firstName,
+        lastName: equipment.lastName || prev.lastName,
+        nickname: equipment.nickname || prev.nickname,
+        department: equipment.department || prev.department,
+        phone: equipment.phone || prev.phone,
+      }));
+    }
+    
+    // ✅ เก็บข้อมูลผู้คืนไว้ใน returnItem เพื่อใช้ตอนเพิ่มเข้ารายการ
+    handleItemChange('returnerFirstName', equipment.firstName || '');
+    handleItemChange('returnerLastName', equipment.lastName || '');
+    handleItemChange('returnerNickname', equipment.nickname || '');
+    handleItemChange('returnerDepartment', equipment.department || '');
+    handleItemChange('returnerPhone', equipment.phone || '');
+    handleItemChange('returnerOffice', equipment.office || '');
     
     // ตรวจสอบว่ามีข้อมูล totalQuantity และ serialNumbers จาก API response
     const totalQuantity = equipment.totalQuantity || equipment.quantity || 1;
@@ -575,7 +622,18 @@ export default function EquipmentReturnPage() {
       toast.error('เลือกรายการซ้ำไม่ได้');
       return;
     }
-    setReturnItems(prev => [...prev, { ...returnItem }]);
+    // ✅ เก็บข้อมูลผู้คืนจาก formData ลงในรายการ (สำหรับผู้ใช้ประเภท branch)
+    const itemToAdd = { ...returnItem };
+    if (user?.userType === 'branch') {
+      itemToAdd.returnerFirstName = formData.firstName || returnItem.returnerFirstName;
+      itemToAdd.returnerLastName = formData.lastName || returnItem.returnerLastName;
+      itemToAdd.returnerNickname = formData.nickname || returnItem.returnerNickname;
+      itemToAdd.returnerDepartment = formData.department || returnItem.returnerDepartment;
+      itemToAdd.returnerPhone = formData.phone || returnItem.returnerPhone;
+      itemToAdd.returnerOffice = formData.office || returnItem.returnerOffice;
+    }
+    
+    setReturnItems(prev => [...prev, itemToAdd]);
     
     // รีเซ็ทฟอร์มหลังจากเพิ่มรายการสำเร็จ
     setReturnItem({
@@ -593,7 +651,13 @@ export default function EquipmentReturnPage() {
       selectedOption: '',
       itemNotes: '',
       statusOnReturn: 'status_available',
-      conditionOnReturn: 'cond_working'
+      conditionOnReturn: 'cond_working',
+      returnerFirstName: '',
+      returnerLastName: '',
+      returnerNickname: '',
+      returnerDepartment: '',
+      returnerPhone: '',
+      returnerOffice: ''
     });
     setEditingIndex(null);
     setMaxQuantity(0);
@@ -630,6 +694,18 @@ export default function EquipmentReturnPage() {
     setReturnItem({ ...toEdit });
     setReturnItems(prev => prev.filter((_, i) => i !== idx));
     setEditingIndex(idx);
+    
+    // ✅ นำข้อมูลผู้คืนของรายการที่แก้ไขมาแสดงในฟอร์ม (สำหรับผู้ใช้ประเภท branch)
+    if (user?.userType === 'branch' && toEdit.returnerFirstName) {
+      setFormData(prev => ({
+        ...prev,
+        firstName: toEdit.returnerFirstName || prev.firstName,
+        lastName: toEdit.returnerLastName || prev.lastName,
+        nickname: toEdit.returnerNickname || prev.nickname,
+        department: toEdit.returnerDepartment || prev.department,
+        phone: toEdit.returnerPhone || prev.phone,
+      }));
+    }
   };
 
   const handleFileChange = (file: File | null) => {
@@ -675,7 +751,13 @@ export default function EquipmentReturnPage() {
       selectedOption: '',
       itemNotes: '',
       statusOnReturn: 'status_available',
-      conditionOnReturn: 'cond_working'
+      conditionOnReturn: 'cond_working',
+      returnerFirstName: '',
+      returnerLastName: '',
+      returnerNickname: '',
+      returnerDepartment: '',
+      returnerPhone: '',
+      returnerOffice: ''
     });
     setEditingIndex(null);
     setSearchTerm('');
@@ -870,7 +952,13 @@ export default function EquipmentReturnPage() {
           selectedOption: '',
           itemNotes: '',
           statusOnReturn: 'status_available',
-          conditionOnReturn: 'cond_working'
+          conditionOnReturn: 'cond_working',
+          returnerFirstName: '',
+          returnerLastName: '',
+          returnerNickname: '',
+          returnerDepartment: '',
+          returnerPhone: '',
+          returnerOffice: ''
         });
         setEditingIndex(null);
         setSearchTerm('');
@@ -1022,6 +1110,9 @@ export default function EquipmentReturnPage() {
                                   <div className="font-medium text-gray-900">{equipment.displayName}</div>
                                   <div className="text-sm text-gray-600">
                                     {equipment.displayCategory} • จำนวน: {equipment.quantity}
+                                    {(equipment.firstName || equipment.lastName) && 
+                                      ` , ชื่อ-นามสกุล: ${equipment.firstName || ''} ${equipment.lastName || ''}`
+                                    }
                                     {equipment.serialNumber && ` • S/N: ${equipment.serialNumber}`}
                                   </div>
                                 </div>
@@ -1324,11 +1415,20 @@ export default function EquipmentReturnPage() {
                       {returnItems.map((it, idx) => (
                         <li key={`${it.itemId}-${it.serialNumber || it.numberPhone || idx}`} className="flex items-center justify-between p-3">
                           <div className="text-gray-900">
-                            {it.itemName} 
-                            {it.category?.toLowerCase().includes('ซิมการ์ด') 
-                              ? (it.numberPhone ? ` (เบอร์: ${it.numberPhone})` : '') 
-                              : (it.serialNumber ? ` (SN: ${it.serialNumber})` : '')} 
-                            × {it.quantity}
+                            <div>
+                              {it.itemName} 
+                              {it.category?.toLowerCase().includes('ซิมการ์ด') 
+                                ? (it.numberPhone ? ` (เบอร์: ${it.numberPhone})` : '') 
+                                : (it.serialNumber ? ` (SN: ${it.serialNumber})` : '')} 
+                              × {it.quantity}
+                            </div>
+                            {/* แสดงข้อมูลผู้คืนของรายการนี้ (สำหรับผู้ใช้ประเภท branch) */}
+                            {user?.userType === 'branch' && (it.returnerFirstName || it.returnerLastName) && (
+                              <div className="text-sm text-gray-600 mt-1">
+                                ผู้คืน: {it.returnerFirstName} {it.returnerLastName}
+                                {it.returnerNickname && ` (${it.returnerNickname})`}
+                              </div>
+                            )}
                           </div>
                           <div className="flex items-center gap-3">
                             <button

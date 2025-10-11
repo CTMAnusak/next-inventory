@@ -100,6 +100,13 @@ export async function POST(
     try {
       // Process each selection
       for (const selection of selections) {
+        console.log('\n🔍 DEBUG: Processing selection:', {
+          masterId: selection.masterId,
+          itemName: selection.itemName,
+          category: selection.category,
+          selectedItemsCount: selection.selectedItems?.length
+        });
+        
         const requestItem = requestLog.items.find((item: any) => {
           if (selection.masterId && item.masterId) {
             return item.masterId === selection.masterId;
@@ -111,16 +118,30 @@ export async function POST(
           throw new Error(`Request item not found: ${selection.itemName}`);
         }
 
-        // Track serial numbers and quantities for this selection
+        // Track serial numbers, phone numbers, and quantities for this selection
         const assignedSerialNumbers = [];
+        const assignedPhoneNumbers = []; // ✅ เพิ่ม array สำหรับเบอร์โทรศัพท์
         let totalAssigned = 0;
 
         for (const selectedItem of selection.selectedItems) {
+          console.log('🔍 DEBUG: Processing selectedItem:', {
+            itemId: selectedItem.itemId,
+            serialNumber: selectedItem.serialNumber
+          });
+          
           // Find the inventory item
           const inventoryItem = await InventoryItem.findById(selectedItem.itemId);
           if (!inventoryItem) {
             throw new Error(`InventoryItem not found: ${selectedItem.itemId}`);
           }
+          
+          console.log('🔍 DEBUG: Found inventoryItem:', {
+            _id: inventoryItem._id,
+            itemName: inventoryItem.itemName,
+            serialNumber: inventoryItem.serialNumber,
+            numberPhone: inventoryItem.numberPhone,
+            categoryId: inventoryItem.categoryId
+          });
 
           // Check if item is available
           if (inventoryItem.currentOwnership.ownerType !== 'admin_stock') {
@@ -150,20 +171,35 @@ export async function POST(
 
           transferResults.push(transferResult);
 
-          // Track assigned serial numbers
+          // ✅ Track assigned serial numbers and phone numbers
           if (inventoryItem.serialNumber) {
             assignedSerialNumbers.push(inventoryItem.serialNumber);
-          } else {
+            console.log('✅ Added serialNumber:', inventoryItem.serialNumber);
+          }
+          
+          // ✅ เพิ่มการเก็บเบอร์โทรศัพท์สำหรับซิมการ์ด
+          if (inventoryItem.numberPhone) {
+            assignedPhoneNumbers.push(inventoryItem.numberPhone);
+            console.log('✅ Added numberPhone:', inventoryItem.numberPhone);
           }
 
           totalAssigned += 1;
         }
+
+        console.log('🔍 DEBUG: Final assigned data for this selection:', {
+          itemName: selection.itemName,
+          assignedSerialNumbers,
+          assignedPhoneNumbers,
+          assignedQuantity: totalAssigned,
+          assignedItemIds: selection.selectedItems.map(item => item.itemId)
+        });
 
         // Track assigned items for updating RequestLog
         assignedItems.push({
           itemName: selection.itemName,
           category: selection.category,
           assignedSerialNumbers: assignedSerialNumbers,
+          assignedPhoneNumbers: assignedPhoneNumbers, // ✅ เพิ่ม assignedPhoneNumbers
           assignedQuantity: totalAssigned,
           masterId: selection.masterId,
           assignedItemIds: selection.selectedItems.map(item => item.itemId) // ✅ เพิ่ม assignedItemIds
@@ -180,13 +216,24 @@ export async function POST(
         });
 
         if (requestItemIndex !== -1) {
+          // Initialize arrays if they don't exist
           if (!requestLog.items[requestItemIndex].assignedSerialNumbers) {
             requestLog.items[requestItemIndex].assignedSerialNumbers = [];
+          }
+          
+          // ✅ เพิ่ม initialization สำหรับ assignedPhoneNumbers
+          if (!(requestLog.items[requestItemIndex] as any).assignedPhoneNumbers) {
+            (requestLog.items[requestItemIndex] as any).assignedPhoneNumbers = [];
           }
 
           // Add assigned serial numbers
           if (assignedItem.assignedSerialNumbers && assignedItem.assignedSerialNumbers.length > 0) {
             requestLog.items[requestItemIndex].assignedSerialNumbers!.push(...assignedItem.assignedSerialNumbers);
+          }
+          
+          // ✅ เพิ่มการบันทึก assignedPhoneNumbers
+          if ((assignedItem as any).assignedPhoneNumbers && (assignedItem as any).assignedPhoneNumbers.length > 0) {
+            (requestLog.items[requestItemIndex] as any).assignedPhoneNumbers.push(...(assignedItem as any).assignedPhoneNumbers);
           }
 
           // ✅ CRITICAL FIX: Add assignedItemIds to RequestLog

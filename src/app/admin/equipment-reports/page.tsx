@@ -663,28 +663,14 @@ export default function AdminEquipmentReportsPage() {
                 <Download className="w-4 h-4" />
                 <span>Export Excel</span>
               </button>
-              <button
-                onClick={resetFilters}
-                className="w-full min-[400px]:w-3/5 min-[481px]:w-auto flex items-center justify-center space-x-2 px-4 py-2 bg-orange-100 text-orange-700 rounded-lg hover:bg-orange-200 transition-colors"
-              >
-                <RefreshCw className="w-4 h-4" />
-                <span>รีเซทค่า</span>
-              </button>
             </div>
           </div>
 
           {/* Filters */}
           {showFilters && (
             <div className="bg-gray-50 rounded-lg p-4 mb-6 space-y-4">
-              <div className="flex justify-between items-center mb-4">
+              <div className="mb-4">
                 <h3 className="text-lg font-medium text-gray-900">ฟิลเตอร์ข้อมูล</h3>
-                <button
-                  onClick={resetFilters}
-                  className="flex items-center space-x-2 px-3 py-2 bg-orange-100 text-orange-700 rounded-lg hover:bg-orange-200 transition-colors text-sm"
-                >
-                  <RefreshCw className="w-4 h-4" />
-                  <span>รีเซทค่า</span>
-                </button>
               </div>
               <div className="grid max-[768px]:grid-cols-1 max-[1120px]:grid-cols-2 grid-cols-4 gap-4">
                 <div>
@@ -952,22 +938,31 @@ export default function AdminEquipmentReportsPage() {
                         {/* Serial Number */}
                         <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500 text-center">
                           <div className="flex flex-col gap-1">
-                            {/* Serial Numbers ที่ admin assign ให้ (รวมกับที่ user ขอ) */}
-                            {Array.isArray(item.assignedSerialNumbers) && item.assignedSerialNumbers.length > 0 ? (
-                              item.assignedSerialNumbers.map((sn: string, idx: number) => (
-                                <span key={idx} className="text-xs bg-green-100 text-green-800 px-2 py-1 rounded">
-                                  {sn}
-                                </span>
-                              ))
-                            ) : Array.isArray(item.serialNumbers) && item.serialNumbers.length > 0 ? (
-                              item.serialNumbers.map((sn: string, idx: number) => (
-                                <span key={idx} className="text-xs bg-orange-100 text-orange-800 px-2 py-1 rounded">
-                                  {sn}
-                                </span>
-                              ))
-                            ) : (
-                              <span>-</span>
-                            )}
+                            {(() => {
+                              // ✅ ถ้าเป็นซิมการ์ด (categoryId === 'cat_sim_card') ให้แสดง "-"
+                              const isSimCard = item.categoryId === 'cat_sim_card';
+                              
+                              if (isSimCard) {
+                                return <span>-</span>;
+                              }
+                              
+                              // ✅ ถ้าไม่ใช่ซิมการ์ด แสดง Serial Number ตามปกติ
+                              if (Array.isArray(item.assignedSerialNumbers) && item.assignedSerialNumbers.length > 0) {
+                                return item.assignedSerialNumbers.map((sn: string, idx: number) => (
+                                  <span key={idx} className="text-xs bg-green-100 text-green-800 px-2 py-1 rounded">
+                                    {sn}
+                                  </span>
+                                ));
+                              } else if (Array.isArray(item.serialNumbers) && item.serialNumbers.length > 0) {
+                                return item.serialNumbers.map((sn: string, idx: number) => (
+                                  <span key={idx} className="text-xs bg-orange-100 text-orange-800 px-2 py-1 rounded">
+                                    {sn}
+                                  </span>
+                                ));
+                              } else {
+                                return <span>-</span>;
+                              }
+                            })()}
                           </div>
                         </td>
                         {/* Phone Number */}

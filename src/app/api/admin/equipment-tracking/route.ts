@@ -171,7 +171,9 @@ export async function GET(request: NextRequest) {
           currentItemName: item.itemName || 'ไม่ระบุ',
           quantity: 1, // Each InventoryItem represents 1 physical item
           serialNumber: item.serialNumber || '',
+          numberPhone: item.numberPhone || '', // ✅ เพิ่มเบอร์โทรศัพท์สำหรับซิมการ์ด
           category: item.categoryId || 'ไม่ระบุ',
+          categoryId: item.categoryId || '', // ✅ เพิ่ม categoryId สำหรับเช็คประเภทอุปกรณ์
           categoryName: categoryConfig?.name || item.categoryId || 'ไม่ระบุ',
           status: item.statusId || '',
           statusName: statusConfig?.name || item.statusId || 'ไม่ระบุ',
