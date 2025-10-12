@@ -258,7 +258,7 @@ export default function DatePicker({
       {isOpen && (
         <div
           ref={calendarRef}
-          className="absolute z-50 mt-1 bg-white border border-gray-300 rounded-lg shadow-lg p-4 min-w-[320px]"
+          className="absolute z-[9999] mt-1 bg-white border border-gray-300 rounded-lg shadow-lg p-4 min-w-[320px]"
         >
           {/* Calendar Header */}
           <div className="flex items-center justify-between mb-4">

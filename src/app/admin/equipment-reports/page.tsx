@@ -19,6 +19,7 @@ import {
 } from 'lucide-react';
 import DatePicker from '@/components/DatePicker';
 import SerialNumberSelector from '@/components/SerialNumberSelector';
+import ExcelJS from 'exceljs';
 
 // Memoized wrapper to prevent unnecessary re-renders
 const MemoizedSerialNumberSelector = React.memo(({ 
@@ -127,8 +128,16 @@ export default function AdminEquipmentReportsPage() {
 
   // Search and filter states
   const [searchTerm, setSearchTerm] = useState('');
+  const [itemNameFilter, setItemNameFilter] = useState('');
+  const [categoryFilter, setCategoryFilter] = useState('');
+  const [statusFilter, setStatusFilter] = useState('');
+  const [conditionFilter, setConditionFilter] = useState('');
   const [departmentFilter, setDepartmentFilter] = useState('');
   const [officeFilter, setOfficeFilter] = useState('');
+  const [serialNumberFilter, setSerialNumberFilter] = useState('');
+  const [phoneNumberFilter, setPhoneNumberFilter] = useState('');
+  const [deliveryLocationFilter, setDeliveryLocationFilter] = useState('');
+  const [urgencyFilter, setUrgencyFilter] = useState('');
   const [dateFromFilter, setDateFromFilter] = useState('');
   const [dateToFilter, setDateToFilter] = useState('');
 
@@ -156,7 +165,7 @@ export default function AdminEquipmentReportsPage() {
 
   useEffect(() => {
     applyFilters();
-  }, [requestLogs, returnLogs, activeTab, searchTerm, departmentFilter, officeFilter, dateFromFilter, dateToFilter]);
+  }, [requestLogs, returnLogs, activeTab, searchTerm, itemNameFilter, categoryFilter, statusFilter, conditionFilter, departmentFilter, officeFilter, serialNumberFilter, phoneNumberFilter, deliveryLocationFilter, urgencyFilter, dateFromFilter, dateToFilter]);
 
 
 
@@ -195,7 +204,6 @@ export default function AdminEquipmentReportsPage() {
 
       if (requestResponse.ok) {
         const requestData = await requestResponse.json();
-        console.log('📋 Request data received:', requestData);
         setRequestLogs(requestData);
       } else {
         console.error('❌ Request API failed:', requestResponse.status, requestResponse.statusText);
@@ -203,7 +211,6 @@ export default function AdminEquipmentReportsPage() {
 
       if (returnResponse.ok) {
         const returnData = await returnResponse.json();
-        console.log('📋 Return data received:', returnData);
         setReturnLogs(returnData);
       } else {
         console.error('❌ Return API failed:', returnResponse.status, returnResponse.statusText);
@@ -314,7 +321,6 @@ export default function AdminEquipmentReportsPage() {
   const handleApproveWithSelection = async () => {
     
     if (!selectedRequest) {
-      console.log('❌ No selectedRequest');
       return;
     }
 
@@ -495,8 +501,16 @@ export default function AdminEquipmentReportsPage() {
   // ฟังก์ชันรีเซทค่าฟิลเตอร์ทั้งหมดกลับเป็นค่าเริ่มต้น
   const resetFilters = () => {
     setSearchTerm('');
+    setItemNameFilter('');
+    setCategoryFilter('');
+    setStatusFilter('');
+    setConditionFilter('');
     setDepartmentFilter('');
     setOfficeFilter('');
+    setSerialNumberFilter('');
+    setPhoneNumberFilter('');
+    setDeliveryLocationFilter('');
+    setUrgencyFilter('');
     setDateFromFilter('');
     setDateToFilter('');
     setCurrentPage(1);
@@ -506,14 +520,42 @@ export default function AdminEquipmentReportsPage() {
     const data = activeTab === 'request' ? requestLogs : returnLogs;
     
     let filtered = data.filter(item => {
-      // Search filter
+      // Search filter - ค้นหาเฉพาะ: ชื่อ, นามสกุล, ชื่อเล่น
       const matchesSearch = !searchTerm || 
         item.firstName.toLowerCase().includes(searchTerm.toLowerCase()) ||
         item.lastName.toLowerCase().includes(searchTerm.toLowerCase()) ||
-        item.nickname.toLowerCase().includes(searchTerm.toLowerCase()) ||
+        item.nickname.toLowerCase().includes(searchTerm.toLowerCase());
+
+      // Item Name filter
+      const matchesItemName = !itemNameFilter || 
         item.items.some(equip => {
           const currentItemName = getCurrentItemName(equip);
-          return currentItemName.toLowerCase().includes(searchTerm.toLowerCase());
+          return currentItemName.includes(itemNameFilter);
+        });
+
+      // Category filter
+      const matchesCategory = !categoryFilter || 
+        item.items.some(equip => {
+          const category = (equip as any).category || '';
+          return category.includes(categoryFilter);
+        });
+
+      // Status filter
+      const matchesStatus = !statusFilter || 
+        item.items.some(equip => {
+          const status = activeTab === 'request' 
+            ? (equip as any).statusOnRequest 
+            : (equip as any).statusOnReturn;
+          return status && status.includes(statusFilter);
+        });
+
+      // Condition filter
+      const matchesCondition = !conditionFilter || 
+        item.items.some(equip => {
+          const condition = activeTab === 'request' 
+            ? (equip as any).conditionOnRequest 
+            : (equip as any).conditionOnReturn;
+          return condition && condition.includes(conditionFilter);
         });
 
       // Department filter
@@ -521,6 +563,165 @@ export default function AdminEquipmentReportsPage() {
 
       // Office filter
       const matchesOffice = !officeFilter || item.office.includes(officeFilter);
+
+      // Serial Number filter - กรองตามค่า Serial Number ที่แสดงในตาราง (ใช้ logic เดียวกับตาราง)
+      const matchesSerialNumber = !serialNumberFilter || 
+        item.items.some(equip => {
+          const searchValue = serialNumberFilter.trim();
+          
+          // ถ้าไม่มีค่าค้นหา ให้แสดงทั้งหมด
+          if (!searchValue) {
+            return true;
+          }
+          
+          if (activeTab === 'request') {
+            const requestItem = equip as any;
+            
+            // ✅ ใช้ logic เดียวกับตาราง: ตรวจสอบว่าเป็นซิมการ์ดหรือไม่
+            const isSimCard = requestItem.categoryId === 'cat_sim_card';
+            if (isSimCard) {
+              // ซิมการ์ดแสดง "-" ในคอลัมน์ Serial Number
+              return searchValue === '-';
+            }
+            
+            // ✅ ใช้ logic เดียวกับตาราง: ตรวจสอบว่ารายการนี้อนุมัติแล้วหรือยัง
+            const isApproved = (requestItem as any).itemApproved || ((requestItem as any).assignedQuantity && (requestItem as any).assignedQuantity > 0);
+            
+            if (isApproved) {
+              // ถ้าอนุมัติแล้ว แสดง assignedSerialNumbers (เหมือนตาราง)
+              if (Array.isArray(requestItem.assignedSerialNumbers) && requestItem.assignedSerialNumbers.length > 0) {
+                // ถ้าค้นหา "-" และมี SN = ไม่แสดง
+                if (searchValue === '-') {
+                  return false;
+                }
+                // ค้นหาตามค่า SN ที่มี
+                return requestItem.assignedSerialNumbers.some((sn: string) => 
+                  sn && sn.toLowerCase().includes(searchValue.toLowerCase())
+                );
+              } else {
+                // ถ้าไม่มี assignedSerialNumbers = แสดง "-" ในตาราง
+                return searchValue === '-';
+              }
+            } else {
+              // ยังไม่อนุมัติ แสดง serialNumbers (เหมือนตาราง)
+              if (Array.isArray(requestItem.serialNumbers) && requestItem.serialNumbers.length > 0) {
+                // ถ้าค้นหา "-" และมี SN = ไม่แสดง
+                if (searchValue === '-') {
+                  return false;
+                }
+                // ค้นหาตามค่า SN ที่มี
+                return requestItem.serialNumbers.some((sn: string) => 
+                  sn && sn.toLowerCase().includes(searchValue.toLowerCase())
+                );
+              } else {
+                // ถ้าไม่มี serialNumbers = แสดง "-" ในตาราง
+                return searchValue === '-';
+              }
+            }
+          }
+          
+          if (activeTab === 'return') {
+            const returnItem = equip as any;
+            // ค้นหาใน serialNumber ที่แสดงในตาราง
+            if (returnItem.serialNumber && returnItem.serialNumber.trim() !== '') {
+              // ถ้าค้นหา "-" และมี SN = ไม่แสดง
+              if (searchValue === '-') {
+                return false;
+              }
+              // ค้นหาตามค่า SN ที่มี
+              return returnItem.serialNumber.toLowerCase().includes(searchValue.toLowerCase());
+            } else {
+              // ถ้าไม่มี serialNumber = แสดง "-" ในตาราง
+              return searchValue === '-';
+            }
+          }
+          
+          return false;
+        });
+
+      // Phone Number filter - กรองตามค่า Phone Number ที่แสดงในตาราง (ใช้ logic เดียวกับตาราง)
+      const matchesPhoneNumber = !phoneNumberFilter || 
+        item.items.some(equip => {
+          const searchValue = phoneNumberFilter.trim();
+          
+          // ถ้าไม่มีค่าค้นหา ให้แสดงทั้งหมด
+          if (!searchValue) {
+            return true;
+          }
+          
+          if (activeTab === 'request') {
+            const requestItem = equip as any;
+            
+            // ใช้ logic เดียวกับตาราง: ตรวจสอบว่าเป็นซิมการ์ดหรือไม่
+            const isSimCard = requestItem.categoryId === 'cat_sim_card';
+            
+            if (!isSimCard) {
+              // ถ้าไม่ใช่ซิมการ์ด = แสดง "-" ในคอลัมน์ Phone Number
+              return searchValue === '-';
+            }
+            
+            // ✅ ใช้ logic เดียวกับตาราง: ตรวจสอบว่ารายการนี้อนุมัติแล้วหรือยัง
+            const isApproved = (requestItem as any).itemApproved || ((requestItem as any).assignedQuantity && (requestItem as any).assignedQuantity > 0);
+            
+            if (isApproved) {
+              // ถ้าอนุมัติแล้ว แสดง assignedPhoneNumbers (เหมือนตาราง)
+              if (Array.isArray(requestItem.assignedPhoneNumbers) && requestItem.assignedPhoneNumbers.length > 0) {
+                // ถ้าค้นหา "-" และมีเบอร์ = ไม่แสดง
+                if (searchValue === '-') {
+                  return false;
+                }
+                // ค้นหาตามค่าเบอร์ที่มี
+                return requestItem.assignedPhoneNumbers.some((phone: string) => 
+                  phone && phone.toLowerCase().includes(searchValue.toLowerCase())
+                );
+              } else {
+                // ถ้าไม่มี assignedPhoneNumbers = แสดง "-" ในตาราง
+                return searchValue === '-';
+              }
+            } else {
+              // ยังไม่อนุมัติ แสดง serialNumbers (สำหรับซิมการ์ดเก็บเป็นเบอร์โทร - เหมือนตาราง)
+              if (Array.isArray(requestItem.serialNumbers) && requestItem.serialNumbers.length > 0) {
+                // ถ้าค้นหา "-" และมีเบอร์ = ไม่แสดง
+                if (searchValue === '-') {
+                  return false;
+                }
+                // ค้นหาตามค่าเบอร์ที่มี
+                return requestItem.serialNumbers.some((phone: string) => 
+                  phone && phone.toLowerCase().includes(searchValue.toLowerCase())
+                );
+              } else {
+                // ถ้าไม่มี serialNumbers = แสดง "-" ในตาราง
+                return searchValue === '-';
+              }
+            }
+          }
+          
+          if (activeTab === 'return') {
+            const returnItem = equip as any;
+            // ค้นหาใน numberPhone ที่แสดงในตาราง
+            if (returnItem.numberPhone && returnItem.numberPhone.trim() !== '') {
+              // ถ้าค้นหา "-" และมีเบอร์ = ไม่แสดง
+              if (searchValue === '-') {
+                return false;
+              }
+              // ค้นหาตามค่าเบอร์ที่มี
+              return returnItem.numberPhone.toLowerCase().includes(searchValue.toLowerCase());
+            } else {
+              // ถ้าไม่มี numberPhone = แสดง "-" ในตาราง
+              return searchValue === '-';
+            }
+          }
+          
+          return false;
+        });
+
+      // Delivery Location filter (only for request tab)
+      const matchesDeliveryLocation = !deliveryLocationFilter || 
+        (activeTab === 'request' && (item as RequestLog).deliveryLocation?.includes(deliveryLocationFilter));
+
+      // Urgency filter (only for request tab)
+      const matchesUrgency = !urgencyFilter || 
+        (activeTab === 'request' && (item as RequestLog).urgency === urgencyFilter);
 
       // Date filter (single-day per tab)
       const itemDateValue = activeTab === 'request' ? 
@@ -537,32 +738,159 @@ export default function AdminEquipmentReportsPage() {
       // For return tab, use dateToFilter only (label: วันที่คืน)
       const matchesReturnDate = activeTab !== 'return' || !dateToFilter || itemLocalYMD === dateToFilter;
 
-      return matchesSearch && matchesDepartment && matchesOffice && matchesRequestDate && matchesReturnDate;
+      return matchesSearch && matchesItemName && matchesCategory && matchesStatus && 
+             matchesCondition && matchesDepartment && matchesOffice && 
+             matchesSerialNumber && matchesPhoneNumber &&
+             matchesDeliveryLocation && matchesUrgency && matchesRequestDate && matchesReturnDate;
     });
 
-    // Build flattened rows and sort by: pending first, then date desc
+    // ✅ แก้ไข: กรองที่ระดับรายการย่อย (item level) แทนระดับคำขอ (request level)
+    // เพื่อให้ฟิลเตอร์ Serial Number และ Phone Number ทำงานถูกต้อง
     const rows: any[] = [];
 
     if (activeTab === 'request') {
       (filtered as RequestLog[]).forEach((log) => {
         log.items.forEach((item, index) => {
-          // ✅ แก้ไข: ตรวจสอบว่ารายการเบิกยืนยันแล้วหรือยัง (pending ต้องอยู่บนสุด)
-          const assignedQty = (item as any).assignedQuantity || 0;
-          const requestedQty = item.quantity || 0;
-          const isItemApproved = assignedQty >= requestedQty;
-          const group = isItemApproved ? 'approved' : 'pending';
-          const date = (log as any).submittedAt || (log as any).updatedAt || (log as any).createdAt || (log as any).requestDate || (log as any).returnDate || Date.now();
-          rows.push({ type: 'request', log, item, itemIndex: index, group, date: new Date(date) });
+          // ✅ กรองรายการย่อยตาม Serial Number และ Phone Number
+          const shouldIncludeItem = (() => {
+            // Serial Number filter
+            if (serialNumberFilter) {
+              const searchValue = serialNumberFilter.trim();
+              if (searchValue) {
+                const requestItem = item as any;
+                
+                // ตรวจสอบว่าเป็นซิมการ์ดหรือไม่
+                const isSimCard = requestItem.categoryId === 'cat_sim_card';
+                if (isSimCard) {
+                  // ซิมการ์ดแสดง "-" ในคอลัมน์ Serial Number
+                  if (searchValue !== '-') return false;
+                } else {
+                  // ตรวจสอบว่ารายการนี้อนุมัติแล้วหรือยัง
+                  const isApproved = (requestItem as any).itemApproved || ((requestItem as any).assignedQuantity && (requestItem as any).assignedQuantity > 0);
+                  
+                  if (isApproved) {
+                    // ถ้าอนุมัติแล้ว แสดง assignedSerialNumbers
+                    if (Array.isArray(requestItem.assignedSerialNumbers) && requestItem.assignedSerialNumbers.length > 0) {
+                      if (searchValue === '-') return false;
+                      if (!requestItem.assignedSerialNumbers.some((sn: string) => 
+                        sn && sn.toLowerCase().includes(searchValue.toLowerCase())
+                      )) return false;
+                    } else {
+                      if (searchValue !== '-') return false;
+                    }
+                  } else {
+                    // ยังไม่อนุมัติ แสดง serialNumbers
+                    if (Array.isArray(requestItem.serialNumbers) && requestItem.serialNumbers.length > 0) {
+                      if (searchValue === '-') return false;
+                      if (!requestItem.serialNumbers.some((sn: string) => 
+                        sn && sn.toLowerCase().includes(searchValue.toLowerCase())
+                      )) return false;
+                    } else {
+                      if (searchValue !== '-') return false;
+                    }
+                  }
+                }
+              }
+            }
+
+            // Phone Number filter
+            if (phoneNumberFilter) {
+              const searchValue = phoneNumberFilter.trim();
+              if (searchValue) {
+                const requestItem = item as any;
+                
+                // ตรวจสอบว่าเป็นซิมการ์ดหรือไม่
+                const isSimCard = requestItem.categoryId === 'cat_sim_card';
+                
+                if (!isSimCard) {
+                  // ถ้าไม่ใช่ซิมการ์ด = แสดง "-" ในคอลัมน์ Phone Number
+                  if (searchValue !== '-') return false;
+                } else {
+                  // ตรวจสอบว่ารายการนี้อนุมัติแล้วหรือยัง
+                  const isApproved = (requestItem as any).itemApproved || ((requestItem as any).assignedQuantity && (requestItem as any).assignedQuantity > 0);
+                  
+                  if (isApproved) {
+                    // ถ้าอนุมัติแล้ว แสดง assignedPhoneNumbers
+                    if (Array.isArray(requestItem.assignedPhoneNumbers) && requestItem.assignedPhoneNumbers.length > 0) {
+                      if (searchValue === '-') return false;
+                      if (!requestItem.assignedPhoneNumbers.some((phone: string) => 
+                        phone && phone.toLowerCase().includes(searchValue.toLowerCase())
+                      )) return false;
+                    } else {
+                      if (searchValue !== '-') return false;
+                    }
+                  } else {
+                    // ยังไม่อนุมัติ แสดง serialNumbers (สำหรับซิมการ์ดเก็บเป็นเบอร์โทร)
+                    if (Array.isArray(requestItem.serialNumbers) && requestItem.serialNumbers.length > 0) {
+                      if (searchValue === '-') return false;
+                      if (!requestItem.serialNumbers.some((phone: string) => 
+                        phone && phone.toLowerCase().includes(searchValue.toLowerCase())
+                      )) return false;
+                    } else {
+                      if (searchValue !== '-') return false;
+                    }
+                  }
+                }
+              }
+            }
+
+            return true;
+          })();
+
+          // ✅ ถ้ารายการนี้ผ่านการกรอง Serial Number และ Phone Number ให้เพิ่มเข้าไปใน rows
+          if (shouldIncludeItem) {
+            // ✅ แก้ไข: ตรวจสอบว่ารายการเบิกยืนยันแล้วหรือยัง (pending ต้องอยู่บนสุด)
+            const assignedQty = (item as any).assignedQuantity || 0;
+            const requestedQty = item.quantity || 0;
+            const isItemApproved = assignedQty >= requestedQty;
+            const group = isItemApproved ? 'approved' : 'pending';
+            const date = (log as any).submittedAt || (log as any).updatedAt || (log as any).createdAt || (log as any).requestDate || (log as any).returnDate || Date.now();
+            rows.push({ type: 'request', log, item, itemIndex: index, group, date: new Date(date) });
+          }
         });
       });
     } else {
       (filtered as ReturnLog[]).forEach((log) => {
         log.items.forEach((item: any, index: number) => {
-          // ✅ แก้ไข: ตรวจสอบว่ารายการยืนยันแล้วหรือยัง (pending ต้องอยู่บนสุด)
-          const isPending = item.approvalStatus !== 'approved';
-          const group = isPending ? 'pending' : 'approved';
-          const dateValue = group === 'approved' ? (item.approvedAt || (log as any).updatedAt || log.returnDate) : (log.returnDate || (log as any).createdAt || (log as any).updatedAt);
-          rows.push({ type: 'return', log, item, itemIndex: index, group, date: new Date(dateValue as any) });
+          // ✅ กรองรายการย่อยตาม Serial Number และ Phone Number
+          const shouldIncludeItem = (() => {
+            // Serial Number filter
+            if (serialNumberFilter) {
+              const searchValue = serialNumberFilter.trim();
+              if (searchValue) {
+                if (item.serialNumber && item.serialNumber.trim() !== '') {
+                  if (searchValue === '-') return false;
+                  if (!item.serialNumber.toLowerCase().includes(searchValue.toLowerCase())) return false;
+                } else {
+                  if (searchValue !== '-') return false;
+                }
+              }
+            }
+
+            // Phone Number filter
+            if (phoneNumberFilter) {
+              const searchValue = phoneNumberFilter.trim();
+              if (searchValue) {
+                if (item.numberPhone && item.numberPhone.trim() !== '') {
+                  if (searchValue === '-') return false;
+                  if (!item.numberPhone.toLowerCase().includes(searchValue.toLowerCase())) return false;
+                } else {
+                  if (searchValue !== '-') return false;
+                }
+              }
+            }
+
+            return true;
+          })();
+
+          // ✅ ถ้ารายการนี้ผ่านการกรอง Serial Number และ Phone Number ให้เพิ่มเข้าไปใน rows
+          if (shouldIncludeItem) {
+            // ✅ แก้ไข: ตรวจสอบว่ารายการยืนยันแล้วหรือยัง (pending ต้องอยู่บนสุด)
+            const isPending = item.approvalStatus !== 'approved';
+            const group = isPending ? 'pending' : 'approved';
+            const dateValue = group === 'approved' ? (item.approvedAt || (log as any).updatedAt || log.returnDate) : (log.returnDate || (log as any).createdAt || (log as any).updatedAt);
+            rows.push({ type: 'return', log, item, itemIndex: index, group, date: new Date(dateValue as any) });
+          }
         });
       });
     }
@@ -597,8 +925,259 @@ export default function AdminEquipmentReportsPage() {
     return 'Unknown Item';
   };
 
-  const exportToExcel = () => {
-    toast('ฟีเจอร์ Export Excel จะพัฒนาในอนาคต');
+  const exportToExcel = async () => {
+    try {
+      if (displayRows.length === 0) {
+        toast.error('ไม่มีข้อมูลให้ Export');
+        return;
+      }
+
+      toast.loading('กำลังสร้างไฟล์ Excel...', { id: 'export-loading' });
+
+      // Create workbook and worksheet
+      const workbook = new ExcelJS.Workbook();
+      const sheetName = activeTab === 'request' ? 'ประวัติเบิก' : 'ประวัติคืน';
+      const worksheet = workbook.addWorksheet(sheetName);
+
+      if (activeTab === 'request') {
+        // ตั้งค่าคอลัมน์สำหรับประวัติเบิก
+        worksheet.columns = [
+          { header: 'ลำดับ', key: 'no', width: 8 },
+          { header: 'วันที่เบิก', key: 'requestDate', width: 15 },
+          { header: 'ชื่อผู้เบิก', key: 'requester', width: 20 },
+          { header: 'ชื่อเล่น', key: 'nickname', width: 12 },
+          { header: 'แผนก', key: 'department', width: 20 },
+          { header: 'ออฟฟิศ/สาขา', key: 'office', width: 20 },
+          { header: 'เบอร์โทร', key: 'phone', width: 15 },
+          { header: 'ชื่ออุปกรณ์', key: 'itemName', width: 25 },
+          { header: 'หมวดหมู่', key: 'category', width: 20 },
+          { header: 'สถานะ', key: 'status', width: 12 },
+          { header: 'สภาพ', key: 'condition', width: 12 },
+          { header: 'Serial Number', key: 'serialNumber', width: 20 },
+          { header: 'Phone Number', key: 'phoneNumber', width: 15 },
+          { header: 'จำนวน', key: 'quantity', width: 10 },
+          { header: 'ความเร่งด่วน', key: 'urgency', width: 12 },
+          { header: 'สถานที่จัดส่ง', key: 'deliveryLocation', width: 20 },
+          { header: 'เหตุผลการเบิก', key: 'reason', width: 30 },
+          { header: 'สถานะการดำเนินการ', key: 'actionStatus', width: 18 },
+        ];
+
+        // เพิ่มข้อมูล
+        displayRows.forEach((row, index) => {
+          const log = row.log as RequestLog;
+          const item = row.item as any;
+          
+          const isSimCard = item.categoryId === 'cat_sim_card';
+          const isApproved = ((item as any).assignedQuantity || 0) >= item.quantity;
+          
+          let serialNumbers = '-';
+          if (!isSimCard) {
+            if (isApproved && Array.isArray(item.assignedSerialNumbers) && item.assignedSerialNumbers.length > 0) {
+              serialNumbers = item.assignedSerialNumbers.join(', ');
+            } else if (!isApproved && Array.isArray(item.serialNumbers) && item.serialNumbers.length > 0) {
+              serialNumbers = item.serialNumbers.join(', ');
+            }
+          }
+          
+          let phoneNumbers = '-';
+          if (isSimCard) {
+            if (isApproved && Array.isArray(item.assignedPhoneNumbers) && item.assignedPhoneNumbers.length > 0) {
+              phoneNumbers = item.assignedPhoneNumbers.join(', ');
+            } else if (!isApproved && Array.isArray(item.serialNumbers) && item.serialNumbers.length > 0) {
+              phoneNumbers = item.serialNumbers.join(', ');
+            }
+          }
+
+          worksheet.addRow({
+            no: index + 1,
+            requestDate: log.requestDate ? new Date(log.requestDate).toLocaleDateString('th-TH', { timeZone: 'Asia/Bangkok' }) : '-',
+            requester: log.firstName && log.lastName ? `${log.firstName} ${log.lastName}` : 'Unknown User',
+            nickname: log.nickname || '-',
+            department: log.department || '-',
+            office: log.office || '-',
+            phone: log.phone || '-',
+            itemName: getCurrentItemName(item),
+            category: item.category || 'Unknown Category',
+            status: item.statusOnRequest || 'ไม่ระบุ',
+            condition: item.conditionOnRequest || 'ไม่ระบุ',
+            serialNumber: serialNumbers,
+            phoneNumber: phoneNumbers,
+            quantity: item.quantity,
+            urgency: log.urgency === 'very_urgent' ? 'ด่วนมาก' : 'ปกติ',
+            deliveryLocation: log.deliveryLocation || '-',
+            reason: log.reason || '-',
+            actionStatus: isApproved ? 'เสร็จสิ้น' : 'รอดำเนินการ',
+          });
+        });
+      } else {
+        // ตั้งค่าคอลัมน์สำหรับประวัติคืน (มีคอลัมน์รูปภาพ)
+        worksheet.columns = [
+          { header: 'ลำดับ', key: 'no', width: 8 },
+          { header: 'วันที่คืน', key: 'returnDate', width: 15 },
+          { header: 'ชื่อผู้คืน', key: 'returner', width: 20 },
+          { header: 'ชื่อเล่น', key: 'nickname', width: 12 },
+          { header: 'แผนก', key: 'department', width: 20 },
+          { header: 'ออฟฟิศ/สาขา', key: 'office', width: 20 },
+          { header: 'เบอร์โทร', key: 'phone', width: 15 },
+          { header: 'ชื่ออุปกรณ์', key: 'itemName', width: 25 },
+          { header: 'หมวดหมู่', key: 'category', width: 20 },
+          { header: 'สถานะ', key: 'status', width: 12 },
+          { header: 'สภาพ', key: 'condition', width: 12 },
+          { header: 'Serial Number', key: 'serialNumber', width: 20 },
+          { header: 'Phone Number', key: 'phoneNumber', width: 15 },
+          { header: 'เลขทรัพย์สิน', key: 'assetNumber', width: 15 },
+          { header: 'จำนวน', key: 'quantity', width: 10 },
+          { header: 'รูปภาพ', key: 'image', width: 25 },
+          { header: 'สถานะการดำเนินการ', key: 'actionStatus', width: 18 },
+        ];
+
+        // เพิ่มข้อมูลและรูปภาพ
+        for (let index = 0; index < displayRows.length; index++) {
+          const row = displayRows[index];
+          const log = row.log as ReturnLog;
+          const item = row.item as any;
+          
+          const excelRow = worksheet.addRow({
+            no: index + 1,
+            returnDate: log.returnDate ? new Date(log.returnDate).toLocaleDateString('th-TH', { timeZone: 'Asia/Bangkok' }) : '-',
+            returner: log.firstName && log.lastName ? `${log.firstName} ${log.lastName}` : 'Unknown User',
+            nickname: log.nickname || '-',
+            department: log.department || '-',
+            office: log.office || '-',
+            phone: log.phoneNumber || '-',
+            itemName: getCurrentItemName(item),
+            category: item.category || 'Unknown Category',
+            status: item.statusOnReturn || 'ไม่ระบุ',
+            condition: item.conditionOnReturn || 'ไม่ระบุ',
+            serialNumber: item.serialNumber || '-',
+            phoneNumber: item.numberPhone || '-',
+            assetNumber: item.assetNumber || '-',
+            quantity: item.quantity,
+            image: '',
+            actionStatus: item.approvalStatus === 'approved' ? 'ยืนยันแล้ว' : 'รอยืนยัน',
+          });
+
+          // ถ้ามีรูปภาพ ให้ใส่รูปลงใน Excel
+          if (item.image) {
+            try {
+              const imagePath = `/assets/ReturnLog/${item.image}`;
+              const response = await fetch(imagePath);
+              
+              if (response.ok) {
+                const blob = await response.blob();
+                const arrayBuffer = await blob.arrayBuffer();
+                
+                // กำหนดนามสกุลไฟล์
+                const ext = item.image.toLowerCase().split('.').pop() || 'png';
+                const imageId = workbook.addImage({
+                  buffer: arrayBuffer,
+                  extension: ext === 'jpg' ? 'jpeg' : ext as any,
+                });
+
+                // ปรับความสูงของแถวให้พอดีกับรูป
+                excelRow.height = 80;
+
+                // ใส่รูปลงใน cell โดยจัดให้อยู่กึ่งกลาง
+                // คำนวณ offset เพื่อให้รูปอยู่กลาง cell
+                const imageWidth = 90;  // ขนาดรูป
+                const imageHeight = 90;
+                const cellWidth = 25 * 7; // ความกว้าง column (25) * 7 pixels per character width unit
+                const cellHeight = 80 * 0.75; // ความสูงแถว (80) * 0.75 (conversion factor)
+                
+                // คำนวณ offset เพื่อจัดกลาง (หน่วยเป็น pixels)
+                const colOffset = Math.max(0, (cellWidth - imageWidth) / 2);
+                const rowOffset = Math.max(0, (cellHeight - imageHeight) / 2);
+
+                worksheet.addImage(imageId, {
+                  tl: { col: 15, row: index + 1, colOff: colOffset, rowOff: rowOffset },
+                  ext: { width: imageWidth, height: imageHeight },
+                  editAs: 'oneCell' // รูปจะย้ายตามแถว/คอลัมน์
+                });
+              }
+            } catch (error) {
+              console.error('Error loading image:', item.image, error);
+              // ถ้าโหลดรูปไม่ได้ ให้แสดงข้อความแทน
+              excelRow.getCell('image').value = 'ไม่สามารถโหลดรูปได้';
+            }
+          } else {
+            excelRow.getCell('image').value = 'ไม่มีรูปภาพ';
+          }
+        }
+      }
+
+      // จัดรูปแบบ header
+      const headerRow = worksheet.getRow(1);
+      headerRow.font = { bold: true, color: { argb: 'FFFFFFFF' }, size: 11 };
+      headerRow.fill = {
+        type: 'pattern',
+        pattern: 'solid',
+        fgColor: { argb: 'FF2563EB' }, // สีน้ำเงิน
+      };
+      headerRow.alignment = { vertical: 'middle', horizontal: 'center', wrapText: true };
+      headerRow.height = 25; // ความสูง header
+
+      // จัดตำแหน่งข้อมูลทุก cell ให้อยู่กึ่งกลาง
+      worksheet.eachRow((row, rowNumber) => {
+        if (rowNumber > 1) {
+          row.eachCell({ includeEmpty: true }, (cell) => {
+            cell.alignment = { 
+              vertical: 'middle', 
+              horizontal: 'center', 
+              wrapText: true 
+            };
+            // เพิ่มขอบให้สวยงาม
+            cell.border = {
+              top: { style: 'thin', color: { argb: 'FFD1D5DB' } },
+              left: { style: 'thin', color: { argb: 'FFD1D5DB' } },
+              bottom: { style: 'thin', color: { argb: 'FFD1D5DB' } },
+              right: { style: 'thin', color: { argb: 'FFD1D5DB' } }
+            };
+          });
+        } else {
+          // เพิ่มขอบให้ header
+          row.eachCell({ includeEmpty: true }, (cell) => {
+            cell.border = {
+              top: { style: 'thin', color: { argb: 'FF2563EB' } },
+              left: { style: 'thin', color: { argb: 'FF2563EB' } },
+              bottom: { style: 'thin', color: { argb: 'FF2563EB' } },
+              right: { style: 'thin', color: { argb: 'FF2563EB' } }
+            };
+          });
+        }
+      });
+
+      // Generate filename
+      const now = new Date();
+      const dateStr = now.toLocaleDateString('th-TH', {
+        year: 'numeric',
+        month: '2-digit',
+        day: '2-digit'
+      }).replace(/\//g, '-');
+      const timeStr = now.toLocaleTimeString('th-TH', {
+        hour: '2-digit',
+        minute: '2-digit',
+        second: '2-digit'
+      }).replace(/:/g, '-');
+      
+      const filename = `${sheetName}_${dateStr}_${timeStr}.xlsx`;
+
+      // Export file
+      const buffer = await workbook.xlsx.writeBuffer();
+      const blob = new Blob([buffer], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' });
+      const url = window.URL.createObjectURL(blob);
+      const link = document.createElement('a');
+      link.href = url;
+      link.download = filename;
+      link.click();
+      window.URL.revokeObjectURL(url);
+      
+      toast.dismiss('export-loading');
+      toast.success(`ส่งออกข้อมูล ${displayRows.length} รายการสำเร็จ`);
+    } catch (error) {
+      console.error('Export error:', error);
+      toast.dismiss('export-loading');
+      toast.error('เกิดข้อผิดพลาดในการส่งออกข้อมูล');
+    }
   };
 
   const handleViewImage = (imageName: string) => {
@@ -629,8 +1208,56 @@ export default function AdminEquipmentReportsPage() {
 
 
   // Get unique values for filters
-  const departments = [...new Set([...requestLogs, ...returnLogs].map(item => item.department))];
-  const offices = [...new Set([...requestLogs, ...returnLogs].map(item => item.office))];
+  const allLogs = [...requestLogs, ...returnLogs];
+  
+  // Get unique item names from all items (sorted alphabetically)
+  const itemNames = [...new Set(
+    allLogs.flatMap(log => 
+      log.items.map(item => getCurrentItemName(item))
+    )
+  )].sort((a, b) => a.localeCompare(b, 'th'));
+
+  // Get unique categories from all items (sorted alphabetically)
+  const categories = [...new Set(
+    allLogs.flatMap(log => 
+      log.items.map(item => (item as any).category || '')
+    ).filter(cat => cat !== '')
+  )].sort((a, b) => a.localeCompare(b, 'th'));
+
+  // Get unique statuses from all items (sorted alphabetically)
+  const statuses = [...new Set(
+    [
+      ...requestLogs.flatMap(log => 
+        log.items.map(item => (item as any).statusOnRequest).filter(Boolean)
+      ),
+      ...returnLogs.flatMap(log => 
+        log.items.map(item => (item as any).statusOnReturn).filter(Boolean)
+      )
+    ]
+  )].sort((a, b) => a.localeCompare(b, 'th'));
+
+  // Get unique conditions from all items (sorted alphabetically)
+  const conditions = [...new Set(
+    [
+      ...requestLogs.flatMap(log => 
+        log.items.map(item => (item as any).conditionOnRequest).filter(Boolean)
+      ),
+      ...returnLogs.flatMap(log => 
+        log.items.map(item => (item as any).conditionOnReturn).filter(Boolean)
+      )
+    ]
+  )].sort((a, b) => a.localeCompare(b, 'th'));
+
+  // Get unique departments (sorted alphabetically)
+  const departments = [...new Set(allLogs.map(item => item.department))].sort((a, b) => a.localeCompare(b, 'th'));
+  
+  // Get unique offices (sorted alphabetically)
+  const offices = [...new Set(allLogs.map(item => item.office))].sort((a, b) => a.localeCompare(b, 'th'));
+
+  // Get unique delivery locations from request logs (sorted alphabetically)
+  const deliveryLocations = [...new Set(
+    requestLogs.map(log => log.deliveryLocation).filter(Boolean)
+  )].sort((a, b) => a.localeCompare(b, 'th'));
 
   // Pagination
   const totalPages = Math.ceil(displayRows.length / itemsPerPage);
@@ -667,7 +1294,9 @@ export default function AdminEquipmentReportsPage() {
 
               <button
                 onClick={exportToExcel}
-                className="w-full min-[400px]:w-3/5 min-[481px]:w-auto flex items-center justify-center space-x-2 px-4 py-2 bg-green-100 text-green-700 rounded-lg hover:bg-green-200 transition-colors"
+                disabled={loading || displayRows.length === 0}
+                className="w-full min-[400px]:w-3/5 min-[481px]:w-auto flex items-center justify-center space-x-2 px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                title={displayRows.length === 0 ? 'ไม่มีข้อมูลให้ Export' : 'Export ข้อมูลเป็น Excel'}
               >
                 <Download className="w-4 h-4" />
                 <span>Export Excel</span>
@@ -678,10 +1307,18 @@ export default function AdminEquipmentReportsPage() {
           {/* Filters */}
           {showFilters && (
             <div className="bg-gray-50 rounded-lg p-4 mb-6 space-y-4">
-              <div className="mb-4">
+              <div className="flex items-center justify-between mb-4">
                 <h3 className="text-lg font-medium text-gray-900">ฟิลเตอร์ข้อมูล</h3>
+                <button
+                  onClick={resetFilters}
+                  className="text-sm text-blue-600 hover:text-blue-800 font-medium"
+                >
+                  ล้างฟิลเตอร์
+                </button>
               </div>
-              <div className="grid max-[768px]:grid-cols-1 max-[1120px]:grid-cols-2 grid-cols-4 gap-4">
+              
+              {/* แถวที่ 1: ค้นหา, Serial Number, Phone Number, อุปกรณ์, หมวดหมู่, สถานะ, สภาพ */}
+              <div className="grid max-[768px]:grid-cols-1 max-[1120px]:grid-cols-2 max-[1440px]:grid-cols-4 grid-cols-7 gap-4">
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-1">
                     ค้นหา
@@ -693,44 +1330,192 @@ export default function AdminEquipmentReportsPage() {
                       value={searchTerm}
                       onChange={(e) => setSearchTerm(e.target.value)}
                       className="w-full pl-10 pr-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 text-gray-900"
-                      placeholder="ชื่อ, อุปกรณ์"
+                      placeholder="ชื่อ, นามสกุล, ชื่อเล่น"
                     />
                   </div>
                 </div>
+                
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">
+                    Serial Number
+                  </label>
+                  <div className="relative">
+                    <Search className="absolute left-3 top-2.5 h-4 w-4 text-gray-400" />
+                    <input
+                      type="text"
+                      value={serialNumberFilter}
+                      onChange={(e) => setSerialNumberFilter(e.target.value)}
+                      className="w-full pl-10 pr-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 text-gray-900"
+                      placeholder="ค้นหา Serial Number"
+                    />
+                  </div>
+                </div>
+                
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">
+                    Phone Number
+                  </label>
+                  <div className="relative">
+                    <Search className="absolute left-3 top-2.5 h-4 w-4 text-gray-400" />
+                    <input
+                      type="text"
+                      value={phoneNumberFilter}
+                      onChange={(e) => setPhoneNumberFilter(e.target.value)}
+                      className="w-full pl-10 pr-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 text-gray-900"
+                      placeholder="ค้นหา Phone Number"
+                    />
+                  </div>
+                </div>
+                
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">
+                    อุปกรณ์
+                  </label>
+                  <input
+                    list="itemNames-list"
+                    value={itemNameFilter}
+                    onChange={(e) => setItemNameFilter(e.target.value)}
+                    className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 text-gray-900"
+                    placeholder="พิมพ์หรือเลือก"
+                  />
+                  <datalist id="itemNames-list">
+                    <option value="">ทั้งหมด</option>
+                    {itemNames.map((name) => (
+                      <option key={name} value={name} />
+                    ))}
+                  </datalist>
+                </div>
+                
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">
+                    หมวดหมู่
+                  </label>
+                  <input
+                    list="categories-list"
+                    value={categoryFilter}
+                    onChange={(e) => setCategoryFilter(e.target.value)}
+                    className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 text-gray-900"
+                    placeholder="พิมพ์หรือเลือก"
+                  />
+                  <datalist id="categories-list">
+                    <option value="">ทั้งหมด</option>
+                    {categories.map((cat) => (
+                      <option key={cat} value={cat} />
+                    ))}
+                  </datalist>
+                </div>
+                
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">
+                    สถานะ
+                  </label>
+                  <select
+                    value={statusFilter}
+                    onChange={(e) => setStatusFilter(e.target.value)}
+                    className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 text-gray-900"
+                  >
+                    <option value="">ทั้งหมด</option>
+                    {statuses.map((status) => (
+                      <option key={status} value={status}>
+                        {status}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+                
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">
+                    สภาพ
+                  </label>
+                  <select
+                    value={conditionFilter}
+                    onChange={(e) => setConditionFilter(e.target.value)}
+                    className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 text-gray-900"
+                  >
+                    <option value="">ทั้งหมด</option>
+                    {conditions.map((condition) => (
+                      <option key={condition} value={condition}>
+                        {condition}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+              </div>
+
+              {/* แถวที่ 2: แผนก, สาขา, สถานที่จัดส่ง, ความเร่งด่วน, วันที่ */}
+              <div className="grid max-[768px]:grid-cols-1 max-[1120px]:grid-cols-2 max-[1440px]:grid-cols-4 grid-cols-7 gap-4">
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-1">
                     แผนก
                   </label>
-                  <select
+                  <input
+                    list="departments-list"
                     value={departmentFilter}
                     onChange={(e) => setDepartmentFilter(e.target.value)}
                     className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 text-gray-900"
-                  >
+                    placeholder="พิมพ์หรือเลือก"
+                  />
+                  <datalist id="departments-list">
                     <option value="">ทั้งหมด</option>
                     {departments.map((dept) => (
-                      <option key={dept} value={dept}>
-                        {dept}
-                      </option>
+                      <option key={dept} value={dept} />
                     ))}
-                  </select>
+                  </datalist>
                 </div>
+                
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-1">
                     สาขา
                   </label>
-                  <select
+                  <input
+                    list="offices-list"
                     value={officeFilter}
                     onChange={(e) => setOfficeFilter(e.target.value)}
                     className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 text-gray-900"
-                  >
+                    placeholder="พิมพ์หรือเลือก"
+                  />
+                  <datalist id="offices-list">
                     <option value="">ทั้งหมด</option>
                     {offices.map((office) => (
-                      <option key={office} value={office}>
-                        {office}
-                      </option>
+                      <option key={office} value={office} />
                     ))}
+                  </datalist>
+                </div>
+                
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">
+                    สถานที่จัดส่ง
+                  </label>
+                  <input
+                    list="deliveryLocations-list"
+                    value={deliveryLocationFilter}
+                    onChange={(e) => setDeliveryLocationFilter(e.target.value)}
+                    className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 text-gray-900"
+                    placeholder="พิมพ์หรือเลือก"
+                  />
+                  <datalist id="deliveryLocations-list">
+                    <option value="">ทั้งหมด</option>
+                    {deliveryLocations.map((location) => (
+                      <option key={location} value={location} />
+                    ))}
+                  </datalist>
+                </div>
+                
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">
+                    ความเร่งด่วน
+                  </label>
+                  <select
+                    value={urgencyFilter}
+                    onChange={(e) => setUrgencyFilter(e.target.value)}
+                    className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 text-gray-900"
+                  >
+                    <option value="">ทั้งหมด</option>
+                    <option value="normal">ปกติ</option>
+                    <option value="very_urgent">ด่วนมาก</option>
                   </select>
                 </div>
+                
                 {activeTab === 'request' ? (
                   <div>
                     <label className="block text-sm font-medium text-gray-700 mb-1">
@@ -1060,9 +1845,6 @@ export default function AdminEquipmentReportsPage() {
                              const requestedQty = item.quantity || 0;
                              const isCompleted = assignedQty >= requestedQty;
                              
-                            // Debug logging
-                            console.log(`🔍 Item ${item.itemName}: assignedQty=${assignedQty}, requestedQty=${requestedQty}, isCompleted=${isCompleted}`);
-                            console.log(`🔍 Full item data:`, item);
                              
                              return isCompleted ? (
                                <span className="inline-flex items-center px-3 py-1 rounded-full text-xs font-medium bg-green-100 text-green-800">
@@ -1364,7 +2146,6 @@ export default function AdminEquipmentReportsPage() {
                   target.parentNode?.appendChild(errorDiv);
                 }}
                 onLoad={() => {
-                  console.log('Image loaded successfully:', selectedImage);
                 }}
               />
             </div>

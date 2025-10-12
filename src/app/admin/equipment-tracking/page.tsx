@@ -13,11 +13,13 @@ import {
   Calendar,
   Phone,
   Building,
-  Hash
+  Hash,
+  FileDown
 } from 'lucide-react';
 import DatePicker from '@/components/DatePicker';
 import { toast } from 'react-hot-toast';
 import { formatEquipmentTrackingDate } from '@/lib/thai-date-utils';
+import * as XLSX from 'xlsx';
 
 interface EquipmentTracking {
   _id: string;
@@ -60,6 +62,7 @@ export default function AdminEquipmentTrackingPage() {
   const [searchTerm, setSearchTerm] = useState('');
   const [itemFilter, setItemFilter] = useState('');
   const [categoryFilter, setCategoryFilter] = useState('');
+  const [detailFilter, setDetailFilter] = useState('');
   const [statusFilter, setStatusFilter] = useState('');
   const [conditionFilter, setConditionFilter] = useState('');
   const [departmentFilter, setDepartmentFilter] = useState('');
@@ -67,6 +70,7 @@ export default function AdminEquipmentTrackingPage() {
   const [dateAddedFilter, setDateAddedFilter] = useState('');
   const [sourceFilter, setSourceFilter] = useState('');
   const [deliveryLocationFilter, setDeliveryLocationFilter] = useState('');
+  const [quantityFilter, setQuantityFilter] = useState('');
 
   // Pagination
   const [currentPage, setCurrentPage] = useState(1);
@@ -91,7 +95,7 @@ export default function AdminEquipmentTrackingPage() {
 
   useEffect(() => {
     applyFilters();
-  }, [trackingData, searchTerm, itemFilter, categoryFilter, statusFilter, conditionFilter, departmentFilter, officeFilter, dateAddedFilter, sourceFilter, deliveryLocationFilter]);
+  }, [trackingData, searchTerm, itemFilter, categoryFilter, detailFilter, statusFilter, conditionFilter, departmentFilter, officeFilter, dateAddedFilter, sourceFilter, deliveryLocationFilter, quantityFilter]);
 
   const fetchTrackingData = async () => {
     setLoading(true);
@@ -139,6 +143,11 @@ export default function AdminEquipmentTrackingPage() {
       // Category filter
       const matchesCategory = !categoryFilter || record.category === categoryFilter;
 
+      // Detail filter (Serial Number or Phone Number)
+      const matchesDetail = !detailFilter || 
+        (record.serialNumber && record.serialNumber.toLowerCase().includes(detailFilter.toLowerCase())) ||
+        (record.numberPhone && record.numberPhone.includes(detailFilter));
+
       // Status filter
       const matchesStatus = !statusFilter || record.status === statusFilter;
 
@@ -163,9 +172,13 @@ export default function AdminEquipmentTrackingPage() {
       const matchesDeliveryLocation = !deliveryLocationFilter || 
         (record.deliveryLocation && record.deliveryLocation.toLowerCase().includes(deliveryLocationFilter.toLowerCase()));
 
-      return matchesSearch && matchesItem && matchesCategory && matchesStatus && 
+      // Quantity filter
+      const matchesQuantity = !quantityFilter || 
+        record.quantity === parseInt(quantityFilter);
+
+      return matchesSearch && matchesItem && matchesCategory && matchesDetail && matchesStatus && 
              matchesCondition && matchesDepartment && matchesOffice && 
-             matchesDateAdded && matchesSource && matchesDeliveryLocation;
+             matchesDateAdded && matchesSource && matchesDeliveryLocation && matchesQuantity;
     });
 
     setFilteredData(filtered);
@@ -176,6 +189,7 @@ export default function AdminEquipmentTrackingPage() {
     setSearchTerm('');
     setItemFilter('');
     setCategoryFilter('');
+    setDetailFilter('');
     setStatusFilter('');
     setConditionFilter('');
     setDepartmentFilter('');
@@ -183,6 +197,96 @@ export default function AdminEquipmentTrackingPage() {
     setDateAddedFilter('');
     setSourceFilter('');
     setDeliveryLocationFilter('');
+    setQuantityFilter('');
+  };
+
+  const handleExportExcel = () => {
+    try {
+      // Prepare data for Excel export
+      const exportData = filteredData.map((record, index) => {
+        const dateObj = new Date(record.dateAdded || record.requestDate);
+        const { dateString, timeString } = formatEquipmentTrackingDate(dateObj);
+        
+        const isSimCard = record.categoryId === 'cat_sim_card';
+        let details = '';
+        if (isSimCard && record.numberPhone) {
+          details = record.numberPhone;
+        } else if (record.serialNumber) {
+          details = record.serialNumber;
+        } else {
+          details = 'ไม่มี SN/เบอร์';
+        }
+
+        return {
+          'ลำดับ': index + 1,
+          'หมวดหมู่': record.categoryName || record.category || 'ไม่ระบุ',
+          'อุปกรณ์': record.currentItemName,
+          'รายละเอียด (SN/เบอร์)': details,
+          'สถานะ': record.statusName || record.status || 'ไม่ระบุ',
+          'สภาพ': record.conditionName || record.condition || 'ไม่ระบุ',
+          'วันที่เพิ่มอุปกรณ์': `${dateString} ${timeString}`,
+          'ชื่อ': record.firstName || '-',
+          'นามสกุล': record.lastName || '-',
+          'ชื่อเล่น': record.nickname || '-',
+          'แผนก': record.department || '-',
+          'ออฟฟิศ/สาขา': record.office || '-',
+          'เบอร์โทร': record.phone || '-',
+          'สถานที่จัดส่ง': record.deliveryLocation || '-',
+          'จำนวน': record.quantity,
+          'แหล่งที่มา': record.source === 'request' ? 'เบิกอุปกรณ์' : 'ผู้ใช้ (dashboard)',
+        };
+      });
+
+      // Create worksheet
+      const ws = XLSX.utils.json_to_sheet(exportData);
+      
+      // Set column widths
+      ws['!cols'] = [
+        { wch: 8 },  // ลำดับ
+        { wch: 25 }, // หมวดหมู่
+        { wch: 20 }, // อุปกรณ์
+        { wch: 20 }, // รายละเอียด
+        { wch: 12 }, // สถานะ
+        { wch: 12 }, // สภาพ
+        { wch: 22 }, // วันที่เพิ่มอุปกรณ์
+        { wch: 15 }, // ชื่อ
+        { wch: 15 }, // นามสกุล
+        { wch: 12 }, // ชื่อเล่น
+        { wch: 20 }, // แผนก
+        { wch: 20 }, // ออฟฟิศ/สาขา
+        { wch: 15 }, // เบอร์โทร
+        { wch: 20 }, // สถานที่จัดส่ง
+        { wch: 10 }, // จำนวน
+        { wch: 18 }, // แหล่งที่มา
+      ];
+
+      // Create workbook
+      const wb = XLSX.utils.book_new();
+      XLSX.utils.book_append_sheet(wb, ws, 'ติดตามอุปกรณ์');
+
+      // Generate filename with current date
+      const now = new Date();
+      const dateStr = now.toLocaleDateString('th-TH', {
+        year: 'numeric',
+        month: '2-digit',
+        day: '2-digit'
+      }).replace(/\//g, '-');
+      const timeStr = now.toLocaleTimeString('th-TH', {
+        hour: '2-digit',
+        minute: '2-digit',
+        second: '2-digit'
+      }).replace(/:/g, '-');
+      
+      const filename = `ติดตามอุปกรณ์_${dateStr}_${timeStr}.xlsx`;
+
+      // Export to file
+      XLSX.writeFile(wb, filename);
+      
+      toast.success(`ส่งออกข้อมูล ${filteredData.length} รายการสำเร็จ`);
+    } catch (error) {
+      console.error('Export error:', error);
+      toast.error('เกิดข้อผิดพลาดในการส่งออกข้อมูล');
+    }
   };
 
   // Get unique values for filters
@@ -263,7 +367,7 @@ export default function AdminEquipmentTrackingPage() {
                 ค้นหาและติดตามว่าใครเบิกอุปกรณ์อะไรไป
               </p>
             </div>
-            <div className="flex space-x-4">
+            <div className="flex justify-center space-x-4 flex-wrap gap-2">
               <button
                 onClick={() => setShowFilters(!showFilters)}
                 className="flex items-center space-x-2 px-4 py-2 bg-gray-100 text-gray-700 rounded-lg hover:bg-gray-200 transition-colors"
@@ -278,6 +382,15 @@ export default function AdminEquipmentTrackingPage() {
               >
                 <RefreshCw className={`w-4 h-4 ${loading ? 'animate-spin' : ''}`} />
                 <span>รีเฟรช</span>
+              </button>
+              <button
+                onClick={handleExportExcel}
+                disabled={loading || filteredData.length === 0}
+                className="flex items-center space-x-2 px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                title={filteredData.length === 0 ? 'ไม่มีข้อมูลให้ Export' : 'Export ข้อมูลเป็น Excel'}
+              >
+                <FileDown className="w-4 h-4" />
+                <span>Export Excel</span>
               </button>
             </div>
           </div>
@@ -348,6 +461,19 @@ export default function AdminEquipmentTrackingPage() {
 
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-1">
+                    รายละเอียด
+                  </label>
+                  <input
+                    type="text"
+                    value={detailFilter}
+                    onChange={(e) => setDetailFilter(e.target.value)}
+                    placeholder="Serial Number / เบอร์โทร"
+                    className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 text-gray-900"
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">
                     สถานะ
                   </label>
                   <select
@@ -398,6 +524,20 @@ export default function AdminEquipmentTrackingPage() {
                       </option>
                     ))}
                   </select>
+                </div>
+                
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">
+                    จำนวน
+                  </label>
+                  <input
+                    type="number"
+                    value={quantityFilter}
+                    onChange={(e) => setQuantityFilter(e.target.value)}
+                    placeholder="ทั้งหมด"
+                    min="1"
+                    className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 text-gray-900"
+                  />
                 </div>
                 
                 <div>

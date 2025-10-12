@@ -87,7 +87,7 @@ export default function Layout({ children }: LayoutProps) {
 
         {/* Main Content */}
         <main className="py-10 lg:py-12 overflow-y-auto">
-          <div className="px-4 sm:px-6 lg:px-8">
+          <div className="px-4 sm:px-6 lg:px-8 h-dvh">
             {children}
           </div>
         </main>

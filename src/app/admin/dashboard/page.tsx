@@ -11,9 +11,11 @@ import {
   Package,
   Users,
   FileText,
-  UserPlus
+  UserPlus,
+  Download
 } from 'lucide-react';
 import { toast } from 'react-hot-toast';
+import * as XLSX from 'xlsx';
 
 interface DashboardStats {
   // การ์ดด้านบน (ทั้งหมด)
@@ -84,6 +86,181 @@ export default function AdminDashboardPage() {
   const generateYears = () => {
     const currentYear = new Date().getFullYear();
     return Array.from({ length: 5 }, (_, i) => currentYear - i);
+  };
+
+  const handleExportExcel = () => {
+    if (!stats) {
+      toast.error('ไม่มีข้อมูลให้ Export');
+      return;
+    }
+
+    try {
+      const workbook = XLSX.utils.book_new();
+      
+      // สร้าง Worksheet สรุปภาพรวม
+      const summaryData = [
+        ['Dashboard สรุปภาพรวมระบบจัดการคลังสินค้า'],
+        [`ข้อมูล: ${selectedMonth === 'all' ? 'ทั้งหมด' : generateMonths().find(m => m.value === selectedMonth)?.label} ${selectedYear + 543}`],
+        [''],
+        ['สถิติภาพรวม'],
+        ['หัวข้อ', 'จำนวน'],
+        ['แจ้งงาน IT ทั้งหมด', stats.totalIssues],
+        ['User เพิ่มเองทั้งหมด', stats.userAddedItems],
+        ['เบิกอุปกรณ์ทั้งหมด', stats.totalRequests],
+        ['คืนอุปกรณ์ทั้งหมด', stats.totalReturns],
+        ['ผู้ใช้งานทั้งหมด', stats.totalUsers],
+        [''],
+        ['สถานะแจ้งงาน IT (ช่วงเวลาที่เลือก)'],
+        ['สถานะ', 'จำนวน'],
+        ['รอดำเนินการ', stats.pendingIssues || 0],
+        ['ดำเนินการแล้ว', stats.inProgressIssues || 0],
+        ['ปิดงานแล้ว', stats.completedIssues || 0],
+        [''],
+        ['ความเร่งด่วน'],
+        ['ด่วนมาก', stats.urgentIssues || 0],
+        ['ปกติ', stats.normalIssues || 0],
+        [''],
+        ['สถานะคลังสินค้า (ช่วงเวลาที่เลือก)'],
+        ['หัวข้อ', 'จำนวน'],
+        ['จำนวนทั้งหมด', stats.totalInventoryItemsInPeriod || 0],
+        ['รายการทั่วไป ใกล้หมด (≤ 2)', stats.lowStockItemsInPeriod || 0],
+      ];
+      
+      const summaryWorksheet = XLSX.utils.aoa_to_sheet(summaryData);
+      
+      // ปรับความกว้างคอลัมน์
+      summaryWorksheet['!cols'] = [
+        { wch: 40 },
+        { wch: 15 }
+      ];
+      
+      XLSX.utils.book_append_sheet(workbook, summaryWorksheet, 'สรุปภาพรวม');
+
+      // สร้าง Worksheet แจ้งงาน IT ตามประเภท
+      const issuesCategoryData = [
+        ['แจ้งงาน IT ตามประเภท'],
+        [`ช่วงเวลา: ${selectedMonth === 'all' ? 'ทั้งหมด' : selectedMonth}/${selectedYear + 543}`],
+        [''],
+        ['ประเภท', 'จำนวน', 'เปอร์เซ็นต์'],
+        ...stats.issuesByCategory.map(item => [
+          item.category,
+          item.count,
+          `${item.percentage.toFixed(1)}%`
+        ])
+      ];
+      
+      const issuesCategoryWorksheet = XLSX.utils.aoa_to_sheet(issuesCategoryData);
+      issuesCategoryWorksheet['!cols'] = [
+        { wch: 30 },
+        { wch: 15 },
+        { wch: 15 }
+      ];
+      
+      XLSX.utils.book_append_sheet(workbook, issuesCategoryWorksheet, 'แจ้งงาน IT ตามประเภท');
+
+      // สร้าง Worksheet เบิกอุปกรณ์ตามความเร่งด่วน
+      const requestsUrgencyData = [
+        ['เบิกอุปกรณ์ตามความเร่งด่วน'],
+        [`ช่วงเวลา: ${selectedMonth === 'all' ? 'ทั้งหมด' : selectedMonth}/${selectedYear + 543}`],
+        [''],
+        ['ความเร่งด่วน', 'จำนวน', 'เปอร์เซ็นต์'],
+        ...stats.requestsByUrgency.map(item => [
+          item.urgency,
+          item.count,
+          `${item.percentage.toFixed(1)}%`
+        ])
+      ];
+      
+      const requestsUrgencyWorksheet = XLSX.utils.aoa_to_sheet(requestsUrgencyData);
+      requestsUrgencyWorksheet['!cols'] = [
+        { wch: 30 },
+        { wch: 15 },
+        { wch: 15 }
+      ];
+      
+      XLSX.utils.book_append_sheet(workbook, requestsUrgencyWorksheet, 'เบิกอุปกรณ์ตามความเร่งด่วน');
+
+      // สร้าง Worksheet แจ้งงาน IT รายเดือน
+      const monthlyIssuesData = [
+        ['แจ้งงาน IT รายเดือน'],
+        [`ปี: ${selectedYear + 543}`],
+        [''],
+        ['เดือน', 'จำนวน'],
+        ...stats.monthlyIssues
+          .filter(item => item.month.startsWith(`${selectedYear}-`))
+          .map(item => {
+            const [year, month] = item.month.split('-');
+            const monthName = generateMonths().find(m => m.value === parseInt(month))?.label || month;
+            return [monthName, item.count];
+          })
+      ];
+      
+      const monthlyIssuesWorksheet = XLSX.utils.aoa_to_sheet(monthlyIssuesData);
+      monthlyIssuesWorksheet['!cols'] = [
+        { wch: 20 },
+        { wch: 15 }
+      ];
+      
+      XLSX.utils.book_append_sheet(workbook, monthlyIssuesWorksheet, 'แจ้งงาน IT รายเดือน');
+
+      // สร้าง Worksheet เบิกอุปกรณ์รายเดือน
+      const monthlyRequestsData = [
+        ['เบิกอุปกรณ์รายเดือน'],
+        [`ปี: ${selectedYear + 543}`],
+        [''],
+        ['เดือน', 'จำนวน'],
+        ...stats.monthlyRequests
+          .filter(item => item.month.startsWith(`${selectedYear}-`))
+          .map(item => {
+            const [year, month] = item.month.split('-');
+            const monthName = generateMonths().find(m => m.value === parseInt(month))?.label || month;
+            return [monthName, item.count];
+          })
+      ];
+      
+      const monthlyRequestsWorksheet = XLSX.utils.aoa_to_sheet(monthlyRequestsData);
+      monthlyRequestsWorksheet['!cols'] = [
+        { wch: 20 },
+        { wch: 15 }
+      ];
+      
+      XLSX.utils.book_append_sheet(workbook, monthlyRequestsWorksheet, 'เบิกอุปกรณ์รายเดือน');
+
+      // สร้าง Worksheet คืนอุปกรณ์รายเดือน
+      const monthlyReturnsData = [
+        ['คืนอุปกรณ์รายเดือน'],
+        [`ปี: ${selectedYear + 543}`],
+        [''],
+        ['เดือน', 'จำนวน'],
+        ...stats.monthlyReturns
+          .filter(item => item.month.startsWith(`${selectedYear}-`))
+          .map(item => {
+            const [year, month] = item.month.split('-');
+            const monthName = generateMonths().find(m => m.value === parseInt(month))?.label || month;
+            return [monthName, item.count];
+          })
+      ];
+      
+      const monthlyReturnsWorksheet = XLSX.utils.aoa_to_sheet(monthlyReturnsData);
+      monthlyReturnsWorksheet['!cols'] = [
+        { wch: 20 },
+        { wch: 15 }
+      ];
+      
+      XLSX.utils.book_append_sheet(workbook, monthlyReturnsWorksheet, 'คืนอุปกรณ์รายเดือน');
+
+      // สร้างชื่อไฟล์
+      const monthText = selectedMonth === 'all' ? 'ทั้งหมด' : `เดือน${selectedMonth}`;
+      const fileName = `Dashboard_${monthText}_${selectedYear + 543}.xlsx`;
+
+      // Export ไฟล์
+      XLSX.writeFile(workbook, fileName);
+      
+      toast.success('Export Excel สำเร็จ!');
+    } catch (error) {
+      console.error('Export error:', error);
+      toast.error('เกิดข้อผิดพลาดในการ Export Excel');
+    }
   };
 
   const PieChart = ({ data, title, colorScheme }: { 
@@ -258,6 +435,15 @@ export default function AdminDashboardPage() {
               >
                 <RefreshCw className={`w-4 h-4  max-[420px]:mr-0 ${loading ? 'animate-spin' : ''}`} />
                 <span className="hidden min-[420px]:inline-block">รีเฟรช</span>
+              </button>
+              <button
+                onClick={handleExportExcel}
+                disabled={loading || !stats}
+                className="flex items-center space-x-2 px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                title="Export Excel"
+              >
+                <Download className="w-4 h-4 max-[420px]:mr-0" />
+                <span className="hidden min-[420px]:inline-block">Export Excel</span>
               </button>
             </div>
           </div>
