@@ -2069,12 +2069,21 @@ export default function AdminEquipmentReportsPage() {
             ) : null}
           </div>
 
+          {/* Total Count */}
+          {!loading && displayRows.length > 0 && (
+            <div className="mt-4 text-left">
+              <p className="text-sm text-gray-600">
+                แสดงทั้งหมด {displayRows.length} รายการ
+              </p>
+            </div>
+          )}
+
           {/* Pagination */}
           {totalPages > 1 && (
             <div className="flex items-center justify-between mt-6">
               <div className="flex items-center text-sm text-gray-700">
                 <span>
-                  แสดง {startIndex + 1} ถึง {Math.min(endIndex, filteredData.length)} จาก {filteredData.length} รายการ
+                  แสดง {startIndex + 1} ถึง {Math.min(endIndex, displayRows.length)} จาก {displayRows.length} รายการ
                 </span>
               </div>
               <div className="flex items-center space-x-2">

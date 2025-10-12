@@ -74,7 +74,7 @@ export default function AdminEquipmentTrackingPage() {
 
   // Pagination
   const [currentPage, setCurrentPage] = useState(1);
-  const itemsPerPage = 15; // แสดงไม่เกิน 15 รายการต่อหน้า
+  const itemsPerPage = 20;
   
   // Drag scroll ref
   const tableContainerRef = useRef<HTMLDivElement>(null);
@@ -876,6 +876,15 @@ export default function AdminEquipmentTrackingPage() {
                     : 'ยังไม่มีการเบิกอุปกรณ์หรืออุปกรณ์ที่มีอยู่เดิม'
                   }
                 </p>
+            </div>
+          )}
+
+          {/* Total Count */}
+          {!loading && filteredData.length > 0 && (
+            <div className="mt-4 text-left">
+              <p className="text-sm text-gray-600">
+                แสดงทั้งหมด {filteredData.length} รายการ
+              </p>
             </div>
           )}
 

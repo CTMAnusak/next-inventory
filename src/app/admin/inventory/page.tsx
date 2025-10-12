@@ -2826,6 +2826,15 @@ export default function AdminInventoryPage() {
             </table>
           </div>
 
+          {/* Total Count */}
+          {!loading && filteredItems.length > 0 && (
+            <div className="mt-4 text-left">
+              <p className="text-sm text-gray-600">
+                แสดงทั้งหมด {filteredItems.length} รายการ
+              </p>
+            </div>
+          )}
+
           {/* Pagination */}
           {totalPages > 1 && (
             <div className="flex items-center justify-between mt-6">
