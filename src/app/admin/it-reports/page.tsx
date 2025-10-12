@@ -25,6 +25,7 @@ import {
 } from 'lucide-react';
 import DatePicker from '@/components/DatePicker';
 import { toast } from 'react-hot-toast';
+import ExcelJS from 'exceljs';
 
 interface ITIssue {
   _id: string;
@@ -324,8 +325,203 @@ export default function AdminITReportsPage() {
     setShowDetailModal(true);
   };
 
-  const exportToExcel = () => {
-    toast('ฟีเจอร์ Export Excel จะพัฒนาในอนาคต');
+  const exportToExcel = async () => {
+    try {
+      if (filteredIssues.length === 0) {
+        toast.error('ไม่มีข้อมูลให้ Export');
+        return;
+      }
+
+      toast.loading('กำลังสร้างไฟล์ Excel...', { id: 'export-loading' });
+
+      // Create workbook and worksheet
+      const workbook = new ExcelJS.Workbook();
+      const sheetName = getTabDisplayName(activeTab);
+      const worksheet = workbook.addWorksheet(sheetName);
+
+      // ตั้งค่าคอลัมน์
+      worksheet.columns = [
+        { header: 'ลำดับ', key: 'no', width: 8 },
+        { header: 'วันที่แจ้ง', key: 'reportDate', width: 15 },
+        { header: 'ความเร่งด่วน', key: 'urgency', width: 12 },
+        { header: 'Issue ID', key: 'issueId', width: 15 },
+        { header: 'ชื่อ-นามสกุล', key: 'name', width: 20 },
+        { header: 'เบอร์โทร', key: 'phone', width: 15 },
+        { header: 'อีเมล', key: 'email', width: 25 },
+        { header: 'แผนก', key: 'department', width: 20 },
+        { header: 'สาขา', key: 'office', width: 20 },
+        { header: 'หัวข้อปัญหา', key: 'issueCategory', width: 25 },
+        { header: 'รายละเอียดปัญหา', key: 'description', width: 40 },
+        { header: 'สถานะงาน', key: 'status', width: 15 },
+        { header: 'วันที่ดำเนินการเสร็จ', key: 'completedDate', width: 20 },
+        { header: 'หมายเหตุ', key: 'notes', width: 30 },
+        { header: 'รูปภาพ', key: 'images', width: 25 },
+      ];
+
+      // เพิ่มข้อมูลและรูปภาพ
+      for (let index = 0; index < filteredIssues.length; index++) {
+        const issue = filteredIssues[index];
+        
+        const excelRow = worksheet.addRow({
+          no: index + 1,
+          reportDate: new Date(issue.reportDate).toLocaleDateString('th-TH', { timeZone: 'Asia/Bangkok' }),
+          urgency: issue.urgency === 'very_urgent' ? 'ด่วนมาก' : 'ปกติ',
+          issueId: issue.issueId,
+          name: issue.firstName && issue.lastName ? `${issue.firstName} ${issue.lastName}` : '(ผู้ใช้ถูกลบแล้ว)',
+          phone: issue.phone,
+          email: issue.email,
+          department: issue.department,
+          office: issue.office,
+          issueCategory: issue.issueCategory + (issue.customCategory ? ` (${issue.customCategory})` : ''),
+          description: issue.description,
+          status: getStatusDisplayName(issue.status),
+          completedDate: issue.updatedAt ? new Date(issue.updatedAt).toLocaleDateString('th-TH', { timeZone: 'Asia/Bangkok' }) : '-',
+          notes: issue.notes || '-',
+          images: '',
+        });
+
+        // ถ้ามีรูปภาพ ให้ใส่รูปลงใน Excel
+        if (issue.images && issue.images.length > 0) {
+          try {
+            // ใส่รูปภาพแรกเท่านั้น (เพื่อไม่ให้ไฟล์ใหญ่เกินไป)
+            const firstImage = issue.images[0];
+            const imagePath = `/assets/IssueLog/${firstImage}`;
+            const response = await fetch(imagePath);
+            
+            if (response.ok) {
+              const blob = await response.blob();
+              const arrayBuffer = await blob.arrayBuffer();
+              
+              // กำหนดนามสกุลไฟล์
+              const ext = firstImage.toLowerCase().split('.').pop() || 'png';
+              const imageId = workbook.addImage({
+                buffer: arrayBuffer,
+                extension: ext === 'jpg' ? 'jpeg' : ext as any,
+              });
+
+              // ปรับความสูงของแถวให้พอดีกับรูป
+              excelRow.height = 80;
+
+              // ใส่รูปลงใน cell โดยจัดให้อยู่กึ่งกลาง
+              const imageWidth = 90;
+              const imageHeight = 90;
+              const cellWidth = 25 * 7;
+              const cellHeight = 80 * 0.75;
+              
+              const colOffset = Math.max(0, (cellWidth - imageWidth) / 2);
+              const rowOffset = Math.max(0, (cellHeight - imageHeight) / 2);
+
+              worksheet.addImage(imageId, {
+                tl: { col: 14, row: index + 1, colOff: colOffset, rowOff: rowOffset },
+                ext: { width: imageWidth, height: imageHeight },
+                editAs: 'oneCell'
+              });
+
+              // แสดงจำนวนรูปภาพทั้งหมด
+              excelRow.getCell('images').value = issue.images.length > 1 
+                ? `มี ${issue.images.length} รูป (แสดงรูปแรก)` 
+                : 'มี 1 รูป';
+            }
+          } catch (error) {
+            console.error('Error loading image:', firstImage, error);
+            excelRow.getCell('images').value = 'ไม่สามารถโหลดรูปได้';
+          }
+        } else {
+          excelRow.getCell('images').value = 'ไม่มีรูปภาพ';
+        }
+      }
+
+      // จัดรูปแบบ header
+      const headerRow = worksheet.getRow(1);
+      headerRow.font = { bold: true, color: { argb: 'FFFFFFFF' }, size: 11 };
+      headerRow.fill = {
+        type: 'pattern',
+        pattern: 'solid',
+        fgColor: { argb: 'FF2563EB' },
+      };
+      headerRow.alignment = { vertical: 'middle', horizontal: 'center', wrapText: true };
+      headerRow.height = 25;
+
+      // จัดตำแหน่งข้อมูลทุก cell ให้อยู่กึ่งกลาง
+      worksheet.eachRow((row, rowNumber) => {
+        if (rowNumber > 1) {
+          row.eachCell({ includeEmpty: true }, (cell) => {
+            cell.alignment = { 
+              vertical: 'middle', 
+              horizontal: 'center', 
+              wrapText: true 
+            };
+            cell.border = {
+              top: { style: 'thin', color: { argb: 'FFD1D5DB' } },
+              left: { style: 'thin', color: { argb: 'FFD1D5DB' } },
+              bottom: { style: 'thin', color: { argb: 'FFD1D5DB' } },
+              right: { style: 'thin', color: { argb: 'FFD1D5DB' } }
+            };
+          });
+        } else {
+          row.eachCell({ includeEmpty: true }, (cell) => {
+            cell.border = {
+              top: { style: 'thin', color: { argb: 'FF2563EB' } },
+              left: { style: 'thin', color: { argb: 'FF2563EB' } },
+              bottom: { style: 'thin', color: { argb: 'FF2563EB' } },
+              right: { style: 'thin', color: { argb: 'FF2563EB' } }
+            };
+          });
+        }
+      });
+
+      // Generate filename
+      const now = new Date();
+      const dateStr = now.toLocaleDateString('th-TH', {
+        year: 'numeric',
+        month: '2-digit',
+        day: '2-digit'
+      }).replace(/\//g, '-');
+      const timeStr = now.toLocaleTimeString('th-TH', {
+        hour: '2-digit',
+        minute: '2-digit',
+        second: '2-digit'
+      }).replace(/:/g, '-');
+      
+      const filename = `รายงานแจ้งงานIT_${sheetName}_${dateStr}_${timeStr}.xlsx`;
+
+      // Export file
+      const buffer = await workbook.xlsx.writeBuffer();
+      const blob = new Blob([buffer], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' });
+      const url = window.URL.createObjectURL(blob);
+      const link = document.createElement('a');
+      link.href = url;
+      link.download = filename;
+      link.click();
+      window.URL.revokeObjectURL(url);
+      
+      toast.dismiss('export-loading');
+      toast.success(`ส่งออกข้อมูล ${filteredIssues.length} รายการสำเร็จ`);
+    } catch (error) {
+      console.error('Export error:', error);
+      toast.dismiss('export-loading');
+      toast.error('เกิดข้อผิดพลาดในการส่งออกข้อมูล');
+    }
+  };
+
+  const getTabDisplayName = (tab: TabType) => {
+    switch (tab) {
+      case 'pending': return 'รอดำเนินการ';
+      case 'in_progress': return 'กำลังดำเนินการ';
+      case 'completed': return 'รอผู้ใช้ตรวจสอบ';
+      case 'closed': return 'ปิดงาน';
+      default: return 'รายงานแจ้งงานIT';
+    }
+  };
+
+  const getStatusDisplayName = (status: string) => {
+    switch (status) {
+      case 'pending': return 'รอดำเนินการ';
+      case 'in_progress': return 'กำลังดำเนินการ';
+      case 'completed': return 'รอผู้ใช้ตรวจสอบ';
+      case 'closed': return 'ปิดงาน';
+      default: return status;
+    }
   };
 
   const getStatusBadge = (status: string) => {
@@ -385,7 +581,9 @@ export default function AdminITReportsPage() {
 
               <button
                 onClick={exportToExcel}
-                className="w-full min-[400px]:w-3/5 min-[481px]:w-auto flex items-center justify-center space-x-2 px-4 py-2 bg-green-100 text-green-700 rounded-lg hover:bg-green-200 transition-colors"
+                disabled={loading || filteredIssues.length === 0}
+                className="w-full min-[400px]:w-3/5 min-[481px]:w-auto flex items-center justify-center space-x-2 px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                title={filteredIssues.length === 0 ? 'ไม่มีข้อมูลให้ Export' : 'Export ข้อมูลเป็น Excel'}
               >
                 <Download className="w-4 h-4" />
                 <span>Export Excel</span>

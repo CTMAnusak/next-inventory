@@ -598,7 +598,6 @@ export default function AdminEquipmentTrackingPage() {
                   <DatePicker
                     value={dateAddedFilter}
                     onChange={(date) => setDateAddedFilter(date)}
-                    placeholder="dd/mm/yyyy"
                   />
                 </div>
               </div>

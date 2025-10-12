@@ -1524,7 +1524,6 @@ export default function AdminEquipmentReportsPage() {
                     <DatePicker
                       value={dateFromFilter}
                       onChange={(date) => setDateFromFilter(date)}
-                      placeholder="dd/mm/yyyy"
                     />
                   </div>
                 ) : (
@@ -1535,7 +1534,6 @@ export default function AdminEquipmentReportsPage() {
                     <DatePicker
                       value={dateToFilter}
                       onChange={(date) => setDateToFilter(date)}
-                      placeholder="dd/mm/yyyy"
                     />
                   </div>
                 )}

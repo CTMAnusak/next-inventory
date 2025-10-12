@@ -14,7 +14,7 @@ interface DatePickerProps {
 export default function DatePicker({ 
   value, 
   onChange, 
-  placeholder = "dd/mm/yyyy", 
+  placeholder = "dd/mm/yyyy (พ.ศ.)", 
   className = "",
   required = false 
 }: DatePickerProps) {
@@ -63,7 +63,7 @@ export default function DatePicker({
   const formatDateForDisplay = (date: Date): string => {
     const day = date.getDate().toString().padStart(2, '0');
     const month = (date.getMonth() + 1).toString().padStart(2, '0');
-    const year = date.getFullYear();
+    const year = date.getFullYear() + 543; // แปลงเป็น พ.ศ.
     return `${day}/${month}/${year}`;
   };
 
@@ -81,12 +81,14 @@ export default function DatePicker({
     
     const day = parseInt(parts[0]);
     const month = parseInt(parts[1]) - 1; // Month is 0-indexed
-    const year = parseInt(parts[2]);
+    const buddhist_year = parseInt(parts[2]);
     
-    if (isNaN(day) || isNaN(month) || isNaN(year)) return null;
+    if (isNaN(day) || isNaN(month) || isNaN(buddhist_year)) return null;
     
-    const date = new Date(year, month, day);
-    if (date.getDate() !== day || date.getMonth() !== month || date.getFullYear() !== year) {
+    // แปลง พ.ศ. เป็น ค.ศ.
+    const gregorian_year = buddhist_year - 543;
+    const date = new Date(gregorian_year, month, day);
+    if (date.getDate() !== day || date.getMonth() !== month || date.getFullYear() !== gregorian_year) {
       return null; // Invalid date
     }
     
@@ -273,7 +275,7 @@ export default function DatePicker({
                 <ChevronLeft className="h-4 w-4" />
               </button>
               <span className="text-sm font-medium text-gray-700 min-w-[3rem] text-center">
-                {currentViewDate.getFullYear()}
+                {currentViewDate.getFullYear() + 543}
               </span>
               <button
                 type="button"

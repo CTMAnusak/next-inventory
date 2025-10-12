@@ -4,6 +4,7 @@ import React, { useState, useEffect, useRef } from 'react';
 import { enableDragScroll } from '@/lib/drag-scroll';
 import { isSIMCardSync } from '@/lib/sim-card-helpers';
 import { IConditionConfig } from '@/models/InventoryConfig';
+import ExcelJS from 'exceljs';
 
 // Extend window object for TypeScript
 declare global {
@@ -37,6 +38,7 @@ import ConditionConfigList from '@/components/ConditionConfigList';
 import CategoryDeleteConfirmModal from '@/components/CategoryDeleteConfirmModal';
 import StatusDeleteConfirmModal from '@/components/StatusDeleteConfirmModal';
 import ConditionDeleteConfirmModal from '@/components/ConditionDeleteConfirmModal';
+import DatePicker from '@/components/DatePicker';
 import { 
   getStatusNameById, 
   getStatusClass as getStatusClassHelper,
@@ -160,17 +162,14 @@ export default function AdminInventoryPage() {
   // Search and filter states
   const [searchTerm, setSearchTerm] = useState('');
   const [categoryFilter, setCategoryFilter] = useState('');
-  const [statusFilter, setStatusFilter] = useState('');
-  const [conditionFilter, setConditionFilter] = useState('');
-  const [typeFilter, setTypeFilter] = useState('');
+  const [detailsFilter, setDetailsFilter] = useState('');
+  const [dateFilter, setDateFilter] = useState(''); // yyyy-mm-dd format for DatePicker
   const [lowStockFilter, setLowStockFilter] = useState<number | null>(null);
   const [stockDisplayMode, setStockDisplayMode] = useState<'all' | 'low_stock'>('all');
   const [lowStockThreshold, setLowStockThreshold] = useState<number>(2);
-  const [deletableFilter, setDeletableFilter] = useState<string>(''); // 🆕 Filter สำหรับสถานะการลบ
   
   // Drag scroll ref
   const tableContainerRef = useRef<HTMLDivElement>(null);
-  const [serialNumberFilter, setSerialNumberFilter] = useState<'all' | 'with' | 'without'>('all'); // เพิ่มฟิลเตอร์ Serial Numbers
 
   // Form data
   const [formData, setFormData] = useState<InventoryFormData>({
@@ -434,7 +433,7 @@ export default function AdminInventoryPage() {
 
   useEffect(() => {
     applyFilters();
-  }, [items, searchTerm, categoryFilter, statusFilter, conditionFilter, typeFilter, lowStockFilter, serialNumberFilter, deletableFilter, stockDisplayMode, lowStockThreshold]);
+  }, [items, searchTerm, categoryFilter, detailsFilter, dateFilter, lowStockFilter, stockDisplayMode, lowStockThreshold]);
 
   // Update stockValue when stockInfo changes for adjust_stock operation
   useEffect(() => {
@@ -585,33 +584,37 @@ export default function AdminInventoryPage() {
     let filtered = items.filter(item => {
       const itemNameSafe = String((item as any)?.itemName || '').toLowerCase();
       const categoryNameSafe = String(getCategoryName((item as any)?.categoryId) || '').toLowerCase();
-      const serialNumbersSafe = Array.isArray((item as any)?.serialNumbers) ? (item as any).serialNumbers : [];
       const matchesSearch =
         !term ||
         itemNameSafe.includes(term) ||
-        categoryNameSafe.includes(term) ||
-        serialNumbersSafe.some((sn: any) => String(sn || '').toLowerCase().includes(term));
+        categoryNameSafe.includes(term);
       
       const matchesCategory = !categoryFilter || item.categoryId === categoryFilter;
-      const matchesStatus = matchesStatusFilter(item.status, statusFilter, statusConfigs);
       
-      // เพิ่มฟิลเตอร์ Serial Numbers
-      const hasSerials = Array.isArray(item.serialNumbers) && item.serialNumbers.length > 0;
-      const matchesSerialNumber = serialNumberFilter === 'all' ||
-                                  (serialNumberFilter === 'with' && hasSerials) ||
-                                  (serialNumberFilter === 'without' && !hasSerials);
+      // ฟิลเตอร์รายละเอียด (ค้นหาจากสถานะและสภาพ)
+      const detailsTerm = (detailsFilter || '').toLowerCase();
+      const statusText = String(getStatusText((item as any)?.statusId || (item as any)?.status) || '').toLowerCase();
+      const conditionText = String(getConditionText((item as any)?.conditionId || (item as any)?.condition) || '').toLowerCase();
+      const matchesDetails = 
+        !detailsTerm || 
+        statusText.includes(detailsTerm) || 
+        conditionText.includes(detailsTerm);
       
-      // เพิ่มฟิลเตอร์ Condition
-      const matchesCondition = !conditionFilter || (item as any).conditionId === conditionFilter;
+      // ฟิลเตอร์วันที่
+      let matchesDate = true;
+      if (dateFilter && dateFilter.trim() !== '') {
+        // DatePicker returns yyyy-mm-dd format
+        const filterDate = new Date(dateFilter);
+        filterDate.setHours(0, 0, 0, 0);
+        
+        const itemDate = new Date(item.dateAdded);
+        itemDate.setHours(0, 0, 0, 0);
+        
+        // เช็คว่าวันที่ตรงกันหรือไม่
+        matchesDate = itemDate.getTime() === filterDate.getTime();
+      }
       
-      // เพิ่มฟิลเตอร์ Type
-      const hasPhone = (item as any).numberPhone && (item as any).numberPhone.trim() !== '';
-      const matchesType = !typeFilter || 
-                         (typeFilter === 'withoutSN' && !hasSerials && !hasPhone) ||
-                         (typeFilter === 'withSN' && hasSerials) ||
-                         (typeFilter === 'withPhone' && hasPhone);
-      
-      return matchesSearch && matchesCategory && matchesStatus && matchesSerialNumber && matchesCondition && matchesType;
+      return matchesSearch && matchesCategory && matchesDetails && matchesDate;
     });
 
     // Group by itemName + category
@@ -676,25 +679,6 @@ export default function AdminInventoryPage() {
       );
     }
     // If stockDisplayMode is 'all', we don't filter by stock level
-
-    // 🆕 Apply deletable filter
-    if (deletableFilter) {
-      grouped = grouped.filter((g) => {
-        const adminStock = g.quantity || 0;
-        const userOwned = g.userOwnedQuantity || 0;
-        
-        switch (deletableFilter) {
-          case 'fully_deletable':
-            return adminStock > 0 && userOwned === 0;
-          case 'partially_deletable':
-            return adminStock > 0 && userOwned > 0;
-          case 'not_deletable':
-            return adminStock === 0 && userOwned > 0;
-          default:
-            return true;
-        }
-      });
-    }
 
     // Sort by low stock items first (non-serial groups only), then by date added
     grouped.sort((a, b) => {
@@ -1903,9 +1887,272 @@ export default function AdminInventoryPage() {
     setFormData(prev => ({ ...prev, itemName: '' }));
   };
 
-  const exportToExcel = () => {
-    // This would implement Excel export functionality
-    toast('ฟีเจอร์ Export Excel จะพัฒนาในอนาคต');
+  const exportToExcel = async () => {
+    try {
+      if (filteredItems.length === 0) {
+        toast.error('ไม่มีข้อมูลให้ Export');
+        return;
+      }
+
+      toast.loading('กำลังโหลดข้อมูลจาก Database...', { id: 'export-loading' });
+
+      // สร้าง query parameters สำหรับการฟิลเตอร์
+      const params = new URLSearchParams();
+      if (searchTerm) params.append('searchTerm', searchTerm);
+      if (categoryFilter) params.append('categoryFilter', categoryFilter);
+      if (dateFilter) params.append('dateFilter', dateFilter);
+      // Note: detailsFilter จะใช้ในการกรองข้อมูลฝั่งหน้าบ้านแทน เพราะต้องใช้ config ในการแปลง
+
+      // ดึงข้อมูลรายละเอียดจาก inventoryitems collection
+      const response = await fetch(`/api/admin/inventory/items?${params.toString()}`, {
+        credentials: 'include', // ✅ ส่ง cookies สำหรับ authentication
+        headers: {
+          'Content-Type': 'application/json',
+        }
+      });
+      
+      if (!response.ok) {
+        // ลอง parse error message จาก response
+        let errorMessage = 'ไม่สามารถดึงข้อมูลจาก Database ได้';
+        try {
+          const errorData = await response.json();
+          console.error('API Error:', errorData);
+          errorMessage = errorData.message || errorData.error || errorMessage;
+        } catch (e) {
+          console.error('Response status:', response.status);
+        }
+        
+        if (response.status === 401) {
+          throw new Error('กรุณาเข้าสู่ระบบใหม่อีกครั้ง');
+        }
+        throw new Error(errorMessage);
+      }
+
+      let allInventoryItems = await response.json();
+      console.log('Fetched inventory items:', allInventoryItems.length);
+      
+      // ฟิลเตอร์ตาม detailsFilter (สถานะและสภาพ) ฝั่งหน้าบ้าน
+      if (detailsFilter && detailsFilter.trim() !== '') {
+        const detailsTerm = detailsFilter.toLowerCase();
+        allInventoryItems = allInventoryItems.filter((item: any) => {
+          const statusText = String(getStatusText(item.statusId || item.status) || '').toLowerCase();
+          const conditionText = String(getConditionText(item.conditionId || item.condition) || '').toLowerCase();
+          return statusText.includes(detailsTerm) || conditionText.includes(detailsTerm);
+        });
+      }
+
+      // ฟิลเตอร์ตาม categoryName ฝั่งหน้าบ้าน (เพราะ searchTerm อาจรวมการค้นหา category)
+      if (searchTerm && searchTerm.trim() !== '') {
+        const term = searchTerm.toLowerCase();
+        allInventoryItems = allInventoryItems.filter((item: any) => {
+          const categoryName = String(getCategoryName(item.categoryId) || '').toLowerCase();
+          // itemName ถูกกรองแล้วใน API แต่เพิ่ม categoryName filter ที่นี่
+          return categoryName.includes(term) || String(item.itemName || '').toLowerCase().includes(term);
+        });
+      }
+
+      console.log('Filtered inventory items for export:', allInventoryItems.length);
+      
+      toast.loading('กำลังสร้างไฟล์ Excel...', { id: 'export-loading' });
+
+      // Create workbook and worksheet
+      const workbook = new ExcelJS.Workbook();
+      const worksheet = workbook.addWorksheet('คลังสินค้า');
+
+      // ตั้งค่าคอลัมน์
+      worksheet.columns = [
+        { header: 'หมวดหมู่', key: 'category', width: 20 },
+        { header: 'ชื่ออุปกรณ์', key: 'itemName', width: 25 },
+        { header: 'จำนวน', key: 'quantity', width: 10 },
+        { header: 'สถานะ', key: 'status', width: 15 },
+        { header: 'สภาพ', key: 'condition', width: 15 },
+        { header: 'Serial Number', key: 'serialNumber', width: 20 },
+        { header: 'Phone Number', key: 'phoneNumber', width: 15 },
+        { header: 'วันที่เพิ่ม', key: 'dateAdded', width: 15 },
+      ];
+
+      // ✅ ใช้ filteredItems จากหน้าเว็บโดยตรง เพื่อให้ตรงกับที่แสดงในตาราง 100%
+      for (const group of filteredItems) {
+        const itemName = group.itemName;
+        const categoryName = getCategoryName(group.categoryId);
+
+        // ดึงข้อมูลรายการจริงจาก inventoryitems (เฉพาะที่คงเหลือ - admin_stock)
+        const items = allInventoryItems.filter(
+          (it: any) => 
+            it.itemName === group.itemName && 
+            it.categoryId === group.categoryId &&
+            it.currentOwnership?.ownerType === 'admin_stock' // ✅ เฉพาะอุปกรณ์ที่คงเหลือในคลัง
+        );
+
+        // แยกรายการเป็น 3 ประเภท
+        const itemsWithSN: any[] = [];
+        const itemsWithPhone: any[] = [];
+        const itemsWithoutSNOrPhone: any[] = [];
+
+        for (const item of items) {
+          // ใน InventoryItem แต่ละ document มี serialNumber เดี่ยว (ไม่ใช่ array)
+          const hasSerialNumber = (Array.isArray(item.serialNumbers) && item.serialNumbers.length > 0) || 
+                                  (item.serialNumber && item.serialNumber.trim() !== '');
+          const hasPhoneNumber = item.numberPhone && item.numberPhone.trim() !== '';
+
+          if (hasSerialNumber) {
+            // มี Serial Number
+            itemsWithSN.push(item);
+          } else if (hasPhoneNumber) {
+            // มีเบอร์โทร
+            itemsWithPhone.push(item);
+          } else {
+            // ไม่มีทั้ง SN และเบอร์โทร
+            itemsWithoutSNOrPhone.push(item);
+          }
+        }
+
+        // 1. แจกแจงรายการที่มี Serial Number (แต่ละ item เป็นแถวเดียว เพราะ 1 item = 1 SN)
+        for (const item of itemsWithSN) {
+          // รองรับทั้ง serialNumber (string) และ serialNumbers (array)
+          const serialNumber = Array.isArray(item.serialNumbers) && item.serialNumbers.length > 0
+            ? item.serialNumbers[0]
+            : (item.serialNumber || '-');
+
+          worksheet.addRow({
+            itemName,
+            category: categoryName,
+            quantity: 1, // แต่ละ item ใน InventoryItem = 1 ชิ้น
+            status: getStatusText(item.statusId || item.status) || '-',
+            condition: getConditionText(item.conditionId || item.condition) || '-',
+            serialNumber: serialNumber,
+            phoneNumber: '-',
+            dateAdded: new Date(item.dateAdded).toLocaleDateString('th-TH', { timeZone: 'Asia/Bangkok' }),
+          });
+        }
+
+        // 2. แจกแจงรายการที่มีเบอร์โทร (แต่ละ item เป็นแถวเดียว เพราะ 1 item = 1 เบอร์)
+        for (const item of itemsWithPhone) {
+          const phoneNumber = item.numberPhone;
+          worksheet.addRow({
+            itemName,
+            category: categoryName,
+            quantity: 1, // แต่ละ item ใน InventoryItem = 1 ชิ้น
+            status: getStatusText(item.statusId || item.status) || '-',
+            condition: getConditionText(item.conditionId || item.condition) || '-',
+            serialNumber: '-',
+            phoneNumber: phoneNumber,
+            dateAdded: new Date(item.dateAdded).toLocaleDateString('th-TH', { timeZone: 'Asia/Bangkok' }),
+          });
+        }
+
+        // 3. รวมรายการที่ไม่มี SN และเบอร์โทร เป็นแถวเดียว
+        if (itemsWithoutSNOrPhone.length > 0) {
+          // group ตาม status และ condition
+          const grouped = new Map<string, any>();
+          for (const item of itemsWithoutSNOrPhone) {
+            const statusText = getStatusText(item.statusId || item.status) || '-';
+            const conditionText = getConditionText(item.conditionId || item.condition) || '-';
+            const key = `${statusText}||${conditionText}`;
+
+            if (!grouped.has(key)) {
+              grouped.set(key, {
+                quantity: 0,
+                status: statusText,
+                condition: conditionText,
+                dateAdded: item.dateAdded,
+              });
+            }
+            const acc = grouped.get(key);
+            acc.quantity += 1; // แต่ละ item = 1 ชิ้น
+            // ใช้วันที่ล่าสุด
+            if (new Date(item.dateAdded).getTime() > new Date(acc.dateAdded).getTime()) {
+              acc.dateAdded = item.dateAdded;
+            }
+          }
+
+          // เพิ่มแถวในตารางตามกลุ่มที่รวมแล้ว
+          for (const [key, data] of grouped.entries()) {
+            worksheet.addRow({
+              itemName,
+              category: categoryName,
+              quantity: data.quantity,
+              status: data.status,
+              condition: data.condition,
+              serialNumber: '-',
+              phoneNumber: '-',
+              dateAdded: new Date(data.dateAdded).toLocaleDateString('th-TH', { timeZone: 'Asia/Bangkok' }),
+            });
+          }
+        }
+      }
+
+      // จัดรูปแบบ header
+      const headerRow = worksheet.getRow(1);
+      headerRow.font = { bold: true, color: { argb: 'FFFFFFFF' }, size: 11 };
+      headerRow.fill = {
+        type: 'pattern',
+        pattern: 'solid',
+        fgColor: { argb: 'FF2563EB' },
+      };
+      headerRow.alignment = { vertical: 'middle', horizontal: 'center', wrapText: true };
+      headerRow.height = 25;
+
+      // จัดตำแหน่งข้อมูลทุก cell ให้อยู่กึ่งกลาง
+      worksheet.eachRow((row, rowNumber) => {
+        if (rowNumber > 1) {
+          row.eachCell({ includeEmpty: true }, (cell) => {
+            cell.alignment = { 
+              vertical: 'middle', 
+              horizontal: 'center', 
+              wrapText: true 
+            };
+            cell.border = {
+              top: { style: 'thin', color: { argb: 'FFD1D5DB' } },
+              left: { style: 'thin', color: { argb: 'FFD1D5DB' } },
+              bottom: { style: 'thin', color: { argb: 'FFD1D5DB' } },
+              right: { style: 'thin', color: { argb: 'FFD1D5DB' } }
+            };
+          });
+        } else {
+          row.eachCell({ includeEmpty: true }, (cell) => {
+            cell.border = {
+              top: { style: 'thin', color: { argb: 'FF2563EB' } },
+              left: { style: 'thin', color: { argb: 'FF2563EB' } },
+              bottom: { style: 'thin', color: { argb: 'FF2563EB' } },
+              right: { style: 'thin', color: { argb: 'FF2563EB' } }
+            };
+          });
+        }
+      });
+
+      // Generate filename
+      const now = new Date();
+      const dateStr = now.toLocaleDateString('th-TH', {
+        year: 'numeric',
+        month: '2-digit',
+        day: '2-digit'
+      }).replace(/\//g, '-');
+      const timeStr = now.toLocaleTimeString('th-TH', {
+        hour: '2-digit',
+        minute: '2-digit',
+        second: '2-digit'
+      }).replace(/:/g, '-');
+      
+      const filename = `คลังสินค้า_${dateStr}_${timeStr}.xlsx`;
+
+      // Export file
+      const buffer = await workbook.xlsx.writeBuffer();
+      const blob = new Blob([buffer], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' });
+      const url = window.URL.createObjectURL(blob);
+      const link = document.createElement('a');
+      link.href = url;
+      link.download = filename;
+      link.click();
+      window.URL.revokeObjectURL(url);
+      
+      toast.dismiss('export-loading');
+      toast.success(`ส่งออกข้อมูลสำเร็จ`);
+    } catch (error) {
+      console.error('Export error:', error);
+      toast.dismiss('export-loading');
+      toast.error('เกิดข้อผิดพลาดในการส่งออกข้อมูล');
+    }
   };
 
 
@@ -2308,7 +2555,9 @@ export default function AdminInventoryPage() {
               </button>
               <button
                 onClick={exportToExcel}
-                className="w-full min-[440px]:w-3/7 min-[650px]:w-auto flex items-center justify-center space-x-2 px-4 py-2 bg-green-100 text-green-700 rounded-lg hover:bg-green-200 transition-colors"
+                disabled={loading || filteredItems.length === 0}
+                className="w-full min-[440px]:w-3/7 min-[650px]:w-auto flex items-center justify-center space-x-2 px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                title={filteredItems.length === 0 ? 'ไม่มีข้อมูลให้ Export' : 'Export ข้อมูลเป็น Excel'}
               >
                 <Download className="w-4 h-4" />
                 <span>Export Excel</span>
@@ -2341,7 +2590,7 @@ export default function AdminInventoryPage() {
                       value={searchTerm}
                       onChange={(e) => setSearchTerm(e.target.value)}
                       className="w-full pl-10 pr-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 text-gray-900"
-                      placeholder="ชื่ออุปกรณ์, หมวดหมู่, Serial Number"
+                      placeholder="ชื่ออุปกรณ์, หมวดหมู่"
                     />
                   </div>
                 </div>
@@ -2379,77 +2628,24 @@ export default function AdminInventoryPage() {
                 </div>
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-1">
-                    สถานะ
+                    รายละเอียด
                   </label>
-                  <select
-                    value={statusFilter}
-                    onChange={(e) => setStatusFilter(e.target.value)}
+                  <input
+                    type="text"
+                    value={detailsFilter}
+                    onChange={(e) => setDetailsFilter(e.target.value)}
                     className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 text-gray-900"
-                  >
-                    <option value="">ทั้งหมด</option>
-                    {statuses.map((st: any) => (
-                      <option key={st} value={st}>{getStatusText(st)}</option>
-                    ))}
-                  </select>
+                    placeholder="เช่น ใช้งานได้"
+                  />
                 </div>
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-1">
-                    Serial Numbers
+                    วันที่เพิ่ม
                   </label>
-                  <select
-                    value={serialNumberFilter}
-                    onChange={(e) => setSerialNumberFilter(e.target.value as 'all' | 'with' | 'without')}
-                    className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 text-gray-900"
-                  >
-                    <option value="all">ทั้งหมด</option>
-                    <option value="with">มี Serial Number</option>
-                    <option value="without">ไม่มี Serial Number</option>
-                  </select>
-                </div>
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">
-                    สถานะการลบ
-                  </label>
-                  <select
-                    value={deletableFilter}
-                    onChange={(e) => setDeletableFilter(e.target.value)}
-                    className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 text-gray-900"
-                  >
-                    <option value="">ทั้งหมด</option>
-                    <option value="fully_deletable">✅ ลบได้ทั้งหมด</option>
-                    <option value="partially_deletable">⚠️ ลบได้บางส่วน</option>
-                    <option value="not_deletable">🚫 ลบไม่ได้</option>
-                  </select>
-                </div>
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">
-                    สภาพอุปกรณ์
-                  </label>
-                  <select
-                    value={conditionFilter}
-                    onChange={(e) => setConditionFilter(e.target.value)}
-                    className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 text-gray-900"
-                  >
-                    <option value="">ทั้งหมด</option>
-                    {conditionConfigs.map((config) => (
-                      <option key={config.id} value={config.id}>{config.name}</option>
-                    ))}
-                  </select>
-                </div>
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">
-                    ประเภทอุปกรณ์
-                  </label>
-                  <select
-                    value={typeFilter}
-                    onChange={(e) => setTypeFilter(e.target.value)}
-                    className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 text-gray-900"
-                  >
-                    <option value="">ทั้งหมด</option>
-                    <option value="withoutSN">ไม่มี SN</option>
-                    <option value="withSN">มี SN</option>
-                    <option value="withPhone">มีเบอร์</option>
-                  </select>
+                  <DatePicker
+                    value={dateFilter}
+                    onChange={(date) => setDateFilter(date)}
+                  />
                 </div>
               </div>
               <div className="flex items-center space-x-2">
