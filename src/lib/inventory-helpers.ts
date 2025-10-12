@@ -126,43 +126,47 @@ export async function createInventoryItem(params: CreateItemParams) {
     }
   }
 
-  // Enhanced Serial Number validation - allow duplicates across different categories
+  // Enhanced Serial Number validation - allow duplicates across different item names
+  // ✅ FIX: Check for duplicate SN only within the SAME itemName + categoryId
+  // ถ้าเป็นอุปกรณ์คนละชื่อ แต่ SN เดียวกัน → อนุญาต
+  // ถ้าเป็นอุปกรณ์ชื่อเดียวกัน + SN เดียวกัน → ห้ามซ้ำ
   if (serialNumber && serialNumber.trim() !== '') {
     const trimmedSerialNumber = serialNumber.trim();
     
     const existingItem = await InventoryItem.findOne({ 
       serialNumber: trimmedSerialNumber,
-      categoryId: categoryId, // ตรวจสอบเฉพาะในหมวดหมู่เดียวกัน
+      itemName: itemName,        // ✅ ต้องเป็นชื่ออุปกรณ์เดียวกัน
+      categoryId: categoryId,    // ✅ และหมวดหมู่เดียวกัน
       deletedAt: { $exists: false }
     });
     
     if (existingItem) {
-      throw new Error(`Serial Number "${trimmedSerialNumber}" already exists in this category`);
+      throw new Error(`Serial Number "${trimmedSerialNumber}" มีอยู่แล้วสำหรับอุปกรณ์ "${itemName}"`);
     }
 
     // Check if SN exists in recycle bin
     const { checkSerialNumberInRecycleBin } = await import('./recycle-bin-helpers');
-    // อนุญาต SN ซ้ำข้าม "คนละชื่ออุปกรณ์" ดังนั้นตรวจเฉพาะภายในอุปกรณ์เดียวกัน (itemName+categoryId)
+    // ตรวจเฉพาะภายในอุปกรณ์เดียวกัน (itemName+categoryId)
     const recycleBinItem = await checkSerialNumberInRecycleBin(trimmedSerialNumber, { itemName, categoryId });
     
     if (recycleBinItem) {
-      throw new Error(`Serial Number "${trimmedSerialNumber}" exists in recycle bin for item: ${recycleBinItem.itemName} (รอกู้คืนใน 30 วัน)`);
+      throw new Error(`Serial Number "${trimmedSerialNumber}" อยู่ในถังขยะสำหรับอุปกรณ์: ${recycleBinItem.itemName} (รอกู้คืนใน 30 วัน)`);
     }
   }
 
   // Enhanced Phone Number validation for SIM cards
+  // ✅ FIX: เบอร์โทรศัพท์ต้องไม่ซ้ำในทุกหมวดหมู่ (ไม่ว่าจะเป็นซิมการ์ดชื่ออะไร)
   if (numberPhone && numberPhone.trim() !== '') {
     const trimmedNumberPhone = numberPhone.trim();
     
-    // Check for duplicate phone number in SIM card category
+    // Check for duplicate phone number in ALL inventory items (not just same category)
     const existingPhoneItem = await InventoryItem.findOne({ 
       numberPhone: trimmedNumberPhone,
-      categoryId: categoryId,
       deletedAt: { $exists: false }
     });
     
     if (existingPhoneItem) {
-      throw new Error(`Phone Number "${trimmedNumberPhone}" already exists in SIM card category`);
+      throw new Error(`เบอร์โทรศัพท์ "${trimmedNumberPhone}" มีอยู่แล้วในระบบ (อุปกรณ์: ${existingPhoneItem.itemName})`);
     }
 
     // ✅ Cross-validation: Check if phone number exists in User collection
@@ -178,13 +182,13 @@ export async function createInventoryItem(params: CreateItemParams) {
       throw new Error(`เบอร์โทรศัพท์ "${trimmedNumberPhone}" ถูกใช้โดยผู้ใช้: ${existingUser.firstName || ''} ${existingUser.lastName || ''} (${existingUser.office || ''})`);
     }
 
-    // Check if phone number exists in recycle bin
+    // Check if phone number exists in recycle bin (check all items, not limited to itemName)
     const { checkPhoneNumberInRecycleBin } = await import('./recycle-bin-helpers');
-    // อนุญาตเบอร์ซ้ำข้าม "คนละชื่ออุปกรณ์" ดังนั้นตรวจเฉพาะภายในอุปกรณ์เดียวกัน (itemName+categoryId)
-    const recycleBinPhoneItem = await checkPhoneNumberInRecycleBin(trimmedNumberPhone, { itemName, categoryId });
+    // เบอร์โทรศัพท์ต้องไม่ซ้ำเลย ไม่ว่าจะเป็นอุปกรณ์อะไร
+    const recycleBinPhoneItem = await checkPhoneNumberInRecycleBin(trimmedNumberPhone);
     
     if (recycleBinPhoneItem) {
-      throw new Error(`Phone Number "${trimmedNumberPhone}" exists in recycle bin for SIM card: ${recycleBinPhoneItem.itemName} (รอกู้คืนใน 30 วัน)`);
+      throw new Error(`เบอร์โทรศัพท์ "${trimmedNumberPhone}" อยู่ในถังขยะ (อุปกรณ์: ${recycleBinPhoneItem.itemName}) รอกู้คืนใน 30 วัน`);
     }
   }
 

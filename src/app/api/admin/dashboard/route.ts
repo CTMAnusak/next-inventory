@@ -89,7 +89,7 @@ export async function GET(request: NextRequest) {
       InventoryItem.countDocuments({ 'currentOwnership.ownerType': 'user_owned', 'sourceInfo.addedBy': 'user' }),
       // นับแถวสินค้าใกล้หมด (availableQuantity <= 2 และไม่มี serial number) - นับจำนวนแถว ไม่ใช่จำนวน items
       InventoryMaster.countDocuments({ 
-        availableQuantity: { $lte: 2, $gt: 0 }, // มีจำนวนคงเหลือ 1-2 ชิ้น
+        availableQuantity: { $lte: 2, $gte: 0 }, // มีจำนวนคงเหลือ 0-2 ชิ้น
         'itemDetails.withSerialNumber.count': 0, // ไม่มี Serial Number
         'itemDetails.withPhoneNumber.count': 0   // ไม่มีเบอร์โทรศัพท์
       }),
@@ -107,10 +107,10 @@ export async function GET(request: NextRequest) {
         deletedAt: { $exists: false }
       }),
       InventoryMaster.countDocuments({ 
-        availableQuantity: { $lte: 2, $gt: 0 }, // มีจำนวนคงเหลือ 1-2 ชิ้น
+        availableQuantity: { $lte: 2, $gte: 0 }, // มีจำนวนคงเหลือ 0-2 ชิ้น
         'itemDetails.withSerialNumber.count': 0, // ไม่มี Serial Number
         'itemDetails.withPhoneNumber.count': 0,   // ไม่มีเบอร์โทรศัพท์
-        lastUpdated: { $gte: startDate, $lte: endDate } // อิงตามช่วงเวลาที่อัปเดตล่าสุด
+        createdAt: { $gte: startDate, $lte: endDate } // อิงตามช่วงเวลาที่เพิ่มอุปกรณ์เข้ามาครั้งแรก
       }),
       
       // สำหรับกล่อง "สรุป" - User เพิ่มเองในช่วงเวลา
@@ -199,7 +199,7 @@ export async function GET(request: NextRequest) {
       requestsByUrgency: requestsByUrgencyWithPct
     };
 
-    // Cache the result for 5 minutes
+    // Cache the result for 30 seconds
     setCachedData(cacheKey, stats);
 
     return NextResponse.json(stats);

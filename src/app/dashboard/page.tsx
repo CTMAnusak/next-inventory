@@ -139,6 +139,9 @@ export default function DashboardPage() {
   // Force refresh function for manual refresh
   const refreshData = useCallback(async () => {
     setDataLoaded(false); // Reset loaded flag
+    // ✅ ดึง category configs ใหม่เพื่อให้ชื่อหมวดหมู่อัปเดต
+    await fetchCategories();
+    // ดึงข้อมูลอุปกรณ์ใหม่
     await fetchOwned();
   }, [fetchOwned]);
 
@@ -860,7 +863,7 @@ export default function DashboardPage() {
                     <td className="px-3 py-2 text-center border-b">
                       <div className="text-gray-900">{row.itemName}</div>
                     </td>
-                    <td className="px-3 py-2 text-center border-b"><div className="text-gray-900">{getCategoryName(row.categoryId || (row as any).categoryId || row.category)}</div></td>
+                    <td className="px-3 py-2 text-center border-b"><div className="text-gray-900">{getCategoryName(row.categoryId || (row as any).categoryId)}</div></td>
                     <td className="px-3 py-2 text-center border-b">
                       <div className="text-gray-900">
                         {row.conditionId ? getConditionName(row.conditionId) : ((row as any).conditionName || '-')}
@@ -915,8 +918,8 @@ export default function DashboardPage() {
                                 onClick={() => {
                                   const detailDataObj = {
                                     itemName: row.itemName,
-                                    categoryId: row.categoryId || row.category,
-                                    categoryName: getCategoryName(row.categoryId || row.category),
+                                    categoryId: row.categoryId,
+                                    categoryName: getCategoryName(row.categoryId),
                                     hasSerialItems,
                                     hasPhoneItems,
                                     hasNonSpecialItems: hasNonSpecialItems,
@@ -954,8 +957,8 @@ export default function DashboardPage() {
                                   onClick={() => {
                                     setDetailData({
                                       itemName: row.itemName,
-                                      categoryId: row.categoryId || row.category,
-                                      categoryName: getCategoryName(row.categoryId || row.category),
+                                      categoryId: row.categoryId,
+                                      categoryName: getCategoryName(row.categoryId),
                                       hasSerialItems,
                                       hasPhoneItems,
                                       hasNonSpecialItems: 0,
@@ -1030,7 +1033,7 @@ export default function DashboardPage() {
                                       console.log('🔍 Fetched item data for edit:', itemData);
                                       
                                       // สำหรับซิมการ์ด ใช้ numberPhone แทน serialNumber
-                                      const categoryId = itemData.categoryId || row.categoryId || row.category;
+                                      const categoryId = itemData.categoryId || row.categoryId;
                                       const isSimCard = categoryId === 'cat_sim_card';
                                       const serialNumberValue = isSimCard 
                                         ? (itemData.numberPhone || row.numberPhone || '')
@@ -1055,7 +1058,7 @@ export default function DashboardPage() {
                                       setForm(formData);
                                       setSelectedCategoryId(categoryId);
                                       // Fetch items in category for dropdown
-                                      await fetchItemsInCategory(itemData.categoryId || row.categoryId || row.category);
+                                      await fetchItemsInCategory(itemData.categoryId || row.categoryId);
                                       // Ensure the current item is in the available items list
                                       const itemName = itemData.itemName || row.itemName;
                                       setAvailableItems(prev => {
@@ -1066,7 +1069,7 @@ export default function DashboardPage() {
                                       });
                                     } else {
                                       // Fallback to row data if API fails
-                                      const categoryId = row.categoryId || row.category;
+                                      const categoryId = row.categoryId;
                                       const isSimCard = categoryId === 'cat_sim_card';
                                       const serialNumberValue = isSimCard 
                                         ? (row.numberPhone || '')
@@ -1088,7 +1091,7 @@ export default function DashboardPage() {
                                       });
                                       setSelectedCategoryId(categoryId);
                                       // Fetch items in category for dropdown
-                                      await fetchItemsInCategory(row.categoryId || row.category);
+                                      await fetchItemsInCategory(row.categoryId);
                                       // Ensure the current item is in the available items list
                                       setAvailableItems(prev => {
                                         if (!prev.includes(row.itemName)) {
@@ -1099,7 +1102,7 @@ export default function DashboardPage() {
                                     }
                                   } else {
                                     // Fallback to row data if no ID
-                                    const categoryId = row.categoryId || row.category;
+                                    const categoryId = row.categoryId;
                                     const isSimCard = categoryId === 'cat_sim_card';
                                     const serialNumberValue = isSimCard 
                                       ? (row.numberPhone || '')
@@ -1121,7 +1124,7 @@ export default function DashboardPage() {
                                     });
                                     setSelectedCategoryId(categoryId);
                                     // Fetch items in category for dropdown
-                                    await fetchItemsInCategory(row.categoryId || row.category);
+                                    await fetchItemsInCategory(row.categoryId);
                                     // Ensure the current item is in the available items list
                                     setAvailableItems(prev => {
                                       if (!prev.includes(row.itemName)) {

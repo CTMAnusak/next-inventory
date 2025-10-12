@@ -102,31 +102,34 @@ export async function POST(request: NextRequest) {
     const finalCategoryId = categoryId || category;
 
     // Check for duplicate serial number or phone number if provided
-    // 🔧 CRITICAL FIX: Allow duplicate serial numbers across different categories
+    // ✅ FIX: Allow duplicate serial numbers across different item names
+    // ตรวจสอบ SN ซ้ำเฉพาะในอุปกรณ์ชื่อเดียวกัน + หมวดหมู่เดียวกัน
     if (serialNumber) {
       const existingItem = await InventoryItem.findOne({ 
         serialNumber: serialNumber,
-        categoryId: finalCategoryId, // ตรวจสอบเฉพาะในหมวดหมู่เดียวกัน
-        status: { $ne: 'deleted' } // ✅ Exclude soft-deleted items
+        itemName: itemName,          // ✅ ต้องเป็นชื่ออุปกรณ์เดียวกัน
+        categoryId: finalCategoryId, // ✅ และหมวดหมู่เดียวกัน
+        deletedAt: { $exists: false } // ✅ Exclude soft-deleted items
       });
       if (existingItem) {
         return NextResponse.json(
-          { error: 'Serial Number นี้มีอยู่ในหมวดหมู่นี้แล้ว' },
+          { error: `Serial Number นี้มีอยู่แล้วสำหรับอุปกรณ์ "${itemName}"` },
           { status: 400 }
         );
       }
     }
     
     // Check for duplicate phone number for all categories that use phone numbers
+    // ✅ FIX: เบอร์โทรศัพท์ต้องไม่ซ้ำในทุกหมวดหมู่ (ไม่ว่าจะเป็นซิมการ์ดชื่ออะไร)
     if (numberPhone) {
-      // Check if phone number already exists in inventory items
+      // Check if phone number already exists in ALL inventory items
       const existingItem = await InventoryItem.findOne({ 
         numberPhone: numberPhone,
-        status: { $ne: 'deleted' } // ✅ Exclude soft-deleted items
+        deletedAt: { $exists: false } // ✅ Exclude soft-deleted items
       });
       if (existingItem) {
         return NextResponse.json(
-          { error: `เบอร์โทรศัพท์นี้มีอยู่ในระบบแล้วในคลัง: ${existingItem.itemName}` },
+          { error: `เบอร์โทรศัพท์นี้มีอยู่ในระบบแล้ว (อุปกรณ์: ${existingItem.itemName})` },
           { status: 400 }
         );
       }
