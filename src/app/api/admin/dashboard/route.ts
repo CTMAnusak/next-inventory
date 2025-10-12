@@ -6,7 +6,7 @@ import ReturnLog from '@/models/ReturnLog';
 import User from '@/models/User';
 import InventoryItem from '@/models/InventoryItem';
 import InventoryMaster from '@/models/InventoryMaster';
-import { getCachedData, setCachedData } from '@/lib/cache-utils';
+import { getCachedData, setCachedData, clearDashboardCache } from '@/lib/cache-utils';
 
 export async function GET(request: NextRequest) {
   try {
@@ -16,11 +16,18 @@ export async function GET(request: NextRequest) {
     const monthParam = searchParams.get('month');
     const year = parseInt(searchParams.get('year') || String(new Date().getFullYear()));
     const monthNumber = monthParam && monthParam !== 'all' ? parseInt(monthParam) : undefined;
+    const forceRefresh = searchParams.get('forceRefresh') === 'true';
 
     // Cache key based on query params
     const cacheKey = `dashboard_${year}_${monthParam || 'all'}`;
+    
+    // Clear cache if forceRefresh is requested
+    if (forceRefresh) {
+      clearDashboardCache();
+    }
+    
     const cached = getCachedData(cacheKey);
-    if (cached) {
+    if (cached && !forceRefresh) {
       return NextResponse.json(cached);
     }
 
@@ -72,7 +79,7 @@ export async function GET(request: NextRequest) {
         { $unwind: '$items' },
         { $count: 'total' }
       ]).then(result => result[0]?.total || 0),
-      // นับจำนวนรายการอุปกรณ์ทั้งหมดที่คืน (นับ items ไม่ใช่ documents)
+      // นับจำนวนรายการอุปกรณ์ทั้งหมดที่คืน (นับ items ทั้งหมด ไม่กรอง approvalStatus)
       ReturnLog.aggregate([
         { $unwind: '$items' },
         { $count: 'total' }
@@ -141,9 +148,10 @@ export async function GET(request: NextRequest) {
         { $project: { _id: 0, category: { $ifNull: ['$_id', 'อื่นๆ'] }, count: 1 } },
         { $sort: { count: -1 } }
       ]),
-      // requestsByUrgency in selected period
+      // requestsByUrgency in selected period (นับจำนวน items ไม่ใช่ documents)
       RequestLog.aggregate([
         { $match: { requestDate: { $gte: startDate, $lte: endDate } } },
+        { $unwind: '$items' }, // ✅ Unwind items เพื่อนับจำนวนรายการอุปกรณ์
         { $group: { _id: { $cond: [{ $eq: ['$urgency', 'very_urgent'] }, 'ด่วนมาก', 'ปกติ'] }, count: { $sum: 1 } } },
         { $project: { _id: 0, urgency: '$_id', count: 1 } },
         { $sort: { urgency: 1 } }

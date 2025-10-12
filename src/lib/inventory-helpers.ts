@@ -9,6 +9,7 @@ import InventoryMaster from '../models/InventoryMaster';
 import InventoryConfig from '../models/InventoryConfig';
 import TransferLog from '../models/TransferLog';
 import dbConnect from './mongodb';
+import { createDatabaseDate } from './thai-date-utils';
 
 // Types
 export interface CreateItemParams {
@@ -216,14 +217,14 @@ export async function createInventoryItem(params: CreateItemParams) {
     currentOwnership: {
       ownerType: initialOwnerType,
       userId: userId,
-      ownedSince: new Date(),
+      ownedSince: createDatabaseDate(),
       assignedBy: assignedBy
     },
     
     sourceInfo: {
       addedBy,
       addedByUserId,
-      dateAdded: new Date(),
+      dateAdded: createDatabaseDate(),
       initialOwnerType,
       acquisitionMethod: addedBy === 'user' ? 'self_reported' : 'admin_purchased',
       notes: cleanNotes
@@ -272,7 +273,7 @@ export async function createInventoryItem(params: CreateItemParams) {
           ownerType: initialOwnerType,
           userId: userId
         },
-        transferDate: new Date(),
+        transferDate: createDatabaseDate(),
         processedBy: addedByUserId || assignedBy || 'system',
         reason: cleanNotes || (addedBy === 'user' ? 'User reported existing equipment' : 'Admin added new equipment')
       });
@@ -331,14 +332,14 @@ export async function transferInventoryItem(params: TransferItemParams) {
   item.currentOwnership = {
     ownerType: toOwnerType,
     userId: toUserId,
-    ownedSince: new Date(),
+    ownedSince: createDatabaseDate(),
     assignedBy: toOwnerType === 'user_owned' ? processedBy : undefined
   };
 
   // Add transfer info
   item.transferInfo = {
     transferredFrom: fromOwnerType,
-    transferDate: new Date(),
+    transferDate: createDatabaseDate(),
     approvedBy: processedBy,
     requestId,
     returnId
@@ -381,7 +382,7 @@ export async function transferInventoryItem(params: TransferItemParams) {
       ownerType: toOwnerType,
       userId: toUserId
     },
-    transferDate: new Date(),
+    transferDate: createDatabaseDate(),
     processedBy,
     requestId,
     returnId,
@@ -604,7 +605,7 @@ export async function syncAllRelatedItemIds() {
         
         if (hasChanges) {
           master.relatedItemIds = currentRelatedIds;
-          master.lastUpdated = new Date();
+          master.lastUpdated = createDatabaseDate();
           await master.save();
           syncedCount++;
         }
@@ -666,7 +667,7 @@ export async function changeItemStatus(
       ownerType: item.currentOwnership.ownerType,
       userId: item.currentOwnership.userId
     },
-    transferDate: new Date(),
+    transferDate: createDatabaseDate(),
     processedBy: changedBy,
     reason: reason || `Status changed from ${oldStatusId}/${oldConditionId} to ${newStatusId}/${newConditionId}`
   });
@@ -738,7 +739,7 @@ export async function changeNonSNItemStatusWithPriority(
     for (const item of targetItems) {
       await InventoryItem.findByIdAndUpdate(item._id, {
         statusId: newStatusId,
-        updatedAt: new Date()
+        updatedAt: createDatabaseDate()
       });
     }
   }
@@ -765,7 +766,7 @@ export async function changeNonSNItemStatusWithPriority(
     for (const item of targetItems) {
       await InventoryItem.findByIdAndUpdate(item._id, {
         conditionId: newConditionId,
-        updatedAt: new Date()
+        updatedAt: createDatabaseDate()
       });
     }
   }
@@ -785,7 +786,7 @@ export async function changeNonSNItemStatusWithPriority(
       await InventoryItem.findByIdAndUpdate(item._id, {
         statusId: newStatusId,
         conditionId: newConditionId,
-        updatedAt: new Date()
+        updatedAt: createDatabaseDate()
       });
     }
   }
@@ -821,7 +822,7 @@ export async function changeNonSNItemStatusWithPriority(
         ownerType: item.currentOwnership.ownerType,
         userId: item.currentOwnership.userId
       },
-      transferDate: new Date(),
+      transferDate: createDatabaseDate(),
       processedBy: changedBy,
       reason: logReason
     });
@@ -847,7 +848,7 @@ export async function softDeleteInventoryItem(itemId: string, deletedBy: string,
   }
 
   // Soft delete the item
-  item.deletedAt = new Date();
+  item.deletedAt = createDatabaseDate();
   item.deleteReason = reason || 'Soft deleted by admin';
   const savedItem = await item.save();
 
@@ -900,7 +901,7 @@ export async function handleMasterItemDeletion(deletedItemId: string) {
     // อัปเดต masterItemId เป็น item ตัวใหม่
     const oldMasterItemId = master.masterItemId;
     master.masterItemId = (nextMasterItem._id as any).toString();
-    master.lastUpdated = new Date();
+    master.lastUpdated = createDatabaseDate();
     
     await master.save();
     
@@ -953,7 +954,7 @@ export async function restoreInventoryItem(itemId: string, restoredBy: string) {
       // เพิ่ม item กลับเข้า relatedItemIds
       if (!master.relatedItemIds.includes(itemId)) {
         master.relatedItemIds.push(itemId);
-        master.lastUpdated = new Date();
+        master.lastUpdated = createDatabaseDate();
         await master.save();
       }
     }
@@ -1185,13 +1186,13 @@ export async function updateEquipmentGroupName(itemId: string, newItemName: stri
       { 
         $set: { 
           itemName: newItemName,
-          updatedAt: new Date()
+          updatedAt: createDatabaseDate()
         } 
       }
     );
     
     // 4. อัปเดต InventoryMaster
-    master.lastUpdated = new Date();
+    master.lastUpdated = createDatabaseDate();
     master.lastUpdatedBy = updatedBy;
     await master.save();
     
@@ -1408,7 +1409,7 @@ export async function syncAdminStockItems(itemName: string, categoryId: string, 
       }
       
       if (updated) {
-        item.updatedAt = new Date();
+        item.updatedAt = createDatabaseDate();
         await item.save();
       }
     }

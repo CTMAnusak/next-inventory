@@ -17,6 +17,7 @@ import {
 } from 'lucide-react';
 import DatePicker from '@/components/DatePicker';
 import { toast } from 'react-hot-toast';
+import { formatEquipmentTrackingDate } from '@/lib/thai-date-utils';
 
 interface EquipmentTracking {
   _id: string;
@@ -611,21 +612,20 @@ export default function AdminEquipmentTrackingPage() {
                         {/* 6. วันที่เพิ่มอุปกรณ์ */}
                         <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900 text-center">
                           <div className="flex flex-col items-center">
-                            <span className="font-medium">
-                              {new Date(record.dateAdded || record.requestDate).toLocaleDateString('th-TH', {
-                                year: 'numeric',
-                                month: 'short',
-                                day: 'numeric',
-                                timeZone: 'Asia/Bangkok'
-                              })}
-                            </span>
-                            <span className="text-xs text-gray-500">
-                              {new Date(record.dateAdded || record.requestDate).toLocaleTimeString('th-TH', {
-                                hour: '2-digit',
-                                minute: '2-digit',
-                                timeZone: 'Asia/Bangkok'
-                              })}
-                            </span>
+                            {(() => {
+                              const dateObj = new Date(record.dateAdded || record.requestDate);
+                              const { dateString, timeString } = formatEquipmentTrackingDate(dateObj);
+                              return (
+                                <>
+                                  <span className="font-medium">
+                                    {dateString}
+                                  </span>
+                                  <span className="text-xs text-gray-500">
+                                    {timeString}
+                                  </span>
+                                </>
+                              );
+                            })()}
                           </div>
                         </td>
                         

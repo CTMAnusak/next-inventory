@@ -42,8 +42,9 @@ export async function GET(request: NextRequest) {
       userId: userId
     });
 
-    // Create a set of approved returned items to filter out
-    const returnedItems = new Set();
+    // Create a map of approved returned items with their approval timestamps
+    // Key: itemKey, Value: approvedAt timestamp
+    const returnedItemsMap = new Map();
     // Create a set of pending return items to mark
     const pendingReturnItems = new Set();
     
@@ -53,9 +54,15 @@ export async function GET(request: NextRequest) {
           ? `${item.itemId}-${item.serialNumber}` 
           : item.itemId;
         
-        // If approved, add to returned items (to filter out)
-        if (item.approvalStatus === 'approved') {
-          returnedItems.add(itemKey);
+        // If approved, store the approval timestamp
+        if (item.approvalStatus === 'approved' && item.approvedAt) {
+          // ✅ เก็บเฉพาะ Return Log ที่ใหม่ที่สุดสำหรับแต่ละ item
+          const existingApprovedAt = returnedItemsMap.get(itemKey);
+          const currentApprovedAt = new Date(item.approvedAt);
+          
+          if (!existingApprovedAt || currentApprovedAt > existingApprovedAt) {
+            returnedItemsMap.set(itemKey, currentApprovedAt);
+          }
         }
         // If pending, add to pending items (to mark with badge)
         else if (item.approvalStatus === 'pending' || !item.approvalStatus) {
@@ -64,10 +71,25 @@ export async function GET(request: NextRequest) {
       });
     });
 
-    // Filter out items that have been approved for return
+    // ✅ Filter out items that have been approved for return AFTER they were owned
+    // (i.e., only filter if return was approved AFTER the current ownership started)
     const availableItems = ownedItems.filter(item => {
       const itemKey = item.serialNumber ? `${item._id}-${item.serialNumber}` : item._id.toString();
-      return !returnedItems.has(itemKey);
+      
+      // Check if this item has a return log
+      const returnApprovedAt = returnedItemsMap.get(itemKey);
+      
+      if (!returnApprovedAt) {
+        // No return log → show item
+        return true;
+      }
+      
+      // Compare timestamps: only filter if return was approved AFTER current ownership
+      const ownedSince = new Date(item.currentOwnership?.ownedSince || 0);
+      
+      // ✅ If return was approved BEFORE current ownership → don't filter (old return log)
+      // ❌ If return was approved AFTER current ownership → filter (current return)
+      return returnApprovedAt < ownedSince;
     });
     
     // Get request logs to fetch delivery location

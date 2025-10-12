@@ -53,10 +53,13 @@ export default function AdminDashboardPage() {
     fetchStats();
   }, [selectedMonth, selectedYear]);
 
-  const fetchStats = async () => {
+  const fetchStats = async (forceRefresh: boolean = false) => {
     setLoading(true);
     try {
-      const response = await fetch(`/api/admin/dashboard?month=${selectedMonth}&year=${selectedYear}`);
+      const url = forceRefresh 
+        ? `/api/admin/dashboard?month=${selectedMonth}&year=${selectedYear}&forceRefresh=true`
+        : `/api/admin/dashboard?month=${selectedMonth}&year=${selectedYear}`;
+      const response = await fetch(url);
       if (response.ok) {
         const data = await response.json();
         setStats(data);
@@ -249,7 +252,7 @@ export default function AdminDashboardPage() {
                 </select>
               </div>
               <button
-                onClick={fetchStats}
+                onClick={() => fetchStats(true)}
                 disabled={loading}
                 className="flex items-center space-x-2 px-4 py-2 bg-blue-100 text-blue-700 rounded-lg hover:bg-blue-200 transition-colors disabled:opacity-50"
               >

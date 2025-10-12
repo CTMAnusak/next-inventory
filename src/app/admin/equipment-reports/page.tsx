@@ -546,8 +546,10 @@ export default function AdminEquipmentReportsPage() {
     if (activeTab === 'request') {
       (filtered as RequestLog[]).forEach((log) => {
         log.items.forEach((item, index) => {
-          // ✅ Check if THIS ITEM is approved (not the whole request)
-          const isItemApproved = ((item as any).assignedQuantity || 0) >= item.quantity;
+          // ✅ แก้ไข: ตรวจสอบว่ารายการเบิกยืนยันแล้วหรือยัง (pending ต้องอยู่บนสุด)
+          const assignedQty = (item as any).assignedQuantity || 0;
+          const requestedQty = item.quantity || 0;
+          const isItemApproved = assignedQty >= requestedQty;
           const group = isItemApproved ? 'approved' : 'pending';
           const date = (log as any).submittedAt || (log as any).updatedAt || (log as any).createdAt || (log as any).requestDate || (log as any).returnDate || Date.now();
           rows.push({ type: 'request', log, item, itemIndex: index, group, date: new Date(date) });
@@ -556,17 +558,24 @@ export default function AdminEquipmentReportsPage() {
     } else {
       (filtered as ReturnLog[]).forEach((log) => {
         log.items.forEach((item: any, index: number) => {
-          const group = item.approvalStatus === 'approved' ? 'approved' : 'pending';
+          // ✅ แก้ไข: ตรวจสอบว่ารายการยืนยันแล้วหรือยัง (pending ต้องอยู่บนสุด)
+          const isPending = item.approvalStatus !== 'approved';
+          const group = isPending ? 'pending' : 'approved';
           const dateValue = group === 'approved' ? (item.approvedAt || (log as any).updatedAt || log.returnDate) : (log.returnDate || (log as any).createdAt || (log as any).updatedAt);
           rows.push({ type: 'return', log, item, itemIndex: index, group, date: new Date(dateValue as any) });
         });
       });
     }
 
+    // ✅ เรียงลำดับ: 
+    // - pending (รอดำเนินการ) อยู่บนสุด → แสดงปุ่ม "เลือกอุปกรณ์และอนุมัติ" หรือ "ยืนยันการคืน"
+    // - approved (เสร็จสิ้นแล้ว) อยู่ด้านล่าง → แสดง "เสร็จสิ้น" หรือ "ยืนยันแล้ว"
+    // - ภายในแต่ละกลุ่ม เรียงตามวันที่ล่าสุดไปเก่าสุด
     const groupOrder = { pending: 0, approved: 1 } as const;
     rows.sort((a, b) => {
       const g = groupOrder[a.group as 'pending' | 'approved'] - groupOrder[b.group as 'pending' | 'approved'];
       if (g !== 0) return g;
+      // เรียงตามวันที่ล่าสุดไปเก่าสุด
       return (b.date as Date).getTime() - (a.date as Date).getTime();
     });
 
@@ -980,15 +989,43 @@ export default function AdminEquipmentReportsPage() {
                         {/* Phone Number */}
                         <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500 text-center">
                           <div className="flex flex-col gap-1">
-                            {Array.isArray(item.assignedPhoneNumbers) && item.assignedPhoneNumbers.length > 0 ? (
-                              item.assignedPhoneNumbers.map((phone: string, idx: number) => (
-                                <span key={idx} className="text-xs bg-blue-100 text-blue-800 px-2 py-1 rounded">
-                                  {phone}
-                                </span>
-                              ))
-                            ) : (
-                              <span>-</span>
-                            )}
+                            {(() => {
+                              // ✅ ถ้าไม่ใช่ซิมการ์ด แสดง "-"
+                              const isSimCard = item.categoryId === 'cat_sim_card';
+                              
+                              if (!isSimCard) {
+                                return <span>-</span>;
+                              }
+                              
+                              // ✅ CRITICAL FIX: ถ้ารายการอนุมัติแล้ว ให้แสดงเฉพาะ assignedPhoneNumbers
+                              // (ไม่ว่าจะมีเบอร์หรือไม่มี - ถ้าไม่มีแสดง "-")
+                              const isApproved = (item as any).itemApproved || ((item as any).assignedQuantity && (item as any).assignedQuantity > 0);
+                              
+                              if (isApproved) {
+                                // แสดง assignedPhoneNumbers (ที่แอดมินเลือกจริง)
+                                if (Array.isArray(item.assignedPhoneNumbers) && item.assignedPhoneNumbers.length > 0) {
+                                  return item.assignedPhoneNumbers.map((phone: string, idx: number) => (
+                                    <span key={idx} className="text-xs bg-green-100 text-green-800 px-2 py-1 rounded">
+                                      {phone}
+                                    </span>
+                                  ));
+                                } else {
+                                  // แอดมินเลือกซิมการ์ดที่ไม่มีเบอร์
+                                  return <span>-</span>;
+                                }
+                              } else {
+                                // ยังไม่อนุมัติ - แสดง serialNumbers (ที่ผู้ใช้เลือกมา - สำหรับซิมการ์ดจะเป็นเบอร์โทรศัพท์)
+                                if (Array.isArray(item.serialNumbers) && item.serialNumbers.length > 0) {
+                                  return item.serialNumbers.map((phone: string, idx: number) => (
+                                    <span key={idx} className="text-xs bg-orange-100 text-orange-800 px-2 py-1 rounded">
+                                      {phone}
+                                    </span>
+                                  ));
+                                } else {
+                                  return <span>-</span>;
+                                }
+                              }
+                            })()}
                           </div>
                         </td>
                         {/* จำนวน */}

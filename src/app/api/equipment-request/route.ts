@@ -6,6 +6,7 @@ import InventoryMaster from '@/models/InventoryMaster';
 import InventoryItem from '@/models/InventoryItem';
 import InventoryConfig from '@/models/InventoryConfig';
 import { findAvailableItems } from '@/lib/inventory-helpers';
+import { createDatabaseDate } from '@/lib/thai-date-utils';
 
 export async function POST(request: NextRequest) {
   try {
@@ -193,7 +194,7 @@ export async function POST(request: NextRequest) {
       requesterDepartment: requestData.department || undefined,
       requesterPhone: requestData.phone || undefined,
       requesterOffice: requestData.office || undefined,
-      requestDate: new Date(requestData.requestDate),
+      requestDate: createDatabaseDate(),
       urgency: requestData.urgency,
       deliveryLocation: requestData.deliveryLocation,
       items: validatedItems,

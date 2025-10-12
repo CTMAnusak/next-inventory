@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useRef, useEffect } from 'react';
-import { Calendar, X } from 'lucide-react';
+import { Calendar, X, ChevronLeft, ChevronRight } from 'lucide-react';
 
 interface DatePickerProps {
   value: string;
@@ -22,6 +22,9 @@ export default function DatePicker({
   const [displayValue, setDisplayValue] = useState('');
   const [inputValue, setInputValue] = useState('');
   const [isEditing, setIsEditing] = useState(false);
+  const [currentViewDate, setCurrentViewDate] = useState(() => {
+    return value ? new Date(value) : new Date();
+  });
   const calendarRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
 
@@ -30,12 +33,14 @@ export default function DatePicker({
     if (!value) {
       setDisplayValue('');
       setInputValue('');
+      setCurrentViewDate(new Date());
     } else {
       const date = new Date(value);
       if (!isNaN(date.getTime())) {
         const formattedDate = formatDateForDisplay(date);
         setDisplayValue(formattedDate);
         setInputValue(formattedDate);
+        setCurrentViewDate(new Date(date));
       }
     }
   }, [value]);
@@ -63,7 +68,11 @@ export default function DatePicker({
   };
 
   const formatDateForInput = (date: Date): string => {
-    return date.toISOString().split('T')[0];
+    // Use local date to avoid timezone issues
+    const year = date.getFullYear();
+    const month = (date.getMonth() + 1).toString().padStart(2, '0');
+    const day = date.getDate().toString().padStart(2, '0');
+    return `${year}-${month}-${day}`;
   };
 
   const parseDateFromDisplay = (displayStr: string): Date | null => {
@@ -134,6 +143,7 @@ export default function DatePicker({
 
   const handleTodayClick = () => {
     const today = new Date();
+    setCurrentViewDate(new Date(today));
     handleDateSelect(today);
   };
 
@@ -146,9 +156,8 @@ export default function DatePicker({
   };
 
   const generateCalendarDays = () => {
-    const currentDate = value ? new Date(value) : new Date();
-    const year = currentDate.getFullYear();
-    const month = currentDate.getMonth();
+    const year = currentViewDate.getFullYear();
+    const month = currentViewDate.getMonth();
     
     const firstDay = new Date(year, month, 1);
     const lastDay = new Date(year, month + 1, 0);
@@ -184,6 +193,39 @@ export default function DatePicker({
 
   const weekDays = ['อา', 'จ', 'อ', 'พ', 'พฤ', 'ศ', 'ส'];
 
+  // Navigation functions
+  const navigateToPreviousMonth = () => {
+    setCurrentViewDate(prev => {
+      const newDate = new Date(prev);
+      newDate.setMonth(prev.getMonth() - 1);
+      return newDate;
+    });
+  };
+
+  const navigateToNextMonth = () => {
+    setCurrentViewDate(prev => {
+      const newDate = new Date(prev);
+      newDate.setMonth(prev.getMonth() + 1);
+      return newDate;
+    });
+  };
+
+  const navigateToPreviousYear = () => {
+    setCurrentViewDate(prev => {
+      const newDate = new Date(prev);
+      newDate.setFullYear(prev.getFullYear() - 1);
+      return newDate;
+    });
+  };
+
+  const navigateToNextYear = () => {
+    setCurrentViewDate(prev => {
+      const newDate = new Date(prev);
+      newDate.setFullYear(prev.getFullYear() + 1);
+      return newDate;
+    });
+  };
+
   return (
     <div className={`relative ${className}`}>
       <div className="relative">
@@ -216,37 +258,55 @@ export default function DatePicker({
       {isOpen && (
         <div
           ref={calendarRef}
-          className="absolute z-50 mt-1 bg-white border border-gray-300 rounded-lg shadow-lg p-4 min-w-[280px]"
+          className="absolute z-50 mt-1 bg-white border border-gray-300 rounded-lg shadow-lg p-4 min-w-[320px]"
         >
           {/* Calendar Header */}
           <div className="flex items-center justify-between mb-4">
-            <button
-              type="button"
-              onClick={() => {
-                const currentDate = value ? new Date(value) : new Date();
-                const newDate = new Date(currentDate.getFullYear(), currentDate.getMonth() - 1, 1);
-                handleDateSelect(newDate);
-              }}
-              className="p-1 hover:bg-gray-100 rounded"
-            >
-              ‹
-            </button>
-            <div className="text-center">
-              <div className="font-semibold text-gray-900">
-                {monthNames[value ? new Date(value).getMonth() : new Date().getMonth()]} {value ? new Date(value).getFullYear() : new Date().getFullYear()}
-              </div>
+            {/* Year Navigation */}
+            <div className="flex items-center space-x-2">
+              <button
+                type="button"
+                onClick={navigateToPreviousYear}
+                className="p-1 hover:bg-gray-100 rounded text-gray-600 hover:text-gray-800 transition-colors"
+                title="ปีก่อนหน้า"
+              >
+                <ChevronLeft className="h-4 w-4" />
+              </button>
+              <span className="text-sm font-medium text-gray-700 min-w-[3rem] text-center">
+                {currentViewDate.getFullYear()}
+              </span>
+              <button
+                type="button"
+                onClick={navigateToNextYear}
+                className="p-1 hover:bg-gray-100 rounded text-gray-600 hover:text-gray-800 transition-colors"
+                title="ปีถัดไป"
+              >
+                <ChevronRight className="h-4 w-4" />
+              </button>
             </div>
-            <button
-              type="button"
-              onClick={() => {
-                const currentDate = value ? new Date(value) : new Date();
-                const newDate = new Date(currentDate.getFullYear(), currentDate.getMonth() + 1, 1);
-                handleDateSelect(newDate);
-              }}
-              className="p-1 hover:bg-gray-100 rounded"
-            >
-              ›
-            </button>
+
+            {/* Month Navigation */}
+            <div className="flex items-center space-x-2">
+              <button
+                type="button"
+                onClick={navigateToPreviousMonth}
+                className="p-1 hover:bg-gray-100 rounded text-gray-600 hover:text-gray-800 transition-colors"
+                title="เดือนก่อนหน้า"
+              >
+                <ChevronLeft className="h-4 w-4" />
+              </button>
+              <span className="font-semibold text-gray-900 text-lg min-w-[6rem] text-center">
+                {monthNames[currentViewDate.getMonth()]}
+              </span>
+              <button
+                type="button"
+                onClick={navigateToNextMonth}
+                className="p-1 hover:bg-gray-100 rounded text-gray-600 hover:text-gray-800 transition-colors"
+                title="เดือนถัดไป"
+              >
+                <ChevronRight className="h-4 w-4" />
+              </button>
+            </div>
           </div>
 
           {/* Week Days */}
@@ -285,20 +345,29 @@ export default function DatePicker({
             <button
               type="button"
               onClick={handleTodayClick}
-              className="px-3 py-1 text-sm text-blue-600 hover:bg-blue-50 rounded"
+              className="px-3 py-1 text-sm text-blue-600 hover:bg-blue-50 rounded transition-colors"
             >
               วันนี้
             </button>
-            {value && (
+            <div className="flex space-x-2">
               <button
                 type="button"
-                onClick={handleClearClick}
-                className="px-3 py-1 text-sm text-red-600 hover:bg-red-50 rounded flex items-center gap-1"
+                onClick={() => setCurrentViewDate(new Date())}
+                className="px-3 py-1 text-sm text-gray-600 hover:bg-gray-50 rounded transition-colors"
               >
-                <X className="h-3 w-3" />
-                ล้าง
+                เดือนนี้
               </button>
-            )}
+              {value && (
+                <button
+                  type="button"
+                  onClick={handleClearClick}
+                  className="px-3 py-1 text-sm text-red-600 hover:bg-red-50 rounded flex items-center gap-1 transition-colors"
+                >
+                  <X className="h-3 w-3" />
+                  ล้าง
+                </button>
+              )}
+            </div>
           </div>
         </div>
       )}

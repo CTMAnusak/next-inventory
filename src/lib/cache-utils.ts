@@ -8,7 +8,7 @@ const CACHE_DURATIONS = {
   holdings: 2 * 60 * 1000,      // 2 minutes - user holdings change less frequently
   inventory: 1 * 60 * 1000,     // 1 minute - inventory changes moderately
   config: 5 * 60 * 1000,        // 5 minutes - config changes rarely
-  dashboard: 5 * 60 * 1000,     // 5 minutes - dashboard stats change slowly
+  dashboard: 30 * 1000,         // 30 seconds - dashboard stats need to be up-to-date
   default: 30 * 1000            // 30 seconds - fallback
 };
 
@@ -16,6 +16,16 @@ const CACHE_DURATIONS = {
 export function clearUserCache(userId: string) {
   const cacheKey = `holdings_${userId}`;
   globalCache.delete(cacheKey);
+}
+
+// Function to clear dashboard cache
+export function clearDashboardCache() {
+  // Delete all keys that start with 'dashboard_'
+  for (const key of globalCache.keys()) {
+    if (key.startsWith('dashboard_')) {
+      globalCache.delete(key);
+    }
+  }
 }
 
 // Function to clear all caches

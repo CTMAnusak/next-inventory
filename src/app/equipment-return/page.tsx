@@ -85,6 +85,7 @@ export default function EquipmentReturnPage() {
   const [validationErrors, setValidationErrors] = useState<{[key: string]: string}>({});
   const [ownedEquipment, setOwnedEquipment] = useState<OwnedEquipment[]>([]);
   const [filteredEquipment, setFilteredEquipment] = useState<OwnedEquipment[]>([]);
+  const [isLoadingEquipment, setIsLoadingEquipment] = useState(false);
   
   // Form data including personal info for branch users
   const [formData, setFormData] = useState({
@@ -301,6 +302,7 @@ export default function EquipmentReturnPage() {
 
   const fetchUserItems = async () => {
     try {
+      setIsLoadingEquipment(true);
       // Use appropriate data based on user type
       const firstName = user?.userType === 'individual' ? user.firstName : formData.firstName;
       const lastName = user?.userType === 'individual' ? user.lastName : formData.lastName;
@@ -386,6 +388,8 @@ export default function EquipmentReturnPage() {
       console.error('Error fetching owned equipment:', e);
       setOwnedEquipment([]);
       setFilteredEquipment([]);
+    } finally {
+      setIsLoadingEquipment(false);
     }
   };
 
@@ -1059,8 +1063,11 @@ export default function EquipmentReturnPage() {
 
             {/* Return Items */}
             <div className='mb-10'>
-              <label className="block text-sm font-medium text-gray-700 mb-4">
+              <label className="text-sm font-medium text-gray-700 mb-4 flex items-center gap-2">
                 รายการอุปกรณ์ที่ต้องการคืน *
+                {isLoadingEquipment && (
+                  <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-blue-600"></div>
+                )}
               </label>
 
               <div className="border border-gray-200 rounded-lg p-4 mb-4">

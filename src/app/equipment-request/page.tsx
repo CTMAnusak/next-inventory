@@ -41,6 +41,7 @@ export default function EquipmentRequestPage() {
   const [validationErrors, setValidationErrors] = useState<{[key: string]: string}>({});
   const [inventoryItems, setInventoryItems] = useState<InventoryItem[]>([]);
   const [categoryConfigs, setCategoryConfigs] = useState<ICategoryConfig[]>([]);
+  const [isLoadingEquipment, setIsLoadingEquipment] = useState(false);
   
   // Form data including personal info for branch users
   const [formData, setFormData] = useState({
@@ -90,6 +91,7 @@ export default function EquipmentRequestPage() {
 
   const fetchInventoryItems = async () => {
     try {
+      setIsLoadingEquipment(true);
       const configResponse = await fetch('/api/admin/inventory/config');
       
       if (configResponse.ok) {
@@ -139,6 +141,8 @@ export default function EquipmentRequestPage() {
       }
     } catch (error) {
       console.error('Error fetching inventory:', error);
+    } finally {
+      setIsLoadingEquipment(false);
     }
   };
 
@@ -531,8 +535,11 @@ export default function EquipmentRequestPage() {
 
             {/* Equipment Items */}
             <div className='mb-10'>
-              <label className="block text-sm font-medium text-gray-700 mb-4">
+              <label className="text-sm font-medium text-gray-700 mb-4 flex items-center gap-2">
                 รายการอุปกรณ์ที่ต้องการเบิก *
+                {isLoadingEquipment && (
+                  <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-blue-600"></div>
+                )}
               </label>
 
               <div className="border border-gray-200 rounded-lg p-4 mb-4">

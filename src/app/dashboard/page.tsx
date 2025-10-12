@@ -44,6 +44,7 @@ export default function DashboardPage() {
   const [ownedLoading, setOwnedLoading] = useState(false);
   const [dataLoaded, setDataLoaded] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [isLoadingItems, setIsLoadingItems] = useState(false);
   
   // Simple Error Modal State
   const [showSimpleError, setShowSimpleError] = useState(false);
@@ -213,6 +214,7 @@ export default function DashboardPage() {
 
   const fetchItemsInCategory = async (categoryId: string) => {
     try {
+      setIsLoadingItems(true);
       // ✅ ใช้ API ใหม่ที่กรองเฉพาะอุปกรณ์ที่มีสถานะ "มี" และสภาพ "ใช้งานได้"
       const res = await fetch(`/api/user/available-from-stock?categoryId=${encodeURIComponent(categoryId)}`);
       if (res.ok) {
@@ -235,6 +237,8 @@ export default function DashboardPage() {
     } catch (error) {
       console.error('Failed to load category items:', error);
       setAvailableItems([]);
+    } finally {
+      setIsLoadingItems(false);
     }
   };
 
@@ -978,7 +982,7 @@ export default function DashboardPage() {
                         {/* ถ้ามี pending return ให้แสดง badge พร้อมปุ่มยกเลิก */}
                         {row.hasPendingReturn ? (
                           <>
-                            <div className="px-3 py-1.5 text-xs font-medium text-orange-700 bg-orange-100 border border-orange-300 rounded-full">
+                            <div className="px-3 py-1.5 text-xs font-medium text-white bg-orange-500 rounded-lg">
                               รออนุมัติคืน
                             </div>
                             <button
@@ -1340,15 +1344,39 @@ export default function DashboardPage() {
                 {/* Step 2: Select Item (only if category is selected) */}
                 {selectedCategoryId && (
                   <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">อุปกรณ์ *</label>
+                    <label className="flex items-center gap-2 text-sm font-medium text-gray-700 mb-1">
+                      อุปกรณ์ *
+                      {isLoadingItems && (
+                        <svg 
+                          className="animate-spin h-4 w-4 text-blue-600" 
+                          xmlns="http://www.w3.org/2000/svg" 
+                          fill="none" 
+                          viewBox="0 0 24 24"
+                        >
+                          <circle 
+                            className="opacity-25" 
+                            cx="12" 
+                            cy="12" 
+                            r="10" 
+                            stroke="currentColor" 
+                            strokeWidth="4"
+                          ></circle>
+                          <path 
+                            className="opacity-75" 
+                            fill="currentColor" 
+                            d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"
+                          ></path>
+                        </svg>
+                      )}
+                    </label>
                     <select
                       value={showNewItemInput ? 'new' : form.itemName}
                       onChange={(e) => handleItemSelection(e.target.value)}
                       className={`w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 ${editItemId ? 'bg-gray-100 cursor-not-allowed' : ''}`}
                       required
-                      disabled={!!editItemId}
+                      disabled={!!editItemId || isLoadingItems}
                     >
-                      <option value="">เลือกอุปกรณ์</option>
+                      <option value="">{isLoadingItems ? 'กำลังโหลด...' : 'เลือกอุปกรณ์'}</option>
                       {availableItems.map((item) => (
                         <option key={item} value={item}>{item}</option>
                       ))}
