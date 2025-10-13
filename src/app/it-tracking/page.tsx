@@ -42,6 +42,9 @@ export default function ITTrackingPage() {
   const [showApprovalModal, setShowApprovalModal] = useState(false);
   const [approvalAction, setApprovalAction] = useState<'approve' | 'reject' | null>(null);
   const [rejectionReason, setRejectionReason] = useState('');
+  const [activeTab, setActiveTab] = useState<'open' | 'closed'>('open');
+  const [currentPage, setCurrentPage] = useState(1);
+  const itemsPerPage = 20;
 
   useEffect(() => {
     if (user) {
@@ -118,18 +121,38 @@ export default function ITTrackingPage() {
     fetchUserIssues();
   };
 
+  // Filter issues based on active tab
+  const filteredIssues = issues.filter(issue => {
+    if (activeTab === 'open') {
+      return issue.status !== 'closed';
+    } else {
+      return issue.status === 'closed';
+    }
+  }).sort((a, b) => new Date(b.reportDate).getTime() - new Date(a.reportDate).getTime());
+
+  // Pagination
+  const totalPages = Math.ceil(filteredIssues.length / itemsPerPage);
+  const startIndex = (currentPage - 1) * itemsPerPage;
+  const endIndex = startIndex + itemsPerPage;
+  const paginatedIssues = filteredIssues.slice(startIndex, endIndex);
+
+  // Reset to page 1 when changing tabs
+  useEffect(() => {
+    setCurrentPage(1);
+  }, [activeTab]);
+
   const getStatusIcon = (status: string) => {
     switch (status) {
       case 'pending':
-        return <Clock className="w-6 h-6 text-yellow-500" />;
+        return <Clock className="w-3.5 h-3.5" />;
       case 'in_progress':
-        return <AlertCircle className="w-6 h-6 text-blue-500" />;
+        return <AlertCircle className="w-3.5 h-3.5" />;
       case 'completed':
-        return <AlertCircle className="w-6 h-6 text-orange-500" />;
+        return <AlertCircle className="w-3.5 h-3.5" />;
       case 'closed':
-        return <CheckCircle className="w-6 h-6 text-green-500" />;
+        return <CheckCircle className="w-3.5 h-3.5" />;
       default:
-        return <XCircle className="w-6 h-6 text-red-500" />;
+        return <XCircle className="w-3.5 h-3.5" />;
     }
   };
 
@@ -150,10 +173,10 @@ export default function ITTrackingPage() {
 
   return (
     <Layout>
-      <div className="max-w-7xl mx-auto">
-        <div className="bg-white rounded-lg shadow-md p-6">
+      <div className="max-w-[1600px] mx-auto px-4">
+        <div className="bg-white rounded-lg shadow-lg">
           {/* Header */}
-          <div className="flex flex-col sm:flex-row items-center justify-between mb-6 gap-4 sm:gap-0">
+          <div className="flex flex-col sm:flex-row items-center justify-between p-6 pb-4 gap-4 sm:gap-0">
             <h1 className="text-2xl font-bold text-gray-900">รายการแจ้งปัญหา IT ของคุณ</h1>
             <button
               onClick={handleRefresh}
@@ -165,156 +188,200 @@ export default function ITTrackingPage() {
             </button>
           </div>
 
+          {/* Tabs */}
+          <div className=" border-gray-200">
+            <nav className="flex mb-2 px-6">
+              <button
+                onClick={() => setActiveTab('open')}
+                className={`py-4 px-6 text-sm font-medium border-b-2 transition-colors ${
+                  activeTab === 'open'
+                    ? 'border-blue-600 text-blue-600'
+                    : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
+                }`}
+              >
+                งานที่ยังไม่ปิด ({issues.filter(i => i.status !== 'closed').length})
+              </button>
+              <button
+                onClick={() => setActiveTab('closed')}
+                className={`py-4 px-6 text-sm font-medium border-b-2 transition-colors ${
+                  activeTab === 'closed'
+                    ? 'border-blue-600 text-blue-600'
+                    : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
+                }`}
+              >
+                งานที่ปิดแล้ว ({issues.filter(i => i.status === 'closed').length})
+              </button>
+            </nav>
+          </div>
+
           {/* Loading State */}
           {isLoading && (
-            <div className="flex justify-center items-center py-8">
+            <div className="flex justify-center items-center py-12">
               <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600"></div>
               <span className="ml-2 text-gray-600">กำลังโหลดข้อมูล...</span>
             </div>
           )}
 
-          {/* Issues List */}
-          {!isLoading && issues.length > 0 && (
-            <div className="space-y-4">
-              {issues.map((issue) => (
-                <div
-                  key={issue._id}
-                  className="border border-gray-200 rounded-lg p-4 hover:border-gray-300 transition-colors"
-                >
-                  <div className="flex items-start justify-between">
-                    <div className="flex-1">
-                      <div className="flex items-center gap-3 mb-3">
-                        <h3 className="text-lg font-semibold text-gray-900">
-                          {issue.issueId}
-                        </h3>
-                        <div className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium border ${getStatusColor(issue.status)}`}>
-                          {getStatusIcon(issue.status)}
-                          <span className="ml-1">{issue.statusText}</span>
-                        </div>
+          {/* Table */}
+          {!isLoading && paginatedIssues.length > 0 && (
+            <div className="table-container p-2" >
+              <table className="w-full shadow-xl" style={{boxShadow: 'rgba(100, 100, 111, 0.2) 0px 7px 29px 0px'}}>
+                <thead className="bg-gradient-to-r from-blue-600 to-blue-700 border-b-2 border-blue-800">
+                  <tr>
+                    <th className="px-4 py-3 text-center text-xs font-semibold text-white uppercase tracking-wider whitespace-nowrap border-r border-blue-500">Issue ID</th>
+                    <th className="px-4 py-3 text-center text-xs font-semibold text-white uppercase tracking-wider whitespace-nowrap border-r border-blue-500">ความเร่งด่วน</th>
+                    <th className="px-4 py-3 text-center text-xs font-semibold text-white uppercase tracking-wider whitespace-nowrap border-r border-blue-500">ชื่อ-นามสกุล</th>
+                    <th className="px-4 py-3 text-center text-xs font-semibold text-white uppercase tracking-wider whitespace-nowrap border-r border-blue-500">เบอร์โทรศัพท์</th>
+                    <th className="px-4 py-3 text-center text-xs font-semibold text-white uppercase tracking-wider whitespace-nowrap border-r border-blue-500">อีเมล</th>
+                    <th className="px-4 py-3 text-center text-xs font-semibold text-white uppercase tracking-wider whitespace-nowrap border-r border-blue-500">หัวข้อปัญหา</th>
+                    <th className="px-4 py-3 text-center text-xs font-semibold text-white uppercase tracking-wider whitespace-nowrap border-r border-blue-500">ผู้รับผิดชอบ</th>
+                    <th className="px-4 py-3 text-center text-xs font-semibold text-white uppercase tracking-wider whitespace-nowrap border-r border-blue-500">สถานะปัจจุบัน</th>
+                    <th className="px-4 py-3 text-center text-xs font-semibold text-white uppercase tracking-wider whitespace-nowrap">รายละเอียด</th>
+                  </tr>
+                </thead>
+                <tbody className="bg-white divide-y divide-blue-100">
+                  {paginatedIssues.map((issue) => (
+                    <tr key={issue._id} className="hover:bg-blue-50 transition-colors">
+                      {/* Issue ID */}
+                      <td className="px-4 py-3 whitespace-nowrap text-sm font-semibold text-blue-700 text-center border-r border-gray-200">
+                        {issue.issueId}
+                      </td>
+                      
+                      {/* ความเร่งด่วน */}
+                      <td className="px-4 py-3 whitespace-nowrap text-center border-r border-gray-200">
                         <span className={`inline-flex px-2 py-1 text-xs font-medium rounded-full ${
                           issue.urgency === 'very_urgent' 
-                            ? 'bg-red-100 text-red-800'
-                            : 'bg-gray-100 text-gray-800'
+                            ? 'bg-red-100 text-red-800 border border-red-300'
+                            : 'bg-gray-100 text-gray-700 border border-gray-300'
                         }`}>
                           {issue.urgency === 'very_urgent' ? 'ด่วนมาก' : 'ปกติ'}
                         </span>
-                      </div>
-
-                      {/* ข้อมูลผู้แจ้ง */}
-                      <div className="bg-gray-50 rounded-lg p-3 mb-3 border border-gray-200">
-                        <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-                          <div>
-                            <p className="text-xs text-gray-500">ชื่อ-นามสกุล</p>
-                            <p className="text-sm font-medium text-gray-900">{issue.firstName} {issue.lastName}</p>
-                          </div>
-                          <div>
-                            <p className="text-xs text-gray-500">เบอร์โทรศัพท์</p>
-                            <p className="text-sm font-medium text-gray-900">{issue.phone}</p>
-                          </div>
-                          <div>
-                            <p className="text-xs text-gray-500">อีเมล</p>
-                            <p className="text-sm font-medium text-gray-900">{issue.email}</p>
-                          </div>
-                        </div>
-                      </div>
+                      </td>
                       
-                      <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-3">
-                        <div>
-                          <p className="text-sm text-gray-600">หัวข้อปัญหา</p>
-                          <p className="text-gray-900">
-                            {issue.issueCategory}
-                            {issue.customCategory && ` (${issue.customCategory})`}
-                          </p>
-                        </div>
-                        <div>
-                          <p className="text-sm text-gray-600">วันที่แจ้ง</p>
-                          <p className="text-gray-900">
-                            {new Date(issue.reportDate).toLocaleDateString('th-TH', { timeZone: 'Asia/Bangkok' })} {' '}
-                            {new Date(issue.reportDate).toLocaleTimeString('th-TH', { 
-                              hour: '2-digit', 
-                              minute: '2-digit',
-                              timeZone: 'Asia/Bangkok'
-                            })}
-                          </p>
-                        </div>
-                      </div>
+                      {/* ชื่อ-นามสกุล */}
+                      <td className="px-4 py-3 whitespace-nowrap text-sm text-gray-900 text-center border-r border-gray-200">
+                        {issue.firstName} {issue.lastName}
+                      </td>
                       
-                      {/* แสดงข้อมูล IT Admin ที่รับงาน */}
-                      <div className="mb-3 p-3 rounded-lg border">
-                        {issue.assignedAdmin && (issue.status === 'in_progress' || issue.status === 'completed' || issue.status === 'closed') ? (
-                          <div className="bg-blue-50 border-blue-200 p-3 rounded-lg">
-                            <div className="flex items-center space-x-2">
-                              <div className="w-2 h-2 bg-blue-500 rounded-full"></div>
-                              <p className="text-sm font-medium text-blue-700">IT Admin ผู้รับผิดชอบ</p>
-                            </div>
-                            <p className="text-blue-900 font-semibold mt-1">
-                              {issue.assignedAdmin.name}
-                            </p>
-                            <p className="text-blue-600 text-sm">
-                              {issue.assignedAdmin.email}
-                            </p>
+                      {/* เบอร์โทรศัพท์ */}
+                      <td className="px-4 py-3 whitespace-nowrap text-sm text-gray-900 text-center border-r border-gray-200">
+                        {issue.phone}
+                      </td>
+                      
+                      {/* อีเมล */}
+                      <td className="px-4 py-3 text-sm text-gray-900 max-w-[200px] truncate text-center border-r border-gray-200">
+                        {issue.email}
+                      </td>
+                      
+                      {/* หัวข้อปัญหา */}
+                      <td className="px-4 py-3 text-sm text-gray-900 max-w-[180px] text-center border-r border-gray-200">
+                        <div className="line-clamp-2">
+                          {issue.issueCategory}
+                          {issue.customCategory && ` (${issue.customCategory})`}
+                        </div>
+                      </td>
+                      
+                      {/* ผู้รับผิดชอบ */}
+                      <td className="px-4 py-3 whitespace-nowrap text-sm text-center border-r border-gray-200">
+                        {issue.assignedAdmin?.name ? (
+                          <div className="text-blue-700 font-medium">
+                            {issue.assignedAdmin.name}
                           </div>
                         ) : (
-                          <div className="bg-yellow-50 border-yellow-200 p-3 rounded-lg">
-                            <div className="flex items-center space-x-2">
-                              <Clock className="w-4 h-4 text-yellow-600" />
-                              <p className="text-sm font-medium text-yellow-700">ผู้รับผิดชอบ</p>
-                            </div>
-                            <p className="text-yellow-900 font-semibold mt-1">
-                              รอแอดมินรับงาน
-                            </p>
+                          <div className="text-yellow-700 font-medium">
+                            รอ Admin รับงาน
                           </div>
                         )}
-                      </div>
+                      </td>
+                      
+                      {/* สถานะปัจจุบัน */}
+                      <td className="px-4 py-3 whitespace-nowrap text-center border-r border-gray-200">
+                        <span className={`inline-flex items-center px-2.5 py-1 rounded-full text-xs font-medium ${getStatusColor(issue.status)}`}>
+                          {issue.statusText}
+                        </span>
+                      </td>
+                      
+                      {/* รายละเอียด (ปุ่ม) */}
+                      <td className="px-4 py-3 whitespace-nowrap text-center">
+                        <button
+                          onClick={() => handleViewDetails(issue)}
+                          className="inline-flex items-center gap-1.5 px-3 py-1.5 border border-blue-300 text-xs font-medium rounded-lg text-blue-700 bg-blue-50 hover:bg-blue-100 transition-colors"
+                        >
+                          <Eye className="w-3.5 h-3.5" />
+                          ดูรายละเอียด
+                        </button>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          )}
 
-                      <div className="mb-3">
-                        <p className="text-sm text-gray-600">รายละเอียด</p>
-                        <p className="text-gray-900 line-clamp-2">
-                          {issue.description}
-                        </p>
-                      </div>
-
-                      {/* Show action buttons for completed status */}
-                      {issue.status === 'completed' && (
-                        <div className="flex gap-2 mt-3">
-                          <button 
-                            onClick={() => handleApprovalAction('approve', issue)}
-                            className="px-4 py-2 bg-green-600 text-white text-sm rounded-md hover:bg-green-700 focus:outline-none focus:ring-2 focus:ring-green-500"
-                          >
-                            ✅ ผ่าน
-                          </button>
-                          <button 
-                            onClick={() => handleApprovalAction('reject', issue)}
-                            className="px-4 py-2 bg-red-600 text-white text-sm rounded-md hover:bg-red-700 focus:outline-none focus:ring-2 focus:ring-red-500"
-                          >
-                            ❌ ไม่ผ่าน
-                          </button>
-                        </div>
-                      )}
-                    </div>
-
-                    <div className="ml-4">
+          {/* Pagination */}
+          {!isLoading && paginatedIssues.length > 0 && totalPages > 1 && (
+            <div className="flex items-center justify-between px-6 py-4 border-t border-blue-200">
+              <div className="text-sm text-gray-700">
+                แสดง {startIndex + 1} - {Math.min(endIndex, filteredIssues.length)} จาก {filteredIssues.length} รายการ
+              </div>
+              <div className="flex gap-2">
+                <button
+                  onClick={() => setCurrentPage(prev => Math.max(prev - 1, 1))}
+                  disabled={currentPage === 1}
+                  className="px-3 py-1.5 text-sm border border-gray-300 rounded-md hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed"
+                >
+                  ก่อนหน้า
+                </button>
+                
+                {Array.from({ length: totalPages }, (_, i) => i + 1).map(page => {
+                  // Show first page, last page, current page, and pages around current page
+                  if (
+                    page === 1 ||
+                    page === totalPages ||
+                    (page >= currentPage - 1 && page <= currentPage + 1)
+                  ) {
+                    return (
                       <button
-                        onClick={() => handleViewDetails(issue)}
-                        className="inline-flex items-center px-3 py-2 border border-gray-300 shadow-sm text-sm leading-4 font-medium rounded-md text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500"
+                        key={page}
+                        onClick={() => setCurrentPage(page)}
+                        className={`px-3 py-1.5 text-sm border rounded-md ${
+                          currentPage === page
+                            ? 'bg-blue-600 text-white border-blue-600'
+                            : 'border-gray-300 hover:bg-gray-50'
+                        }`}
                       >
-                        <Eye className="w-4 h-4 mr-1" />
-                        ดูรายละเอียด
+                        {page}
                       </button>
-                    </div>
-                  </div>
-                </div>
-              ))}
+                    );
+                  } else if (page === currentPage - 2 || page === currentPage + 2) {
+                    return <span key={page} className="px-2 py-1.5 text-sm">...</span>;
+                  }
+                  return null;
+                })}
+                
+                <button
+                  onClick={() => setCurrentPage(prev => Math.min(prev + 1, totalPages))}
+                  disabled={currentPage === totalPages}
+                  className="px-3 py-1.5 text-sm border border-gray-300 rounded-md hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed"
+                >
+                  ถัดไป
+                </button>
+              </div>
             </div>
           )}
 
           {/* Empty State */}
-          {!isLoading && issues.length === 0 && (
+          {!isLoading && filteredIssues.length === 0 && (
             <div className="text-center py-12">
               <AlertCircle className="mx-auto h-12 w-12 text-gray-400" />
-              <h3 className="mt-2 text-sm font-medium text-gray-900">ไม่มีรายการแจ้งปัญหา</h3>
+              <h3 className="mt-2 text-sm font-medium text-gray-900">
+                {activeTab === 'open' ? 'ไม่มีงานที่ยังไม่ปิด' : 'ไม่มีงานที่ปิดแล้ว'}
+              </h3>
               <p className="mt-1 text-sm text-gray-500">
-                คุณยังไม่เคยแจ้งปัญหา IT หรือเข้าสู่ระบบด้วยอีเมลอื่น
+                {issues.length === 0 
+                  ? 'คุณยังไม่เคยแจ้งปัญหา IT หรือเข้าสู่ระบบด้วยอีเมลอื่น'
+                  : `ไม่มีรายการในหมวด${activeTab === 'open' ? 'งานที่ยังไม่ปิด' : 'งานที่ปิดแล้ว'}`
+                }
               </p>
             </div>
           )}
@@ -391,23 +458,22 @@ export default function ITTrackingPage() {
 
                     {/* IT Admin ผู้รับผิดชอบ */}
                     <div className={`p-5 rounded-xl border-2 ${
-                      selectedIssue.assignedAdmin 
+                      selectedIssue.assignedAdmin?.name
                         ? 'bg-gradient-to-r from-green-50 to-emerald-50 border-green-200' 
                         : 'bg-gradient-to-r from-yellow-50 to-amber-50 border-yellow-200'
                     }`}>
                       <h4 className="text-lg font-semibold text-gray-900 mb-3 flex items-center">
-                        <div className={`w-1 h-6 rounded-full mr-3 ${selectedIssue.assignedAdmin ? 'bg-green-500' : 'bg-yellow-500'}`}></div>
+                        <div className={`w-1 h-6 rounded-full mr-3 ${selectedIssue.assignedAdmin?.name ? 'bg-green-500' : 'bg-yellow-500'}`}></div>
                         ชื่อ IT Admin ผู้รับผิดชอบ
                       </h4>
-                      {selectedIssue.assignedAdmin ? (
+                      {selectedIssue.assignedAdmin?.name ? (
                         <div className="bg-white p-4 rounded-lg">
                           <p className="text-green-900 font-bold text-lg">{selectedIssue.assignedAdmin.name}</p>
                           <p className="text-green-600 text-sm mt-1">{selectedIssue.assignedAdmin.email}</p>
                         </div>
                       ) : (
-                        <div className="bg-white p-4 rounded-lg flex items-center">
-                          <Clock className="w-5 h-5 text-yellow-600 mr-2" />
-                          <p className="text-yellow-900 font-bold">รอแอดมินรับงาน</p>
+                        <div className="bg-white p-4 rounded-lg">
+                          <p className="text-yellow-900 font-bold">รอ Admin รับงาน</p>
                         </div>
                       )}
                     </div>
@@ -438,18 +504,31 @@ export default function ITTrackingPage() {
                         {/* รูปภาพ */}
                         {selectedIssue.images && selectedIssue.images.length > 0 && (
                           <div className="bg-indigo-50 p-4 rounded-lg border border-indigo-100">
-                            <label className="block text-sm font-semibold text-indigo-700 mb-3">รูปภาพประกอบ</label>
+                            <label className="block text-sm font-semibold text-indigo-700 mb-3">รูปภาพประกอบ ({selectedIssue.images.length} รูป)</label>
                             <div className="grid grid-cols-2 md:grid-cols-3 gap-3">
-                              {selectedIssue.images.map((image, index) => (
-                                <div key={index} className="relative aspect-square rounded-lg overflow-hidden border-2 border-indigo-200 hover:border-indigo-400 transition-colors">
-                                  <img 
-                                    src={image} 
-                                    alt={`Issue image ${index + 1}`}
-                                    className="w-full h-full object-cover cursor-pointer hover:scale-110 transition-transform"
-                                    onClick={() => window.open(image, '_blank')}
-                                  />
-                                </div>
-                              ))}
+                              {selectedIssue.images.map((image, index) => {
+                                // ตรวจสอบและเติม path ให้ครบถ้วน
+                                const imagePath = image.startsWith('/') ? image : `/assets/IssueLog/${image}`;
+                                return (
+                                  <div key={index} className="relative aspect-square rounded-lg overflow-hidden border-2 border-indigo-200 hover:border-indigo-400 transition-colors bg-gray-100">
+                                    <img 
+                                      src={imagePath} 
+                                      alt={`รูปภาพปัญหา ${index + 1}`}
+                                      className="w-full h-full object-cover cursor-pointer hover:scale-110 transition-transform"
+                                      onClick={() => window.open(imagePath, '_blank')}
+                                      onError={(e) => {
+                                        const target = e.target as HTMLImageElement;
+                                        target.onerror = null; // ป้องกัน infinite loop
+                                        console.error('ไม่สามารถโหลดรูปภาพ:', imagePath);
+                                        target.style.display = 'flex';
+                                        target.style.alignItems = 'center';
+                                        target.style.justifyContent = 'center';
+                                        target.alt = '❌ ไม่พบรูปภาพ';
+                                      }}
+                                    />
+                                  </div>
+                                );
+                              })}
                             </div>
                           </div>
                         )}
@@ -549,17 +628,17 @@ export default function ITTrackingPage() {
                     </div>
 
                     {/* หมายเหตุ */}
-                    {selectedIssue.notes && (
-                      <div className="bg-yellow-50 p-5 rounded-xl border border-yellow-200">
-                        <h4 className="text-lg font-semibold text-gray-900 mb-3 flex items-center">
-                          <div className="w-1 h-6 bg-yellow-500 rounded-full mr-3"></div>
-                          หมายเหตุ
-                        </h4>
-                        <div className="bg-white p-4 rounded-lg">
-                          <p className="text-gray-900 leading-relaxed whitespace-pre-wrap">{selectedIssue.notes}</p>
-                        </div>
+                    <div className="bg-yellow-50 p-5 rounded-xl border border-yellow-200">
+                      <h4 className="text-lg font-semibold text-gray-900 mb-3 flex items-center">
+                        <div className="w-1 h-6 bg-yellow-500 rounded-full mr-3"></div>
+                        หมายเหตุ
+                      </h4>
+                      <div className="bg-white p-4 rounded-lg">
+                        <p className="text-gray-900 leading-relaxed whitespace-pre-wrap">
+                          {selectedIssue.notes || '-'}
+                        </p>
                       </div>
-                    )}
+                    </div>
                   </div>
 
                   <div className="mt-6 flex justify-end">

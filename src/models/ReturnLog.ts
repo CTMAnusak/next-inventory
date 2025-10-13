@@ -9,10 +9,13 @@ export interface IReturnItem {
   image?: string; // รูปภาพ
   statusOnReturn?: string; // สถานะอุปกรณ์เมื่อคืน (มี/หาย/ชำรุด - จาก status config)
   conditionOnReturn?: string; // สภาพอุปกรณ์เมื่อคืน (ใช้งานได้/ชำรุด - จาก condition config)
+  statusOnReturnName?: string; // 🆕 Snapshot: ชื่อสถานะ (สภาพอุปกรณ์)
+  conditionOnReturnName?: string; // 🆕 Snapshot: ชื่อสภาพ (สถานะอุปกรณ์)
   itemNotes?: string; // หมายเหตุเฉพาะรายการ
   approvalStatus: 'pending' | 'approved'; // สถานะการอนุมัติของรายการนี้
   approvedAt?: Date; // วันที่อนุมัติ
   approvedBy?: string; // Admin userId ที่อนุมัติ
+  approvedByName?: string; // 🆕 Snapshot: ชื่อ Admin ผู้อนุมัติ
 }
 
 export interface IReturnLog extends Document {
@@ -42,6 +45,8 @@ const ReturnItemSchema = new Schema<IReturnItem>({
   image: { type: String },                          // path ของรูปภาพ
   statusOnReturn: { type: String },                 // สถานะอุปกรณ์เมื่อคืน (มี/หาย - จาก status config)
   conditionOnReturn: { type: String },              // สภาพอุปกรณ์เมื่อคืน (ใช้งานได้/ชำรุด - จาก condition config)
+  statusOnReturnName: { type: String },             // 🆕 Snapshot: ชื่อสถานะ
+  conditionOnReturnName: { type: String },          // 🆕 Snapshot: ชื่อสภาพ
   itemNotes: { type: String },                      // หมายเหตุเฉพาะรายการ
   approvalStatus: { 
     type: String, 
@@ -49,7 +54,8 @@ const ReturnItemSchema = new Schema<IReturnItem>({
     default: 'pending' 
   },                                                // สถานะการอนุมัติ
   approvedAt: { type: Date },                       // วันที่อนุมัติ
-  approvedBy: { type: String }                      // Admin userId ที่อนุมัติ
+  approvedBy: { type: String },                     // Admin userId ที่อนุมัติ
+  approvedByName: { type: String }                  // 🆕 Snapshot: ชื่อ Admin
 });
 
 const ReturnLogSchema = new Schema<IReturnLog>({

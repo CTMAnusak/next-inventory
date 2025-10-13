@@ -25,13 +25,45 @@ export async function sendIssueNotification(issueData: any) {
     const urgencyText = issueData.urgency === 'very_urgent' ? 'ด่วน' : 'ปกติ';
     const issueTitle = issueData.issueCategory + (issueData.customCategory ? ` - ${issueData.customCategory}` : '');
     
+    // เตรียม attachments สำหรับรูปภาพ
+    const attachments = [];
+    console.log('📧 sendIssueNotification - issueData.images:', issueData.images);
+    
+    if (issueData.images && issueData.images.length > 0) {
+      const path = require('path');
+      const fs = require('fs');
+      
+      for (let i = 0; i < issueData.images.length; i++) {
+        const img = issueData.images[i];
+        const imagePath = path.join(process.cwd(), 'public', 'assets', 'IssueLog', img);
+        
+        console.log(`🔍 Checking image ${i+1}:`, imagePath);
+        console.log(`📁 File exists:`, fs.existsSync(imagePath));
+        
+        // ตรวจสอบว่าไฟล์มีอยู่จริง
+        if (fs.existsSync(imagePath)) {
+          attachments.push({
+            filename: img,
+            path: imagePath,
+            cid: `image${i}@issueLog` // Content-ID สำหรับอ้างอิงในอีเมล
+          });
+          console.log(`✅ Added attachment ${i+1}:`, img);
+        } else {
+          console.log(`❌ Image file not found:`, imagePath);
+        }
+      }
+    }
+    
+    console.log(`📎 Total attachments: ${attachments.length}`);
+    
     // ส่งอีเมลไปยังแอดมิน IT ทุกคน
     for (const adminEmail of itAdminEmails) {
       const mailOptions = {
-        from: `${issueData.firstName} ${issueData.lastName} <${process.env.EMAIL_FROM || 'it@vsqclinic.com'}>`, // From: ชื่อผู้แจ้ง (แต่ใช้ email ของ SMTP)
+        from: `VSQ IT Service Desk <${process.env.EMAIL_FROM || 'it@vsqclinic.com'}>`, // From: ระบบ IT (ผู้ส่งคืออีเมลระบบ)
         replyTo: issueData.email, // Reply-To: อีเมลผู้แจ้งจริง (สำหรับตอบกลับ)
-        to: `VSQ IT Service Desk <${adminEmail}>`, // To: ทีม IT แต่ละคน
+        to: adminEmail, // To: แอดมิน IT แต่ละคน
         subject: `แจ้งงาน IT VSQ [${urgencyText}] จาก ${issueData.firstName} ${issueData.lastName} (${issueData.issueId}) - ${issueTitle}`,
+        attachments: attachments, // แนบรูปภาพ
       html: `
         <div style="font-family: Arial, sans-serif; line-height: 1.6; color: #333; max-width: 800px; margin: 0 auto;">
           <div style="background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); padding: 30px; border-radius: 10px 10px 0 0;">
@@ -132,16 +164,15 @@ export async function sendIssueNotification(issueData: any) {
             <!-- รูปภาพ -->
             ${issueData.images && issueData.images.length > 0 ? `
             <div style="margin: 25px 0;">
-              <h2 style="color: #667eea; border-bottom: 2px solid #667eea; padding-bottom: 10px; margin-bottom: 15px;">📷 รูปภาพประกอบ</h2>
+              <h2 style="color: #667eea; border-bottom: 2px solid #667eea; padding-bottom: 10px; margin-bottom: 15px;">📷 รูปภาพประกอบ (${issueData.images.length} รูป)</h2>
               <div style="background-color: #f8f9fa; padding: 15px; border-radius: 8px;">
                 ${issueData.images.map((img: string, index: number) => `
-                  <div style="margin: 10px 0;">
-                    <a href="${process.env.NEXTAUTH_URL}/assets/IssueLog/${img}" 
-                       target="_blank"
-                       style="color: #667eea; text-decoration: none; display: inline-flex; align-items: center; padding: 8px 12px; background-color: #e8eaf6; border-radius: 6px; transition: background-color 0.3s;">
-                      <span style="margin-right: 8px;">🖼️</span>
-                      <span style="font-weight: 500;">รูปที่ ${index + 1}: ${img}</span>
-                    </a>
+                  <div style="margin: 20px 0; text-align: center;">
+                    <p style="margin: 0 0 10px 0; font-weight: 600; color: #667eea; font-size: 14px;">รูปที่ ${index + 1}</p>
+                    <img src="cid:image${index}@issueLog" 
+                         alt="รูปที่ ${index + 1}" 
+                         style="max-width: 100%; max-height: 400px; height: auto; border-radius: 8px; box-shadow: 0 2px 8px rgba(0,0,0,0.1); border: 2px solid #e8eaf6; display: block; margin: 0 auto;">
+                    <p style="margin: 8px 0 0 0; font-size: 11px; color: #666; word-break: break-all;">${img}</p>
                   </div>
                 `).join('')}
               </div>
@@ -191,15 +222,235 @@ export async function sendIssueNotification(issueData: any) {
   }
 }
 
+// 1.5 ส่งอีเมลยืนยันให้ผู้แจ้งเมื่อแจ้งงาน IT สำเร็จ
+export async function sendIssueConfirmationToReporter(issueData: any) {
+  const urgencyText = issueData.urgency === 'very_urgent' ? 'ด่วน' : 'ปกติ';
+  const issueTitle = issueData.issueCategory + (issueData.customCategory ? ` - ${issueData.customCategory}` : '');
+  
+  // เตรียม attachments สำหรับรูปภาพ
+  const attachments = [];
+  console.log('📧 sendIssueConfirmationToReporter - issueData.images:', issueData.images);
+  
+  if (issueData.images && issueData.images.length > 0) {
+    const path = require('path');
+    const fs = require('fs');
+    
+    for (let i = 0; i < issueData.images.length; i++) {
+      const img = issueData.images[i];
+      const imagePath = path.join(process.cwd(), 'public', 'assets', 'IssueLog', img);
+      
+      console.log(`🔍 [Confirmation] Checking image ${i+1}:`, imagePath);
+      console.log(`📁 [Confirmation] File exists:`, fs.existsSync(imagePath));
+      
+      if (fs.existsSync(imagePath)) {
+        attachments.push({
+          filename: img,
+          path: imagePath,
+          cid: `image${i}@issueLog`
+        });
+        console.log(`✅ [Confirmation] Added attachment ${i+1}:`, img);
+      } else {
+        console.log(`❌ [Confirmation] Image file not found:`, imagePath);
+      }
+    }
+  }
+  
+  console.log(`📎 [Confirmation] Total attachments: ${attachments.length}`);
+  
+  const mailOptions = {
+    from: `VSQ IT Service Desk <${process.env.EMAIL_FROM || 'it@vsqclinic.com'}>`,
+    to: issueData.email,
+    subject: `✅ ได้รับเรื่องแจ้งงาน IT VSQ [${urgencyText}] - ${issueData.issueId}`,
+    attachments: attachments,
+    html: `
+      <div style="font-family: Arial, sans-serif; line-height: 1.6; color: #333; max-width: 800px; margin: 0 auto;">
+        <div style="background: linear-gradient(135deg, #4caf50 0%, #2e7d32 100%); padding: 30px; border-radius: 10px 10px 0 0;">
+          <h1 style="color: white; margin: 0; font-size: 28px; text-align: center;">✅ ระบบได้รับเรื่องแจ้งปัญหาแล้ว</h1>
+        </div>
+        
+        <div style="background-color: #ffffff; padding: 30px; border: 1px solid #e0e0e0; border-top: none;">
+          
+          <div style="background-color: #e8f5e9; padding: 20px; margin: 20px 0; border-radius: 8px; border-left: 5px solid #4caf50; text-align: center;">
+            <p style="margin: 0; font-size: 18px; color: #2e7d32;"><strong>ขอบคุณที่แจ้งปัญหา</strong></p>
+            <p style="margin: 10px 0 0 0; color: #666;">ทีม IT จะดำเนินการตรวจสอบและติดต่อกลับโดยเร็วที่สุด</p>
+          </div>
+
+          <!-- Issue ID และวันที่แจ้ง -->
+          <div style="background-color: #f8f9fa; padding: 20px; margin: 20px 0; border-radius: 8px; border-left: 5px solid #4caf50;">
+            <table style="width: 100%; border-collapse: collapse;">
+              <tr>
+                <td style="padding: 8px 0; width: 180px;"><strong>📋 Issue ID:</strong></td>
+                <td style="padding: 8px 0; color: #4caf50; font-weight: bold; font-size: 16px;">${issueData.issueId}</td>
+              </tr>
+              <tr>
+                <td style="padding: 8px 0;"><strong>📅 วันที่แจ้ง:</strong></td>
+                <td style="padding: 8px 0;">${new Date(issueData.reportDate).toLocaleDateString('th-TH', { 
+                  year: 'numeric', 
+                  month: 'long', 
+                  day: 'numeric',
+                  timeZone: 'Asia/Bangkok' 
+                })} เวลา ${new Date(issueData.reportDate).toLocaleTimeString('th-TH', { 
+                  hour: '2-digit', 
+                  minute: '2-digit',
+                  timeZone: 'Asia/Bangkok' 
+                })} น.</td>
+              </tr>
+              <tr>
+                <td style="padding: 8px 0;"><strong>📊 สถานะปัจจุบัน:</strong></td>
+                <td style="padding: 8px 0;"><span style="background-color: #ffc107; color: #000; padding: 4px 12px; border-radius: 12px; font-weight: bold; font-size: 14px;">⏳ รอดำเนินการ</span></td>
+              </tr>
+            </table>
+          </div>
+
+          <!-- ข้อมูลผู้แจ้ง -->
+          <div style="margin: 25px 0;">
+            <h2 style="color: #1976d2; border-bottom: 2px solid #1976d2; padding-bottom: 10px; margin-bottom: 15px;">👤 ข้อมูลผู้แจ้ง</h2>
+            <table style="width: 100%; border-collapse: collapse;">
+              <tr>
+                <td style="padding: 8px 0; width: 180px;"><strong>ชื่อ-นามสกุล:</strong></td>
+                <td style="padding: 8px 0;">${issueData.firstName} ${issueData.lastName} (${issueData.nickname})</td>
+              </tr>
+              <tr>
+                <td style="padding: 8px 0;"><strong>แผนก:</strong></td>
+                <td style="padding: 8px 0;">${issueData.department}</td>
+              </tr>
+              <tr>
+                <td style="padding: 8px 0;"><strong>ออฟฟิศ/สาขา:</strong></td>
+                <td style="padding: 8px 0;">${issueData.office}</td>
+              </tr>
+              <tr>
+                <td style="padding: 8px 0;"><strong>เบอร์โทร:</strong></td>
+                <td style="padding: 8px 0;">${issueData.phone}</td>
+              </tr>
+              <tr>
+                <td style="padding: 8px 0;"><strong>อีเมล:</strong></td>
+                <td style="padding: 8px 0;">${issueData.email}</td>
+              </tr>
+            </table>
+          </div>
+
+          <!-- รายละเอียดปัญหา -->
+          <div style="margin: 25px 0;">
+            <h2 style="color: #1976d2; border-bottom: 2px solid #1976d2; padding-bottom: 10px; margin-bottom: 15px;">🔧 รายละเอียดปัญหา</h2>
+            <table style="width: 100%; border-collapse: collapse;">
+              <tr>
+                <td style="padding: 8px 0; width: 180px;"><strong>ประเภทปัญหา:</strong></td>
+                <td style="padding: 8px 0;">${issueTitle}</td>
+              </tr>
+              <tr>
+                <td style="padding: 8px 0;"><strong>ความเร่งด่วน:</strong></td>
+                <td style="padding: 8px 0;">
+                  ${issueData.urgency === 'very_urgent' 
+                    ? '<span style="background-color: #f44336; color: white; padding: 4px 12px; border-radius: 12px; font-weight: bold;">🔴 ด่วนมาก</span>' 
+                    : '<span style="background-color: #4caf50; color: white; padding: 4px 12px; border-radius: 12px; font-weight: bold;">🟢 ปกติ</span>'}
+                </td>
+              </tr>
+            </table>
+            
+            <div style="margin-top: 15px;">
+              <strong>รายละเอียด:</strong>
+              <div style="background-color: #f8f9fa; padding: 15px; border-radius: 8px; margin-top: 8px; border-left: 4px solid #1976d2; white-space: pre-wrap; word-wrap: break-word;">
+                ${issueData.description}
+              </div>
+            </div>
+
+            ${issueData.notes ? `
+            <div style="margin-top: 15px;">
+              <strong>หมายเหตุ:</strong>
+              <div style="background-color: #fff9c4; padding: 15px; border-radius: 8px; margin-top: 8px; border-left: 4px solid #fbc02d;">
+                ${issueData.notes}
+              </div>
+            </div>
+            ` : ''}
+          </div>
+
+          <!-- รูปภาพ -->
+          ${issueData.images && issueData.images.length > 0 ? `
+          <div style="margin: 25px 0;">
+            <h2 style="color: #1976d2; border-bottom: 2px solid #1976d2; padding-bottom: 10px; margin-bottom: 15px;">📷 รูปภาพประกอบ (${issueData.images.length} รูป)</h2>
+            <div style="background-color: #f8f9fa; padding: 15px; border-radius: 8px;">
+              ${issueData.images.map((img: string, index: number) => `
+                <div style="margin: 20px 0; text-align: center;">
+                  <p style="margin: 0 0 10px 0; font-weight: 600; color: #1976d2; font-size: 14px;">รูปที่ ${index + 1}</p>
+                  <img src="cid:image${index}@issueLog" 
+                       alt="รูปที่ ${index + 1}" 
+                       style="max-width: 100%; max-height: 400px; height: auto; border-radius: 8px; box-shadow: 0 2px 8px rgba(0,0,0,0.1); border: 2px solid #e3f2fd; display: block; margin: 0 auto;">
+                  <p style="margin: 8px 0 0 0; font-size: 11px; color: #666; word-break: break-all;">${img}</p>
+                </div>
+              `).join('')}
+            </div>
+          </div>
+          ` : ''}
+
+          <!-- ปุ่มติดตามสถานะ -->
+          <div style="background: linear-gradient(135deg, #2196f3 0%, #1976d2 100%); padding: 25px; margin: 30px 0; border-radius: 10px; text-align: center;">
+            <p style="color: white; margin: 0 0 15px 0; font-size: 18px; font-weight: bold;">📊 ติดตามสถานะงาน</p>
+            <p style="color: #f0f0f0; margin: 0 0 20px 0; font-size: 14px;">คุณสามารถติดตามสถานะการดำเนินงานได้ตลอดเวลา</p>
+            <a href="${process.env.NEXTAUTH_URL}/it-tracking" 
+               style="display: inline-block; background-color: #ffc107; color: #000; padding: 15px 40px; text-decoration: none; border-radius: 25px; font-weight: bold; font-size: 16px; box-shadow: 0 4px 6px rgba(0,0,0,0.2);">
+              🔍 ติดตามสถานะ
+            </a>
+          </div>
+
+          <div style="background-color: #e3f2fd; padding: 15px; margin: 20px 0; border-radius: 8px;">
+            <p style="margin: 0; color: #1976d2; font-size: 14px;"><strong>📌 หมายเหตุ:</strong></p>
+            <ul style="margin: 10px 0; padding-left: 20px; color: #666;">
+              <li>ทีม IT จะติดต่อกลับหากต้องการข้อมูลเพิ่มเติม</li>
+              <li>คุณจะได้รับอีเมลแจ้งเตือนเมื่อทีม IT รับงานและส่งงาน</li>
+              <li>กรุณาเก็บ Issue ID ไว้เพื่อใช้ในการติดตามงาน</li>
+            </ul>
+          </div>
+
+        </div>
+        
+        <!-- Footer -->
+        <div style="background-color: #f8f9fa; padding: 20px; border-radius: 0 0 10px 10px; text-align: center; border: 1px solid #e0e0e0; border-top: none;">
+          <p style="margin: 0; color: #666; font-size: 14px;">📧 อีเมลนี้ถูกส่งจากระบบ Inventory Management Dashboard</p>
+        </div>
+      </div>
+    `
+  };
+
+  try {
+    const result = await transporter.sendMail(mailOptions);
+    console.log(`✅ Confirmation email sent to reporter: ${issueData.email}`);
+    return { success: true, messageId: result.messageId };
+  } catch (error) {
+    console.error('❌ Confirmation email send error:', error);
+    return { success: false, error: error as Error };
+  }
+}
+
 // 2. ส่งอีเมลแจ้งผู้แจ้งเมื่อ IT รับงาน (pending → in_progress)
 export async function sendJobAcceptedNotification(issueData: any) {
   const urgencyText = issueData.urgency === 'very_urgent' ? 'ด่วน' : 'ปกติ';
   const issueTitle = issueData.issueCategory + (issueData.customCategory ? ` - ${issueData.customCategory}` : '');
   
+  // เตรียม attachments สำหรับรูปภาพ
+  const attachments = [];
+  if (issueData.images && issueData.images.length > 0) {
+    const path = require('path');
+    const fs = require('fs');
+    
+    for (let i = 0; i < issueData.images.length; i++) {
+      const img = issueData.images[i];
+      const imagePath = path.join(process.cwd(), 'public', 'assets', 'IssueLog', img);
+      
+      if (fs.existsSync(imagePath)) {
+        attachments.push({
+          filename: img,
+          path: imagePath,
+          cid: `image${i}@issueLog`
+        });
+      }
+    }
+  }
+  
   const mailOptions = {
     from: `VSQ IT Service Desk <${process.env.EMAIL_FROM || 'it@vsqclinic.com'}>`,
     to: issueData.email,
     subject: `แจ้งงาน IT VSQ [${urgencyText}] จาก ${issueData.firstName} ${issueData.lastName} (${issueData.issueId}) - ${issueTitle} : ✅ IT รับงานแล้ว`,
+    attachments: attachments,
     html: `
       <div style="font-family: Arial, sans-serif; line-height: 1.6; color: #333; max-width: 800px; margin: 0 auto;">
         <div style="background: linear-gradient(135deg, #4caf50 0%, #2e7d32 100%); padding: 30px; border-radius: 10px 10px 0 0;">
@@ -317,16 +568,15 @@ export async function sendJobAcceptedNotification(issueData: any) {
           <!-- รูปภาพ -->
           ${issueData.images && issueData.images.length > 0 ? `
           <div style="margin: 25px 0;">
-            <h2 style="color: #1976d2; border-bottom: 2px solid #1976d2; padding-bottom: 10px; margin-bottom: 15px;">📷 รูปภาพประกอบ</h2>
+            <h2 style="color: #1976d2; border-bottom: 2px solid #1976d2; padding-bottom: 10px; margin-bottom: 15px;">📷 รูปภาพประกอบ (${issueData.images.length} รูป)</h2>
             <div style="background-color: #f8f9fa; padding: 15px; border-radius: 8px;">
               ${issueData.images.map((img: string, index: number) => `
-                <div style="margin: 10px 0;">
-                  <a href="${process.env.NEXTAUTH_URL}/assets/IssueLog/${img}" 
-                     target="_blank"
-                     style="color: #1976d2; text-decoration: none; display: inline-flex; align-items: center; padding: 8px 12px; background-color: #e3f2fd; border-radius: 6px;">
-                    <span style="margin-right: 8px;">🖼️</span>
-                    <span style="font-weight: 500;">รูปที่ ${index + 1}: ${img}</span>
-                  </a>
+                <div style="margin: 20px 0; text-align: center;">
+                  <p style="margin: 0 0 10px 0; font-weight: 600; color: #1976d2; font-size: 14px;">รูปที่ ${index + 1}</p>
+                  <img src="cid:image${index}@issueLog" 
+                       alt="รูปที่ ${index + 1}" 
+                       style="max-width: 100%; max-height: 400px; height: auto; border-radius: 8px; box-shadow: 0 2px 8px rgba(0,0,0,0.1); border: 2px solid #e3f2fd; display: block; margin: 0 auto;">
+                  <p style="margin: 8px 0 0 0; font-size: 11px; color: #666; word-break: break-all;">${img}</p>
                 </div>
               `).join('')}
             </div>
@@ -363,9 +613,9 @@ export async function sendJobAcceptedNotification(issueData: any) {
     console.error('📧 Failed email details:', {
       to: issueData.email,
       subject: mailOptions.subject,
-      error: error.message
+      error: (error as Error).message
     });
-    return { success: false, error: error };
+    return { success: false, error: error as Error };
   }
 }
 
@@ -429,9 +679,9 @@ export async function sendWorkCompletedNotification(issueData: any) {
     console.error('📧 Failed email details:', {
       to: issueData.email,
       subject: mailOptions.subject,
-      error: error.message
+      error: (error as Error).message
     });
-    return { success: false, error: error };
+    return { success: false, error: error as Error };
   }
 }
 
@@ -694,10 +944,31 @@ export async function sendIssueUpdateNotification(issueData: any) {
   const statusInfo = getStatusInfo(issueData.status);
   const isCompleted = issueData.status === 'completed';
 
+  // เตรียม attachments สำหรับรูปภาพ
+  const attachments = [];
+  if (issueData.images && issueData.images.length > 0) {
+    const path = require('path');
+    const fs = require('fs');
+    
+    for (let i = 0; i < issueData.images.length; i++) {
+      const img = issueData.images[i];
+      const imagePath = path.join(process.cwd(), 'public', 'assets', 'IssueLog', img);
+      
+      if (fs.existsSync(imagePath)) {
+        attachments.push({
+          filename: img,
+          path: imagePath,
+          cid: `image${i}@issueLog`
+        });
+      }
+    }
+  }
+
   const mailOptions = {
     from: process.env.EMAIL_FROM || 'it@vsqclinic.com', // From: ทีมไอที
     to: issueData.email, // To: อีเมลผู้แจ้ง
     subject: `🔄 อัพเดต แจ้งปัญหา IT - ${issueData.issueId}`,
+    attachments: attachments,
     html: `
       <div style="font-family: Arial, sans-serif; line-height: 1.6; color: #333;">
         <h2 style="color: ${statusInfo.color};">🔄 อัพเดตสถานะแจ้งปัญหา IT</h2>
@@ -740,8 +1011,18 @@ export async function sendIssueUpdateNotification(issueData: any) {
 
         ${issueData.images && issueData.images.length > 0 ? `
         <div style="margin: 15px 0;">
-          <p><strong>➢ รูปภาพ (ใส่ลิงค์รูปแบบคลิกดูรูปได้):</strong></p>
-          ${issueData.images.map((img: string) => `<p><a href="${process.env.NEXTAUTH_URL}/assets/IssueLog/${img}" target="_blank">คลิกดูรูป: ${img}</a></p>`).join('')}
+          <p><strong>➢ รูปภาพประกอบ (${issueData.images.length} รูป):</strong></p>
+          <div style="background-color: #f8f9fa; padding: 15px; border-radius: 8px; margin-top: 10px;">
+            ${issueData.images.map((img: string, index: number) => `
+              <div style="margin: 15px 0; text-align: center;">
+                <p style="margin: 0 0 10px 0; font-weight: 600; color: #1976d2; font-size: 14px;">รูปที่ ${index + 1}</p>
+                <img src="cid:image${index}@issueLog" 
+                     alt="รูปที่ ${index + 1}" 
+                     style="max-width: 100%; max-height: 400px; height: auto; border-radius: 8px; box-shadow: 0 2px 8px rgba(0,0,0,0.1); border: 2px solid #e3f2fd; display: block; margin: 0 auto;">
+                <p style="margin: 8px 0 0 0; font-size: 11px; color: #666; word-break: break-all;">${img}</p>
+              </div>
+            `).join('')}
+          </div>
         </div>
         ` : '<div style="margin: 15px 0;"><p><strong>➢ รูปภาพ:</strong> ไม่มี</p></div>'}
 

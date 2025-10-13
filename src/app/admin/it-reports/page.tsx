@@ -255,7 +255,8 @@ export default function AdminITReportsPage() {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          assignedAdmin: {
+          assignedAdminId: admin.userId,  // ส่ง userId แทน name/email
+          assignedAdmin: {                 // เก็บไว้เพื่อ backward compatibility
             name: admin.name,
             email: admin.email
           }

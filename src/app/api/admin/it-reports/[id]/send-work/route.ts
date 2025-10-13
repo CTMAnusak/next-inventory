@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import dbConnect from '@/lib/mongodb';
 import IssueLog from '@/models/IssueLog';
 import { sendIssueUpdateNotification } from '@/lib/email';
+import { formatIssueForEmail } from '@/lib/issue-helpers';
 
 // POST - Handle status transitions (Accept Job or Send Work)
 export async function POST(
@@ -34,8 +35,11 @@ export async function POST(
       updateFields.acceptedDate = new Date(); // เพิ่มวันที่รับงาน
       
       // Add assigned admin info if provided
+      if (requestData.assignedAdminId) {
+        updateFields.assignedAdminId = requestData.assignedAdminId; // บันทึก User ID
+      }
       if (requestData.assignedAdmin) {
-        updateFields.assignedAdmin = requestData.assignedAdmin;
+        updateFields.assignedAdmin = requestData.assignedAdmin; // เก็บไว้เพื่อ backward compatibility
       }
     } else if (issue.status === 'in_progress') {
       // Send work: in_progress → completed
@@ -57,25 +61,30 @@ export async function POST(
     );
 
     // ส่งอีเมลแจ้งเตือนตามสถานะ
+    console.log('📧 Sending email notification for status:', newStatus);
+    console.log('📸 Issue images:', updatedIssue.images);
     
     try {
+      // Populate requester information before sending email
+      const emailData = await formatIssueForEmail(updatedIssue);
+      
       if (newStatus === 'in_progress') {
         // 2. ส่งอีเมลแจ้งผู้แจ้งเมื่อ IT รับงาน
         const { sendJobAcceptedNotification } = await import('@/lib/email');
-        const emailResult = await sendJobAcceptedNotification(updatedIssue);
-        
+        const emailResult = await sendJobAcceptedNotification(emailData);
         
         if (emailResult.success) {
+          console.log('✅ Job accepted email sent successfully');
         } else {
           console.error('❌ Failed to send job accepted email:', emailResult.error);
         }
       } else if (newStatus === 'completed') {
         // 3. ส่งอีเมลแจ้งผู้แจ้งเมื่อ IT ส่งงาน
         const { sendWorkCompletedNotification } = await import('@/lib/email');
-        const emailResult = await sendWorkCompletedNotification(updatedIssue);
-        
+        const emailResult = await sendWorkCompletedNotification(emailData);
         
         if (emailResult.success) {
+          console.log('✅ Work completed email sent successfully');
         } else {
           console.error('❌ Failed to send work completed email:', emailResult.error);
         }

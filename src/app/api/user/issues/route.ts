@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import dbConnect from '@/lib/mongodb';
 import IssueLog from '@/models/IssueLog';
 import { verifyToken } from '@/lib/auth';
+import { populateIssueInfoBatch } from '@/lib/issue-helpers';
 
 export async function GET(request: NextRequest) {
   try {
@@ -24,19 +25,22 @@ export async function GET(request: NextRequest) {
 
     await dbConnect();
 
-    // Find issues by user email (since IssueLog stores email)
-    // We'll also try to find by userId if it exists
+    // Find issues by requesterId for individual users or email for branch users
     const issues = await IssueLog.find({
       $or: [
-        { userId: payload.userId },
-        { email: payload.email }
+        { requesterId: payload.userId }, // For individual users
+        { userId: payload.userId }, // Backward compatibility
+        { email: payload.email } // For branch users or legacy data
       ]
     }).sort({ reportDate: -1 }); // Sort by newest first
 
+    // Populate both requester and admin information
+    const populatedIssues = await populateIssueInfoBatch(issues);
+
     // Format the response
-    const formattedIssues = issues.map(issue => {
+    const formattedIssues = populatedIssues.map(issue => {
       const statusText = {
-        'pending': 'รอ Admin รับงาน',
+        'pending': 'รอดำเนินการ',
         'in_progress': 'กำลังดำเนินการ',
         'completed': 'รอตรวจสอบผลงาน',
         'closed': 'ปิดงานแล้ว'
@@ -63,7 +67,9 @@ export async function GET(request: NextRequest) {
         closedDate: issue.closedDate,
         notes: issue.notes,
         images: issue.images || [],
-        assignedAdmin: issue.assignedAdmin // เพิ่มข้อมูล IT Admin ที่รับงาน
+        assignedAdmin: issue.assignedAdmin, // เพิ่มข้อมูล IT Admin ที่รับงาน
+        requesterType: issue.requesterType,
+        requesterId: issue.requesterId
       };
     });
 

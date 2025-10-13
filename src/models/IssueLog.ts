@@ -2,6 +2,13 @@ import mongoose, { Document, Schema } from 'mongoose';
 
 export interface IIssueLog extends Document {
   issueId: string; // Issue ID เช่น IT1754894813221
+  
+  // ข้อมูลผู้แจ้งงาน (สำหรับการอ้างอิง)
+  requesterType?: 'individual' | 'branch'; // ประเภทผู้แจ้ง
+  requesterId?: string; // User ID สำหรับทั้ง individual และ branch
+  officeId?: string; // Office ID สำหรับ populate (ใช้กับทั้ง 2 ประเภท)
+  
+  // ข้อมูลผู้แจ้งงาน (เก็บไว้สำหรับการแสดงผล - จะถูก populate จาก User ถ้าเป็น individual)
   firstName: string;
   lastName: string;
   nickname: string;
@@ -9,6 +16,7 @@ export interface IIssueLog extends Document {
   email: string;
   department: string;
   office: string; // สาขา/ออฟฟิศ
+  
   issueCategory: string; // หัวข้อปัญหา
   customCategory?: string; // สำหรับ "อื่น ๆ โปรดระบุ"
   urgency: 'very_urgent' | 'normal'; // ระดับความเร่งด่วน
@@ -21,7 +29,15 @@ export interface IIssueLog extends Document {
   closedDate?: Date; // วันที่ปิดงาน
   notes?: string; // หมายเหตุ
   closeLink?: string; // ลิงค์สำหรับปิดงาน
-  userId?: string; // ผู้ใช้ที่สร้างรายการ (อ้างอิง users._id)
+  userId?: string; // ผู้ใช้ที่สร้างรายการ (อ้างอิง users._id) - deprecated, ใช้ requesterId แทน
+  
+  // ข้อมูล IT Admin ผู้รับผิดชอบ
+  assignedAdminId?: string; // User ID ของ IT Admin ที่รับงาน (ใหม่)
+  assignedAdmin?: {         // เก็บไว้เพื่อ backward compatibility
+    name: string;
+    email: string;
+  };
+  
   createdAt: Date;
   updatedAt: Date;
 }
@@ -35,6 +51,23 @@ const IssueLogSchema = new Schema<IIssueLog>({
       return 'IT' + Date.now() + Math.floor(Math.random() * 1000);
     }
   },
+  
+  // ข้อมูลอ้างอิงผู้แจ้ง
+  requesterType: { 
+    type: String, 
+    enum: ['individual', 'branch'],
+    required: false // Optional for backward compatibility
+  },
+  requesterId: { 
+    type: String, 
+    required: false // เก็บ User ID สำหรับทั้ง individual และ branch
+  },
+  officeId: {
+    type: String,
+    required: false // เก็บ Office ID สำหรับ populate office name
+  },
+  
+  // ข้อมูลผู้แจ้งที่บันทึกไว้
   firstName: { type: String, required: true },
   lastName: { type: String, required: true },
   nickname: { type: String, required: true },
@@ -87,6 +120,12 @@ const IssueLogSchema = new Schema<IIssueLog>({
     }
   },
   userId: { type: String },
+  
+  // IT Admin ที่รับผิดชอบ
+  assignedAdminId: { 
+    type: String,
+    required: false // User ID ของ IT Admin
+  },
   assignedAdmin: {
     name: { type: String },
     email: { type: String }

@@ -14,18 +14,22 @@ export interface ITransferLog extends Document {
   fromOwnership: {
     ownerType: 'admin_stock' | 'user_owned' | 'new_item';
     userId?: string;
+    userName?: string;  // 🆕 Snapshot: ชื่อ User เดิม
   };
   
   // Ownership ใหม่
   toOwnership: {
     ownerType: 'admin_stock' | 'user_owned';
     userId?: string;
+    userName?: string;  // 🆕 Snapshot: ชื่อ User ใหม่
   };
   
   // ข้อมูลการ transfer
   transferDate: Date;
   processedBy?: string;         // Admin ที่ดำเนินการ
+  processedByName?: string;     // 🆕 Snapshot: ชื่อ Admin ผู้ดำเนินการ
   approvedBy?: string;          // Admin ที่อนุมัติ (ถ้าต่าง)
+  approvedByName?: string;      // 🆕 Snapshot: ชื่อ Admin ผู้อนุมัติ
   
   // Reference ไปยัง logs อื่น
   requestId?: string;           // Link to RequestLog
@@ -91,6 +95,9 @@ const TransferLogSchema = new Schema<ITransferLog>({
       type: String,
       sparse: true,
       index: true
+    },
+    userName: {
+      type: String  // 🆕 Snapshot: ชื่อ User เดิม
     }
   },
   
@@ -105,6 +112,9 @@ const TransferLogSchema = new Schema<ITransferLog>({
       type: String,
       sparse: true,
       index: true
+    },
+    userName: {
+      type: String  // 🆕 Snapshot: ชื่อ User ใหม่
     }
   },
   
@@ -119,8 +129,14 @@ const TransferLogSchema = new Schema<ITransferLog>({
     type: String,  // Admin user_id
     index: true
   },
+  processedByName: {
+    type: String   // 🆕 Snapshot: ชื่อ Admin ผู้ดำเนินการ
+  },
   approvedBy: {
     type: String   // Admin user_id
+  },
+  approvedByName: {
+    type: String   // 🆕 Snapshot: ชื่อ Admin ผู้อนุมัติ
   },
   
   // References

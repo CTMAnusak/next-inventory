@@ -11,6 +11,8 @@ export interface IRequestItem {
   itemNotes?: string; // หมายเหตุของรายการเบิก (ไม่บังคับ)
   statusOnRequest?: string; // ID ของสถานะ (สภาพอุปกรณ์: มี/หาย) เมื่ออนุมัติ
   conditionOnRequest?: string; // ID ของสภาพ (สถานะอุปกรณ์: ใช้งานได้/ชำรุด) เมื่ออนุมัติ
+  statusOnRequestName?: string; // 🆕 Snapshot: ชื่อสถานะ (สภาพอุปกรณ์)
+  conditionOnRequestName?: string; // 🆕 Snapshot: ชื่อสภาพ (สถานะอุปกรณ์)
   assignedQuantity?: number; // จำนวนที่ Admin assign ให้แล้ว
   itemApproved?: boolean; // สถานะว่ารายการนี้ได้รับการอนุมัติแล้วหรือยัง
   approvedAt?: Date; // วันที่อนุมัติรายการนี้
@@ -37,8 +39,10 @@ export interface IRequestLog extends Document {
   // Admin actions
   approvedAt?: Date;
   approvedBy?: string; // Admin userId
+  approvedByName?: string; // 🆕 Snapshot: ชื่อ Admin ผู้อนุมัติ
   rejectedAt?: Date;
   rejectedBy?: string; // Admin userId
+  rejectedByName?: string; // 🆕 Snapshot: ชื่อ Admin ผู้ปปฏิเสธ
   rejectionReason?: string;
   transferredItems?: any[]; // Items that were actually transferred
   
@@ -57,6 +61,8 @@ const RequestItemSchema = new Schema<IRequestItem>({
   itemNotes: { type: String },
   statusOnRequest: { type: String }, // ID ของสถานะ (สภาพอุปกรณ์: มี/หาย) เมื่ออนุมัติ
   conditionOnRequest: { type: String }, // ID ของสภาพ (สถานะอุปกรณ์: ใช้งานได้/ชำรุด) เมื่ออนุมัติ
+  statusOnRequestName: { type: String }, // 🆕 Snapshot: ชื่อสถานะ
+  conditionOnRequestName: { type: String }, // 🆕 Snapshot: ชื่อสภาพ
   assignedQuantity: { type: Number, default: 0 }, // จำนวนที่ Admin assign ให้แล้ว
   itemApproved: { type: Boolean, default: false }, // สถานะว่ารายการนี้ได้รับการอนุมัติแล้วหรือยัง
   approvedAt: { type: Date } // วันที่อนุมัติรายการนี้
@@ -96,8 +102,10 @@ const RequestLogSchema = new Schema<IRequestLog>({
   // Admin actions
   approvedAt: { type: Date },
   approvedBy: { type: String },
+  approvedByName: { type: String }, // 🆕 Snapshot: ชื่อ Admin ผู้อนุมัติ
   rejectedAt: { type: Date },
   rejectedBy: { type: String },
+  rejectedByName: { type: String }, // 🆕 Snapshot: ชื่อ Admin ผู้ปฏิเสธ
   rejectionReason: { type: String },
   transferredItems: [{ type: Schema.Types.Mixed }]
 }, {

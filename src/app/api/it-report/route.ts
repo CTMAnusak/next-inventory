@@ -3,6 +3,7 @@ import dbConnect from '@/lib/mongodb';
 import IssueLog from '@/models/IssueLog';
 import { sendIssueNotification } from '@/lib/email';
 import { generateIssueId, verifyToken } from '@/lib/auth';
+import { populateIssueInfoBatch, formatIssueForEmail } from '@/lib/issue-helpers';
 
 export async function POST(request: NextRequest) {
   try {
@@ -37,19 +38,27 @@ export async function POST(request: NextRequest) {
     const issueId = generateIssueId();
     console.log('Generated issue ID:', issueId);
 
-    // Create new issue log
-    const userId = (() => {
+    // Get user info from token
+    const userInfo = (() => {
       try {
         const token = request.cookies.get('auth-token')?.value;
         const payload: any = token ? verifyToken(token) : null;
-        return payload?.userId || undefined;
+        return payload || null;
       } catch {
-        return undefined;
+        return null;
       }
     })();
 
+    // Determine requester type and ID
+    const requesterType = reportData.requesterType || userInfo?.userType;
+    const requesterId = reportData.requesterId || userInfo?.userId; // ✅ เก็บ ID สำหรับทั้ง individual และ branch
+    const officeId = userInfo?.office; // เก็บ office ID สำหรับ populate
+
     const newIssue = new IssueLog({
       issueId,
+      requesterType,
+      requesterId,  // ✅ เก็บสำหรับทั้ง individual และ branch
+      officeId,     // ✅ เก็บ office ID
       firstName: reportData.firstName,
       lastName: reportData.lastName,
       nickname: reportData.nickname,
@@ -65,7 +74,7 @@ export async function POST(request: NextRequest) {
       status: 'pending',
       reportDate: reportData.reportDate || new Date(),
       closeLink: `/close-issue/${issueId}`,
-      userId
+      userId: userInfo?.userId || undefined // Keep for backward compatibility
     });
 
     await newIssue.save();
@@ -73,17 +82,32 @@ export async function POST(request: NextRequest) {
 
     // 1. ส่งอีเมลแจ้ง IT Admin ทันทีเมื่อมีการแจ้งงาน
     try {
-      const { sendIssueNotification } = await import('@/lib/email');
-      const emailResult = await sendIssueNotification({
-        ...reportData,
-        issueId: newIssue.issueId,
-        reportDate: newIssue.reportDate
+      const { sendIssueNotification, sendIssueConfirmationToReporter } = await import('@/lib/email');
+      
+      // Format issue data for email (with populated requester info)
+      const emailData = await formatIssueForEmail({
+        ...newIssue.toObject(),
+        images: reportData.images || []
       });
       
+      console.log('📧 Email data images:', emailData.images);
+      
+      // 1.1 ส่งอีเมลให้ IT Admin
+      const emailResult = await sendIssueNotification(emailData);
+      
       if (emailResult.success) {
-        console.log(`Email sent to ${emailResult.totalSent} IT admins successfully`);
+        console.log(`✅ Email sent to ${emailResult.totalSent} IT admins successfully`);
       } else {
-        console.error('Failed to send email notifications:', emailResult.error);
+        console.error('❌ Failed to send email to IT admins:', emailResult.error);
+      }
+
+      // 1.2 ส่งอีเมลยืนยันให้ผู้แจ้ง
+      const confirmationResult = await sendIssueConfirmationToReporter(emailData);
+      
+      if (confirmationResult.success) {
+        console.log(`✅ Confirmation email sent to reporter: ${emailData.email}`);
+      } else {
+        console.error('❌ Failed to send confirmation email to reporter:', confirmationResult.error);
       }
     } catch (emailError) {
       console.error('Email notification error:', emailError);
@@ -149,8 +173,11 @@ export async function GET(request: NextRequest) {
       IssueLog.countDocuments(filter)
     ]);
 
+    // Populate both requester and admin information
+    const populatedIssues = await populateIssueInfoBatch(issues);
+
     return NextResponse.json({
-      issues,
+      issues: populatedIssues,
       pagination: {
         page,
         limit,

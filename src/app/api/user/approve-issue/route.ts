@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { connectDB } from '@/lib/mongodb';
 import { verifyToken } from '@/lib/auth';
 import IssueLog from '@/models/IssueLog';
+import { formatIssueForEmail } from '@/lib/issue-helpers';
 
 export async function POST(request: NextRequest) {
   try {
@@ -50,7 +51,12 @@ export async function POST(request: NextRequest) {
     }
 
     // Verify the user owns this issue
-    if (issue.userId !== payload.userId && issue.email !== payload.email) {
+    const ownsIssue = 
+      issue.requesterId === payload.userId || // New way: check requesterId
+      issue.userId === payload.userId || // Legacy: check userId
+      issue.email === payload.email; // Fallback: check email
+      
+    if (!ownsIssue) {
       return NextResponse.json(
         { error: 'ไม่มีสิทธิ์เข้าถึงรายการงานนี้' },
         { status: 403 }
@@ -97,8 +103,11 @@ export async function POST(request: NextRequest) {
     
     // 4. ส่งอีเมลแจ้ง IT Admin เมื่อผู้ใช้ตอบกลับ (ผ่าน/ไม่ผ่าน)
     try {
+      // Populate requester information before sending email
+      const emailData = await formatIssueForEmail(updatedIssue);
+      
       const { sendUserApprovalNotification } = await import('@/lib/email');
-      const emailResult = await sendUserApprovalNotification(updatedIssue, updateData.userFeedback);
+      const emailResult = await sendUserApprovalNotification(emailData, updateData.userFeedback);
       
       if (emailResult.success) {
         console.log(`User ${actionText} email sent to ${emailResult.totalSent} IT admins successfully`);
