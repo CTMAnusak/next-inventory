@@ -16,6 +16,7 @@ export interface IIssueLog extends Document {
   images?: string[]; // รูปภาพที่อัปโหลด
   status: 'pending' | 'in_progress' | 'completed' | 'closed'; // สถานะ
   reportDate: Date; // วันที่แจ้ง
+  acceptedDate?: Date; // วันที่แอดมินรับงาน
   completedDate?: Date; // วันที่ดำเนินการเสร็จ
   closedDate?: Date; // วันที่ปิดงาน
   notes?: string; // หมายเหตุ
@@ -75,6 +76,7 @@ const IssueLogSchema = new Schema<IIssueLog>({
     default: 'pending'
   },
   reportDate: { type: Date, default: Date.now },
+  acceptedDate: { type: Date },
   completedDate: { type: Date },
   closedDate: { type: Date },
   notes: { type: String },

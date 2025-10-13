@@ -28,6 +28,8 @@ export default function ITReportPage() {
   // Google Auth removed - no longer needed
   const [savedIssueId, setSavedIssueId] = useState<string | null>(null);
   const [mounted, setMounted] = useState(false);
+  const [previewImage, setPreviewImage] = useState<string | null>(null);
+  const [imageURLs, setImageURLs] = useState<string[]>([]);
 
   // Mount check
   useEffect(() => {
@@ -123,6 +125,21 @@ export default function ITReportPage() {
     }));
   };
 
+  // Create preview URLs when images are selected
+  useEffect(() => {
+    // Clean up old URLs
+    imageURLs.forEach(url => URL.revokeObjectURL(url));
+    
+    // Create new URLs
+    const newURLs = selectedImages.map(file => URL.createObjectURL(file));
+    setImageURLs(newURLs);
+    
+    // Cleanup function
+    return () => {
+      newURLs.forEach(url => URL.revokeObjectURL(url));
+    };
+  }, [selectedImages]);
+
   const handleImageChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const files = Array.from(e.target.files || []);
     setSelectedImages(prev => [...prev, ...files]);
@@ -130,6 +147,14 @@ export default function ITReportPage() {
 
   const removeImage = (index: number) => {
     setSelectedImages(prev => prev.filter((_, i) => i !== index));
+  };
+
+  const openImagePreview = (imageUrl: string) => {
+    setPreviewImage(imageUrl);
+  };
+
+  const closeImagePreview = () => {
+    setPreviewImage(null);
   };
 
   // Google Auth functions removed - no longer needed
@@ -274,6 +299,7 @@ export default function ITReportPage() {
           description: '',
         });
         setSelectedImages([]);
+        setImageURLs([]);
       } else {
         console.error('API Error:', data);
         toast.error(data.error || 'เกิดข้อผิดพลาดในการส่งข้อมูล');
@@ -449,23 +475,31 @@ export default function ITReportPage() {
                   <h4 className="text-sm font-medium text-gray-700 mb-2">
                     ไฟล์ที่เลือก ({selectedImages.length} ไฟล์)
                   </h4>
-                  <div className="grid grid-cols-2 md:grid-cols-4 gap-2">
+                  <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
                     {selectedImages.map((file, index) => (
-                      <div key={index} className="relative">
-                        <div className="bg-gray-100 rounded-lg p-2 text-center">
-                          <div className="text-xs text-gray-600 truncate">
-                            {file.name}
-                          </div>
-                          <div className="text-xs text-gray-500">
-                            {(file.size / 1024 / 1024).toFixed(2)} MB
-                          </div>
+                      <div key={index} className="relative group">
+                        <div 
+                          className="aspect-square rounded-lg overflow-hidden bg-gray-100 cursor-pointer hover:opacity-80 transition-opacity"
+                          onClick={() => openImagePreview(imageURLs[index])}
+                        >
+                          <img
+                            src={imageURLs[index]}
+                            alt={file.name}
+                            className="w-full h-full object-cover"
+                          />
+                        </div>
+                        <div className="mt-1 text-xs text-gray-600 truncate">
+                          {file.name}
+                        </div>
+                        <div className="text-xs text-gray-500">
+                          {(file.size / 1024 / 1024).toFixed(2)} MB
                         </div>
                         <button
                           type="button"
                           onClick={() => removeImage(index)}
-                          className="absolute -top-2 -right-2 bg-red-500 text-white rounded-full w-6 h-6 flex items-center justify-center text-xs hover:bg-red-600"
+                          className="absolute -top-2 -right-2 bg-red-500 text-white rounded-full w-6 h-6 flex items-center justify-center text-xs hover:bg-red-600 shadow-lg"
                         >
-                          <X className="w-3 h-3" />
+                          <X className="w-4 h-4" />
                         </button>
                       </div>
                     ))}
@@ -494,6 +528,29 @@ export default function ITReportPage() {
           </form>
         </div>
       </div>
+
+      {/* Image Preview Modal */}
+      {previewImage && (
+        <div 
+          className="fixed inset-0 bg-black/30 flex items-center justify-center z-50 p-4"
+          onClick={closeImagePreview}
+        >
+          <div className="relative max-w-4xl max-h-[90vh] w-full">
+            <button
+              onClick={closeImagePreview}
+              className="absolute -top-4 -right-4 bg-red-500 text-white rounded-full w-10 h-10 flex items-center justify-center hover:bg-red-600 shadow-lg z-10"
+            >
+              <X className="w-6 h-6" />
+            </button>
+            <img
+              src={previewImage}
+              alt="Preview"
+              className="max-w-full max-h-[90vh] object-contain mx-auto rounded-lg"
+              onClick={(e) => e.stopPropagation()}
+            />
+          </div>
+        </div>
+      )}
 
       {/* Google Auth Modal removed - no longer needed */}
     </Layout>

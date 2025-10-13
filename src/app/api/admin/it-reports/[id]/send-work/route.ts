@@ -31,6 +31,7 @@ export async function POST(
       // Accept job: pending → in_progress
       newStatus = 'in_progress';
       updateFields.status = newStatus;
+      updateFields.acceptedDate = new Date(); // เพิ่มวันที่รับงาน
       
       // Add assigned admin info if provided
       if (requestData.assignedAdmin) {

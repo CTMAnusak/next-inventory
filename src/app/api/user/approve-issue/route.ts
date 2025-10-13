@@ -73,6 +73,7 @@ export async function POST(request: NextRequest) {
     if (action === 'approve') {
       updateData.status = 'closed';
       updateData.closedAt = new Date();
+      updateData.closedDate = new Date();
       updateData.userFeedback = {
         action: 'approved',
         reason: reason || 'ผู้ใช้อนุมัติงาน',
@@ -80,6 +81,8 @@ export async function POST(request: NextRequest) {
       };
     } else if (action === 'reject') {
       updateData.status = 'in_progress'; // Send back to admin
+      updateData.completedDate = null; // ล้างวันที่ดำเนินการเสร็จเพื่อให้แสดง "-"
+      updateData.closedDate = null; // ล้างวันที่ปิดงานเพื่อให้แสดง "-"
       updateData.userFeedback = {
         action: 'rejected',
         reason: reason || 'ผู้ใช้ไม่อนุมัติผลงาน',

@@ -9,6 +9,12 @@ import { useAuth } from '@/contexts/AuthContext';
 interface IssueItem {
   _id: string;
   issueId: string;
+  firstName: string;
+  lastName: string;
+  email: string;
+  phone: string;
+  department: string;
+  office: string;
   issueCategory: string;
   customCategory?: string;
   urgency: string;
@@ -16,6 +22,7 @@ interface IssueItem {
   status: string;
   statusText: string;
   reportDate: string;
+  acceptedDate?: string;
   completedDate?: string;
   closedDate?: string;
   notes?: string;
@@ -176,7 +183,7 @@ export default function ITTrackingPage() {
                 >
                   <div className="flex items-start justify-between">
                     <div className="flex-1">
-                      <div className="flex items-center gap-3 mb-2">
+                      <div className="flex items-center gap-3 mb-3">
                         <h3 className="text-lg font-semibold text-gray-900">
                           {issue.issueId}
                         </h3>
@@ -191,6 +198,24 @@ export default function ITTrackingPage() {
                         }`}>
                           {issue.urgency === 'very_urgent' ? 'ด่วนมาก' : 'ปกติ'}
                         </span>
+                      </div>
+
+                      {/* ข้อมูลผู้แจ้ง */}
+                      <div className="bg-gray-50 rounded-lg p-3 mb-3 border border-gray-200">
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                          <div>
+                            <p className="text-xs text-gray-500">ชื่อ-นามสกุล</p>
+                            <p className="text-sm font-medium text-gray-900">{issue.firstName} {issue.lastName}</p>
+                          </div>
+                          <div>
+                            <p className="text-xs text-gray-500">เบอร์โทรศัพท์</p>
+                            <p className="text-sm font-medium text-gray-900">{issue.phone}</p>
+                          </div>
+                          <div>
+                            <p className="text-xs text-gray-500">อีเมล</p>
+                            <p className="text-sm font-medium text-gray-900">{issue.email}</p>
+                          </div>
+                        </div>
                       </div>
                       
                       <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-3">
@@ -215,20 +240,32 @@ export default function ITTrackingPage() {
                       </div>
                       
                       {/* แสดงข้อมูล IT Admin ที่รับงาน */}
-                      {issue.assignedAdmin && (issue.status === 'in_progress' || issue.status === 'completed' || issue.status === 'closed') && (
-                        <div className="mb-3 p-3 bg-blue-50 rounded-lg border border-blue-200">
-                          <div className="flex items-center space-x-2">
-                            <div className="w-2 h-2 bg-blue-500 rounded-full"></div>
-                            <p className="text-sm font-medium text-blue-700">IT Admin ผู้รับผิดชอบ</p>
+                      <div className="mb-3 p-3 rounded-lg border">
+                        {issue.assignedAdmin && (issue.status === 'in_progress' || issue.status === 'completed' || issue.status === 'closed') ? (
+                          <div className="bg-blue-50 border-blue-200 p-3 rounded-lg">
+                            <div className="flex items-center space-x-2">
+                              <div className="w-2 h-2 bg-blue-500 rounded-full"></div>
+                              <p className="text-sm font-medium text-blue-700">IT Admin ผู้รับผิดชอบ</p>
+                            </div>
+                            <p className="text-blue-900 font-semibold mt-1">
+                              {issue.assignedAdmin.name}
+                            </p>
+                            <p className="text-blue-600 text-sm">
+                              {issue.assignedAdmin.email}
+                            </p>
                           </div>
-                          <p className="text-blue-900 font-semibold mt-1">
-                            {issue.assignedAdmin.name}
-                          </p>
-                          <p className="text-blue-600 text-sm">
-                            {issue.assignedAdmin.email}
-                          </p>
-                        </div>
-                      )}
+                        ) : (
+                          <div className="bg-yellow-50 border-yellow-200 p-3 rounded-lg">
+                            <div className="flex items-center space-x-2">
+                              <Clock className="w-4 h-4 text-yellow-600" />
+                              <p className="text-sm font-medium text-yellow-700">ผู้รับผิดชอบ</p>
+                            </div>
+                            <p className="text-yellow-900 font-semibold mt-1">
+                              รอแอดมินรับงาน
+                            </p>
+                          </div>
+                        )}
+                      </div>
 
                       <div className="mb-3">
                         <p className="text-sm text-gray-600">รายละเอียด</p>
@@ -289,78 +326,149 @@ export default function ITTrackingPage() {
               onClick={() => setShowDetailModal(false)}
             >
               <div 
-                className="relative w-full max-w-2xl max-h-[90vh] overflow-y-auto bg-white/95 backdrop-blur-md rounded-2xl shadow-2xl border border-white/20"
+                className="relative w-full max-w-4xl max-h-[90vh] overflow-y-auto bg-white/95 backdrop-blur-md rounded-2xl shadow-2xl border border-white/20"
                 onClick={(e) => e.stopPropagation()}
               >
                 <div className="p-6">
-                  <div className="flex items-center justify-between mb-4">
-                    <h3 className="text-lg font-medium text-gray-900">
-                      รายละเอียดงาน {selectedIssue.issueId}
-                    </h3>
+                  {/* Header */}
+                  <div className="flex items-center justify-between mb-6 pb-4 border-b border-gray-200">
+                    <div>
+                      <h3 className="text-2xl font-bold text-gray-900 mb-1">
+                        รายละเอียดงาน {selectedIssue.issueId}
+                      </h3>
+                      <div className="flex items-center gap-3 mt-2">
+                        <span className={`inline-flex items-center px-3 py-1 rounded-full text-sm font-semibold border-2 ${getStatusColor(selectedIssue.status)}`}>
+                          {getStatusIcon(selectedIssue.status)}
+                          <span className="ml-2">{selectedIssue.statusText}</span>
+                        </span>
+                        <span className={`inline-flex px-3 py-1 text-sm font-bold rounded-full border-2 ${
+                          selectedIssue.urgency === 'very_urgent' 
+                            ? 'bg-red-50 text-red-700 border-red-300'
+                            : 'bg-gray-50 text-gray-700 border-gray-300'
+                        }`}>
+                          ความเร่งด่วน: {selectedIssue.urgency === 'very_urgent' ? 'ด่วนมาก' : 'ปกติ'}
+                        </span>
+                      </div>
+                    </div>
                     <button
                       onClick={() => setShowDetailModal(false)}
-                      className="text-gray-400 hover:text-gray-600"
+                      className="text-gray-400 hover:text-gray-600 transition-colors"
                     >
-                      <XCircle className="w-6 h-6" />
+                      <X className="w-6 h-6" />
                     </button>
                   </div>
 
                   <div className="space-y-6">
-                    {/* Status Section */}
-                    <div className="bg-gradient-to-r from-blue-50 to-indigo-50 p-4 rounded-xl border border-blue-100">
-                      <div className="flex items-center gap-3">
-                        <span className={`inline-flex items-center px-4 py-2 rounded-full text-sm font-semibold border-2 ${getStatusColor(selectedIssue.status)}`}>
-                          {getStatusIcon(selectedIssue.status)}
-                          <span className="ml-2">{selectedIssue.statusText}</span>
-                        </span>
-                        <span className={`inline-flex px-3 py-1 text-xs font-bold rounded-full border ${
-                          selectedIssue.urgency === 'very_urgent' 
-                            ? 'bg-red-50 text-red-700 border-red-200'
-                            : 'bg-gray-50 text-gray-700 border-gray-200'
-                        }`}>
-                          {selectedIssue.urgency === 'very_urgent' ? 'ด่วนมาก' : 'ปกติ'}
-                        </span>
+                    {/* ข้อมูลผู้แจ้ง */}
+                    <div className="bg-gradient-to-r from-blue-50 to-indigo-50 p-5 rounded-xl border border-blue-200">
+                      <h4 className="text-lg font-semibold text-gray-900 mb-4 flex items-center">
+                        <div className="w-1 h-6 bg-blue-500 rounded-full mr-3"></div>
+                        ข้อมูลผู้แจ้ง
+                      </h4>
+                      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                        <div className="bg-white p-3 rounded-lg">
+                          <label className="block text-xs font-semibold text-gray-600 mb-1">ชื่อผู้แจ้ง</label>
+                          <p className="text-gray-900 font-medium">{selectedIssue.firstName} {selectedIssue.lastName}</p>
+                        </div>
+                        <div className="bg-white p-3 rounded-lg">
+                          <label className="block text-xs font-semibold text-gray-600 mb-1">เบอร์โทร</label>
+                          <p className="text-gray-900 font-medium">{selectedIssue.phone}</p>
+                        </div>
+                        <div className="bg-white p-3 rounded-lg">
+                          <label className="block text-xs font-semibold text-gray-600 mb-1">อีเมลผู้แจ้ง</label>
+                          <p className="text-gray-900 font-medium">{selectedIssue.email}</p>
+                        </div>
+                        <div className="bg-white p-3 rounded-lg">
+                          <label className="block text-xs font-semibold text-gray-600 mb-1">แผนก</label>
+                          <p className="text-gray-900 font-medium">{selectedIssue.department}</p>
+                        </div>
+                        <div className="bg-white p-3 rounded-lg md:col-span-2">
+                          <label className="block text-xs font-semibold text-gray-600 mb-1">ออฟฟิศ/สาขา</label>
+                          <p className="text-gray-900 font-medium">{selectedIssue.office}</p>
+                        </div>
                       </div>
                     </div>
 
-                    {/* Problem Details Section */}
+                    {/* IT Admin ผู้รับผิดชอบ */}
+                    <div className={`p-5 rounded-xl border-2 ${
+                      selectedIssue.assignedAdmin 
+                        ? 'bg-gradient-to-r from-green-50 to-emerald-50 border-green-200' 
+                        : 'bg-gradient-to-r from-yellow-50 to-amber-50 border-yellow-200'
+                    }`}>
+                      <h4 className="text-lg font-semibold text-gray-900 mb-3 flex items-center">
+                        <div className={`w-1 h-6 rounded-full mr-3 ${selectedIssue.assignedAdmin ? 'bg-green-500' : 'bg-yellow-500'}`}></div>
+                        ชื่อ IT Admin ผู้รับผิดชอบ
+                      </h4>
+                      {selectedIssue.assignedAdmin ? (
+                        <div className="bg-white p-4 rounded-lg">
+                          <p className="text-green-900 font-bold text-lg">{selectedIssue.assignedAdmin.name}</p>
+                          <p className="text-green-600 text-sm mt-1">{selectedIssue.assignedAdmin.email}</p>
+                        </div>
+                      ) : (
+                        <div className="bg-white p-4 rounded-lg flex items-center">
+                          <Clock className="w-5 h-5 text-yellow-600 mr-2" />
+                          <p className="text-yellow-900 font-bold">รอแอดมินรับงาน</p>
+                        </div>
+                      )}
+                    </div>
+
+                    {/* รายละเอียดปัญหา */}
                     <div className="bg-white p-5 rounded-xl border border-gray-200 shadow-sm">
                       <h4 className="text-lg font-semibold text-gray-900 mb-4 flex items-center">
-                        <div className="w-1 h-6 bg-blue-500 rounded-full mr-3"></div>
-                        ข้อมูลปัญหา
+                        <div className="w-1 h-6 bg-purple-500 rounded-full mr-3"></div>
+                        รายละเอียดปัญหา
                       </h4>
                       
                       <div className="space-y-4">
-                        <div className="bg-gray-50 p-4 rounded-lg border border-gray-100">
-                          <label className="block text-sm font-semibold text-gray-700 mb-2">หัวข้อปัญหา</label>
-                          <p className="text-gray-900 font-medium">
+                        <div className="bg-purple-50 p-4 rounded-lg border border-purple-100">
+                          <label className="block text-sm font-semibold text-purple-700 mb-2">ประเภทปัญหา / หัวข้อ</label>
+                          <p className="text-gray-900 font-medium text-lg">
                             {selectedIssue.issueCategory}
                             {selectedIssue.customCategory && (
-                              <span className="text-blue-600"> ({selectedIssue.customCategory})</span>
+                              <span className="text-purple-600"> ({selectedIssue.customCategory})</span>
                             )}
                           </p>
                         </div>
 
-                        <div className="bg-blue-50 p-4 rounded-lg border border-blue-100">
-                          <label className="block text-sm font-semibold text-gray-700 mb-2">รายละเอียดปัญหา</label>
+                        <div className="bg-gray-50 p-4 rounded-lg border border-gray-200">
+                          <label className="block text-sm font-semibold text-gray-700 mb-2">รายละเอียด</label>
                           <p className="text-gray-900 whitespace-pre-wrap leading-relaxed">{selectedIssue.description}</p>
                         </div>
+
+                        {/* รูปภาพ */}
+                        {selectedIssue.images && selectedIssue.images.length > 0 && (
+                          <div className="bg-indigo-50 p-4 rounded-lg border border-indigo-100">
+                            <label className="block text-sm font-semibold text-indigo-700 mb-3">รูปภาพประกอบ</label>
+                            <div className="grid grid-cols-2 md:grid-cols-3 gap-3">
+                              {selectedIssue.images.map((image, index) => (
+                                <div key={index} className="relative aspect-square rounded-lg overflow-hidden border-2 border-indigo-200 hover:border-indigo-400 transition-colors">
+                                  <img 
+                                    src={image} 
+                                    alt={`Issue image ${index + 1}`}
+                                    className="w-full h-full object-cover cursor-pointer hover:scale-110 transition-transform"
+                                    onClick={() => window.open(image, '_blank')}
+                                  />
+                                </div>
+                              ))}
+                            </div>
+                          </div>
+                        )}
                       </div>
                     </div>
 
                     {/* Timeline Section */}
-                    <div className="bg-white p-5 rounded-xl border border-gray-200 shadow-sm">
+                    <div className="bg-gradient-to-r from-green-50 to-teal-50 p-5 rounded-xl border border-green-200">
                       <h4 className="text-lg font-semibold text-gray-900 mb-4 flex items-center">
                         <div className="w-1 h-6 bg-green-500 rounded-full mr-3"></div>
                         ไทม์ไลน์
                       </h4>
                       
                       <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                        <div className="bg-green-50 p-4 rounded-lg border border-green-100">
-                          <label className="block text-sm font-semibold text-green-700 mb-1">วันที่แจ้ง</label>
+                        {/* วันที่แจ้งงาน */}
+                        <div className="bg-white p-4 rounded-lg border-l-4 border-green-500">
+                          <label className="block text-sm font-semibold text-green-700 mb-1">วันที่แจ้งงาน</label>
                           <p className="text-gray-900 font-medium">
                             {new Date(selectedIssue.reportDate).toLocaleDateString('th-TH', {
-                              weekday: 'long',
                               year: 'numeric',
                               month: 'long',
                               day: 'numeric',
@@ -372,34 +480,84 @@ export default function ITTrackingPage() {
                           </p>
                         </div>
                         
-                        {selectedIssue.completedDate && (
-                          <div className="bg-purple-50 p-4 rounded-lg border border-purple-100">
-                            <label className="block text-sm font-semibold text-purple-700 mb-1">วันที่ส่งงาน</label>
-                            <p className="text-gray-900 font-medium">
-                              {new Date(selectedIssue.completedDate).toLocaleDateString('th-TH', {
-                                weekday: 'long',
-                                year: 'numeric',
-                                month: 'long',
-                                day: 'numeric',
-                                timeZone: 'Asia/Bangkok'
-                              })}
-                            </p>
-                            <p className="text-gray-600 text-sm">
-                              {new Date(selectedIssue.completedDate).toLocaleTimeString('th-TH', { timeZone: 'Asia/Bangkok' })}
-                            </p>
-                          </div>
-                        )}
+                        {/* วันที่แอดมินรับงาน */}
+                        <div className={`bg-white p-4 rounded-lg border-l-4 ${selectedIssue.acceptedDate ? 'border-blue-500' : 'border-gray-300'}`}>
+                          <label className="block text-sm font-semibold text-blue-700 mb-1">วันที่แอดมินรับงาน</label>
+                          {selectedIssue.acceptedDate ? (
+                            <>
+                              <p className="text-gray-900 font-medium">
+                                {new Date(selectedIssue.acceptedDate).toLocaleDateString('th-TH', {
+                                  year: 'numeric',
+                                  month: 'long',
+                                  day: 'numeric',
+                                  timeZone: 'Asia/Bangkok'
+                                })}
+                              </p>
+                              <p className="text-gray-600 text-sm">
+                                {new Date(selectedIssue.acceptedDate).toLocaleTimeString('th-TH', { timeZone: 'Asia/Bangkok' })}
+                              </p>
+                            </>
+                          ) : (
+                            <p className="text-gray-400 font-medium">-</p>
+                          )}
+                        </div>
+
+                        {/* วันที่แอดมินดำเนินการเสร็จ */}
+                        <div className={`bg-white p-4 rounded-lg border-l-4 ${selectedIssue.completedDate ? 'border-purple-500' : 'border-gray-300'}`}>
+                          <label className="block text-sm font-semibold text-purple-700 mb-1">วันที่แอดมินดำเนินการเสร็จ</label>
+                          {selectedIssue.completedDate ? (
+                            <>
+                              <p className="text-gray-900 font-medium">
+                                {new Date(selectedIssue.completedDate).toLocaleDateString('th-TH', {
+                                  year: 'numeric',
+                                  month: 'long',
+                                  day: 'numeric',
+                                  timeZone: 'Asia/Bangkok'
+                                })}
+                              </p>
+                              <p className="text-gray-600 text-sm">
+                                {new Date(selectedIssue.completedDate).toLocaleTimeString('th-TH', { timeZone: 'Asia/Bangkok' })}
+                              </p>
+                            </>
+                          ) : (
+                            <p className="text-gray-400 font-medium">-</p>
+                          )}
+                        </div>
+                        
+                        {/* วันที่ปิดงาน */}
+                        <div className={`bg-white p-4 rounded-lg border-l-4 ${selectedIssue.closedDate ? 'border-emerald-500' : 'border-gray-300'}`}>
+                          <label className="block text-sm font-semibold text-emerald-700 mb-1">วันที่ปิดงาน</label>
+                          {selectedIssue.closedDate ? (
+                            <>
+                              <p className="text-gray-900 font-medium">
+                                {new Date(selectedIssue.closedDate).toLocaleDateString('th-TH', {
+                                  year: 'numeric',
+                                  month: 'long',
+                                  day: 'numeric',
+                                  timeZone: 'Asia/Bangkok'
+                                })}
+                              </p>
+                              <p className="text-gray-600 text-sm">
+                                {new Date(selectedIssue.closedDate).toLocaleTimeString('th-TH', { timeZone: 'Asia/Bangkok' })}
+                              </p>
+                            </>
+                          ) : (
+                            <p className="text-gray-400 font-medium">-</p>
+                          )}
+                        </div>
                       </div>
                     </div>
 
-                    {/* Additional Notes Section */}
+                    {/* หมายเหตุ */}
                     {selectedIssue.notes && (
                       <div className="bg-yellow-50 p-5 rounded-xl border border-yellow-200">
                         <h4 className="text-lg font-semibold text-gray-900 mb-3 flex items-center">
                           <div className="w-1 h-6 bg-yellow-500 rounded-full mr-3"></div>
                           หมายเหตุ
                         </h4>
-                        <p className="text-gray-900 leading-relaxed">{selectedIssue.notes}</p>
+                        <div className="bg-white p-4 rounded-lg">
+                          <p className="text-gray-900 leading-relaxed whitespace-pre-wrap">{selectedIssue.notes}</p>
+                        </div>
                       </div>
                     )}
                   </div>
@@ -407,7 +565,7 @@ export default function ITTrackingPage() {
                   <div className="mt-6 flex justify-end">
                     <button
                       onClick={() => setShowDetailModal(false)}
-                      className="px-4 py-2 bg-gray-300 text-gray-700 rounded-md hover:bg-gray-400 focus:outline-none focus:ring-2 focus:ring-gray-500"
+                      className="px-6 py-2 bg-gray-600 text-white rounded-lg hover:bg-gray-700 focus:outline-none focus:ring-2 focus:ring-gray-500 transition-colors"
                     >
                       ปิด
                     </button>
