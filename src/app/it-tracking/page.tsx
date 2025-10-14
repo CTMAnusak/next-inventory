@@ -11,6 +11,7 @@ interface IssueItem {
   issueId: string;
   firstName: string;
   lastName: string;
+  nickname?: string;
   email: string;
   phone: string;
   department: string;
@@ -63,6 +64,7 @@ export default function ITTrackingPage() {
   const [currentPage, setCurrentPage] = useState(1);
   const itemsPerPage = 20;
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [selectedImage, setSelectedImage] = useState<string | null>(null);
 
   useEffect(() => {
     if (user) {
@@ -492,7 +494,20 @@ export default function ITTrackingPage() {
                       <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                         <div className="bg-white p-3 rounded-lg">
                           <label className="block text-xs font-semibold text-gray-600 mb-1">ชื่อผู้แจ้ง</label>
-                          <p className="text-gray-900 font-medium">{selectedIssue.firstName} {selectedIssue.lastName}</p>
+                          <div className={
+                            !selectedIssue.firstName 
+                              ? 'text-gray-500 italic' 
+                              : 'text-gray-900'
+                          }>
+                            {selectedIssue.firstName && selectedIssue.lastName ? (
+                              <p className="font-medium">
+                                {selectedIssue.firstName} {selectedIssue.lastName}
+                                {selectedIssue.nickname && <span className="text-gray-600"> ({selectedIssue.nickname})</span>}
+                              </p>
+                            ) : (
+                              <p className="font-medium">(ผู้ใช้ถูกลบแล้ว)</p>
+                            )}
+                          </div>
                         </div>
                         <div className="bg-white p-3 rounded-lg">
                           <label className="block text-xs font-semibold text-gray-600 mb-1">เบอร์โทร</label>
@@ -572,7 +587,7 @@ export default function ITTrackingPage() {
                                       src={imagePath} 
                                       alt={`รูปภาพปัญหา ${index + 1}`}
                                       className="w-full h-full object-cover cursor-pointer hover:scale-110 transition-transform"
-                                      onClick={() => window.open(imagePath, '_blank')}
+                                      onClick={() => setSelectedImage(imagePath)}
                                       onError={(e) => {
                                         const target = e.target as HTMLImageElement;
                                         target.onerror = null; // ป้องกัน infinite loop
@@ -920,6 +935,33 @@ export default function ITTrackingPage() {
           )}
         </div>
       </div>
+
+      {/* Image Viewer Modal */}
+      {selectedImage && (
+        <div 
+          className="fixed inset-0 bg-black/60 backdrop-blur-sm z-[60] flex items-center justify-center p-4"
+          onClick={() => setSelectedImage(null)}
+        >
+          <div className="relative inline-block">
+            {/* Image */}
+            <img
+              src={selectedImage}
+              alt="รูปภาพขยาย"
+              className="max-w-[90vw] max-h-[90vh] object-contain rounded-lg shadow-2xl"
+              onClick={(e) => e.stopPropagation()}
+            />
+            
+            {/* Close Button */}
+            <button
+              onClick={() => setSelectedImage(null)}
+              className="absolute -top-4 -right-4 z-10 bg-gray-800/90 hover:bg-gray-700 text-white rounded-full p-2.5 transition-all hover:scale-110 shadow-lg"
+              aria-label="ปิด"
+            >
+              <X className="w-5 h-5" />
+            </button>
+          </div>
+        </div>
+      )}
     </Layout>
   );
 }

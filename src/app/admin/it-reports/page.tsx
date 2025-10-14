@@ -221,12 +221,43 @@ export default function AdminITReportsPage() {
 
     // Sort by urgency and date
     filtered.sort((a, b) => {
-      // First by urgency (very_urgent first)
+      // For closed tab, skip urgency sorting and sort by closed date only
+      if (activeTab === 'closed') {
+        const dateA = new Date(a.closedDate || a.completedDate || a.reportDate);
+        const dateB = new Date(b.closedDate || b.completedDate || b.reportDate);
+        return dateB.getTime() - dateA.getTime();
+      }
+
+      // For other tabs, sort by urgency first
       if (a.urgency === 'very_urgent' && b.urgency === 'normal') return -1;
       if (a.urgency === 'normal' && b.urgency === 'very_urgent') return 1;
       
-      // Then by submission date (newest first)
-      return new Date(b.reportDate).getTime() - new Date(a.reportDate).getTime();
+      // Then by date based on status (newest first)
+      let dateA: Date;
+      let dateB: Date;
+
+      switch (activeTab) {
+        case 'pending':
+          // Sort by report date for pending
+          dateA = new Date(a.reportDate);
+          dateB = new Date(b.reportDate);
+          break;
+        case 'in_progress':
+          // Sort by accepted date (or report date if not accepted yet)
+          dateA = new Date(a.acceptedDate || a.reportDate);
+          dateB = new Date(b.acceptedDate || b.reportDate);
+          break;
+        case 'completed':
+          // Sort by completed date (or report date if not completed yet)
+          dateA = new Date(a.completedDate || a.reportDate);
+          dateB = new Date(b.completedDate || b.reportDate);
+          break;
+        default:
+          dateA = new Date(a.reportDate);
+          dateB = new Date(b.reportDate);
+      }
+
+      return dateB.getTime() - dateA.getTime();
     });
 
     setFilteredIssues(filtered);
@@ -987,10 +1018,9 @@ export default function AdminITReportsPage() {
                           {selectedIssue.firstName && selectedIssue.lastName ? (
                             <>
                               <p className="font-medium">
-                                {selectedIssue.firstName} {selectedIssue.lastName}
+                                {selectedIssue.firstName} {selectedIssue.lastName} <span className="text-gray-600"> ({selectedIssue.nickname})</span>
                                 {(selectedIssue as any).userId?.pendingDeletion && ' (รอลบ)'}
                               </p>
-                              <p className="text-sm">({selectedIssue.nickname})</p>
                             </>
                           ) : (
                             <p className="font-medium">(ผู้ใช้ถูกลบแล้ว)</p>

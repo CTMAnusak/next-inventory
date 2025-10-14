@@ -185,7 +185,7 @@ export async function sendIssueNotification(issueData: any) {
               <p style="color: #f0f0f0; margin: 0 0 20px 0; font-size: 14px;">คลิกปุ่มด้านล่างเพื่อเข้าสู่ระบบและรับงานนี้</p>
               <a href="${process.env.NEXTAUTH_URL}/admin/it-reports" 
                  style="display: inline-block; background-color: #ffc107; color: #000; padding: 15px 40px; text-decoration: none; border-radius: 25px; font-weight: bold; font-size: 16px; box-shadow: 0 4px 6px rgba(0,0,0,0.2);">
-                🔗 เข้าสู่ระบบ IT Admin
+                🔗 คลิกเพื่อเข้าสู่ระบบ
               </a>
             </div>
 
@@ -1067,7 +1067,7 @@ export async function sendUserApprovalNotification(issueData: any, userFeedback:
               <p style="color: #f0f0f0; margin: 0 0 20px 0; font-size: 14px;">งานถูกส่งกลับให้แก้ไข กรุณาเข้าสู่ระบบเพื่อดำเนินการต่อ</p>
               <a href="${process.env.NEXTAUTH_URL}/admin/it-reports" 
                  style="display: inline-block; background-color: #ffffff; color: #ff9800; padding: 15px 40px; text-decoration: none; border-radius: 25px; font-weight: bold; font-size: 16px; box-shadow: 0 4px 6px rgba(0,0,0,0.2);">
-                🔗 เข้าสู่ระบบ IT Admin
+                🔗 คลิกเพื่อเข้าสู่ระบบ
               </a>
             </div>
             ` : `
@@ -1128,7 +1128,7 @@ export async function sendAutoReplyForNewIssue(originalSender: string) {
         <div style="margin: 15px 0;">
           <p><strong>📋 วิธีการรับงาน:</strong></p>
           <ol style="color: #666; padding-left: 20px;">
-            <li>เข้าสู่ระบบ IT Admin</li>
+            <li>เข้าสู่ระบบ</li>
             <li>ไปที่หน้า "รายงานแจ้งงาน IT"</li>
             <li>กดปุ่ม "รับงาน" ที่งานที่ต้องการ</li>
             <li>ระบบจะเชื่อมต่อคุณกับผู้แจ้งโดยอัตโนมัติ</li>
@@ -1136,7 +1136,7 @@ export async function sendAutoReplyForNewIssue(originalSender: string) {
         </div>
 
         <div style="background-color: #fff3e0; padding: 15px; margin: 20px 0; border-radius: 5px; border: 2px solid #ff9800;">
-          <p><strong>🔗 เข้าสู่ระบบ IT Admin:</strong></p>
+          <p><strong>🔗 คลิกเพื่อเข้าสู่ระบบ:</strong></p>
           <p style="margin: 10px 0;">
             <a href="${process.env.NEXTAUTH_URL}/admin/it-reports" 
                style="background-color: #ff9800; color: white; padding: 12px 24px; text-decoration: none; border-radius: 5px; display: inline-block; font-weight: bold;">

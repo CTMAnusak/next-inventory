@@ -51,6 +51,7 @@ export async function GET(request: NextRequest) {
         issueId: issue.issueId,
         firstName: issue.firstName,
         lastName: issue.lastName,
+        nickname: issue.nickname,
         email: issue.email,
         phone: issue.phone,
         department: issue.department,
