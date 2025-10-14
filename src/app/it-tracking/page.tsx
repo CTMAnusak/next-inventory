@@ -31,6 +31,23 @@ interface IssueItem {
     name: string;
     email: string;
   };
+  userFeedback?: {
+    action: 'approved' | 'rejected';
+    reason: string;
+    submittedAt: string;
+  };
+  // ประวัติใหม่
+  notesHistory?: Array<{
+    note: string;
+    adminId: string;
+    adminName: string;
+    createdAt: string;
+  }>;
+  userFeedbackHistory?: Array<{
+    action: 'approved' | 'rejected';
+    reason: string;
+    submittedAt: string;
+  }>;
 }
 
 export default function ITTrackingPage() {
@@ -45,6 +62,7 @@ export default function ITTrackingPage() {
   const [activeTab, setActiveTab] = useState<'open' | 'closed'>('open');
   const [currentPage, setCurrentPage] = useState(1);
   const itemsPerPage = 20;
+  const [isSubmitting, setIsSubmitting] = useState(false);
 
   useEffect(() => {
     if (user) {
@@ -85,9 +103,16 @@ export default function ITTrackingPage() {
   };
 
   const submitApproval = async () => {
-    if (!selectedIssue || !approvalAction) return;
+    if (!selectedIssue || !approvalAction || isSubmitting) return;
 
+    setIsSubmitting(true);
     try {
+      // ถ้าปิดงาน ใช้ข้อความ "แก้ไขสำเร็จ" อัตโนมัติ
+      // ถ้าไม่ปิดงาน ใช้เหตุผลที่ผู้ใช้กรอก
+      const reasonText = approvalAction === 'approve' 
+        ? 'แก้ไขสำเร็จ' 
+        : rejectionReason;
+
       const response = await fetch('/api/user/approve-issue', {
         method: 'POST',
         headers: {
@@ -96,7 +121,7 @@ export default function ITTrackingPage() {
         body: JSON.stringify({
           issueId: selectedIssue._id,
           action: approvalAction,
-          reason: rejectionReason
+          reason: reasonText
         }),
       });
 
@@ -114,6 +139,8 @@ export default function ITTrackingPage() {
     } catch (error) {
       console.error('Approval error:', error);
       toast.error('เกิดข้อผิดพลาดในการเชื่อมต่อ');
+    } finally {
+      setIsSubmitting(false);
     }
   };
 
@@ -302,14 +329,44 @@ export default function ITTrackingPage() {
                       </td>
                       
                       {/* รายละเอียด (ปุ่ม) */}
-                      <td className="px-4 py-3 whitespace-nowrap text-center">
-                        <button
-                          onClick={() => handleViewDetails(issue)}
-                          className="inline-flex items-center gap-1.5 px-3 py-1.5 border border-blue-300 text-xs font-medium rounded-lg text-blue-700 bg-blue-50 hover:bg-blue-100 transition-colors"
-                        >
-                          <Eye className="w-3.5 h-3.5" />
-                          ดูรายละเอียด
-                        </button>
+                      <td className="px-4 py-3 text-center">
+                        {issue.status === 'completed' ? (
+                          <div className="flex flex-col gap-2 items-center">
+                            {/* แถวที่ 1: ปุ่มปิดงาน และ ไม่ปิดงาน */}
+                            <div className="flex gap-2">
+                              <button
+                                onClick={() => handleApprovalAction('approve', issue)}
+                                className="inline-flex items-center gap-1.5 px-3 py-1.5 border border-green-300 text-xs font-medium rounded-lg text-green-700 bg-green-50 hover:bg-green-100 transition-colors"
+                              >
+                                <CheckCircle className="w-3.5 h-3.5" />
+                                ปิดงาน
+                              </button>
+                              <button
+                                onClick={() => handleApprovalAction('reject', issue)}
+                                className="inline-flex items-center gap-1.5 px-3 py-1.5 border border-red-300 text-xs font-medium rounded-lg text-red-700 bg-red-50 hover:bg-red-100 transition-colors"
+                              >
+                                <XCircle className="w-3.5 h-3.5" />
+                                ไม่ปิดงาน
+                              </button>
+                            </div>
+                            {/* แถวที่ 2: ปุ่มดูรายละเอียด */}
+                            <button
+                              onClick={() => handleViewDetails(issue)}
+                              className="inline-flex items-center gap-1.5 px-3 py-1.5 border border-blue-300 text-xs font-medium rounded-lg text-blue-700 bg-blue-50 hover:bg-blue-100 transition-colors"
+                            >
+                              <Eye className="w-3.5 h-3.5" />
+                              ดูรายละเอียด
+                            </button>
+                          </div>
+                        ) : (
+                          <button
+                            onClick={() => handleViewDetails(issue)}
+                            className="inline-flex items-center gap-1.5 px-3 py-1.5 border border-blue-300 text-xs font-medium rounded-lg text-blue-700 bg-blue-50 hover:bg-blue-100 transition-colors"
+                          >
+                            <Eye className="w-3.5 h-3.5" />
+                            ดูรายละเอียด
+                          </button>
+                        )}
                       </td>
                     </tr>
                   ))}
@@ -400,8 +457,8 @@ export default function ITTrackingPage() {
                   {/* Header */}
                   <div className="flex items-center justify-between mb-6 pb-4 border-b border-gray-200">
                     <div>
-                      <h3 className="text-2xl font-bold text-gray-900 mb-1">
-                        รายละเอียดงาน {selectedIssue.issueId}
+                      <h3 className="text-2xl font-bold text-gray-900 mb-3">
+                        รายละเอียดงาน <br/><span className='text-blue-500 text-lg'>Issue ID: {selectedIssue.issueId}</span>
                       </h3>
                       <div className="flex items-center gap-3 mt-2">
                         <span className={`inline-flex items-center px-3 py-1 rounded-full text-sm font-semibold border-2 ${getStatusColor(selectedIssue.status)}`}>
@@ -419,7 +476,7 @@ export default function ITTrackingPage() {
                     </div>
                     <button
                       onClick={() => setShowDetailModal(false)}
-                      className="text-gray-400 hover:text-gray-600 transition-colors"
+                      className="text-gray-400 hover:text-gray-600 transition-colors items-start"
                     >
                       <X className="w-6 h-6" />
                     </button>
@@ -505,7 +562,7 @@ export default function ITTrackingPage() {
                         {selectedIssue.images && selectedIssue.images.length > 0 && (
                           <div className="bg-indigo-50 p-4 rounded-lg border border-indigo-100">
                             <label className="block text-sm font-semibold text-indigo-700 mb-3">รูปภาพประกอบ ({selectedIssue.images.length} รูป)</label>
-                            <div className="grid grid-cols-2 md:grid-cols-3 gap-3">
+                            <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
                               {selectedIssue.images.map((image, index) => {
                                 // ตรวจสอบและเติม path ให้ครบถ้วน
                                 const imagePath = image.startsWith('/') ? image : `/assets/IssueLog/${image}`;
@@ -627,18 +684,143 @@ export default function ITTrackingPage() {
                       </div>
                     </div>
 
-                    {/* หมายเหตุ */}
-                    <div className="bg-yellow-50 p-5 rounded-xl border border-yellow-200">
-                      <h4 className="text-lg font-semibold text-gray-900 mb-3 flex items-center">
-                        <div className="w-1 h-6 bg-yellow-500 rounded-full mr-3"></div>
-                        หมายเหตุ
-                      </h4>
+                  {/* หมายเหตุจาก Admin */}
+                  <div className="bg-yellow-50 p-5 rounded-xl border border-yellow-200">
+                    <h4 className="text-lg font-semibold text-gray-900 mb-3 flex items-center">
+                      <div className="w-1 h-6 bg-yellow-500 rounded-full mr-3"></div>
+                      หมายเหตุจาก Admin
+                    </h4>
+                    
+                    {/* แสดงประวัติหมายเหตุทั้งหมด */}
+                    {selectedIssue.notesHistory && selectedIssue.notesHistory.length > 0 ? (
+                      <div className="space-y-3">
+                        {selectedIssue.notesHistory.map((noteEntry, index) => (
+                          <div key={index} className="bg-white p-4 rounded-lg border-l-4 border-yellow-400">
+                            <div className="flex justify-between items-start mb-2">
+                              <span className="text-sm font-semibold text-yellow-700">
+                                {noteEntry.adminName}
+                              </span>
+                              <span className="text-xs text-gray-500">
+                                {new Date(noteEntry.createdAt).toLocaleDateString('th-TH', {
+                                  year: 'numeric',
+                                  month: 'short',
+                                  day: 'numeric',
+                                  hour: '2-digit',
+                                  minute: '2-digit',
+                                  timeZone: 'Asia/Bangkok'
+                                })}
+                              </span>
+                            </div>
+                            <p className="text-gray-900 leading-relaxed whitespace-pre-wrap">
+                              {noteEntry.note}
+                            </p>
+                          </div>
+                        ))}
+                      </div>
+                    ) : selectedIssue.notes ? (
+                      // Fallback สำหรับข้อมูลเก่าที่ยังไม่มี history
                       <div className="bg-white p-4 rounded-lg">
                         <p className="text-gray-900 leading-relaxed whitespace-pre-wrap">
-                          {selectedIssue.notes || '-'}
+                          {selectedIssue.notes}
                         </p>
                       </div>
-                    </div>
+                    ) : (
+                      <div className="bg-white p-4 rounded-lg">
+                        <p className="text-gray-900 leading-relaxed">-</p>
+                      </div>
+                    )}
+                  </div>
+
+                  {/* หมายเหตุจากผู้แจ้ง */}
+                  <div className="bg-gray-50 p-5 rounded-xl border border-gray-200">
+                    <h4 className="text-lg font-semibold text-gray-900 mb-3 flex items-center">
+                      <div className="w-1 h-6 bg-gray-500 rounded-full mr-3"></div>
+                      หมายเหตุจากผู้แจ้ง
+                    </h4>
+                    
+                    {/* แสดงประวัติ feedback ทั้งหมด */}
+                    {selectedIssue.userFeedbackHistory && selectedIssue.userFeedbackHistory.length > 0 ? (
+                      <div className="space-y-3">
+                        {selectedIssue.userFeedbackHistory.map((feedback, index) => (
+                          <div key={index} className={`p-4 rounded-lg border-l-4 ${
+                            feedback.action === 'rejected' 
+                              ? 'bg-red-50 border-red-400' 
+                              : 'bg-green-50 border-green-400'
+                          }`}>
+                            <div className="flex justify-between items-start mb-2">
+                              <span className={`text-sm font-semibold ${
+                                feedback.action === 'rejected' ? 'text-red-700' : 'text-green-700'
+                              }`}>
+                                {feedback.action === 'rejected' ? '🔄 ไม่ปิดงาน' : '✅ ปิดงาน'}
+                              </span>
+                              <span className="text-xs text-gray-500">
+                                {new Date(feedback.submittedAt).toLocaleDateString('th-TH', {
+                                  year: 'numeric',
+                                  month: 'short',
+                                  day: 'numeric',
+                                  hour: '2-digit',
+                                  minute: '2-digit',
+                                  timeZone: 'Asia/Bangkok'
+                                })}
+                              </span>
+                            </div>
+                            <p className="text-gray-900 leading-relaxed whitespace-pre-wrap">
+                              {feedback.reason}
+                            </p>
+                          </div>
+                        ))}
+                      </div>
+                    ) : selectedIssue.userFeedback ? (
+                      // Fallback สำหรับข้อมูลเก่าที่ยังไม่มี history
+                      <div className={`bg-white p-4 rounded-lg border-l-4 ${
+                        selectedIssue.userFeedback.action === 'rejected' 
+                          ? 'border-red-400' 
+                          : 'border-green-400'
+                      }`}>
+                        <div className="flex justify-between items-start mb-2">
+                          <span className={`text-sm font-semibold ${
+                            selectedIssue.userFeedback.action === 'rejected' ? 'text-red-700' : 'text-green-700'
+                          }`}>
+                            {selectedIssue.userFeedback.action === 'rejected' ? '🔄 ไม่ปิดงาน' : '✅ ปิดงาน'}
+                          </span>
+                          <span className="text-xs text-gray-500">
+                            {new Date(selectedIssue.userFeedback.submittedAt).toLocaleDateString('th-TH', {
+                              year: 'numeric',
+                              month: 'short',
+                              day: 'numeric',
+                              hour: '2-digit',
+                              minute: '2-digit',
+                              timeZone: 'Asia/Bangkok'
+                            })}
+                          </span>
+                        </div>
+                        <p className="text-gray-900 leading-relaxed whitespace-pre-wrap">
+                          {selectedIssue.userFeedback.reason}
+                        </p>
+                      </div>
+                    ) : selectedIssue.status === 'closed' ? (
+                      <div className="bg-green-50 p-4 rounded-lg border-l-4 border-green-400">
+                        <div className="flex justify-between items-start mb-2">
+                          <span className="text-sm font-semibold text-green-700">✅ ปิดงาน</span>
+                          <span className="text-xs text-gray-500">
+                            {selectedIssue.closedDate ? new Date(selectedIssue.closedDate).toLocaleDateString('th-TH', {
+                              year: 'numeric',
+                              month: 'short',
+                              day: 'numeric',
+                              hour: '2-digit',
+                              minute: '2-digit',
+                              timeZone: 'Asia/Bangkok'
+                            }) : ''}
+                          </span>
+                        </div>
+                        <p className="text-gray-900 leading-relaxed">แก้ไขสำเร็จ</p>
+                      </div>
+                    ) : (
+                      <div className="bg-white p-4 rounded-lg">
+                        <p className="text-gray-900 leading-relaxed">-</p>
+                      </div>
+                    )}
+                  </div>
                   </div>
 
                   <div className="mt-6 flex justify-end">
@@ -705,20 +887,31 @@ export default function ITTrackingPage() {
                   <div className="flex space-x-3 justify-end">
                     <button
                       onClick={() => setShowApprovalModal(false)}
-                      className="px-4 py-2 bg-gray-300 text-gray-700 rounded-lg hover:bg-gray-400 transition-colors"
+                      disabled={isSubmitting}
+                      className="px-4 py-2 bg-gray-300 text-gray-700 rounded-lg hover:bg-gray-400 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
                     >
                       ยกเลิก
                     </button>
                     <button
                       onClick={submitApproval}
-                      disabled={approvalAction === 'reject' && !rejectionReason.trim()}
-                      className={`px-4 py-2 text-white rounded-lg transition-colors ${
+                      disabled={(approvalAction === 'reject' && !rejectionReason.trim()) || isSubmitting}
+                      className={`px-4 py-2 text-white rounded-lg transition-colors inline-flex items-center gap-2 ${
                         approvalAction === 'approve'
                           ? 'bg-green-600 hover:bg-green-700 disabled:bg-green-300'
                           : 'bg-red-600 hover:bg-red-700 disabled:bg-red-300'
-                      }`}
+                      } disabled:cursor-not-allowed`}
                     >
-                      {approvalAction === 'approve' ? 'อนุมัติ' : 'ส่งกลับ'}
+                      {isSubmitting ? (
+                        <>
+                          <svg className="animate-spin h-4 w-4 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                            <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                            <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                          </svg>
+                          กำลังดำเนินการ...
+                        </>
+                      ) : (
+                        approvalAction === 'approve' ? 'อนุมัติ' : 'ส่งกลับ'
+                      )}
                     </button>
                   </div>
                 </div>

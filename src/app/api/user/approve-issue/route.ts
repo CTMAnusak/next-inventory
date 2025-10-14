@@ -71,29 +71,30 @@ export async function POST(request: NextRequest) {
       );
     }
 
+    // Create new feedback entry
+    const newFeedback = {
+      action: action === 'approve' ? 'approved' : 'rejected',
+      reason: reason || (action === 'approve' ? 'ผู้ใช้อนุมัติงาน' : 'ผู้ใช้ไม่อนุมัติผลงาน'),
+      submittedAt: new Date()
+    };
+
     // Update issue based on action
     const updateData: any = {
-      updatedAt: new Date()
+      updatedAt: new Date(),
+      // เพิ่ม feedback ใหม่เข้าไปใน history array
+      $push: { userFeedbackHistory: newFeedback },
+      // อัปเดต userFeedback เดิมเพื่อ backward compatibility
+      userFeedback: newFeedback
     };
 
     if (action === 'approve') {
       updateData.status = 'closed';
       updateData.closedAt = new Date();
       updateData.closedDate = new Date();
-      updateData.userFeedback = {
-        action: 'approved',
-        reason: reason || 'ผู้ใช้อนุมัติงาน',
-        submittedAt: new Date()
-      };
     } else if (action === 'reject') {
       updateData.status = 'in_progress'; // Send back to admin
       updateData.completedDate = null; // ล้างวันที่ดำเนินการเสร็จเพื่อให้แสดง "-"
       updateData.closedDate = null; // ล้างวันที่ปิดงานเพื่อให้แสดง "-"
-      updateData.userFeedback = {
-        action: 'rejected',
-        reason: reason || 'ผู้ใช้ไม่อนุมัติผลงาน',
-        submittedAt: new Date()
-      };
     }
 
     console.log('Updating issue with data:', updateData);

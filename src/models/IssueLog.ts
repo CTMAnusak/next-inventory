@@ -18,7 +18,7 @@ export interface IIssueLog extends Document {
   office: string; // สาขา/ออฟฟิศ
   
   issueCategory: string; // หัวข้อปัญหา
-  customCategory?: string; // สำหรับ "อื่น ๆ โปรดระบุ"
+  customCategory?: string; // สำหรับ "อื่น ๆ (โปรดระบุ)"
   urgency: 'very_urgent' | 'normal'; // ระดับความเร่งด่วน
   description: string; // รายละเอียด
   images?: string[]; // รูปภาพที่อัปโหลด
@@ -27,7 +27,7 @@ export interface IIssueLog extends Document {
   acceptedDate?: Date; // วันที่แอดมินรับงาน
   completedDate?: Date; // วันที่ดำเนินการเสร็จ
   closedDate?: Date; // วันที่ปิดงาน
-  notes?: string; // หมายเหตุ
+  notes?: string; // หมายเหตุ (deprecated - ใช้ notesHistory แทน)
   closeLink?: string; // ลิงค์สำหรับปิดงาน
   userId?: string; // ผู้ใช้ที่สร้างรายการ (อ้างอิง users._id) - deprecated, ใช้ requesterId แทน
   
@@ -37,6 +37,23 @@ export interface IIssueLog extends Document {
     name: string;
     email: string;
   };
+  
+  // ประวัติหมายเหตุจากแอดมิน (ใหม่)
+  notesHistory?: Array<{
+    note: string;
+    adminId: string;
+    adminName: string;
+    createdAt: Date;
+  }>;
+  
+  // ประวัติ feedback จากผู้ใช้ (ใหม่)
+  userFeedbackHistory?: Array<{
+    action: 'approved' | 'rejected';
+    reason: string;
+    submittedAt: Date;
+  }>;
+  
+  closedAt?: Date; // เพิ่มฟิลด์ closedAt
   
   createdAt: Date;
   updatedAt: Date;
@@ -88,12 +105,12 @@ const IssueLogSchema = new Schema<IIssueLog>({
       'ปัญหา เบอร์โทรศัพท์',
       'ปัญหา Nas เข้าไม่ได้ ใช้งานไม่ได้',
       'ขอ User Account Email ระบบงาน',
-      'อื่น ๆ โปรดระบุ'
+      'อื่น ๆ (โปรดระบุ)'
     ]
   },
   customCategory: { 
     type: String,
-    required: function() { return this.issueCategory === 'อื่น ๆ โปรดระบุ'; }
+    required: function() { return this.issueCategory === 'อื่น ๆ (โปรดระบุ)'; }
   },
   urgency: { 
     type: String, 
@@ -114,10 +131,7 @@ const IssueLogSchema = new Schema<IIssueLog>({
   closedDate: { type: Date },
   notes: { type: String },
   closeLink: { 
-    type: String,
-    default: function() {
-      return `/close-issue/${this.issueId}`;
-    }
+    type: String
   },
   userId: { type: String },
   
@@ -130,11 +144,22 @@ const IssueLogSchema = new Schema<IIssueLog>({
     name: { type: String },
     email: { type: String }
   },
-  userFeedback: {
-    action: { type: String, enum: ['approved', 'rejected'] },
-    reason: { type: String },
-    submittedAt: { type: Date }
-  },
+  
+  // ประวัติหมายเหตุจากแอดมิน (ใหม่)
+  notesHistory: [{
+    note: { type: String, required: true },
+    adminId: { type: String, required: true },
+    adminName: { type: String, required: true },
+    createdAt: { type: Date, default: Date.now }
+  }],
+  
+  // ประวัติ feedback จากผู้ใช้ (ใหม่)
+  userFeedbackHistory: [{
+    action: { type: String, enum: ['approved', 'rejected'], required: true },
+    reason: { type: String, required: true },
+    submittedAt: { type: Date, default: Date.now }
+  }],
+  
   closedAt: { type: Date }
 }, {
   timestamps: true

@@ -23,8 +23,8 @@ export async function POST(request: NextRequest) {
       }
     }
 
-    // Validate custom category if "อื่น ๆ โปรดระบุ" is selected
-    if (reportData.issueCategory === 'อื่น ๆ โปรดระบุ' && !reportData.customCategory) {
+    // Validate custom category if "อื่น ๆ (โปรดระบุ)" is selected
+    if (reportData.issueCategory === 'อื่น ๆ (โปรดระบุ)' && !reportData.customCategory) {
       return NextResponse.json(
         { error: 'กรุณาระบุประเภทปัญหา' },
         { status: 400 }

@@ -46,6 +46,21 @@ export async function POST(
       newStatus = 'completed';
       updateFields.status = newStatus;
       updateFields.completedDate = new Date();
+      
+      // Add notes if provided - เพิ่มเข้า history และอัปเดต notes เดิม
+      if (requestData.notes) {
+        updateFields.notes = requestData.notes; // เก็บไว้เพื่อ backward compatibility
+        
+        // เพิ่มเข้า notesHistory
+        updateFields.$push = {
+          notesHistory: {
+            note: requestData.notes,
+            adminId: requestData.assignedAdminId || 'unknown', // จะต้องส่งมาจาก frontend
+            adminName: requestData.assignedAdmin?.name || 'Admin', // จะต้องส่งมาจาก frontend
+            createdAt: new Date()
+          }
+        };
+      }
     } else {
       return NextResponse.json(
         { error: 'ไม่สามารถดำเนินการในสถานะปัจจุบันได้' },

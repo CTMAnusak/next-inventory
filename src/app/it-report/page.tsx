@@ -17,7 +17,7 @@ const issueCategories = [
   'ปัญหา เบอร์โทรศัพท์',
   'ปัญหา Nas เข้าไม่ได้ ใช้งานไม่ได้',
   'ขอ User Account Email ระบบงาน',
-  'อื่น ๆ โปรดระบุ'
+  'อื่น ๆ (โปรดระบุ)'
 ];
 
 export default function ITReportPage() {
@@ -218,8 +218,8 @@ export default function ITReportPage() {
         return;
       }
 
-      // Validate custom category if "อื่น ๆ โปรดระบุ" is selected
-      if (formData.issueCategory === 'อื่น ๆ โปรดระบุ' && !formData.customCategory) {
+      // Validate custom category if "อื่น ๆ (โปรดระบุ)" is selected
+      if (formData.issueCategory === 'อื่น ๆ (โปรดระบุ)' && !formData.customCategory) {
         toast.error('กรุณาระบุประเภทปัญหา');
         setIsLoading(false);
         return;
@@ -410,7 +410,7 @@ export default function ITReportPage() {
             </div>
 
             {/* Custom Category Input */}
-            {formData.issueCategory === 'อื่น ๆ โปรดระบุ' && (
+            {formData.issueCategory === 'อื่น ๆ (โปรดระบุ)' && (
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-1">
                   โปรดระบุประเภทปัญหา *
@@ -475,11 +475,11 @@ export default function ITReportPage() {
                   <h4 className="text-sm font-medium text-gray-700 mb-2">
                     ไฟล์ที่เลือก ({selectedImages.length} ไฟล์)
                   </h4>
-                  <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+                  <div className="grid grid-cols-2 md:grid-cols-5 gap-4">
                     {selectedImages.map((file, index) => (
                       <div key={index} className="relative group">
                         <div 
-                          className="aspect-square rounded-lg overflow-hidden bg-gray-100 cursor-pointer hover:opacity-80 transition-opacity"
+                          className="aspect-square rounded-lg overflow-hidden bg-gray-100 cursor-pointer hover:opacity-80 transition-opacity shadow-md"
                           onClick={() => openImagePreview(imageURLs[index])}
                         >
                           <img
@@ -488,10 +488,10 @@ export default function ITReportPage() {
                             className="w-full h-full object-cover"
                           />
                         </div>
-                        <div className="mt-1 text-xs text-gray-600 truncate">
+                        <div className="mt-1 text-xs text-gray-600 truncate text-center mt-2">
                           {file.name}
                         </div>
-                        <div className="text-xs text-gray-500">
+                        <div className="text-xs text-gray-500 text-center">
                           {(file.size / 1024 / 1024).toFixed(2)} MB
                         </div>
                         <button

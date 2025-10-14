@@ -146,14 +146,14 @@ export async function sendIssueNotification(issueData: any) {
               
               <div style="margin-top: 15px;">
                 <strong>รายละเอียด:</strong>
-                <div style="background-color: #f8f9fa; padding: 15px; border-radius: 8px; margin-top: 8px; border-left: 4px solid #667eea; white-space: pre-wrap; word-wrap: break-word;">
+                <div style="background-color: #f8f9fa; padding: 15px; border-radius: 8px; margin-top: 8px; border-left: 4px solid #667eea; white-space: normal; word-wrap: break-word;">
                   ${issueData.description}
                 </div>
               </div>
 
               ${issueData.notes ? `
               <div style="margin-top: 15px;">
-                <strong>หมายเหตุ:</strong>
+                <strong>หมายเหตุ จาก Admin:</strong>
                 <div style="background-color: #fff9c4; padding: 15px; border-radius: 8px; margin-top: 8px; border-left: 4px solid #fbc02d;">
                   ${issueData.notes}
                 </div>
@@ -349,14 +349,14 @@ export async function sendIssueConfirmationToReporter(issueData: any) {
             
             <div style="margin-top: 15px;">
               <strong>รายละเอียด:</strong>
-              <div style="background-color: #f8f9fa; padding: 15px; border-radius: 8px; margin-top: 8px; border-left: 4px solid #1976d2; white-space: pre-wrap; word-wrap: break-word;">
+              <div style="background-color: #f8f9fa; padding: 15px; border-radius: 8px; margin-top: 8px; border-left: 4px solid #1976d2; white-space: normal; word-wrap: break-word;">
                 ${issueData.description}
               </div>
             </div>
 
             ${issueData.notes ? `
             <div style="margin-top: 15px;">
-              <strong>หมายเหตุ:</strong>
+              <strong>หมายเหตุ จาก Admin:</strong>
               <div style="background-color: #fff9c4; padding: 15px; border-radius: 8px; margin-top: 8px; border-left: 4px solid #fbc02d;">
                 ${issueData.notes}
               </div>
@@ -423,34 +423,43 @@ export async function sendIssueConfirmationToReporter(issueData: any) {
 
 // 2. ส่งอีเมลแจ้งผู้แจ้งเมื่อ IT รับงาน (pending → in_progress)
 export async function sendJobAcceptedNotification(issueData: any) {
-  const urgencyText = issueData.urgency === 'very_urgent' ? 'ด่วน' : 'ปกติ';
-  const issueTitle = issueData.issueCategory + (issueData.customCategory ? ` - ${issueData.customCategory}` : '');
-  
-  // เตรียม attachments สำหรับรูปภาพ
-  const attachments = [];
-  if (issueData.images && issueData.images.length > 0) {
-    const path = require('path');
-    const fs = require('fs');
+  try {
+    const itAdminEmails = await getITAdminEmails();
+    const results = [];
     
-    for (let i = 0; i < issueData.images.length; i++) {
-      const img = issueData.images[i];
-      const imagePath = path.join(process.cwd(), 'public', 'assets', 'IssueLog', img);
+    const urgencyText = issueData.urgency === 'very_urgent' ? 'ด่วน' : 'ปกติ';
+    const issueTitle = issueData.issueCategory + (issueData.customCategory ? ` - ${issueData.customCategory}` : '');
+    
+    // เตรียม attachments สำหรับรูปภาพ
+    const attachments = [];
+    if (issueData.images && issueData.images.length > 0) {
+      const path = require('path');
+      const fs = require('fs');
       
-      if (fs.existsSync(imagePath)) {
-        attachments.push({
-          filename: img,
-          path: imagePath,
-          cid: `image${i}@issueLog`
-        });
+      for (let i = 0; i < issueData.images.length; i++) {
+        const img = issueData.images[i];
+        const imagePath = path.join(process.cwd(), 'public', 'assets', 'IssueLog', img);
+        
+        if (fs.existsSync(imagePath)) {
+          attachments.push({
+            filename: img,
+            path: imagePath,
+            cid: `image${i}@issueLog`
+          });
+        }
       }
     }
-  }
-  
-  const mailOptions = {
-    from: `VSQ IT Service Desk <${process.env.EMAIL_FROM || 'it@vsqclinic.com'}>`,
-    to: issueData.email,
-    subject: `แจ้งงาน IT VSQ [${urgencyText}] จาก ${issueData.firstName} ${issueData.lastName} (${issueData.issueId}) - ${issueTitle} : ✅ IT รับงานแล้ว`,
-    attachments: attachments,
+    
+    // รวมอีเมลผู้แจ้งและ IT Admin ทั้งหมด
+    const allRecipients = [issueData.email, ...itAdminEmails];
+    
+    // ส่งอีเมลไปยังทุกคน
+    for (const recipientEmail of allRecipients) {
+      const mailOptions = {
+        from: `VSQ IT Service Desk <${process.env.EMAIL_FROM || 'it@vsqclinic.com'}>`,
+        to: recipientEmail,
+        subject: `แจ้งงาน IT VSQ [${urgencyText}] จาก ${issueData.firstName} ${issueData.lastName} (${issueData.issueId}) - ${issueTitle} : ✅ IT รับงานแล้ว`,
+        attachments: attachments,
     html: `
       <div style="font-family: Arial, sans-serif; line-height: 1.6; color: #333; max-width: 800px; margin: 0 auto;">
         <div style="background: linear-gradient(135deg, #4caf50 0%, #2e7d32 100%); padding: 30px; border-radius: 10px 10px 0 0;">
@@ -550,14 +559,14 @@ export async function sendJobAcceptedNotification(issueData: any) {
             
             <div style="margin-top: 15px;">
               <strong>รายละเอียด:</strong>
-              <div style="background-color: #f8f9fa; padding: 15px; border-radius: 8px; margin-top: 8px; border-left: 4px solid #1976d2; white-space: pre-wrap; word-wrap: break-word;">
+              <div style="background-color: #f8f9fa; padding: 15px; border-radius: 8px; margin-top: 8px; border-left: 4px solid #1976d2; white-space: normal; word-wrap: break-word;">
                 ${issueData.description}
               </div>
             </div>
 
             ${issueData.notes ? `
             <div style="margin-top: 15px;">
-              <strong>หมายเหตุ:</strong>
+              <strong>หมายเหตุ จาก Admin:</strong>
               <div style="background-color: #fff9c4; padding: 15px; border-radius: 8px; margin-top: 8px; border-left: 4px solid #fbc02d;">
                 ${issueData.notes}
               </div>
@@ -601,181 +610,491 @@ export async function sendJobAcceptedNotification(issueData: any) {
         </div>
       </div>
     `
-  };
+      };
 
-  try {
-    
-    const result = await transporter.sendMail(mailOptions);
-    
-    return { success: true, messageId: result.messageId };
+      try {
+        await transporter.sendMail(mailOptions);
+        results.push({ success: true, email: recipientEmail });
+        console.log(`✅ Job accepted email sent successfully to: ${recipientEmail}`);
+      } catch (error) {
+        results.push({ success: false, email: recipientEmail, error: error });
+        console.error(`❌ Failed to send job accepted email to ${recipientEmail}:`, error);
+      }
+    }
+
+    return { 
+      success: results.some(r => r.success), 
+      results: results,
+      totalSent: results.filter(r => r.success).length,
+      totalFailed: results.filter(r => !r.success).length
+    };
   } catch (error) {
     console.error('❌ Job accepted email send error:', error);
-    console.error('📧 Failed email details:', {
-      to: issueData.email,
-      subject: mailOptions.subject,
-      error: (error as Error).message
-    });
-    return { success: false, error: error as Error };
+    return { success: false, error: error };
   }
 }
 
 // 3. ส่งอีเมลแจ้งผู้แจ้งเมื่อ IT ส่งงาน (in_progress → completed)
 export async function sendWorkCompletedNotification(issueData: any) {
-  const mailOptions = {
-    from: process.env.EMAIL_FROM || 'it@vsqclinic.com',
-    to: issueData.email,
-    subject: `🎉 IT ส่งงานแล้ว - รอการตรวจสอบ ${issueData.issueId}`,
-    html: `
-      <div style="font-family: Arial, sans-serif; line-height: 1.6; color: #333;">
-        <h2 style="color: #2e7d32;">🎉 ทีม IT ส่งงานเรียบร้อยแล้ว</h2>
-        
-        <div style="background-color: #f5f5f5; padding: 15px; margin: 10px 0; border-radius: 5px;">
-          <p><strong>✳️ Issue ID:</strong> ${issueData.issueId}</p>
-        </div>
-
-        <div style="background-color: #e8f5e8; padding: 15px; margin: 10px 0; border-radius: 5px; border-left: 4px solid #2e7d32;">
-          <p style="margin: 0;"><strong>📍 สถานะปัจจุบัน:</strong> <span style="color: #2e7d32; font-weight: bold;">ส่งงานเรียบร้อยแล้ว - รอการตรวจสอบ</span></p>
-          <p style="margin: 5px 0 0 0; font-size: 0.9em; color: #666;">ส่งงานเมื่อ: ${new Date().toLocaleDateString('th-TH', { timeZone: 'Asia/Bangkok' })} เวลา ${new Date().toLocaleTimeString('th-TH', { timeZone: 'Asia/Bangkok' })}</p>
-        </div>
-
-        ${issueData.assignedAdmin ? `
-        <div style="background-color: #e3f2fd; padding: 15px; margin: 10px 0; border-radius: 5px; border-left: 4px solid #1976d2;">
-          <p><strong>👨‍💻 IT Admin ผู้รับผิดชอบ:</strong></p>
-          <p style="margin: 5px 0; font-weight: bold; color: #1976d2;">${issueData.assignedAdmin.name}</p>
-          <p style="margin: 0; color: #666; font-size: 0.9em;">${issueData.assignedAdmin.email}</p>
-        </div>
-        ` : ''}
-
-        <div style="margin: 15px 0;">
-          <p><strong>➢ ประเภทปัญหา:</strong> ${issueData.issueCategory}${issueData.customCategory ? ' - ' + issueData.customCategory : ''}</p>
-          <p><strong>➢ ความเร่งด่วน:</strong> ${issueData.urgency === 'very_urgent' ? 'ด่วนมาก' : 'ปกติ'}</p>
-        </div>
-
-        <div style="background-color: #fff3e0; padding: 15px; margin: 20px 0; border-radius: 5px; border: 2px solid #ff9800;">
-          <p><strong>🔍 ต้องการตรวจสอบผลงาน:</strong></p>
-          <p style="margin: 5px 0; color: #666; font-size: 0.9em;">กรุณาคลิกลิงค์ด้านล่างเพื่อตรวจสอบและยืนยันผลงาน</p>
-          <p style="margin: 10px 0;">
-            <a href="${process.env.NEXTAUTH_URL}/it-tracking" 
-               style="background-color: #ff9800; color: white; padding: 12px 24px; text-decoration: none; border-radius: 5px; display: inline-block; font-weight: bold;">
-               🔗 ตรวจสอบและยืนยันผลงาน
-            </a>
-          </p>
-        </div>
-
-        <div style="background-color: #e3f2fd; padding: 10px; margin: 20px 0; border-radius: 5px;">
-          <p style="margin: 0; color: #1976d2;"><strong>📧 อีเมลนี้ถูกส่งจากระบบ Inventory Management Dashboard</strong></p>
-        </div>
-      </div>
-    `
-  };
-
   try {
+    const itAdminEmails = await getITAdminEmails();
+    const results = [];
     
-    const result = await transporter.sendMail(mailOptions);
+    const urgencyText = issueData.urgency === 'very_urgent' ? 'ด่วน' : 'ปกติ';
+    const issueTitle = issueData.issueCategory + (issueData.customCategory ? ` - ${issueData.customCategory}` : '');
     
-    return { success: true, messageId: result.messageId };
+    // เตรียม attachments สำหรับรูปภาพ
+    const attachments = [];
+    if (issueData.images && issueData.images.length > 0) {
+      const path = require('path');
+      const fs = require('fs');
+      
+      for (let i = 0; i < issueData.images.length; i++) {
+        const img = issueData.images[i];
+        const imagePath = path.join(process.cwd(), 'public', 'assets', 'IssueLog', img);
+        
+        if (fs.existsSync(imagePath)) {
+          attachments.push({
+            filename: img,
+            path: imagePath,
+            cid: `image${i}@issueLog`
+          });
+        }
+      }
+    }
+    
+    // รวมอีเมลผู้แจ้งและ IT Admin ทั้งหมด
+    const allRecipients = [issueData.email, ...itAdminEmails];
+    
+    // ส่งอีเมลไปยังทุกคน
+    for (const recipientEmail of allRecipients) {
+      const mailOptions = {
+        from: `VSQ IT Service Desk <${process.env.EMAIL_FROM || 'it@vsqclinic.com'}>`,
+        to: recipientEmail,
+        subject: `แจ้งงาน IT VSQ [${urgencyText}] จาก ${issueData.firstName} ${issueData.lastName} (${issueData.issueId}) - ${issueTitle} : 🎉 IT ส่งงานแล้ว - รอการตรวจสอบ`,
+        attachments: attachments,
+        html: `
+        <div style="font-family: Arial, sans-serif; line-height: 1.6; color: #333; max-width: 800px; margin: 0 auto;">
+          <div style="background: linear-gradient(135deg, #ff9800 0%, #f57c00 100%); padding: 30px; border-radius: 10px 10px 0 0;">
+            <h1 style="color: white; margin: 0; font-size: 28px; text-align: center;">🎉 ทีม IT ส่งงานเรียบร้อยแล้ว</h1>
+          </div>
+          
+          <div style="background-color: #ffffff; padding: 30px; border: 1px solid #e0e0e0; border-top: none;">
+            
+            <!-- Issue ID และวันที่แจ้ง -->
+            <div style="background-color: #f8f9fa; padding: 20px; margin: 20px 0; border-radius: 8px; border-left: 5px solid #ff9800;">
+              <table style="width: 100%; border-collapse: collapse;">
+                <tr>
+                  <td style="padding: 8px 0; width: 180px;"><strong>📋 Issue ID:</strong></td>
+                  <td style="padding: 8px 0; color: #ff9800; font-weight: bold; font-size: 16px;">${issueData.issueId}</td>
+                </tr>
+                <tr>
+                  <td style="padding: 8px 0;"><strong>📅 วันที่แจ้ง:</strong></td>
+                  <td style="padding: 8px 0;">${new Date(issueData.reportDate).toLocaleDateString('th-TH', { 
+                    year: 'numeric', 
+                    month: 'long', 
+                    day: 'numeric',
+                    timeZone: 'Asia/Bangkok' 
+                  })} เวลา ${new Date(issueData.reportDate).toLocaleTimeString('th-TH', { 
+                    hour: '2-digit', 
+                    minute: '2-digit',
+                    timeZone: 'Asia/Bangkok' 
+                  })} น.</td>
+                </tr>
+                <tr>
+                  <td style="padding: 8px 0;"><strong>🕐 ส่งงานเมื่อ:</strong></td>
+                  <td style="padding: 8px 0;">${new Date().toLocaleDateString('th-TH', { 
+                    year: 'numeric', 
+                    month: 'long', 
+                    day: 'numeric',
+                    timeZone: 'Asia/Bangkok' 
+                  })} เวลา ${new Date().toLocaleTimeString('th-TH', { 
+                    hour: '2-digit', 
+                    minute: '2-digit',
+                    timeZone: 'Asia/Bangkok' 
+                  })} น.</td>
+                </tr>
+                <tr>
+                  <td style="padding: 8px 0;"><strong>📊 สถานะปัจจุบัน:</strong></td>
+                  <td style="padding: 8px 0;"><span style="background-color: #ff9800; color: white; padding: 4px 12px; border-radius: 12px; font-weight: bold; font-size: 14px;">⏳ รอผู้ใช้ตรวจสอบ</span></td>
+                </tr>
+              </table>
+            </div>
+
+            <!-- IT Admin ผู้รับผิดชอบ -->
+            ${issueData.assignedAdmin ? `
+            <div style="background-color: #e8f5e9; padding: 20px; margin: 20px 0; border-radius: 8px; border-left: 5px solid #4caf50;">
+              <h2 style="color: #2e7d32; margin: 0 0 15px 0; font-size: 18px;">👨‍💻 IT Admin ผู้รับผิดชอบ</h2>
+              <table style="width: 100%; border-collapse: collapse;">
+                <tr>
+                  <td style="padding: 8px 0; width: 180px;"><strong>ชื่อ:</strong></td>
+                  <td style="padding: 8px 0; color: #2e7d32; font-weight: bold;">${issueData.assignedAdmin.name}</td>
+                </tr>
+                <tr>
+                  <td style="padding: 8px 0;"><strong>อีเมล:</strong></td>
+                  <td style="padding: 8px 0;"><a href="mailto:${issueData.assignedAdmin.email}" style="color: #2e7d32; text-decoration: none;">${issueData.assignedAdmin.email}</a></td>
+                </tr>
+              </table>
+            </div>
+            ` : ''}
+
+            <!-- ข้อมูลผู้แจ้ง -->
+            <div style="margin: 25px 0;">
+              <h2 style="color: #1976d2; border-bottom: 2px solid #1976d2; padding-bottom: 10px; margin-bottom: 15px;">👤 ข้อมูลผู้แจ้ง</h2>
+              <table style="width: 100%; border-collapse: collapse;">
+                <tr>
+                  <td style="padding: 8px 0; width: 180px;"><strong>ชื่อ-นามสกุล:</strong></td>
+                  <td style="padding: 8px 0;">${issueData.firstName} ${issueData.lastName} (${issueData.nickname})</td>
+                </tr>
+                <tr>
+                  <td style="padding: 8px 0;"><strong>แผนก:</strong></td>
+                  <td style="padding: 8px 0;">${issueData.department}</td>
+                </tr>
+                <tr>
+                  <td style="padding: 8px 0;"><strong>ออฟฟิศ/สาขา:</strong></td>
+                  <td style="padding: 8px 0;">${issueData.office}</td>
+                </tr>
+                <tr>
+                  <td style="padding: 8px 0;"><strong>เบอร์โทร:</strong></td>
+                  <td style="padding: 8px 0;">${issueData.phone}</td>
+                </tr>
+                <tr>
+                  <td style="padding: 8px 0;"><strong>อีเมล:</strong></td>
+                  <td style="padding: 8px 0;"><a href="mailto:${issueData.email}" style="color: #1976d2; text-decoration: none;">${issueData.email}</a></td>
+                </tr>
+              </table>
+            </div>
+
+            <!-- รายละเอียดปัญหา -->
+            <div style="margin: 25px 0;">
+              <h2 style="color: #1976d2; border-bottom: 2px solid #1976d2; padding-bottom: 10px; margin-bottom: 15px;">🔧 รายละเอียดปัญหา</h2>
+              <table style="width: 100%; border-collapse: collapse;">
+                <tr>
+                  <td style="padding: 8px 0; width: 180px;"><strong>ประเภทปัญหา:</strong></td>
+                  <td style="padding: 8px 0;">${issueTitle}</td>
+                </tr>
+                <tr>
+                  <td style="padding: 8px 0;"><strong>ความเร่งด่วน:</strong></td>
+                  <td style="padding: 8px 0;">
+                    ${issueData.urgency === 'very_urgent' 
+                      ? '<span style="background-color: #f44336; color: white; padding: 4px 12px; border-radius: 12px; font-weight: bold;">🔴 ด่วนมาก</span>' 
+                      : '<span style="background-color: #4caf50; color: white; padding: 4px 12px; border-radius: 12px; font-weight: bold;">🟢 ปกติ</span>'}
+                  </td>
+                </tr>
+              </table>
+              
+              <div style="margin-top: 15px;">
+                <strong>รายละเอียด:</strong>
+                <div style="background-color: #f8f9fa; padding: 15px; border-radius: 8px; margin-top: 8px; border-left: 4px solid #1976d2; white-space: normal; word-wrap: break-word;">
+                  ${issueData.description}
+                </div>
+              </div>
+
+              ${issueData.notes ? `
+              <div style="margin-top: 15px;">
+                <strong>หมายเหตุ จาก Admin:</strong>
+                <div style="background-color: #fff9c4; padding: 15px; border-radius: 8px; margin-top: 8px; border-left: 4px solid #fbc02d;">
+                  ${issueData.notes}
+                </div>
+              </div>
+              ` : ''}
+            </div>
+
+            <!-- รูปภาพ -->
+            ${issueData.images && issueData.images.length > 0 ? `
+            <div style="margin: 25px 0;">
+              <h2 style="color: #1976d2; border-bottom: 2px solid #1976d2; padding-bottom: 10px; margin-bottom: 15px;">📷 รูปภาพประกอบ (${issueData.images.length} รูป)</h2>
+              <div style="background-color: #f8f9fa; padding: 15px; border-radius: 8px;">
+                ${issueData.images.map((img: string, index: number) => `
+                  <div style="margin: 20px 0; text-align: center;">
+                    <p style="margin: 0 0 10px 0; font-weight: 600; color: #1976d2; font-size: 14px;">รูปที่ ${index + 1}</p>
+                    <img src="cid:image${index}@issueLog" 
+                         alt="รูปที่ ${index + 1}" 
+                         style="max-width: 100%; max-height: 400px; height: auto; border-radius: 8px; box-shadow: 0 2px 8px rgba(0,0,0,0.1); border: 2px solid #e3f2fd; display: block; margin: 0 auto;">
+                    <p style="margin: 8px 0 0 0; font-size: 11px; color: #666; word-break: break-all;">${img}</p>
+                  </div>
+                `).join('')}
+              </div>
+            </div>
+            ` : ''}
+
+            <!-- ปุ่มติดตามสถานะ -->
+            <div style="background: linear-gradient(135deg, #ff9800 0%, #f57c00 100%); padding: 25px; margin: 30px 0; border-radius: 10px; text-align: center;">
+              <p style="color: white; margin: 0 0 15px 0; font-size: 18px; font-weight: bold;">🔍 ต้องการตรวจสอบผลงาน</p>
+              <p style="color: #f0f0f0; margin: 0 0 20px 0; font-size: 14px;">กรุณาคลิกปุ่มด้านล่างเพื่อตรวจสอบและยืนยันผลงาน</p>
+              <a href="${process.env.NEXTAUTH_URL}/it-tracking" 
+                 style="display: inline-block; background-color: #ffffff; color: #ff9800; padding: 15px 40px; text-decoration: none; border-radius: 25px; font-weight: bold; font-size: 16px; box-shadow: 0 4px 6px rgba(0,0,0,0.2);">
+                🔗 ตรวจสอบและยืนยันผลงาน
+              </a>
+            </div>
+
+          </div>
+          
+          <!-- Footer -->
+          <div style="background-color: #f8f9fa; padding: 20px; border-radius: 0 0 10px 10px; text-align: center; border: 1px solid #e0e0e0; border-top: none;">
+            <p style="margin: 0; color: #666; font-size: 14px;">📧 อีเมลนี้ถูกส่งจากระบบ Inventory Management Dashboard</p>
+          </div>
+        </div>
+      `
+      };
+
+      try {
+        await transporter.sendMail(mailOptions);
+        results.push({ success: true, email: recipientEmail });
+        console.log(`✅ Work completed email sent successfully to: ${recipientEmail}`);
+      } catch (error) {
+        results.push({ success: false, email: recipientEmail, error: error });
+        console.error(`❌ Failed to send work completed email to ${recipientEmail}:`, error);
+      }
+    }
+
+    return { 
+      success: results.some(r => r.success), 
+      results: results,
+      totalSent: results.filter(r => r.success).length,
+      totalFailed: results.filter(r => !r.success).length
+    };
   } catch (error) {
     console.error('❌ Work completed email send error:', error);
-    console.error('📧 Failed email details:', {
-      to: issueData.email,
-      subject: mailOptions.subject,
-      error: (error as Error).message
-    });
-    return { success: false, error: error as Error };
+    return { success: false, error: error };
   }
 }
 
-// 4. ส่งอีเมลแจ้ง IT เมื่อผู้ใช้อนุมัติงาน (completed → closed)
+// 4. ส่งอีเมลแจ้ง IT และผู้แจ้งเมื่อผู้ใช้อนุมัติงาน (completed → closed) หรือส่งกลับ (completed → in_progress)
 export async function sendUserApprovalNotification(issueData: any, userFeedback: any) {
   try {
     const itAdminEmails = await getITAdminEmails();
     const results = [];
     
     const isApproved = userFeedback.action === 'approved';
-    const statusColor = isApproved ? '#2e7d32' : '#d32f2f';
-    const statusBg = isApproved ? '#e8f5e8' : '#ffebee';
-    const statusText = isApproved ? '✅ ผู้ใช้อนุมัติงาน' : '❌ ผู้ใช้ส่งกลับให้แก้ไข';
+    const urgencyText = issueData.urgency === 'very_urgent' ? 'ด่วน' : 'ปกติ';
+    const issueTitle = issueData.issueCategory + (issueData.customCategory ? ` - ${issueData.customCategory}` : '');
     
-    for (const adminEmail of itAdminEmails) {
+    // เตรียม attachments สำหรับรูปภาพ
+    const attachments = [];
+    if (issueData.images && issueData.images.length > 0) {
+      const path = require('path');
+      const fs = require('fs');
+      
+      for (let i = 0; i < issueData.images.length; i++) {
+        const img = issueData.images[i];
+        const imagePath = path.join(process.cwd(), 'public', 'assets', 'IssueLog', img);
+        
+        if (fs.existsSync(imagePath)) {
+          attachments.push({
+            filename: img,
+            path: imagePath,
+            cid: `image${i}@issueLog`
+          });
+        }
+      }
+    }
+    
+    // รวมอีเมลผู้แจ้งและ IT Admin ทั้งหมด
+    const allRecipients = [issueData.email, ...itAdminEmails];
+    
+    // ส่งอีเมลไปยังทุกคน
+    for (const recipientEmail of allRecipients) {
       const mailOptions = {
-        from: `IT Support System <${process.env.EMAIL_FROM || 'it@vsqclinic.com'}>`,
-        to: adminEmail,
-        subject: `${isApproved ? '✅' : '❌'} ${isApproved ? 'อนุมัติงาน' : 'ส่งกลับแก้ไข'} จาก ${issueData.firstName} ${issueData.lastName} - ${issueData.issueId}`,
-        replyTo: `${issueData.firstName} ${issueData.lastName} <${issueData.email}>`,
+        from: `VSQ IT Service Desk <${process.env.EMAIL_FROM || 'it@vsqclinic.com'}>`,
+        to: recipientEmail,
+        subject: isApproved 
+          ? `แจ้งงาน IT VSQ [${urgencyText}] จาก ${issueData.firstName} ${issueData.lastName} (${issueData.issueId}) - ${issueTitle} : ✅ IT อนุมัติงาน`
+          : `แจ้งงาน IT VSQ [${urgencyText}] จาก ${issueData.firstName} ${issueData.lastName} (${issueData.issueId}) - ${issueTitle} : 🔄 ผู้แจ้งงาน IT ส่งงานกลับแก้ไข`,
+        attachments: attachments,
         html: `
-          <div style="font-family: Arial, sans-serif; line-height: 1.6; color: #333;">
-            <h2 style="color: ${statusColor};">${statusText}</h2>
+        <div style="font-family: Arial, sans-serif; line-height: 1.6; color: #333; max-width: 800px; margin: 0 auto;">
+          <div style="background: linear-gradient(135deg, ${isApproved ? '#4caf50 0%, #2e7d32' : '#f44336 0%, #c62828'} 100%); padding: 30px; border-radius: 10px 10px 0 0;">
+            <h1 style="color: white; margin: 0; font-size: 28px; text-align: center;">${isApproved ? '✅ ผู้ใช้อนุมัติงานเรียบร้อย' : '🔄 ผู้ใช้ส่งกลับให้แก้ไข'}</h1>
+          </div>
+          
+          <div style="background-color: #ffffff; padding: 30px; border: 1px solid #e0e0e0; border-top: none;">
             
-            <div style="background-color: #f5f5f5; padding: 15px; margin: 10px 0; border-radius: 5px;">
-              <p><strong>✳️ Issue ID:</strong> ${issueData.issueId}</p>
+            <!-- Issue ID และวันที่แจ้ง -->
+            <div style="background-color: #f8f9fa; padding: 20px; margin: 20px 0; border-radius: 8px; border-left: 5px solid ${isApproved ? '#4caf50' : '#f44336'};">
+              <table style="width: 100%; border-collapse: collapse;">
+                <tr>
+                  <td style="padding: 8px 0; width: 180px;"><strong>📋 Issue ID:</strong></td>
+                  <td style="padding: 8px 0; color: ${isApproved ? '#4caf50' : '#f44336'}; font-weight: bold; font-size: 16px;">${issueData.issueId}</td>
+                </tr>
+                <tr>
+                  <td style="padding: 8px 0;"><strong>📅 วันที่แจ้ง:</strong></td>
+                  <td style="padding: 8px 0;">${new Date(issueData.reportDate).toLocaleDateString('th-TH', { 
+                    year: 'numeric', 
+                    month: 'long', 
+                    day: 'numeric',
+                    timeZone: 'Asia/Bangkok' 
+                  })} เวลา ${new Date(issueData.reportDate).toLocaleTimeString('th-TH', { 
+                    hour: '2-digit', 
+                    minute: '2-digit',
+                    timeZone: 'Asia/Bangkok' 
+                  })} น.</td>
+                </tr>
+                <tr>
+                  <td style="padding: 8px 0;"><strong>🕐 ตรวจสอบเมื่อ:</strong></td>
+                  <td style="padding: 8px 0;">${new Date(userFeedback.submittedAt).toLocaleDateString('th-TH', { 
+                    year: 'numeric', 
+                    month: 'long', 
+                    day: 'numeric',
+                    timeZone: 'Asia/Bangkok' 
+                  })} เวลา ${new Date(userFeedback.submittedAt).toLocaleTimeString('th-TH', { 
+                    hour: '2-digit', 
+                    minute: '2-digit',
+                    timeZone: 'Asia/Bangkok' 
+                  })} น.</td>
+                </tr>
+                <tr>
+                  <td style="padding: 8px 0;"><strong>📊 สถานะปัจจุบัน:</strong></td>
+                  <td style="padding: 8px 0;">
+                    <span style="background-color: ${isApproved ? '#4caf50' : '#f44336'}; color: white; padding: 4px 12px; border-radius: 12px; font-weight: bold; font-size: 14px;">
+                      ${isApproved ? '✅ ปิดงานเรียบร้อย' : '🔄 กำลังดำเนินการ'}
+                    </span>
+                  </td>
+                </tr>
+              </table>
             </div>
 
-            <div style="background-color: ${statusBg}; padding: 15px; margin: 10px 0; border-radius: 5px; border-left: 4px solid ${statusColor};">
-              <p style="margin: 0;"><strong>📍 ผลการตรวจสอบ:</strong> <span style="color: ${statusColor}; font-weight: bold;">${statusText}</span></p>
-              <p style="margin: 5px 0 0 0; font-size: 0.9em; color: #666;">ตรวจสอบเมื่อ: ${new Date(userFeedback.submittedAt).toLocaleDateString('th-TH', { timeZone: 'Asia/Bangkok' })} เวลา ${new Date(userFeedback.submittedAt).toLocaleTimeString('th-TH', { timeZone: 'Asia/Bangkok' })}</p>
-            </div>
-
-            <div style="margin: 15px 0;">
-              <p><strong>➢ ผู้แจ้ง:</strong> ${issueData.firstName} ${issueData.lastName} (${issueData.nickname})</p>
-              <p><strong>- แผนก:</strong> ${issueData.department}</p>
-              <p><strong>- สาขา:</strong> ${issueData.office}</p>
-              <p><strong>- เบอร์โทร:</strong> ${issueData.phone}</p>
-              <p><strong>- อีเมลผู้แจ้ง:</strong> ${issueData.email}</p>
-            </div>
-
-            <div style="margin: 15px 0;">
-              <p><strong>➢ ประเภทปัญหา:</strong> ${issueData.issueCategory}${issueData.customCategory ? ' - ' + issueData.customCategory : ''}</p>
-              <p><strong>➢ ความเร่งด่วน:</strong> ${issueData.urgency === 'very_urgent' ? 'ด่วนมาก' : 'ปกติ'}</p>
-            </div>
-
-            ${issueData.assignedAdmin ? `
-            <div style="background-color: #e3f2fd; padding: 15px; margin: 10px 0; border-radius: 5px; border-left: 4px solid #1976d2;">
-              <p><strong>👨‍💻 IT Admin ผู้รับผิดชอบ:</strong></p>
-              <p style="margin: 5px 0; font-weight: bold; color: #1976d2;">${issueData.assignedAdmin.name}</p>
-              <p style="margin: 0; color: #666; font-size: 0.9em;">${issueData.assignedAdmin.email}</p>
-            </div>
-            ` : ''}
-
-            <div style="background-color: ${statusBg}; padding: 15px; margin: 15px 0; border-radius: 5px; border: 2px solid ${statusColor};">
-              <p><strong>💬 ${isApproved ? 'ข้อความจากผู้ใช้:' : 'เหตุผลที่ไม่อนุมัติ:'}</strong></p>
-              <div style="background-color: white; padding: 10px; border-radius: 5px; margin: 5px 0;">
-                ${userFeedback.reason}
+            <!-- ผลการตรวจสอบ -->
+            <div style="background-color: ${isApproved ? '#e8f5e9' : '#ffebee'}; padding: 20px; margin: 20px 0; border-radius: 8px; border-left: 5px solid ${isApproved ? '#4caf50' : '#f44336'};">
+              <h2 style="color: ${isApproved ? '#2e7d32' : '#c62828'}; margin: 0 0 15px 0; font-size: 18px;">${isApproved ? '✅ ผลการตรวจสอบ: อนุมัติ' : '🔄 ผลการตรวจสอบ: ส่งกลับแก้ไข'}</h2>
+              <div style="background-color: white; padding: 15px; border-radius: 8px;">
+                <strong style="color: ${isApproved ? '#2e7d32' : '#c62828'};">${isApproved ? 'ข้อความจากผู้ใช้:' : 'เหตุผลที่ไม่อนุมัติ:'}</strong>
+                <p style="margin: 10px 0 0 0; white-space: pre-wrap; word-wrap: break-word;">${userFeedback.reason}</p>
               </div>
             </div>
 
+            <!-- IT Admin ผู้รับผิดชอบ -->
+            ${issueData.assignedAdmin ? `
+            <div style="background-color: #e3f2fd; padding: 20px; margin: 20px 0; border-radius: 8px; border-left: 5px solid #1976d2;">
+              <h2 style="color: #1976d2; margin: 0 0 15px 0; font-size: 18px;">👨‍💻 IT Admin ผู้รับผิดชอบ</h2>
+              <table style="width: 100%; border-collapse: collapse;">
+                <tr>
+                  <td style="padding: 8px 0; width: 180px;"><strong>ชื่อ:</strong></td>
+                  <td style="padding: 8px 0; color: #1976d2; font-weight: bold;">${issueData.assignedAdmin.name}</td>
+                </tr>
+                <tr>
+                  <td style="padding: 8px 0;"><strong>อีเมล:</strong></td>
+                  <td style="padding: 8px 0;"><a href="mailto:${issueData.assignedAdmin.email}" style="color: #1976d2; text-decoration: none;">${issueData.assignedAdmin.email}</a></td>
+                </tr>
+              </table>
+            </div>
+            ` : ''}
+
+            <!-- ข้อมูลผู้แจ้ง -->
+            <div style="margin: 25px 0;">
+              <h2 style="color: #667eea; border-bottom: 2px solid #667eea; padding-bottom: 10px; margin-bottom: 15px;">👤 ข้อมูลผู้แจ้ง</h2>
+              <table style="width: 100%; border-collapse: collapse;">
+                <tr>
+                  <td style="padding: 8px 0; width: 180px;"><strong>ชื่อ-นามสกุล:</strong></td>
+                  <td style="padding: 8px 0;">${issueData.firstName} ${issueData.lastName} (${issueData.nickname})</td>
+                </tr>
+                <tr>
+                  <td style="padding: 8px 0;"><strong>แผนก:</strong></td>
+                  <td style="padding: 8px 0;">${issueData.department}</td>
+                </tr>
+                <tr>
+                  <td style="padding: 8px 0;"><strong>ออฟฟิศ/สาขา:</strong></td>
+                  <td style="padding: 8px 0;">${issueData.office}</td>
+                </tr>
+                <tr>
+                  <td style="padding: 8px 0;"><strong>เบอร์โทร:</strong></td>
+                  <td style="padding: 8px 0;">${issueData.phone}</td>
+                </tr>
+                <tr>
+                  <td style="padding: 8px 0;"><strong>อีเมล:</strong></td>
+                  <td style="padding: 8px 0;"><a href="mailto:${issueData.email}" style="color: #667eea; text-decoration: none;">${issueData.email}</a></td>
+                </tr>
+              </table>
+            </div>
+
+            <!-- รายละเอียดปัญหา -->
+            <div style="margin: 25px 0;">
+              <h2 style="color: #667eea; border-bottom: 2px solid #667eea; padding-bottom: 10px; margin-bottom: 15px;">🔧 รายละเอียดปัญหา</h2>
+              <table style="width: 100%; border-collapse: collapse;">
+                <tr>
+                  <td style="padding: 8px 0; width: 180px;"><strong>ประเภทปัญหา:</strong></td>
+                  <td style="padding: 8px 0;">${issueTitle}</td>
+                </tr>
+                <tr>
+                  <td style="padding: 8px 0;"><strong>ความเร่งด่วน:</strong></td>
+                  <td style="padding: 8px 0;">
+                    ${issueData.urgency === 'very_urgent' 
+                      ? '<span style="background-color: #f44336; color: white; padding: 4px 12px; border-radius: 12px; font-weight: bold;">🔴 ด่วนมาก</span>' 
+                      : '<span style="background-color: #4caf50; color: white; padding: 4px 12px; border-radius: 12px; font-weight: bold;">🟢 ปกติ</span>'}
+                  </td>
+                </tr>
+              </table>
+              
+              <div style="margin-top: 15px;">
+                <strong>รายละเอียด:</strong>
+                <div style="background-color: #f8f9fa; padding: 15px; border-radius: 8px; margin-top: 8px; border-left: 4px solid #667eea; white-space: normal; word-wrap: break-word;">
+                  ${issueData.description}
+                </div>
+              </div>
+
+              ${issueData.notes ? `
+              <div style="margin-top: 15px;">
+                <strong>หมายเหตุ จาก Admin:</strong>
+                <div style="background-color: #fff9c4; padding: 15px; border-radius: 8px; margin-top: 8px; border-left: 4px solid #fbc02d;">
+                  ${issueData.notes}
+                </div>
+              </div>
+              ` : ''}
+            </div>
+
+            <!-- รูปภาพ -->
+            ${issueData.images && issueData.images.length > 0 ? `
+            <div style="margin: 25px 0;">
+              <h2 style="color: #667eea; border-bottom: 2px solid #667eea; padding-bottom: 10px; margin-bottom: 15px;">📷 รูปภาพประกอบ (${issueData.images.length} รูป)</h2>
+              <div style="background-color: #f8f9fa; padding: 15px; border-radius: 8px;">
+                ${issueData.images.map((img: string, index: number) => `
+                  <div style="margin: 20px 0; text-align: center;">
+                    <p style="margin: 0 0 10px 0; font-weight: 600; color: #667eea; font-size: 14px;">รูปที่ ${index + 1}</p>
+                    <img src="cid:image${index}@issueLog" 
+                         alt="รูปที่ ${index + 1}" 
+                         style="max-width: 100%; max-height: 400px; height: auto; border-radius: 8px; box-shadow: 0 2px 8px rgba(0,0,0,0.1); border: 2px solid #e8eaf6; display: block; margin: 0 auto;">
+                    <p style="margin: 8px 0 0 0; font-size: 11px; color: #666; word-break: break-all;">${img}</p>
+                  </div>
+                `).join('')}
+              </div>
+            </div>
+            ` : ''}
+
             ${!isApproved ? `
-            <div style="background-color: #fff3e0; padding: 15px; margin: 20px 0; border-radius: 5px; border: 2px solid #ff9800;">
-              <p><strong>🔧 ต้องการดำเนินการ:</strong></p>
-              <p style="margin: 5px 0; color: #666; font-size: 0.9em;">งานถูกส่งกลับให้แก้ไข กรุณาเข้าสู่ระบบเพื่อดำเนินการต่อ</p>
-              <p style="margin: 10px 0;">
-                <a href="${process.env.NEXTAUTH_URL}/admin/it-reports" 
-                   style="background-color: #ff9800; color: white; padding: 12px 24px; text-decoration: none; border-radius: 5px; display: inline-block; font-weight: bold;">
-                   🔗 เข้าสู่ระบบ IT Admin
-                </a>
-              </p>
+            <!-- ปุ่มดำเนินการ (กรณีส่งกลับ) -->
+            <div style="background: linear-gradient(135deg, #ff9800 0%, #f57c00 100%); padding: 25px; margin: 30px 0; border-radius: 10px; text-align: center;">
+              <p style="color: white; margin: 0 0 15px 0; font-size: 18px; font-weight: bold;">🔧 ต้องการดำเนินการ</p>
+              <p style="color: #f0f0f0; margin: 0 0 20px 0; font-size: 14px;">งานถูกส่งกลับให้แก้ไข กรุณาเข้าสู่ระบบเพื่อดำเนินการต่อ</p>
+              <a href="${process.env.NEXTAUTH_URL}/admin/it-reports" 
+                 style="display: inline-block; background-color: #ffffff; color: #ff9800; padding: 15px 40px; text-decoration: none; border-radius: 25px; font-weight: bold; font-size: 16px; box-shadow: 0 4px 6px rgba(0,0,0,0.2);">
+                🔗 เข้าสู่ระบบ IT Admin
+              </a>
             </div>
             ` : `
-            <div style="background-color: #e8f5e8; padding: 15px; margin: 20px 0; border-radius: 5px; border: 2px solid #2e7d32;">
-              <p><strong>🎉 งานเสร็จสิ้น:</strong></p>
-              <p style="margin: 5px 0; color: #666; font-size: 0.9em;">ผู้ใช้อนุมัติงานแล้ว งานนี้ได้ปิดเรียบร้อยแล้ว</p>
+            <!-- ข้อความสำเร็จ (กรณีอนุมัติ) -->
+            <div style="background: linear-gradient(135deg, #4caf50 0%, #2e7d32 100%); padding: 25px; margin: 30px 0; border-radius: 10px; text-align: center;">
+              <p style="color: white; margin: 0 0 15px 0; font-size: 18px; font-weight: bold;">🎉 งานเสร็จสิ้นเรียบร้อย</p>
+              <p style="color: #f0f0f0; margin: 0; font-size: 14px;">ผู้ใช้อนุมัติงานแล้ว งานนี้ได้ปิดเรียบร้อยแล้ว</p>
             </div>
             `}
 
-            <div style="background-color: #e3f2fd; padding: 10px; margin: 20px 0; border-radius: 5px;">
-              <p style="margin: 0; color: #1976d2;"><strong>📧 อีเมลนี้ถูกส่งจากระบบ Inventory Management Dashboard</strong></p>
-              <p style="margin: 5px 0; color: #1976d2; font-size: 0.9em;">ส่งถึง: ${adminEmail}</p>
-            </div>
           </div>
-        `
+          
+          <!-- Footer -->
+          <div style="background-color: #f8f9fa; padding: 20px; border-radius: 0 0 10px 10px; text-align: center; border: 1px solid #e0e0e0; border-top: none;">
+            <p style="margin: 0; color: #666; font-size: 14px;">📧 อีเมลนี้ถูกส่งจากระบบ Inventory Management Dashboard</p>
+          </div>
+        </div>
+      `
       };
 
       try {
         await transporter.sendMail(mailOptions);
-        results.push({ success: true, email: adminEmail });
-        console.log(`User feedback email sent successfully to ${adminEmail}`);
+        results.push({ success: true, email: recipientEmail });
+        console.log(`✅ User approval/rejection email sent successfully to: ${recipientEmail}`);
       } catch (error) {
-        results.push({ success: false, email: adminEmail, error: error });
-        console.error(`Failed to send user feedback email to ${adminEmail}:`, error);
+        results.push({ success: false, email: recipientEmail, error: error });
+        console.error(`❌ Failed to send user approval/rejection email to ${recipientEmail}:`, error);
       }
     }
 
@@ -1006,7 +1325,7 @@ export async function sendIssueUpdateNotification(issueData: any) {
         </div>
 
         <div style="margin: 15px 0;">
-          <p><strong>➢ หมายเหตุ:</strong> ${issueData.notes || '-'}</p>
+          <p><strong>➢ หมายเหตุ จาก Admin:</strong> ${issueData.notes || '-'}</p>
         </div>
 
         ${issueData.images && issueData.images.length > 0 ? `

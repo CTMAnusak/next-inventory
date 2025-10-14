@@ -43,11 +43,12 @@ interface ITIssue {
   description: string;
   status: 'pending' | 'in_progress' | 'completed' | 'closed';
   images?: string[];
-  notes?: string;
+  notes?: string; // เก็บไว้เพื่อ backward compatibility
   reportDate: string;
+  acceptedDate?: string;
+  completedDate?: string;
+  closedDate?: string;
   updatedAt?: string;
-  completedAt?: string;
-  closedAt?: string;
   assignedAdmin?: {
     name: string;
     email: string;
@@ -57,6 +58,18 @@ interface ITIssue {
     reason: string;
     submittedAt: string;
   };
+  // ประวัติใหม่
+  notesHistory?: Array<{
+    note: string;
+    adminId: string;
+    adminName: string;
+    createdAt: string;
+  }>;
+  userFeedbackHistory?: Array<{
+    action: 'approved' | 'rejected';
+    reason: string;
+    submittedAt: string;
+  }>;
 }
 
 interface ITAdmin {
@@ -83,10 +96,13 @@ export default function AdminITReportsPage() {
   const [itAdmins, setItAdmins] = useState<ITAdmin[]>([]);
   const [showAssignModal, setShowAssignModal] = useState(false);
   const [selectedIssueForAssign, setSelectedIssueForAssign] = useState<ITIssue | null>(null);
+  const [assigningAdminId, setAssigningAdminId] = useState<string | null>(null);
   
   // Confirmation Modal
   const [showConfirmModal, setShowConfirmModal] = useState(false);
   const [confirmAction, setConfirmAction] = useState<{ id: string; status: string; text: string } | null>(null);
+  const [workNotes, setWorkNotes] = useState('');
+  const [sendingWork, setSendingWork] = useState(false);
 
   // Search and filter states
   const [searchTerm, setSearchTerm] = useState('');
@@ -111,7 +127,7 @@ export default function AdminITReportsPage() {
     'ปัญหา เบอร์โทรศัพท์',
     'ปัญหา Nas เข้าไม่ได้ ใช้งานไม่ได้',
     'ขอ User Account Email ระบบงาน',
-    'อื่น ๆ โปรดระบุ'
+    'อื่น ๆ (โปรดระบุ)'
   ];
 
   // Note: This component uses IT issue categories, not inventory categories
@@ -245,10 +261,14 @@ export default function AdminITReportsPage() {
   const handleAcceptJob = (issue: ITIssue) => {
     setSelectedIssueForAssign(issue);
     setShowAssignModal(true);
+    setAssigningAdminId(null); // Reset loading state when opening modal
   };
 
   const handleAssignAdmin = async (admin: ITAdmin) => {
     if (!selectedIssueForAssign) return;
+
+    // Set loading state for the clicked admin
+    setAssigningAdminId(admin.id);
 
     try {
       const response = await fetch(`/api/admin/it-reports/${selectedIssueForAssign._id}/send-work`, {
@@ -275,6 +295,9 @@ export default function AdminITReportsPage() {
       }
     } catch (error) {
       toast.error('เกิดข้อผิดพลาดในการเชื่อมต่อ');
+    } finally {
+      // Clear loading state
+      setAssigningAdminId(null);
     }
   };
 
@@ -290,6 +313,7 @@ export default function AdminITReportsPage() {
 
     // For in_progress, show confirmation modal
     const actionText = 'ส่งงาน';
+    setWorkNotes(''); // Reset notes when opening modal
     setConfirmAction({ id: issueId, status: currentStatus, text: actionText });
     setShowConfirmModal(true);
   };
@@ -297,10 +321,14 @@ export default function AdminITReportsPage() {
   const handleConfirmAction = async () => {
     if (!confirmAction) return;
 
+    setSendingWork(true);
     try {
       const response = await fetch(`/api/admin/it-reports/${confirmAction.id}/send-work`, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' }
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ 
+          notes: workNotes.trim() || undefined 
+        })
       });
 
       if (response.ok) {
@@ -314,8 +342,10 @@ export default function AdminITReportsPage() {
     } catch (error) {
       toast.error('เกิดข้อผิดพลาดในการเชื่อมต่อ');
     } finally {
+      setSendingWork(false);
       setShowConfirmModal(false);
       setConfirmAction(null);
+      setWorkNotes(''); // Clear notes after sending
     }
   };
 
@@ -376,7 +406,7 @@ export default function AdminITReportsPage() {
           issueCategory: issue.issueCategory + (issue.customCategory ? ` (${issue.customCategory})` : ''),
           description: issue.description,
           status: getStatusDisplayName(issue.status),
-          completedDate: issue.updatedAt ? new Date(issue.updatedAt).toLocaleDateString('th-TH', { timeZone: 'Asia/Bangkok' }) : '-',
+          completedDate: issue.completedDate ? new Date(issue.completedDate).toLocaleDateString('th-TH', { timeZone: 'Asia/Bangkok' }) : '-',
           notes: issue.notes || '-',
           images: '',
         });
@@ -403,18 +433,10 @@ export default function AdminITReportsPage() {
               // ปรับความสูงของแถวให้พอดีกับรูป
               excelRow.height = 80;
 
-              // ใส่รูปลงใน cell โดยจัดให้อยู่กึ่งกลาง
-              const imageWidth = 90;
-              const imageHeight = 90;
-              const cellWidth = 25 * 7;
-              const cellHeight = 80 * 0.75;
-              
-              const colOffset = Math.max(0, (cellWidth - imageWidth) / 2);
-              const rowOffset = Math.max(0, (cellHeight - imageHeight) / 2);
-
+              // ใส่รูปลงใน cell
               worksheet.addImage(imageId, {
-                tl: { col: 14, row: index + 1, colOff: colOffset, rowOff: rowOffset },
-                ext: { width: imageWidth, height: imageHeight },
+                tl: { col: 14, row: index + 1 },
+                ext: { width: 90, height: 90 },
                 editAs: 'oneCell'
               });
 
@@ -424,7 +446,7 @@ export default function AdminITReportsPage() {
                 : 'มี 1 รูป';
             }
           } catch (error) {
-            console.error('Error loading image:', firstImage, error);
+            console.error('Error loading image:', error);
             excelRow.getCell('images').value = 'ไม่สามารถโหลดรูปได้';
           }
         } else {
@@ -520,8 +542,38 @@ export default function AdminITReportsPage() {
       case 'pending': return 'รอดำเนินการ';
       case 'in_progress': return 'กำลังดำเนินการ';
       case 'completed': return 'รอผู้ใช้ตรวจสอบ';
-      case 'closed': return 'ปิดงาน';
+      case 'closed': return 'ปิดงานแล้ว';
       default: return status;
+    }
+  };
+
+  const getStatusIcon = (status: string) => {
+    switch (status) {
+      case 'pending':
+        return <Clock className="w-3.5 h-3.5" />;
+      case 'in_progress':
+        return <AlertTriangle className="w-3.5 h-3.5" />;
+      case 'completed':
+        return <AlertTriangle className="w-3.5 h-3.5" />;
+      case 'closed':
+        return <CheckCircle className="w-3.5 h-3.5" />;
+      default:
+        return <XCircle className="w-3.5 h-3.5" />;
+    }
+  };
+
+  const getStatusColor = (status: string) => {
+    switch (status) {
+      case 'pending':
+        return 'bg-yellow-100 text-yellow-800 border-yellow-200';
+      case 'in_progress':
+        return 'bg-blue-100 text-blue-800 border-blue-200';
+      case 'completed':
+        return 'bg-orange-100 text-orange-800 border-orange-200';
+      case 'closed':
+        return 'bg-green-100 text-green-800 border-green-200';
+      default:
+        return 'bg-red-100 text-red-800 border-red-200';
     }
   };
 
@@ -534,7 +586,7 @@ export default function AdminITReportsPage() {
       case 'completed':
         return <span className="inline-flex px-2 py-1 text-xs font-semibold rounded-full bg-orange-100 text-orange-800">รอผู้ใช้ตรวจสอบ</span>;
       case 'closed':
-        return <span className="inline-flex px-2 py-1 text-xs font-semibold rounded-full bg-green-100 text-green-800">ปิดงาน</span>;
+        return <span className="inline-flex px-2 py-1 text-xs font-semibold rounded-full bg-green-100 text-green-800">ปิดงานแล้ว</span>;
       default:
         return <span className="inline-flex px-2 py-1 text-xs font-semibold rounded-full bg-gray-100 text-gray-800">{status}</span>;
     }
@@ -827,7 +879,7 @@ export default function AdminITReportsPage() {
                     )}
                     {activeTab !== 'pending' && activeTab !== 'in_progress' && (
                       <td className="px-6 py-4 text-sm text-gray-500 text-center text-selectable">
-                        {issue.updatedAt ? new Date(issue.updatedAt).toLocaleDateString('th-TH', { timeZone: 'Asia/Bangkok' }) : '-'}
+                        {issue.completedDate ? new Date(issue.completedDate).toLocaleDateString('th-TH', { timeZone: 'Asia/Bangkok' }) : '-'}
                       </td>
                     )}
 
@@ -880,291 +932,387 @@ export default function AdminITReportsPage() {
 
         {/* Detail Modal */}
         {showDetailModal && selectedIssue && (
-          <div className="fixed inset-0 bg-black/30 backdrop-blur-sm flex items-center justify-center z-50">
-            <div className="bg-white/95 backdrop-blur-md p-8 rounded-2xl shadow-2xl max-w-4xl w-full mx-4 border border-white/20 max-h-[90vh] overflow-y-auto">
-              <div className="flex justify-between items-center mb-6">
-                <h3 className="text-xl font-bold text-gray-900">รายละเอียด Issue #{selectedIssue.issueId}</h3>
-                <button
-                  onClick={() => setShowDetailModal(false)}
-                  className="text-gray-400 hover:text-gray-600"
-                >
-                  <X className="w-6 h-6" />
-                </button>
-              </div>
-              
-              {/* Status & Priority Section */}
-              <div className="bg-gradient-to-r from-blue-50 to-indigo-50 p-4 rounded-xl border border-blue-100 mb-6">
-                <div className="flex items-center justify-between">
-                  <div className="flex items-center space-x-4">
-                    <div className="flex items-center space-x-2">
-                      <Clock className="w-5 h-5 text-blue-500" />
-                      <span className="font-semibold text-gray-900">สถานะ:</span>
-                      {getStatusBadge(selectedIssue.status)}
-                    </div>
-                    <div className="flex items-center space-x-2">
-                      <AlertTriangle className="w-5 h-5 text-yellow-500" />
-                      <span className="font-semibold text-gray-900">ความเร่งด่วน:</span>
-                      {getUrgencyBadge(selectedIssue.urgency)}
+          <div className="fixed inset-0 bg-black/30 backdrop-blur-sm flex items-center justify-center z-50 p-4"
+            onClick={() => setShowDetailModal(false)}
+          >
+            <div className="bg-white/95 backdrop-blur-md rounded-2xl shadow-2xl max-w-4xl w-full mx-4 border border-white/20 max-h-[90vh] overflow-y-auto"
+              onClick={(e) => e.stopPropagation()}
+            >
+              <div className="p-6">
+                {/* Header */}
+                <div className="flex items-center justify-between mb-6 pb-4 border-b border-gray-200">
+                  <div>
+                    <h3 className="text-2xl font-bold text-gray-900 mb-3">
+                      รายละเอียดงาน <br/><span className='text-blue-500 text-lg'>Issue ID: {selectedIssue.issueId}</span>
+                    </h3>
+                    <div className="flex items-center gap-3 mt-2">
+                      <span className={`inline-flex items-center px-3 py-1 rounded-full text-sm font-semibold border-2 ${getStatusColor(selectedIssue.status)}`}>
+                        {getStatusIcon(selectedIssue.status)}
+                        <span className="ml-2">{getStatusDisplayName(selectedIssue.status)}</span>
+                      </span>
+                      <span className={`inline-flex px-3 py-1 text-sm font-bold rounded-full border-2 ${
+                        selectedIssue.urgency === 'very_urgent' 
+                          ? 'bg-red-50 text-red-700 border-red-300'
+                          : 'bg-gray-50 text-gray-700 border-gray-300'
+                      }`}>
+                        ความเร่งด่วน: {selectedIssue.urgency === 'very_urgent' ? 'ด่วนมาก' : 'ปกติ'}
+                      </span>
                     </div>
                   </div>
-                  <div className="text-right">
-                    <p className="text-sm text-gray-600">Issue ID</p>
-                    <p className="text-blue-600 font-mono font-semibold">{selectedIssue.issueId}</p>
-                  </div>
+                  <button
+                    onClick={() => setShowDetailModal(false)}
+                    className="text-gray-400 hover:text-gray-600 transition-colors items-start"
+                  >
+                    <X className="w-6 h-6" />
+                  </button>
                 </div>
-              </div>
 
-              {/* Personal Information Section */}
-              <div className="bg-white p-5 rounded-xl border border-gray-200 shadow-sm mb-6">
-                <h4 className="text-lg font-semibold text-gray-900 mb-4 flex items-center">
-                  <div className="w-1 h-6 bg-blue-500 rounded-full mr-3"></div>
-                  ข้อมูลผู้แจ้ง
-                </h4>
-                
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                  <div className="bg-gray-50 p-4 rounded-lg border border-gray-100">
-                    <div className="flex items-center space-x-3 mb-3">
-                      <User className="w-5 h-5 text-blue-500" />
-                      <label className="text-sm font-semibold text-gray-700">ชื่อ-นามสกุล</label>
+                <div className="space-y-6">
+                  {/* ข้อมูลผู้แจ้ง */}
+                  <div className="bg-gradient-to-r from-blue-50 to-indigo-50 p-5 rounded-xl border border-blue-200">
+                    <h4 className="text-lg font-semibold text-gray-900 mb-4 flex items-center">
+                      <div className="w-1 h-6 bg-blue-500 rounded-full mr-3"></div>
+                      ข้อมูลผู้แจ้ง
+                    </h4>
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                      <div className="bg-white p-3 rounded-lg">
+                        <label className="block text-xs font-semibold text-gray-600 mb-1">ชื่อ-นามสกุล</label>
+                        <div className={
+                          (selectedIssue as any).userId?.pendingDeletion 
+                            ? 'text-orange-600' 
+                            : !selectedIssue.firstName 
+                            ? 'text-gray-500 italic' 
+                            : 'text-gray-900'
+                        }>
+                          {selectedIssue.firstName && selectedIssue.lastName ? (
+                            <>
+                              <p className="font-medium">
+                                {selectedIssue.firstName} {selectedIssue.lastName}
+                                {(selectedIssue as any).userId?.pendingDeletion && ' (รอลบ)'}
+                              </p>
+                              <p className="text-sm">({selectedIssue.nickname})</p>
+                            </>
+                          ) : (
+                            <p className="font-medium">(ผู้ใช้ถูกลบแล้ว)</p>
+                          )}
+                        </div>
+                      </div>
+                      <div className="bg-white p-3 rounded-lg">
+                        <label className="block text-xs font-semibold text-gray-600 mb-1">เบอร์โทร</label>
+                        <p className="text-gray-900 font-medium">{selectedIssue.phone}</p>
+                      </div>
+                      <div className="bg-white p-3 rounded-lg">
+                        <label className="block text-xs font-semibold text-gray-600 mb-1">อีเมลผู้แจ้ง</label>
+                        <p className="text-gray-900 font-medium break-all">{selectedIssue.email}</p>
+                      </div>
+                      <div className="bg-white p-3 rounded-lg">
+                        <label className="block text-xs font-semibold text-gray-600 mb-1">แผนก</label>
+                        <p className="text-gray-900 font-medium">{selectedIssue.department}</p>
+                      </div>
+                      <div className="bg-white p-3 rounded-lg md:col-span-2">
+                        <label className="block text-xs font-semibold text-gray-600 mb-1">ออฟฟิศ/สาขา</label>
+                        <p className="text-gray-900 font-medium">{selectedIssue.office}</p>
+                      </div>
                     </div>
-                    <div className={
-                      (selectedIssue as any).userId?.pendingDeletion 
-                        ? 'text-orange-600' 
-                        : !selectedIssue.firstName 
-                        ? 'text-gray-500 italic' 
-                        : 'text-gray-900'
-                    }>
-                      {selectedIssue.firstName && selectedIssue.lastName ? (
-                        <>
-                          <p className="font-medium">
-                            {selectedIssue.firstName} {selectedIssue.lastName}
-                            {(selectedIssue as any).userId?.pendingDeletion && ' (รอลบ)'}
-                          </p>
-                          <p className="text-sm">({selectedIssue.nickname})</p>
-                        </>
-                      ) : (
-                        <p className="font-medium">(ผู้ใช้ถูกลบแล้ว)</p>
+                  </div>
+
+                  {/* IT Admin ผู้รับผิดชอบ */}
+                  <div className={`p-5 rounded-xl border-2 ${
+                    selectedIssue.assignedAdmin?.name
+                      ? 'bg-gradient-to-r from-green-50 to-emerald-50 border-green-200' 
+                      : 'bg-gradient-to-r from-yellow-50 to-amber-50 border-yellow-200'
+                  }`}>
+                    <h4 className="text-lg font-semibold text-gray-900 mb-3 flex items-center">
+                      <div className={`w-1 h-6 rounded-full mr-3 ${selectedIssue.assignedAdmin?.name ? 'bg-green-500' : 'bg-yellow-500'}`}></div>
+                      ชื่อ IT Admin ผู้รับผิดชอบ
+                    </h4>
+                    {selectedIssue.assignedAdmin?.name ? (
+                      <div className="bg-white p-4 rounded-lg">
+                        <p className="text-green-900 font-bold text-lg">{selectedIssue.assignedAdmin.name}</p>
+                        <p className="text-green-600 text-sm mt-1">{selectedIssue.assignedAdmin.email}</p>
+                      </div>
+                    ) : (
+                      <div className="bg-white p-4 rounded-lg">
+                        <p className="text-yellow-900 font-bold">รอ Admin รับงาน</p>
+                      </div>
+                    )}
+                  </div>
+
+                  {/* รายละเอียดปัญหา */}
+                  <div className="bg-white p-5 rounded-xl border border-gray-200 shadow-sm">
+                    <h4 className="text-lg font-semibold text-gray-900 mb-4 flex items-center">
+                      <div className="w-1 h-6 bg-purple-500 rounded-full mr-3"></div>
+                      รายละเอียดปัญหา
+                    </h4>
+                    
+                    <div className="space-y-4">
+                      <div className="bg-purple-50 p-4 rounded-lg border border-purple-100">
+                        <label className="block text-sm font-semibold text-purple-700 mb-2">ประเภทปัญหา / หัวข้อ</label>
+                        <p className="text-gray-900 font-medium text-lg">
+                          {selectedIssue.issueCategory}
+                          {selectedIssue.customCategory && (
+                            <span className="text-purple-600"> ({selectedIssue.customCategory})</span>
+                          )}
+                        </p>
+                      </div>
+
+                      <div className="bg-gray-50 p-4 rounded-lg border border-gray-200">
+                        <label className="block text-sm font-semibold text-gray-700 mb-2">รายละเอียด</label>
+                        <p className="text-gray-900 whitespace-pre-wrap leading-relaxed">{selectedIssue.description}</p>
+                      </div>
+
+                      {/* รูปภาพ */}
+                      {selectedIssue.images && selectedIssue.images.length > 0 && (
+                        <div className="bg-indigo-50 p-4 rounded-lg border border-indigo-100">
+                          <label className="block text-sm font-semibold text-indigo-700 mb-3">รูปภาพประกอบ ({selectedIssue.images.length} รูป)</label>
+                          <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+                            {selectedIssue.images.map((image, index) => (
+                              <div key={index} className="relative aspect-square rounded-lg overflow-hidden border-2 border-indigo-200 hover:border-indigo-400 transition-colors bg-gray-100">
+                                <img 
+                                  src={`/assets/IssueLog/${image}`} 
+                                  alt={`รูปภาพปัญหา ${index + 1}`}
+                                  className="w-full h-full object-cover cursor-pointer hover:scale-110 transition-transform"
+                                  onClick={() => {
+                                    setSelectedImage(`/assets/IssueLog/${image}`);
+                                    setShowImageModal(true);
+                                  }}
+                                />
+                              </div>
+                            ))}
+                          </div>
+                        </div>
                       )}
                     </div>
                   </div>
-                  
-                  <div className="bg-gray-50 p-4 rounded-lg border border-gray-100">
-                    <div className="flex items-center space-x-3 mb-3">
-                      <Building className="w-5 h-5 text-green-500" />
-                      <label className="text-sm font-semibold text-gray-700">สาขา / แผนก</label>
-                    </div>
-                    <p className="text-gray-900 font-medium">{selectedIssue.office}</p>
-                    <p className="text-gray-600 text-sm">{selectedIssue.department}</p>
-                  </div>
-                  
-                  <div className="bg-blue-50 p-4 rounded-lg border border-blue-100">
-                    <div className="flex items-center space-x-3 mb-3">
-                      <Phone className="w-5 h-5 text-green-500" />
-                      <label className="text-sm font-semibold text-gray-700">เบอร์โทรศัพท์</label>
-                    </div>
-                    <p className="text-gray-900 font-medium">{selectedIssue.phone}</p>
-                  </div>
-                  
-                  <div className="bg-blue-50 p-4 rounded-lg border border-blue-100">
-                    <div className="flex items-center space-x-3 mb-3">
-                      <Mail className="w-5 h-5 text-red-500" />
-                      <label className="text-sm font-semibold text-gray-700">อีเมล</label>
-                    </div>
-                    <p className="text-gray-900 font-medium break-all">{selectedIssue.email}</p>
-                  </div>
-                </div>
-              </div>
 
-              {/* Problem Information Section */}
-              <div className="bg-white p-5 rounded-xl border border-gray-200 shadow-sm mb-6">
-                <h4 className="text-lg font-semibold text-gray-900 mb-4 flex items-center">
-                  <div className="w-1 h-6 bg-purple-500 rounded-full mr-3"></div>
-                  ข้อมูลปัญหา
-                </h4>
-                
-                <div className="bg-purple-50 p-4 rounded-lg border border-purple-100">
-                  <label className="block text-sm font-semibold text-purple-700 mb-2">ประเภทปัญหา</label>
-                  <p className="text-gray-900 font-medium">
-                    {selectedIssue.issueCategory}
-                    {selectedIssue.customCategory && (
-                      <span className="text-purple-600"> ({selectedIssue.customCategory})</span>
-                    )}
-                  </p>
-                </div>
-              </div>
-
-              {/* Timeline Section */}
-              <div className="bg-white p-5 rounded-xl border border-gray-200 shadow-sm">
-                <h4 className="text-lg font-semibold text-gray-900 mb-4 flex items-center">
-                  <div className="w-1 h-6 bg-green-500 rounded-full mr-3"></div>
-                  ไทม์ไลน์
-                </h4>
-                
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                  <div className="bg-green-50 p-4 rounded-lg border border-green-100">
-                    <div className="flex items-center space-x-3 mb-2">
-                      <Calendar className="w-5 h-5 text-green-500" />
-                      <label className="text-sm font-semibold text-green-700">วันที่แจ้ง</label>
-                    </div>
-                    <p className="text-gray-900 font-medium">
-                      {new Date(selectedIssue.reportDate).toLocaleDateString('th-TH', {
-                        weekday: 'long',
-                        year: 'numeric',
-                        month: 'long',
-                        day: 'numeric',
-                        timeZone: 'Asia/Bangkok'
-                      })}
-                    </p>
-                    <p className="text-gray-600 text-sm">
-                      {new Date(selectedIssue.reportDate).toLocaleTimeString('th-TH', { timeZone: 'Asia/Bangkok' })}
-                    </p>
-                  </div>
-                  
-                  <div className="bg-blue-50 p-4 rounded-lg border border-blue-100">
-                    <div className="flex items-center space-x-3 mb-2">
-                      <Calendar className="w-5 h-5 text-blue-500" />
-                      <label className="text-sm font-semibold text-blue-700">อัปเดตล่าสุด</label>
-                    </div>
-                    <p className="text-gray-900 font-medium">
-                      {new Date(selectedIssue.updatedAt || selectedIssue.reportDate).toLocaleDateString('th-TH', {
-                        weekday: 'long',
-                        year: 'numeric',
-                        month: 'long',
-                        day: 'numeric',
-                        timeZone: 'Asia/Bangkok'
-                      })}
-                    </p>
-                    <p className="text-gray-600 text-sm">
-                      {new Date(selectedIssue.updatedAt || selectedIssue.reportDate).toLocaleTimeString('th-TH', { timeZone: 'Asia/Bangkok' })}
-                    </p>
-                  </div>
-                </div>
-              </div>
-              
-              {/* Problem Description Section */}
-              <div className="bg-white p-5 rounded-xl border border-gray-200 shadow-sm mb-6">
-                <h4 className="text-lg font-semibold text-gray-900 mb-4 flex items-center">
-                  <div className="w-1 h-6 bg-orange-500 rounded-full mr-3"></div>
-                  รายละเอียดปัญหา
-                </h4>
-                <div className="bg-orange-50 p-4 rounded-lg border border-orange-100">
-                  <p className="text-gray-900 whitespace-pre-wrap leading-relaxed">{selectedIssue.description}</p>
-                </div>
-              </div>
-
-              {/* Additional Information Section */}
-              {(selectedIssue.updatedAt || selectedIssue.closedAt || selectedIssue.notes || selectedIssue.userFeedback) && (
-                <div className="bg-white p-5 rounded-xl border border-gray-200 shadow-sm">
-                  <h4 className="text-lg font-semibold text-gray-900 mb-4 flex items-center">
-                    <div className="w-1 h-6 bg-yellow-500 rounded-full mr-3"></div>
-                    ข้อมูลเพิ่มเติม
-                  </h4>
-                  
-                  <div className="space-y-4">
-                    {selectedIssue.updatedAt && (
-                      <div className="bg-yellow-50 p-4 rounded-lg border border-yellow-100">
-                        <label className="block text-sm font-semibold text-yellow-700 mb-1">วันที่ดำเนินการเสร็จ</label>
+                  {/* Timeline Section */}
+                  <div className="bg-gradient-to-r from-green-50 to-teal-50 p-5 rounded-xl border border-green-200">
+                    <h4 className="text-lg font-semibold text-gray-900 mb-4 flex items-center">
+                      <div className="w-1 h-6 bg-green-500 rounded-full mr-3"></div>
+                      ไทม์ไลน์
+                    </h4>
+                    
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                      {/* วันที่แจ้งงาน */}
+                      <div className="bg-white p-4 rounded-lg border-l-4 border-green-500">
+                        <label className="block text-sm font-semibold text-green-700 mb-1">วันที่แจ้งงาน</label>
                         <p className="text-gray-900 font-medium">
-                          {new Date(selectedIssue.updatedAt).toLocaleDateString('th-TH', {
-                            weekday: 'long',
+                          {new Date(selectedIssue.reportDate).toLocaleDateString('th-TH', {
                             year: 'numeric',
                             month: 'long',
                             day: 'numeric',
                             timeZone: 'Asia/Bangkok'
                           })}
                         </p>
-                      </div>
-                    )}
-                    
-                    {selectedIssue.closedAt && (
-                      <div className="bg-green-50 p-4 rounded-lg border border-green-100">
-                        <label className="block text-sm font-semibold text-green-700 mb-1">วันที่ปิดงาน</label>
-                        <p className="text-gray-900 font-medium">
-                          {new Date(selectedIssue.closedAt).toLocaleDateString('th-TH', {
-                            weekday: 'long',
-                            year: 'numeric',
-                            month: 'long',
-                            day: 'numeric',
-                            timeZone: 'Asia/Bangkok'
-                          })}
+                        <p className="text-gray-600 text-sm">
+                          {new Date(selectedIssue.reportDate).toLocaleTimeString('th-TH', { timeZone: 'Asia/Bangkok' })}
                         </p>
                       </div>
-                    )}
-                    
-                    {selectedIssue.notes && (
-                      <div className="bg-amber-50 p-4 rounded-lg border border-amber-100">
-                        <label className="block text-sm font-semibold text-amber-700 mb-2">หมายเหตุ</label>
-                        <p className="text-gray-900 leading-relaxed">{selectedIssue.notes}</p>
-                      </div>
-                    )}
-                    
-                    {selectedIssue.userFeedback && (
-                      <div className={`p-4 rounded-lg border ${
-                        selectedIssue.userFeedback.action === 'rejected' 
-                          ? 'bg-red-50 border-red-100' 
-                          : 'bg-green-50 border-green-100'
-                      }`}>
-                        <div className="flex items-center space-x-2 mb-2">
-                          {selectedIssue.userFeedback.action === 'rejected' ? (
-                            <XCircle className="w-5 h-5 text-red-500" />
-                          ) : (
-                            <CheckCircle className="w-5 h-5 text-green-500" />
-                          )}
-                          <label className={`text-sm font-semibold ${
-                            selectedIssue.userFeedback.action === 'rejected' 
-                              ? 'text-red-700' 
-                              : 'text-green-700'
-                          }`}>
-                            {selectedIssue.userFeedback.action === 'rejected' ? 'ผู้ใช้ส่งกลับให้แก้ไข' : 'ผู้ใช้อนุมัติงาน'}
-                          </label>
-                        </div>
-                        <div className="space-y-2">
-                          <div>
-                            <span className="text-sm font-medium text-gray-700">เหตุผล:</span>
-                            <p className="text-gray-900 mt-1 leading-relaxed">{selectedIssue.userFeedback.reason}</p>
-                          </div>
-                          <div>
-                            <span className="text-sm font-medium text-gray-700">วันที่ส่งกลับ:</span>
-                            <p className="text-gray-800 text-sm">
-                              {new Date(selectedIssue.userFeedback.submittedAt).toLocaleDateString('th-TH', {
-                                weekday: 'long',
+                      
+                      {/* วันที่แอดมินรับงาน */}
+                      <div className={`bg-white p-4 rounded-lg border-l-4 ${selectedIssue.acceptedDate ? 'border-blue-500' : 'border-gray-300'}`}>
+                        <label className="block text-sm font-semibold text-blue-700 mb-1">วันที่แอดมินรับงาน</label>
+                        {selectedIssue.acceptedDate ? (
+                          <>
+                            <p className="text-gray-900 font-medium">
+                              {new Date(selectedIssue.acceptedDate).toLocaleDateString('th-TH', {
                                 year: 'numeric',
                                 month: 'long',
                                 day: 'numeric',
                                 timeZone: 'Asia/Bangkok'
-                              })} เวลา {new Date(selectedIssue.userFeedback.submittedAt).toLocaleTimeString('th-TH', { timeZone: 'Asia/Bangkok' })}
+                              })}
+                            </p>
+                            <p className="text-gray-600 text-sm">
+                              {new Date(selectedIssue.acceptedDate).toLocaleTimeString('th-TH', { timeZone: 'Asia/Bangkok' })}
+                            </p>
+                          </>
+                        ) : (
+                          <p className="text-gray-400 font-medium">-</p>
+                        )}
+                      </div>
+
+                      {/* วันที่แอดมินดำเนินการเสร็จ */}
+                      <div className={`bg-white p-4 rounded-lg border-l-4 ${selectedIssue.completedDate ? 'border-purple-500' : 'border-gray-300'}`}>
+                        <label className="block text-sm font-semibold text-purple-700 mb-1">วันที่แอดมินดำเนินการเสร็จ</label>
+                        {selectedIssue.completedDate ? (
+                          <>
+                            <p className="text-gray-900 font-medium">
+                              {new Date(selectedIssue.completedDate).toLocaleDateString('th-TH', {
+                                year: 'numeric',
+                                month: 'long',
+                                day: 'numeric',
+                                timeZone: 'Asia/Bangkok'
+                              })}
+                            </p>
+                            <p className="text-gray-600 text-sm">
+                              {new Date(selectedIssue.completedDate).toLocaleTimeString('th-TH', { timeZone: 'Asia/Bangkok' })}
+                            </p>
+                          </>
+                        ) : (
+                          <p className="text-gray-400 font-medium">-</p>
+                        )}
+                      </div>
+                      
+                      {/* วันที่ปิดงาน */}
+                      <div className={`bg-white p-4 rounded-lg border-l-4 ${selectedIssue.closedDate ? 'border-emerald-500' : 'border-gray-300'}`}>
+                        <label className="block text-sm font-semibold text-emerald-700 mb-1">วันที่ปิดงาน</label>
+                        {selectedIssue.closedDate ? (
+                          <>
+                            <p className="text-gray-900 font-medium">
+                              {new Date(selectedIssue.closedDate).toLocaleDateString('th-TH', {
+                                year: 'numeric',
+                                month: 'long',
+                                day: 'numeric',
+                                timeZone: 'Asia/Bangkok'
+                              })}
+                            </p>
+                            <p className="text-gray-600 text-sm">
+                              {new Date(selectedIssue.closedDate).toLocaleTimeString('th-TH', { timeZone: 'Asia/Bangkok' })}
+                            </p>
+                          </>
+                        ) : (
+                          <p className="text-gray-400 font-medium">-</p>
+                        )}
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* หมายเหตุจาก Admin */}
+                  <div className="bg-yellow-50 p-5 rounded-xl border border-yellow-200">
+                    <h4 className="text-lg font-semibold text-gray-900 mb-3 flex items-center">
+                      <div className="w-1 h-6 bg-yellow-500 rounded-full mr-3"></div>
+                      หมายเหตุจาก Admin
+                    </h4>
+                    
+                    {/* แสดงประวัติหมายเหตุทั้งหมด */}
+                    {selectedIssue.notesHistory && selectedIssue.notesHistory.length > 0 ? (
+                      <div className="space-y-3">
+                        {selectedIssue.notesHistory.map((noteEntry, index) => (
+                          <div key={index} className="bg-white p-4 rounded-lg border-l-4 border-yellow-400">
+                            <div className="flex justify-between items-start mb-2">
+                              <span className="text-sm font-semibold text-yellow-700">
+                                {noteEntry.adminName}
+                              </span>
+                              <span className="text-xs text-gray-500">
+                                {new Date(noteEntry.createdAt).toLocaleDateString('th-TH', {
+                                  year: 'numeric',
+                                  month: 'short',
+                                  day: 'numeric',
+                                  hour: '2-digit',
+                                  minute: '2-digit',
+                                  timeZone: 'Asia/Bangkok'
+                                })}
+                              </span>
+                            </div>
+                            <p className="text-gray-900 leading-relaxed whitespace-pre-wrap">
+                              {noteEntry.note}
                             </p>
                           </div>
+                        ))}
+                      </div>
+                    ) : selectedIssue.notes ? (
+                      // Fallback สำหรับข้อมูลเก่าที่ยังไม่มี history
+                      <div className="bg-white p-4 rounded-lg">
+                        <p className="text-gray-900 leading-relaxed whitespace-pre-wrap">
+                          {selectedIssue.notes}
+                        </p>
+                      </div>
+                    ) : (
+                      <div className="bg-white p-4 rounded-lg">
+                        <p className="text-gray-900 leading-relaxed">-</p>
+                      </div>
+                    )}
+                  </div>
+
+                  {/* หมายเหตุจากผู้แจ้ง */}
+                  <div className="bg-gray-50 p-5 rounded-xl border border-gray-200">
+                    <h4 className="text-lg font-semibold text-gray-900 mb-3 flex items-center">
+                      <div className="w-1 h-6 bg-gray-500 rounded-full mr-3"></div>
+                      หมายเหตุจากผู้แจ้ง
+                    </h4>
+                    
+                    {/* แสดงประวัติ feedback ทั้งหมด */}
+                    {selectedIssue.userFeedbackHistory && selectedIssue.userFeedbackHistory.length > 0 ? (
+                      <div className="space-y-3">
+                        {selectedIssue.userFeedbackHistory.map((feedback, index) => (
+                          <div key={index} className={`p-4 rounded-lg border-l-4 ${
+                            feedback.action === 'rejected' 
+                              ? 'bg-red-50 border-red-400' 
+                              : 'bg-green-50 border-green-400'
+                          }`}>
+                            <div className="flex justify-between items-start mb-2">
+                              <span className={`text-sm font-semibold ${
+                                feedback.action === 'rejected' ? 'text-red-700' : 'text-green-700'
+                              }`}>
+                                {feedback.action === 'rejected' ? '🔄 ไม่ปิดงาน' : '✅ ปิดงาน'}
+                              </span>
+                              <span className="text-xs text-gray-500">
+                                {new Date(feedback.submittedAt).toLocaleDateString('th-TH', {
+                                  year: 'numeric',
+                                  month: 'short',
+                                  day: 'numeric',
+                                  hour: '2-digit',
+                                  minute: '2-digit',
+                                  timeZone: 'Asia/Bangkok'
+                                })}
+                              </span>
+                            </div>
+                            <p className="text-gray-900 leading-relaxed whitespace-pre-wrap">
+                              {feedback.reason}
+                            </p>
+                          </div>
+                        ))}
+                      </div>
+                    ) : selectedIssue.userFeedback ? (
+                      // Fallback สำหรับข้อมูลเก่าที่ยังไม่มี history
+                      <div className={`bg-white p-4 rounded-lg border-l-4 ${
+                        selectedIssue.userFeedback.action === 'rejected' 
+                          ? 'border-red-400' 
+                          : 'border-green-400'
+                      }`}>
+                        <div className="flex justify-between items-start mb-2">
+                          <span className={`text-sm font-semibold ${
+                            selectedIssue.userFeedback.action === 'rejected' ? 'text-red-700' : 'text-green-700'
+                          }`}>
+                            {selectedIssue.userFeedback.action === 'rejected' ? '🔄 ไม่ปิดงาน' : '✅ ปิดงาน'}
+                          </span>
+                          <span className="text-xs text-gray-500">
+                            {new Date(selectedIssue.userFeedback.submittedAt).toLocaleDateString('th-TH', {
+                              year: 'numeric',
+                              month: 'short',
+                              day: 'numeric',
+                              hour: '2-digit',
+                              minute: '2-digit',
+                              timeZone: 'Asia/Bangkok'
+                            })}
+                          </span>
                         </div>
+                        <p className="text-gray-900 leading-relaxed whitespace-pre-wrap">
+                          {selectedIssue.userFeedback.reason}
+                        </p>
+                      </div>
+                    ) : selectedIssue.status === 'closed' ? (
+                      <div className="bg-green-50 p-4 rounded-lg border-l-4 border-green-400">
+                        <span className="text-sm font-semibold text-green-700">✅ ปิดงาน</span>
+                        <p className="text-gray-900 leading-relaxed mt-2">แก้ไขสำเร็จ</p>
+                      </div>
+                    ) : (
+                      <div className="bg-white p-4 rounded-lg">
+                        <p className="text-gray-900 leading-relaxed">-</p>
                       </div>
                     )}
                   </div>
                 </div>
-              )}
-              
-              {selectedIssue.images && selectedIssue.images.length > 0 && (
-                <div className="mt-6">
-                  <div className="flex items-center space-x-2 mb-4">
-                    <ImageIcon className="w-5 h-5 text-purple-500" />
-                    <span className="font-semibold">รูปภาพ:</span>
-                  </div>
-                  <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-                    {selectedIssue.images.map((image, index) => (
-                      <div key={index} className="relative">
-                        <img
-                          src={`/assets/IssueLog/${image}`}
-                          alt={`Issue ${selectedIssue.issueId} - Image ${index + 1}`}
-                          className="w-full h-24 object-cover rounded-lg cursor-pointer hover:opacity-80 transition-opacity"
-                          onClick={() => {
-                            setSelectedImage(`/assets/IssueLog/${image}`);
-                            setShowImageModal(true);
-                          }}
-                        />
-                      </div>
-                    ))}
-                  </div>
+
+                <div className="mt-6 flex justify-end">
+                  <button
+                    onClick={() => setShowDetailModal(false)}
+                    className="px-6 py-2 bg-gray-600 text-white rounded-lg hover:bg-gray-700 focus:outline-none focus:ring-2 focus:ring-gray-500 transition-colors"
+                  >
+                    ปิด
+                  </button>
                 </div>
-              )}
+              </div>
             </div>
           </div>
         )}
@@ -1203,7 +1351,14 @@ export default function AdminITReportsPage() {
             <div className="bg-white/95 backdrop-blur-md rounded-2xl shadow-2xl max-w-md w-full border border-white/20">
               <div className="flex justify-between items-center p-6 border-b border-gray-200">
                 <h3 className="text-lg font-bold text-gray-900">เลือก IT Admin</h3>
-                <button onClick={() => setShowAssignModal(false)} className="text-gray-400 hover:text-gray-600">
+                <button 
+                  onClick={() => {
+                    setShowAssignModal(false);
+                    setAssigningAdminId(null); // Reset loading state when closing modal
+                  }} 
+                  className="text-gray-400 hover:text-gray-600"
+                  disabled={assigningAdminId !== null}
+                >
                   <X className="w-6 h-6" />
                 </button>
               </div>
@@ -1243,30 +1398,54 @@ export default function AdminITReportsPage() {
                 ) : (
                   <div className="space-y-3">
                     <h4 className="text-lg font-semibold text-gray-900 mb-4">เลือก IT Admin ที่เหมาะสม</h4>
-                    {itAdmins.map((admin) => (
-                      <button
-                        key={admin.id}
-                        onClick={() => handleAssignAdmin(admin)}
-                        className="w-full p-4 text-left bg-gray-50 border border-gray-200 rounded-xl hover:border-blue-300 hover:bg-blue-50 transition-colors group"
-                      >
-                        <div className="flex items-center space-x-3">
-                          <div className="w-10 h-10 bg-blue-100 rounded-full flex items-center justify-center group-hover:bg-blue-200 transition-colors">
-                            <span className="text-blue-600 font-semibold text-sm">
-                              {admin.name.charAt(0).toUpperCase()}
-                            </span>
+                    {itAdmins.map((admin) => {
+                      const isLoading = assigningAdminId === admin.id;
+                      return (
+                        <button
+                          key={admin.id}
+                          onClick={() => handleAssignAdmin(admin)}
+                          disabled={assigningAdminId !== null}
+                          className={`w-full p-4 text-left border rounded-xl transition-colors group ${
+                            isLoading
+                              ? 'bg-blue-100 border-blue-400 cursor-wait'
+                              : assigningAdminId !== null
+                              ? 'bg-gray-100 border-gray-200 opacity-50 cursor-not-allowed'
+                              : 'bg-gray-50 border-gray-200 hover:border-blue-300 hover:bg-blue-50'
+                          }`}
+                        >
+                          <div className="flex items-center space-x-3">
+                            <div className={`w-10 h-10 rounded-full flex items-center justify-center transition-colors ${
+                              isLoading
+                                ? 'bg-blue-200'
+                                : 'bg-blue-100 group-hover:bg-blue-200'
+                            }`}>
+                              <span className="text-blue-600 font-semibold text-sm">
+                                {admin.name.charAt(0).toUpperCase()}
+                              </span>
+                            </div>
+                            <div className="flex-1">
+                              <div className="flex items-center gap-2">
+                                <p className="font-semibold text-gray-900">{admin.name}</p>
+                                {isLoading && (
+                                  <div className="flex items-center gap-1 text-blue-600">
+                                    <RefreshCw className="w-4 h-4 animate-spin" />
+                                    <span className="text-xs font-medium">กำลังโหลด...</span>
+                                  </div>
+                                )}
+                              </div>
+                              <p className="text-sm text-gray-600">{admin.email}</p>
+                            </div>
+                            <div className="ml-auto">
+                              {!isLoading && assigningAdminId === null && (
+                                <svg className="w-5 h-5 text-gray-400 group-hover:text-blue-500 transition-colors" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M9 5l7 7-7 7"></path>
+                                </svg>
+                              )}
+                            </div>
                           </div>
-                          <div>
-                            <p className="font-semibold text-gray-900">{admin.name}</p>
-                            <p className="text-sm text-gray-600">{admin.email}</p>
-                          </div>
-                          <div className="ml-auto">
-                            <svg className="w-5 h-5 text-gray-400 group-hover:text-blue-500 transition-colors" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M9 5l7 7-7 7"></path>
-                            </svg>
-                          </div>
-                        </div>
-                      </button>
-                    ))}
+                        </button>
+                      );
+                    })}
                   </div>
                 )}
               </div>
@@ -1277,9 +1456,9 @@ export default function AdminITReportsPage() {
         {/* Confirmation Modal */}
         {showConfirmModal && confirmAction && (
           <div className="fixed inset-0 bg-black/30 backdrop-blur-sm flex items-center justify-center z-50 p-4">
-            <div className="bg-white/95 backdrop-blur-md rounded-2xl shadow-2xl max-w-md w-full border border-white/20">
+            <div className="bg-white/95 backdrop-blur-md rounded-2xl shadow-2xl max-w-lg w-full border border-white/20">
               <div className="flex justify-between items-center p-6 border-b border-gray-200">
-                <h3 className="text-lg font-bold text-gray-900">ยืนยันการดำเนินการ</h3>
+                <h3 className="text-lg font-bold text-gray-900">ยืนยันการส่งงาน</h3>
                 <button 
                   onClick={() => setShowConfirmModal(false)} 
                   className="text-gray-400 hover:text-gray-600 transition-colors"
@@ -1289,7 +1468,7 @@ export default function AdminITReportsPage() {
               </div>
 
               <div className="p-6">
-                <div className="bg-orange-50 p-4 rounded-xl border border-orange-100 mb-6">
+                <div className="bg-orange-50 p-4 rounded-xl border border-orange-100 mb-4">
                   <p className="text-gray-900 text-center">
                     คุณต้องการ<span className="font-semibold text-orange-700">{confirmAction.text}</span>นี้หรือไม่?
                   </p>
@@ -1297,19 +1476,51 @@ export default function AdminITReportsPage() {
                     การดำเนินการนี้จะเปลี่ยนสถานะงานเป็น "รอผู้ใช้ตรวจสอบ"
                   </p>
                 </div>
+
+                {/* Notes Input */}
+                <div className="mb-6">
+                  <label className="block text-sm font-semibold text-gray-700 mb-2">
+                    📝 หมายเหตุ (ไม่บังคับ)
+                  </label>
+                  <p className="text-xs text-gray-500 mb-2">
+                    บันทึกรายละเอียดการแก้ไข เช่น เปลี่ยนอุปกรณ์, ติดตั้งโปรแกรม, แก้ไขการตั้งค่า ฯลฯ
+                  </p>
+                  <textarea
+                    value={workNotes}
+                    onChange={(e) => setWorkNotes(e.target.value)}
+                    placeholder="ระบุรายละเอียดการแก้ไข..."
+                    rows={4}
+                    className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-orange-500 focus:border-transparent text-gray-900 resize-none"
+                  />
+                  <p className="text-xs text-gray-400 mt-1">
+                    {workNotes.length} ตัวอักษร
+                  </p>
+                </div>
                 
                 <div className="flex space-x-3 justify-end">
                   <button
                     onClick={() => setShowConfirmModal(false)}
-                    className="px-4 py-2 bg-gray-300 text-gray-700 rounded-lg hover:bg-gray-400 transition-colors"
+                    disabled={sendingWork}
+                    className="px-5 py-2.5 bg-gray-300 text-gray-700 rounded-lg hover:bg-gray-400 transition-colors font-medium disabled:opacity-50 disabled:cursor-not-allowed"
                   >
                     ยกเลิก
                   </button>
                   <button
                     onClick={handleConfirmAction}
-                    className="px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors"
+                    disabled={sendingWork}
+                    className="px-5 py-2.5 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors font-medium flex items-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
                   >
-                    ยืนยัน
+                    {sendingWork ? (
+                      <>
+                        <RefreshCw className="w-4 h-4 animate-spin" />
+                        กำลังส่งงาน...
+                      </>
+                    ) : (
+                      <>
+                        <Send className="w-4 h-4" />
+                        ส่งงาน
+                      </>
+                    )}
                   </button>
                 </div>
               </div>

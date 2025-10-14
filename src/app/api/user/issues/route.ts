@@ -69,7 +69,11 @@ export async function GET(request: NextRequest) {
         images: issue.images || [],
         assignedAdmin: issue.assignedAdmin, // เพิ่มข้อมูล IT Admin ที่รับงาน
         requesterType: issue.requesterType,
-        requesterId: issue.requesterId
+        requesterId: issue.requesterId,
+        // เพิ่มข้อมูล feedback ที่หายไป
+        userFeedback: issue.userFeedback,
+        userFeedbackHistory: issue.userFeedbackHistory || [],
+        notesHistory: issue.notesHistory || []
       };
     });
 

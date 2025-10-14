@@ -18,8 +18,36 @@ export default function LoginPage() {
     details: string;
     type: 'pending_approval' | 'already_exists' | 'email_taken' | 'error';
   } | null>(null);
+  const [checkingAuth, setCheckingAuth] = useState(true);
   const router = useRouter();
   const searchParams = useSearchParams();
+
+  // Check if user is already logged in
+  useEffect(() => {
+    const checkIfLoggedIn = async () => {
+      try {
+        const response = await fetch('/api/auth/check', {
+          credentials: 'include'
+        });
+        
+        if (response.ok) {
+          const data = await response.json();
+          if (data.authenticated && data.user) {
+            // User is already logged in, redirect to dashboard
+            router.replace('/dashboard');
+            return;
+          }
+        }
+      } catch (error) {
+        // User is not logged in, continue to show login page
+        console.log('Not logged in');
+      } finally {
+        setCheckingAuth(false);
+      }
+    };
+
+    checkIfLoggedIn();
+  }, [router]);
 
   useEffect(() => {
     // Handle URL messages
@@ -204,6 +232,18 @@ export default function LoginPage() {
         };
     }
   };
+
+  // Show loading while checking authentication
+  if (checkingAuth) {
+    return (
+      <div className="min-h-screen bg-gradient-to-br from-blue-600 via-blue-700 to-indigo-800 flex items-center justify-center p-4">
+        <div className="flex flex-col items-center">
+          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-white mb-4"></div>
+          <p className="text-white text-lg">กำลังตรวจสอบ...</p>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-blue-600 via-blue-700 to-indigo-800 flex items-center justify-center p-4">
