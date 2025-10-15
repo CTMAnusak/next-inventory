@@ -3,6 +3,7 @@ import dbConnect from '@/lib/mongodb';
 import InventoryConfig from '@/models/InventoryConfig';
 import InventoryItem from '@/models/InventoryItem';
 import { verifyToken } from '@/lib/auth';
+import { snapshotCategoryConfigBeforeChange, checkCategoryConfigUsage } from '@/lib/equipment-snapshot-helpers';
 
 // GET - ดึงหมวดหมู่เดียว
 export async function GET(
@@ -117,6 +118,9 @@ export async function PUT(
       );
     }
     
+    // Snapshot ชื่อใหม่ใน Equipment Logs ก่อนแก้ไข
+    await snapshotCategoryConfigBeforeChange(id, name.trim());
+    
     // อัปเดตหมวดหมู่
     category.name = name.trim();
     category.updatedAt = new Date();
@@ -186,21 +190,29 @@ export async function DELETE(
       );
     }
     
-    // ตรวจสอบว่ามีการใช้งานหรือไม่: นับจาก InventoryItem ที่ยังไม่ถูกลบ
-    const itemInUseCount = await InventoryItem.countDocuments({ 
+    // ตรวจสอบว่ามีการใช้งานหรือไม่ (ทั้งใน Inventory Items และ Equipment Logs)
+    const inventoryUsage = await InventoryItem.countDocuments({ 
       categoryId: id,
       deletedAt: { $exists: false }
     });
     
-    if (itemInUseCount > 0) {
+    const logsUsage = await checkCategoryConfigUsage(id);
+    
+    if (inventoryUsage > 0 || logsUsage.isUsed) {
+      const totalUsage = inventoryUsage + logsUsage.total;
       return NextResponse.json(
         { 
-          error: `ไม่สามารถลบหมวดหมู่ได้ เนื่องจากมีอุปกรณ์ ${itemInUseCount} รายการที่ใช้หมวดหมู่นี้`,
-          itemCount: itemInUseCount
+          error: `ไม่สามารถลบหมวดหมู่ได้ เนื่องจากมีการใช้งาน ${totalUsage} รายการ (อุปกรณ์: ${inventoryUsage}, ประวัติ: ${logsUsage.total})`,
+          itemCount: totalUsage,
+          inventoryUsage,
+          logsUsage: logsUsage.total
         },
         { status: 400 }
       );
     }
+    
+    // Snapshot ชื่อล่าสุดก่อนลบ (เผื่อมีการใช้งานใน Logs ที่ยังไม่ได้ snapshot)
+    await snapshotCategoryConfigBeforeChange(id);
     
     // ลบหมวดหมู่
     config.categoryConfigs = config.categoryConfigs?.filter(cat => cat.id !== id);

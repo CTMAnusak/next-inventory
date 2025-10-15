@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState, useEffect, useCallback, useRef } from 'react';
+import React, { useState, useEffect, useCallback, useRef, useMemo } from 'react';
 import { enableDragScroll } from '@/lib/drag-scroll';
 import Layout from '@/components/Layout';
 import { 
@@ -102,6 +102,7 @@ export default function AdminEquipmentReportsPage() {
   const [displayRows, setDisplayRows] = useState<any[]>([]);
   const [loading, setLoading] = useState(false);
   const [activeTab, setActiveTab] = useState<TabType>('request');
+  const [isTabSwitching, setIsTabSwitching] = useState(false);
   const [showFilters, setShowFilters] = useState(false);
   const [showImageModal, setShowImageModal] = useState(false);
   const [selectedImage, setSelectedImage] = useState('');
@@ -162,6 +163,18 @@ export default function AdminEquipmentReportsPage() {
     const cleanup = enableDragScroll(element);
     return cleanup;
   }, []);
+
+  // Handle tab switching with loading state
+  const handleTabChange = useCallback((newTab: TabType) => {
+    if (newTab !== activeTab) {
+      setIsTabSwitching(true);
+      setActiveTab(newTab);
+      // Reset tab switching state after a brief delay
+      setTimeout(() => {
+        setIsTabSwitching(false);
+      }, 100);
+    }
+  }, [activeTab]);
 
   useEffect(() => {
     applyFilters();
@@ -1568,7 +1581,7 @@ export default function AdminEquipmentReportsPage() {
                 return (
                   <button
                     key={tab.key}
-                    onClick={() => setActiveTab(tab.key as TabType)}
+                    onClick={() => handleTabChange(tab.key as TabType)}
                     className={`flex items-center space-x-2 py-2 px-1 border-b-2 font-medium text-sm ${
                       activeTab === tab.key
                         ? 'border-blue-500 text-blue-600'
@@ -1648,7 +1661,7 @@ export default function AdminEquipmentReportsPage() {
                   </tr>
                 </thead>
                 <tbody className="bg-white divide-y divide-gray-200">
-                  {loading && (
+                  {(loading || isTabSwitching) && (
                     <tr>
                       <td colSpan={17} className="px-6 py-8 text-center text-gray-500">
                         <RefreshCw className="inline-block w-4 h-4 mr-2 animate-spin text-gray-400" />
@@ -1656,12 +1669,12 @@ export default function AdminEquipmentReportsPage() {
                       </td>
                     </tr>
                   )}
-                  {!loading && currentItems.length === 0 && (
+                  {!loading && !isTabSwitching && currentItems.length === 0 && (
                     <tr>
                       <td colSpan={17} className="px-6 py-8 text-center text-gray-500">ไม่พบข้อมูล</td>
                     </tr>
                   )}
-                  {currentItems.map((row, rowIndex) => {
+                  {!isTabSwitching && currentItems.map((row, rowIndex) => {
                     const requestLog = (row as any).log as RequestLog;
                     const item = (row as any).item as any;
                     const itemIndex = (row as any).itemIndex as number;
@@ -1920,7 +1933,7 @@ export default function AdminEquipmentReportsPage() {
                   </tr>
                 </thead>
                 <tbody className="bg-white divide-y divide-gray-200">
-                  {loading && (
+                  {(loading || isTabSwitching) && (
                     <tr>
                       <td colSpan={16} className="px-6 py-8 text-center text-gray-500">
                         <RefreshCw className="inline-block w-4 h-4 mr-2 animate-spin text-gray-400" />
@@ -1928,12 +1941,12 @@ export default function AdminEquipmentReportsPage() {
                       </td>
                     </tr>
                   )}
-                  {!loading && currentItems.length === 0 && (
+                  {!loading && !isTabSwitching && currentItems.length === 0 && (
                     <tr>
                       <td colSpan={16} className="px-6 py-8 text-center text-gray-500">ไม่พบข้อมูล</td>
                     </tr>
                   )}
-                  {currentItems.map((row, rowIndex) => {
+                  {!isTabSwitching && currentItems.map((row, rowIndex) => {
                     const returnLog = (row as any).log as ReturnLog;
                     const item = (row as any).item as any;
                     const itemIndex = (row as any).itemIndex as number;

@@ -213,12 +213,15 @@ export async function GET(request: NextRequest) {
       filter.status = status;
     }
     
-    // Fetch return logs with user data
+    // Fetch return logs
     const returns = await ReturnLog.find(filter)
-      .populate('userId', 'firstName lastName nickname department office phone pendingDeletion')
       .sort({ returnDate: -1 });
     
-    return NextResponse.json({ returns });
+    // ใช้ populate functions เพื่อ populate ข้อมูลล่าสุด
+    const { populateReturnLogCompleteBatch } = await import('@/lib/equipment-populate-helpers');
+    const populatedReturns = await populateReturnLogCompleteBatch(returns);
+    
+    return NextResponse.json({ returns: populatedReturns });
     
   } catch (error) {
     console.error('Error fetching return logs:', error);

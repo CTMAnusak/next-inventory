@@ -118,6 +118,9 @@ export async function snapshotAdminBeforeDelete(adminId: string) {
  * Snapshot ทั้ง Requester และ Admin ที่เกี่ยวข้องกับ User (IssueLog)
  * และ Equipment Logs (RequestLog, ReturnLog, TransferLog)
  * ใช้เมื่อลบ User ที่อาจเป็นทั้งผู้แจ้งและ Admin
+ * 
+ * ⚠️ NOTE: ฟังก์ชันนี้ Snapshot ทั้ง Requester และ Admin
+ * เพราะ User อาจเป็นทั้งผู้แจ้งงานและ IT Admin
  */
 export async function snapshotUserBeforeDelete(userId: string) {
   const results = {
@@ -133,6 +136,7 @@ export async function snapshotUserBeforeDelete(userId: string) {
   };
 
   // 1. Snapshot IssueLog (ระบบแจ้งงาน IT)
+  // Snapshot เป็น Requester
   const requesterResult = await snapshotRequesterBeforeDelete(userId);
   if (requesterResult.success) {
     results.issueLog.requester = {
@@ -141,6 +145,7 @@ export async function snapshotUserBeforeDelete(userId: string) {
     };
   }
 
+  // Snapshot เป็น Admin (เฉพาะกรณีที่ User นี้เป็น Admin ด้วย)
   const adminResult = await snapshotAdminBeforeDelete(userId);
   if (adminResult.success) {
     results.issueLog.admin = {

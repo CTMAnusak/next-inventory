@@ -1,14 +1,20 @@
 import { getStatusName, getConditionName, getUserName } from '@/lib/equipment-snapshot-helpers';
+import { getItemNameAndCategory, getCategoryNameById } from '@/lib/item-name-resolver';
+import InventoryMaster from '@/models/InventoryMaster';
 
 /**
  * =========================================
  * POPULATE FUNCTIONS สำหรับแสดงผล
  * =========================================
+ * 
+ * หลักการ: ใช้ Populate สำหรับข้อมูลที่ยังมีอยู่
+ * ถ้าข้อมูลถูกลบ จะใช้ Snapshot ที่เก็บไว้
  */
 
 /**
  * Populate RequestLog items ให้มีชื่อสถานะและสภาพ
  * และชื่อ Admin ผู้อนุมัติ/ปฏิเสธ
+ * และชื่ออุปกรณ์/หมวดหมู่ล่าสุด
  */
 export async function populateRequestLogItems(requestLog: any) {
   if (!requestLog) return requestLog;
@@ -18,24 +24,34 @@ export async function populateRequestLogItems(requestLog: any) {
   // Populate แต่ละ item (ถ้ามี)
   if (populated.items) {
     for (const item of populated.items) {
-      // Populate status name (ถ้ามี statusOnRequest)
+      // Populate item name และ category (ถ้ามี masterId)
+      if (item.masterId) {
+        const itemInfo = await getItemNameAndCategory(item.masterId);
+        if (itemInfo) {
+          item.itemName = itemInfo.itemName;
+          item.category = itemInfo.category;
+          item.categoryId = itemInfo.categoryId;
+        }
+      }
+      
+      // Populate status name (ถ้ามี statusOnRequest และยังไม่มี snapshot)
       if (item.statusOnRequest && !item.statusOnRequestName) {
         item.statusOnRequestName = await getStatusName(item.statusOnRequest);
       }
       
-      // Populate condition name (ถ้ามี conditionOnRequest)
+      // Populate condition name (ถ้ามี conditionOnRequest และยังไม่มี snapshot)
       if (item.conditionOnRequest && !item.conditionOnRequestName) {
         item.conditionOnRequestName = await getConditionName(item.conditionOnRequest);
       }
     }
   }
   
-  // Populate approvedByName (ถ้ามี approvedBy)
+  // Populate approvedByName (ถ้ามี approvedBy และยังไม่มี snapshot)
   if (populated.approvedBy && !populated.approvedByName) {
     populated.approvedByName = await getUserName(populated.approvedBy);
   }
   
-  // Populate rejectedByName (ถ้ามี rejectedBy)
+  // Populate rejectedByName (ถ้ามี rejectedBy และยังไม่มี snapshot)
   if (populated.rejectedBy && !populated.rejectedByName) {
     populated.rejectedByName = await getUserName(populated.rejectedBy);
   }
@@ -45,6 +61,7 @@ export async function populateRequestLogItems(requestLog: any) {
 
 /**
  * Populate ReturnLog items ให้มีชื่อสถานะและสภาพ และชื่อ Admin ผู้อนุมัติ
+ * และชื่ออุปกรณ์/หมวดหมู่ล่าสุด
  */
 export async function populateReturnLogItems(returnLog: any) {
   if (!returnLog || !returnLog.items) return returnLog;
@@ -53,17 +70,27 @@ export async function populateReturnLogItems(returnLog: any) {
   
   // Populate แต่ละ item
   for (const item of populated.items) {
-    // Populate status name (ถ้ามี statusOnReturn)
+    // Populate item name และ category (ถ้ามี inventoryItemId หรือ itemId)
+    if (item.inventoryItemId || item.itemId) {
+      const itemInfo = await getItemNameAndCategory(undefined, item.inventoryItemId || item.itemId);
+      if (itemInfo) {
+        item.itemName = itemInfo.itemName;
+        item.category = itemInfo.category;
+        item.categoryId = itemInfo.categoryId;
+      }
+    }
+    
+    // Populate status name (ถ้ามี statusOnReturn และยังไม่มี snapshot)
     if (item.statusOnReturn && !item.statusOnReturnName) {
       item.statusOnReturnName = await getStatusName(item.statusOnReturn);
     }
     
-    // Populate condition name (ถ้ามี conditionOnReturn)
+    // Populate condition name (ถ้ามี conditionOnReturn และยังไม่มี snapshot)
     if (item.conditionOnReturn && !item.conditionOnReturnName) {
       item.conditionOnReturnName = await getConditionName(item.conditionOnReturn);
     }
     
-    // Populate approvedBy name (ถ้ามี approvedBy)
+    // Populate approvedBy name (ถ้ามี approvedBy และยังไม่มี snapshot)
     if (item.approvedBy && !item.approvedByName) {
       item.approvedByName = await getUserName(item.approvedBy);
     }
@@ -122,5 +149,127 @@ export async function populateReturnLogItemsBatch(returnLogs: any[]) {
  */
 export async function populateTransferLogBatch(transferLogs: any[]) {
   return Promise.all(transferLogs.map(log => populateTransferLog(log)));
+}
+
+/**
+ * =========================================
+ * POPULATE USER INFO สำหรับ EQUIPMENT LOGS
+ * =========================================
+ */
+
+/**
+ * Populate ข้อมูล User ใน RequestLog
+ * - Populate ข้อมูลผู้เบิกล่าสุดจาก User collection
+ * - ถ้า User ถูกลบ จะใช้ snapshot ที่เก็บไว้
+ */
+export async function populateRequestLogUser(requestLog: any) {
+  if (!requestLog) return requestLog;
+  
+  const populated = requestLog.toObject ? requestLog.toObject() : requestLog;
+  
+  // ถ้ามี userId ให้ populate ข้อมูลล่าสุด
+  if (populated.userId) {
+    const User = (await import('@/models/User')).default;
+    const user = await User.findOne({ user_id: populated.userId }).select(
+      'firstName lastName nickname department office phone email userType'
+    );
+    
+    if (user) {
+      // Individual User: Populate ทุกฟิลด์
+      if (user.userType === 'individual') {
+        populated.firstName = user.firstName;
+        populated.lastName = user.lastName;
+        populated.nickname = user.nickname;
+        populated.department = user.department;
+        populated.office = user.office;
+        populated.phone = user.phone;
+        populated.email = user.email;
+      }
+      // Branch User: Populate เฉพาะ office
+      else if (user.userType === 'branch') {
+        populated.office = user.office;
+        // firstName, lastName, etc. ใช้จาก snapshot (ที่กรอกในฟอร์ม)
+      }
+    }
+    // ถ้าไม่เจอ user (ถูกลบแล้ว) จะใช้ snapshot ที่เก็บไว้
+  }
+  
+  return populated;
+}
+
+/**
+ * Populate ข้อมูล User ใน ReturnLog
+ * - Populate ข้อมูลผู้คืนล่าสุดจาก User collection
+ * - ถ้า User ถูกลบ จะใช้ snapshot ที่เก็บไว้
+ */
+export async function populateReturnLogUser(returnLog: any) {
+  if (!returnLog) return returnLog;
+  
+  const populated = returnLog.toObject ? returnLog.toObject() : returnLog;
+  
+  // ถ้ามี userId ให้ populate ข้อมูลล่าสุด
+  if (populated.userId) {
+    const User = (await import('@/models/User')).default;
+    const user = await User.findOne({ user_id: populated.userId }).select(
+      'firstName lastName nickname department office phone email userType'
+    );
+    
+    if (user) {
+      // Individual User: Populate ทุกฟิลด์
+      if (user.userType === 'individual') {
+        populated.firstName = user.firstName;
+        populated.lastName = user.lastName;
+        populated.nickname = user.nickname;
+        populated.department = user.department;
+        populated.office = user.office;
+        populated.phone = user.phone;
+        populated.email = user.email;
+      }
+      // Branch User: Populate เฉพาะ office
+      else if (user.userType === 'branch') {
+        populated.office = user.office;
+        // firstName, lastName, etc. ใช้จาก snapshot (ที่กรอกในฟอร์ม)
+      }
+    }
+    // ถ้าไม่เจอ user (ถูกลบแล้ว) จะใช้ snapshot ที่เก็บไว้
+  }
+  
+  return populated;
+}
+
+/**
+ * Populate ข้อมูลครบถ้วนสำหรับ RequestLog
+ * - Populate user info
+ * - Populate item info (names, categories, status, condition)
+ */
+export async function populateRequestLogComplete(requestLog: any) {
+  let result = await populateRequestLogUser(requestLog);
+  result = await populateRequestLogItems(result);
+  return result;
+}
+
+/**
+ * Populate ข้อมูลครบถ้วนสำหรับ ReturnLog
+ * - Populate user info
+ * - Populate item info (names, categories, status, condition)
+ */
+export async function populateReturnLogComplete(returnLog: any) {
+  let result = await populateReturnLogUser(returnLog);
+  result = await populateReturnLogItems(result);
+  return result;
+}
+
+/**
+ * Populate หลายๆ RequestLog พร้อมกัน (แบบครบถ้วน)
+ */
+export async function populateRequestLogCompleteBatch(requestLogs: any[]) {
+  return Promise.all(requestLogs.map(log => populateRequestLogComplete(log)));
+}
+
+/**
+ * Populate หลายๆ ReturnLog พร้อมกัน (แบบครบถ้วน)
+ */
+export async function populateReturnLogCompleteBatch(returnLogs: any[]) {
+  return Promise.all(returnLogs.map(log => populateReturnLogComplete(log)));
 }
 

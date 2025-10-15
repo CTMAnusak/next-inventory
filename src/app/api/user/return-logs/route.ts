@@ -1,8 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import dbConnect from '@/lib/mongodb';
 import ReturnLog from '@/models/ReturnLog';
-import InventoryConfig from '@/models/InventoryConfig';
-import InventoryItem from '@/models/InventoryItem';
 import { verifyToken } from '@/lib/auth';
 
 // GET - ดึงประวัติการคืนของผู้ใช้
@@ -28,46 +26,9 @@ export async function GET(request: NextRequest) {
       userId: userId
     }).sort({ returnDate: -1 });
 
-    // Get configurations for display
-    const config = await InventoryConfig.findOne({});
-    const statusConfigs = config?.statusConfigs || [];
-    const conditionConfigs = config?.conditionConfigs || [];
-    const categoryConfigs = config?.categoryConfigs || [];
-    
-    // Populate item names and config names
-    const populatedLogs = await Promise.all(
-      returnLogs.map(async (log) => {
-        const items = await Promise.all(
-          log.items.map(async (item: any) => {
-            // Get item details
-            const inventoryItem = await InventoryItem.findById(item.itemId);
-            const itemName = inventoryItem?.itemName || 'ไม่พบข้อมูล';
-            const categoryId = inventoryItem?.categoryId;
-            
-            const categoryConfig = categoryConfigs.find((c: any) => c.id === categoryId);
-            const statusConfig = statusConfigs.find((s: any) => s.id === item.statusOnReturn);
-            const conditionConfig = conditionConfigs.find((c: any) => c.id === item.conditionOnReturn);
-            
-            return {
-              ...item.toObject(),
-              itemName,
-              category: categoryConfig?.name || 'ไม่ระบุ',
-              statusName: statusConfig?.name || 'ไม่ระบุ',
-              conditionName: conditionConfig?.name || 'ไม่ระบุ'
-            };
-          })
-        );
-        
-        return {
-          _id: log._id,
-          returnDate: log.returnDate,
-          notes: log.notes,
-          items,
-          createdAt: log.createdAt,
-          updatedAt: log.updatedAt
-        };
-      })
-    );
+    // ใช้ populate functions เพื่อ populate ข้อมูลล่าสุด
+    const { populateReturnLogCompleteBatch } = await import('@/lib/equipment-populate-helpers');
+    const populatedLogs = await populateReturnLogCompleteBatch(returnLogs);
     
     return NextResponse.json({
       returnLogs: populatedLogs

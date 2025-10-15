@@ -254,12 +254,15 @@ export async function GET(request: NextRequest) {
       filter.status = status;
     }
     
-    // Fetch request logs with user data
+    // Fetch request logs
     const requests = await RequestLog.find(filter)
-      .populate('userId', 'firstName lastName nickname department office phone pendingDeletion')
       .sort({ requestDate: -1 });
     
-    return NextResponse.json({ requests });
+    // ใช้ populate functions เพื่อ populate ข้อมูลล่าสุด
+    const { populateRequestLogCompleteBatch } = await import('@/lib/equipment-populate-helpers');
+    const populatedRequests = await populateRequestLogCompleteBatch(requests);
+    
+    return NextResponse.json({ requests: populatedRequests });
     
   } catch (error) {
     console.error('Error fetching request logs:', error);

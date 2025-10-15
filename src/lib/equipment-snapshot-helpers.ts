@@ -409,3 +409,108 @@ export async function checkConditionConfigUsage(conditionId: string) {
   };
 }
 
+/**
+ * =========================================
+ * SNAPSHOT FUNCTIONS สำหรับลบ/แก้ไข CATEGORY
+ * =========================================
+ */
+
+/**
+ * ดึงชื่อ Category จาก categoryId
+ */
+export async function getCategoryName(categoryId: string): Promise<string> {
+  try {
+    const config = await InventoryConfig.findOne();
+    if (!config) return categoryId;
+    
+    const categoryConfig = config.categoryConfigs.find((c: any) => c.id === categoryId);
+    return categoryConfig ? categoryConfig.name : categoryId;
+  } catch (error) {
+    console.error(`Error getting category name for ${categoryId}:`, error);
+    return categoryId;
+  }
+}
+
+/**
+ * Snapshot Category Config ก่อนลบหรือแก้ไข
+ * - อัพเดต categoryName ใน RequestLog
+ * - อัพเดต categoryName ใน ReturnLog
+ * - อัพเดต categoryName ใน TransferLog
+ */
+export async function snapshotCategoryConfigBeforeChange(categoryId: string, newName?: string) {
+  try {
+    const categoryName = newName || await getCategoryName(categoryId);
+    
+    // อัพเดต RequestLog
+    const requestResult = await RequestLog.updateMany(
+      { 'items.categoryId': categoryId },
+      { 
+        $set: {
+          'items.$[elem].category': categoryName
+        }
+      },
+      {
+        arrayFilters: [{ 'elem.categoryId': categoryId }]
+      }
+    );
+    
+    // อัพเดต ReturnLog
+    const returnResult = await ReturnLog.updateMany(
+      { 'items.categoryId': categoryId },
+      { 
+        $set: {
+          'items.$[elem].category': categoryName
+        }
+      },
+      {
+        arrayFilters: [{ 'elem.categoryId': categoryId }]
+      }
+    );
+    
+    // อัพเดต TransferLog
+    const transferResult = await TransferLog.updateMany(
+      { categoryId: categoryId },
+      { 
+        $set: {
+          categoryName: categoryName
+        }
+      }
+    );
+    
+    console.log(`✅ Snapshot category "${categoryName}":`, {
+      requestLogs: requestResult.modifiedCount,
+      returnLogs: returnResult.modifiedCount,
+      transferLogs: transferResult.modifiedCount
+    });
+    
+    return {
+      success: true,
+      requestLogs: requestResult.modifiedCount,
+      returnLogs: returnResult.modifiedCount,
+      transferLogs: transferResult.modifiedCount
+    };
+  } catch (error) {
+    console.error('Error snapshotting category config:', error);
+    return { success: false, error };
+  }
+}
+
+/**
+ * ตรวจสอบว่า Category Config มีการใช้งานหรือไม่
+ */
+export async function checkCategoryConfigUsage(categoryId: string) {
+  const [requestCount, returnCount, transferCount] = await Promise.all([
+    RequestLog.countDocuments({ 'items.categoryId': categoryId }),
+    ReturnLog.countDocuments({ 'items.categoryId': categoryId }),
+    TransferLog.countDocuments({ categoryId: categoryId })
+  ]);
+  
+  return {
+    requestLogs: requestCount,
+    returnLogs: returnCount,
+    transferLogs: transferCount,
+    total: requestCount + returnCount + transferCount,
+    isUsed: (requestCount + returnCount + transferCount) > 0
+  };
+}
+

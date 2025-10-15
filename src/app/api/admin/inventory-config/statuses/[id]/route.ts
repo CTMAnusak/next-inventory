@@ -3,6 +3,7 @@ import dbConnect from '@/lib/mongodb';
 import InventoryConfig from '@/models/InventoryConfig';
 import { InventoryItem } from '@/models/InventoryItemNew';
 import { verifyToken } from '@/lib/auth';
+import { snapshotStatusConfigBeforeChange, checkStatusConfigUsage } from '@/lib/equipment-snapshot-helpers';
 
 // GET - ดึงสภาพอุปกรณ์เดียว
 export async function GET(
@@ -128,6 +129,9 @@ export async function PUT(
         );
       }
       
+      // Snapshot ชื่อใหม่ใน Equipment Logs ก่อนแก้ไข
+      await snapshotStatusConfigBeforeChange(id, name.trim());
+      
       status.name = name.trim();
     }
     
@@ -198,21 +202,29 @@ export async function DELETE(
       );
     }
     
-    // ตรวจสอบว่ามีการใช้งานหรือไม่
-    const usageCount = await InventoryItem.countDocuments({ 
+    // ตรวจสอบว่ามีการใช้งานหรือไม่ (ทั้งใน Inventory Items และ Equipment Logs)
+    const inventoryUsage = await InventoryItem.countDocuments({ 
       statusId: id,
       deletedAt: { $exists: false }
     });
     
-    if (usageCount > 0) {
+    const logsUsage = await checkStatusConfigUsage(id);
+    
+    if (inventoryUsage > 0 || logsUsage.isUsed) {
+      const totalUsage = inventoryUsage + logsUsage.total;
       return NextResponse.json(
         { 
-          error: `ไม่สามารถลบสภาพอุปกรณ์ได้ เนื่องจากมีอุปกรณ์ ${usageCount} รายการที่ใช้สภาพนี้`,
-          usageCount
+          error: `ไม่สามารถลบสภาพอุปกรณ์ได้ เนื่องจากมีการใช้งาน ${totalUsage} รายการ (อุปกรณ์: ${inventoryUsage}, ประวัติ: ${logsUsage.total})`,
+          usageCount: totalUsage,
+          inventoryUsage,
+          logsUsage: logsUsage.total
         },
         { status: 400 }
       );
     }
+    
+    // Snapshot ชื่อล่าสุดก่อนลบ (เผื่อมีการใช้งานใน Logs ที่ยังไม่ได้ snapshot)
+    await snapshotStatusConfigBeforeChange(id);
     
     // ลบสภาพอุปกรณ์
     config.statusConfigs = config.statusConfigs?.filter(s => s.id !== id);
