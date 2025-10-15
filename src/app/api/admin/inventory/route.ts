@@ -485,6 +485,13 @@ export async function DELETE(request: NextRequest) {
     
     // 2. Update or Delete InventoryMaster
     if (willDeleteAll) {
+      // 🆕 Snapshot itemName ก่อนลบ InventoryMaster
+      if (inventoryMaster) {
+        const { snapshotItemNameBeforeDelete } = await import('@/lib/equipment-snapshot-helpers');
+        const snapshotResult = await snapshotItemNameBeforeDelete(inventoryMasterId);
+        console.log('📸 Snapshot result before deleting InventoryMaster:', snapshotResult);
+      }
+      
       // ลบ InventoryMaster ถ้าไม่มีอุปกรณ์เหลือ
       await InventoryMaster.deleteOne({ itemName, categoryId: category });
       console.log(`✅ Deleted InventoryMaster for "${itemName}" - no items remaining`);

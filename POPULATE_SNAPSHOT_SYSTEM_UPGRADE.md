@@ -21,13 +21,15 @@
 1. **Snapshot ผิดเวลา** - Snapshot Admin เมื่อลบ User (ควร snapshot เมื่อลบ Admin)
 2. **ข้อมูลไม่เป็นปัจจุบัน** - แสดงชื่อเก่าแม้ Admin ยังไม่ถูกลบ
 3. **ขาด Populate Functions** - หลายหน้ายังใช้ manual populate
-4. **ไม่มี Snapshot สำหรับ Config** - ข้อมูลหายเมื่อลบ Status/Condition
+4. **ไม่มี Snapshot สำหรับ Config** - ข้อมูลหายเมื่อลบ Status/Condition/Category
+5. **ไม่มี Snapshot สำหรับ ItemName** - ข้อมูลหายเมื่อลบ InventoryMaster ทั้งหมด
 
 ### ✅ **หลังแก้ไข**
 1. **Snapshot ถูกเวลา** - Snapshot เฉพาะเมื่อลบข้อมูลจริงๆ
 2. **ข้อมูลเป็นปัจจุบันเสมอ** - ใช้ Populate แสดงข้อมูลล่าสุด
 3. **Populate ครบถ้วน** - มี populate functions สำหรับทุกประเภทข้อมูล
-4. **มี Snapshot สำหรับ Config** - ข้อมูลประวัติปลอดภัย
+4. **มี Snapshot สำหรับ Config** - ข้อมูลประวัติปลอดภัย (Status/Condition/Category)
+5. **มี Snapshot สำหรับ ItemName** - ข้อมูลประวัติปลอดภัย แม้ InventoryMaster ถูกลบ
 
 ---
 
@@ -507,6 +509,109 @@ await snapshotNewConfigBeforeChange(id);
 
 ---
 
+## 📦 Phase 6: เพิ่ม ItemName Snapshot System
+
+### ปัญหา
+เมื่อลบอุปกรณ์ทั้งหมดใน `InventoryMaster` → `RequestLog` และ `ReturnLog` ที่มี `masterId` อ้างอิงจะไม่สามารถแสดงชื่ออุปกรณ์ได้
+
+### ไฟล์ที่แก้ไข
+
+#### 1. **Models: เพิ่ม fields สำหรับ snapshot**
+- `src/models/RequestLog.ts`
+  ```typescript
+  export interface IRequestItem {
+    masterId: string;
+    itemName?: string;    // 🆕 Snapshot: ชื่ออุปกรณ์
+    category?: string;    // 🆕 Snapshot: ชื่อหมวดหมู่
+    categoryId?: string;  // 🆕 Snapshot: ID หมวดหมู่
+    // ... existing fields
+  }
+  ```
+
+- `src/models/ReturnLog.ts`
+  ```typescript
+  export interface IReturnItem {
+    itemId: string;
+    itemName?: string;    // 🆕 Snapshot: ชื่ออุปกรณ์
+    category?: string;    // 🆕 Snapshot: ชื่อหมวดหมู่
+    categoryId?: string;  // 🆕 Snapshot: ID หมวดหมู่
+    // ... existing fields
+  }
+  ```
+
+#### 2. **Snapshot Functions**
+- `src/lib/equipment-snapshot-helpers.ts`
+  ```typescript
+  // Snapshot ItemName ก่อนลบ InventoryMaster
+  export async function snapshotItemNameBeforeDelete(masterId: string) {
+    const master = await InventoryMaster.findById(masterId);
+    const itemName = master.itemName;
+    const categoryName = await getCategoryName(master.categoryId);
+    
+    // Snapshot ใน RequestLog
+    await RequestLog.updateMany(
+      { 'items.masterId': masterId },
+      { 
+        $set: { 
+          'items.$[elem].itemName': itemName,
+          'items.$[elem].category': categoryName,
+          'items.$[elem].categoryId': master.categoryId
+        } 
+      },
+      { arrayFilters: [{ 'elem.masterId': masterId }] }
+    );
+  }
+  
+  // ตรวจสอบการใช้งาน InventoryMaster
+  export async function checkInventoryMasterUsage(masterId: string) {
+    const requestCount = await RequestLog.countDocuments({
+      'items.masterId': masterId
+    });
+    return { total: requestCount, isUsed: requestCount > 0 };
+  }
+  ```
+
+#### 3. **Populate Functions: รองรับ snapshot**
+- `src/lib/equipment-populate-helpers.ts`
+  ```typescript
+  // Populate item name และ category (ถ้ามี masterId และยังไม่มี snapshot)
+  if (item.masterId && !item.itemName) {
+    const itemInfo = await getItemNameAndCategory(item.masterId);
+    if (itemInfo) {
+      item.itemName = itemInfo.itemName;
+      item.category = itemInfo.category;
+      item.categoryId = itemInfo.categoryId;
+    } else {
+      // ถ้าไม่เจอ (InventoryMaster ถูกลบ) ใช้ fallback
+      item.itemName = item.itemName || `[Deleted Item: ${item.masterId}]`;
+    }
+  }
+  // ถ้ามี itemName อยู่แล้ว (snapshot) ไม่ต้อง populate
+  ```
+
+#### 4. **API: เรียก snapshot ก่อนลบ**
+- `src/app/api/admin/inventory/route.ts`
+  ```typescript
+  // DELETE operation
+  if (willDeleteAll) {
+    // 🆕 Snapshot itemName ก่อนลบ InventoryMaster
+    if (inventoryMaster) {
+      const { snapshotItemNameBeforeDelete } = await import('@/lib/equipment-snapshot-helpers');
+      await snapshotItemNameBeforeDelete(inventoryMasterId);
+    }
+    
+    // ลบ InventoryMaster
+    await InventoryMaster.deleteOne({ itemName, categoryId: category });
+  }
+  ```
+
+### ผลลัพธ์
+✅ RequestLog และ ReturnLog จะแสดงชื่ออุปกรณ์ได้แม้ InventoryMaster ถูกลบ  
+✅ ข้อมูลประวัติปลอดภัย  
+✅ ใช้ populate สำหรับข้อมูลที่ยังมีอยู่  
+
+---
+
 ## ✅ Checklist การทดสอบ
 
 ### ทดสอบ Populate System
@@ -514,6 +619,7 @@ await snapshotNewConfigBeforeChange(id);
 - [ ] User เปลี่ยนชื่อ → ชื่อใหม่แสดงทันที
 - [ ] Status เปลี่ยนชื่อ → ชื่อใหม่แสดงทันที
 - [ ] Condition เปลี่ยนชื่อ → ชื่อใหม่แสดงทันที
+- [ ] Category เปลี่ยนชื่อ → ชื่อใหม่แสดงทันที
 - [ ] Item Name เปลี่ยน → ชื่อใหม่แสดงทันที
 
 ### ทดสอบ Snapshot System
@@ -521,11 +627,13 @@ await snapshotNewConfigBeforeChange(id);
 - [ ] ลบ Admin → ชื่อเก่ายังแสดงในประวัติ
 - [ ] ลบ Status → ชื่อเก่ายังแสดงในประวัติ
 - [ ] ลบ Condition → ชื่อเก่ายังแสดงในประวัติ
-- [ ] ลบ Item → ชื่อเก่ายังแสดงในประวัติ
+- [ ] ลบ Category → ชื่อเก่ายังแสดงในประวัติ
+- [ ] ลบ InventoryMaster ทั้งหมด → ชื่อเก่ายังแสดงในประวัติ
 
 ### ทดสอบ Config Deletion
 - [ ] ไม่สามารถลบ Status ที่มีการใช้งาน
 - [ ] ไม่สามารถลบ Condition ที่มีการใช้งาน
+- [ ] ไม่สามารถลบ Category ที่มีการใช้งาน
 - [ ] แสดงจำนวนการใช้งานถูกต้อง
 - [ ] Snapshot ก่อนลบทำงานถูกต้อง
 
@@ -547,5 +655,5 @@ await snapshotNewConfigBeforeChange(id);
 
 **เอกสารนี้สร้างโดย**: AI Assistant  
 **วันที่**: 15 ตุลาคม 2568  
-**เวอร์ชัน**: 1.0
+**เวอร์ชัน**: 1.1 (เพิ่ม ItemName Snapshot)
 

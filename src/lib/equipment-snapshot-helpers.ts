@@ -1,5 +1,6 @@
 import User from '@/models/User';
 import InventoryConfig from '@/models/InventoryConfig';
+import InventoryMaster from '@/models/InventoryMaster';
 import RequestLog from '@/models/RequestLog';
 import ReturnLog from '@/models/ReturnLog';
 import TransferLog from '@/models/TransferLog';
@@ -512,5 +513,105 @@ export async function checkCategoryConfigUsage(categoryId: string) {
     total: requestCount + returnCount + transferCount,
     isUsed: (requestCount + returnCount + transferCount) > 0
   };
+}
+
+/**
+ * =========================================
+ * SNAPSHOT FUNCTIONS สำหรับลบ INVENTORY MASTER
+ * =========================================
+ */
+
+/**
+ * Snapshot ItemName และ Category ก่อนลบ InventoryMaster
+ * - อัพเดตชื่ออุปกรณ์และหมวดหมู่ใน RequestLog และ ReturnLog
+ * - เมื่อ InventoryMaster ถูกลบ logs จะยังมีข้อมูลชื่ออุปกรณ์อยู่
+ */
+export async function snapshotItemNameBeforeDelete(masterId: string) {
+  try {
+    const master = await InventoryMaster.findById(masterId);
+    if (!master) {
+      console.log(`⚠️ InventoryMaster not found: ${masterId}`);
+      return { success: false, error: 'InventoryMaster not found' };
+    }
+    
+    const itemName = master.itemName;
+    const categoryId = master.categoryId;
+    
+    // ดึงชื่อหมวดหมู่จาก InventoryConfig
+    let categoryName = categoryId; // fallback
+    try {
+      const config = await InventoryConfig.findOne();
+      const categoryConfig = config?.categoryConfigs?.find((c: any) => c.id === categoryId);
+      if (categoryConfig) {
+        categoryName = categoryConfig.name;
+      }
+    } catch (error) {
+      console.warn('Failed to get category name:', error);
+    }
+    
+    console.log(`📸 Snapshotting item "${itemName}" (${categoryName}) before deleting InventoryMaster...`);
+    
+    // Snapshot ใน RequestLog
+    const requestResult = await RequestLog.updateMany(
+      { 'items.masterId': masterId },
+      { 
+        $set: { 
+          'items.$[elem].itemName': itemName,
+          'items.$[elem].category': categoryName,
+          'items.$[elem].categoryId': categoryId
+        } 
+      },
+      { arrayFilters: [{ 'elem.masterId': masterId }] }
+    );
+    
+    // Snapshot ใน ReturnLog (ถ้ามีการเก็บ masterId - ปัจจุบัน ReturnLog ใช้ itemId แต่เผื่ออนาคต)
+    // Note: ReturnLog ไม่มี masterId แต่เราเตรียมไว้สำหรับอนาคต
+    const returnResult = { modifiedCount: 0 }; // placeholder
+    
+    console.log(`✅ Snapshot item "${itemName}":`, {
+      requestLogs: requestResult.modifiedCount,
+      returnLogs: returnResult.modifiedCount
+    });
+    
+    return {
+      success: true,
+      itemName,
+      categoryName,
+      requestLogs: requestResult.modifiedCount,
+      returnLogs: returnResult.modifiedCount
+    };
+  } catch (error) {
+    console.error('Error snapshotting item name:', error);
+    return { success: false, error };
+  }
+}
+
+/**
+ * ตรวจสอบว่า InventoryMaster ถูกใช้ใน logs หรือไม่
+ */
+export async function checkInventoryMasterUsage(masterId: string) {
+  try {
+    const requestCount = await RequestLog.countDocuments({
+      'items.masterId': masterId
+    });
+    
+    // ReturnLog ไม่มี masterId แต่เราเตรียมไว้
+    const returnCount = 0;
+    
+    return {
+      requestLogs: requestCount,
+      returnLogs: returnCount,
+      total: requestCount + returnCount,
+      isUsed: (requestCount + returnCount) > 0
+    };
+  } catch (error) {
+    console.error('Error checking InventoryMaster usage:', error);
+    return {
+      requestLogs: 0,
+      returnLogs: 0,
+      total: 0,
+      isUsed: false
+    };
+  }
 }
 

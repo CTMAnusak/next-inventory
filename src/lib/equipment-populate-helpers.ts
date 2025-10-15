@@ -24,15 +24,20 @@ export async function populateRequestLogItems(requestLog: any) {
   // Populate แต่ละ item (ถ้ามี)
   if (populated.items) {
     for (const item of populated.items) {
-      // Populate item name และ category (ถ้ามี masterId)
-      if (item.masterId) {
+      // Populate item name และ category (ถ้ามี masterId และยังไม่มี snapshot)
+      if (item.masterId && !item.itemName) {
         const itemInfo = await getItemNameAndCategory(item.masterId);
         if (itemInfo) {
           item.itemName = itemInfo.itemName;
           item.category = itemInfo.category;
           item.categoryId = itemInfo.categoryId;
+        } else {
+          // ถ้าไม่เจอ InventoryMaster (อาจถูกลบ) ใช้ masterId เป็น fallback
+          item.itemName = item.itemName || `[Deleted Item: ${item.masterId}]`;
+          item.category = item.category || 'Unknown';
         }
       }
+      // ถ้ามี itemName อยู่แล้ว (snapshot) ไม่ต้อง populate
       
       // Populate status name (ถ้ามี statusOnRequest และยังไม่มี snapshot)
       if (item.statusOnRequest && !item.statusOnRequestName) {
@@ -70,15 +75,20 @@ export async function populateReturnLogItems(returnLog: any) {
   
   // Populate แต่ละ item
   for (const item of populated.items) {
-    // Populate item name และ category (ถ้ามี inventoryItemId หรือ itemId)
-    if (item.inventoryItemId || item.itemId) {
+    // Populate item name และ category (ถ้ามี inventoryItemId หรือ itemId และยังไม่มี snapshot)
+    if ((item.inventoryItemId || item.itemId) && !item.itemName) {
       const itemInfo = await getItemNameAndCategory(undefined, item.inventoryItemId || item.itemId);
       if (itemInfo) {
         item.itemName = itemInfo.itemName;
         item.category = itemInfo.category;
         item.categoryId = itemInfo.categoryId;
+      } else {
+        // ถ้าไม่เจอ InventoryItem (อาจถูกลบ) ใช้ itemId เป็น fallback
+        item.itemName = item.itemName || `[Deleted Item: ${item.itemId}]`;
+        item.category = item.category || 'Unknown';
       }
     }
+    // ถ้ามี itemName อยู่แล้ว (snapshot) ไม่ต้อง populate
     
     // Populate status name (ถ้ามี statusOnReturn และยังไม่มี snapshot)
     if (item.statusOnReturn && !item.statusOnReturnName) {

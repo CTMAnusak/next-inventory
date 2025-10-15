@@ -2,6 +2,9 @@ import mongoose, { Document, Schema } from 'mongoose';
 
 export interface IRequestItem {
   masterId: string;     // Reference to InventoryMaster._id (for lookup itemName/categoryId)
+  itemName?: string;    // 🆕 Snapshot: ชื่ออุปกรณ์ (เก็บไว้เมื่อ InventoryMaster ถูกลบ)
+  category?: string;    // 🆕 Snapshot: ชื่อหมวดหมู่ (เก็บไว้เมื่อ InventoryMaster ถูกลบ)
+  categoryId?: string;  // 🆕 Snapshot: ID หมวดหมู่ (เก็บไว้เมื่อ InventoryMaster ถูกลบ)
   quantity: number;
   serialNumbers?: string[]; // Serial numbers if applicable (user request)
   assignedSerialNumbers?: string[]; // SN ที่ Admin assign ให้เมื่อ approve
@@ -52,6 +55,9 @@ export interface IRequestLog extends Document {
 
 const RequestItemSchema = new Schema<IRequestItem>({
   masterId: { type: String, required: true },       // Reference to InventoryMaster._id
+  itemName: { type: String },                       // 🆕 Snapshot: ชื่ออุปกรณ์
+  category: { type: String },                       // 🆕 Snapshot: ชื่อหมวดหมู่
+  categoryId: { type: String },                     // 🆕 Snapshot: ID หมวดหมู่
   quantity: { type: Number, required: true, min: 1 },
   serialNumbers: [{ type: String, required: false }],   // Serial numbers if available (user request)
   assignedSerialNumbers: [{ type: String, required: false }], // SN ที่ Admin assign ให้
