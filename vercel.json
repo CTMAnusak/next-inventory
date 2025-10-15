@@ -2,7 +2,7 @@
   "crons": [
     {
       "path": "/api/cron/cleanup-recycle-bin",
-      "schedule": "0 2 * * *"
+      "schedule": "0 18 * * *"
     },
     {
       "path": "/api/admin/cron/yearly-archive",

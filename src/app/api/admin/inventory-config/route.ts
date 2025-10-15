@@ -158,6 +158,20 @@ export async function POST(request: NextRequest) {
       config = new InventoryConfig({});
     }
     
+    // 🆕 Snapshot config changes ก่อน bulk update
+    try {
+      const { snapshotConfigChangesBeforeBulkUpdate } = await import('@/lib/equipment-snapshot-helpers');
+      const snapshotResult = await snapshotConfigChangesBeforeBulkUpdate(config, {
+        categoryConfigs: categories,
+        statusConfigs: statuses,
+        conditionConfigs: conditions
+      });
+      console.log('📸 Bulk snapshot result:', snapshotResult);
+    } catch (snapshotError) {
+      console.warn('Failed to snapshot config changes:', snapshotError);
+      // Continue with update even if snapshot fails
+    }
+    
     // Update categories
     config.categoryConfigs = categories.map((cat: any, index: number) => ({
       id: cat.id || generateCategoryId(),

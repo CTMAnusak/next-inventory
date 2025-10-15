@@ -529,11 +529,34 @@ export async function POST(request: NextRequest) {
             // ลบ master เก่าทั้งหมดยกเว้นตัวล่าสุด
             const mastersToDelete = duplicateMasters.slice(0, -1);
             for (const master of mastersToDelete) {
+              // 🆕 Snapshot ก่อนลบ duplicate InventoryMaster
+              try {
+                const { snapshotItemNameBeforeDelete } = await import('@/lib/equipment-snapshot-helpers');
+                await snapshotItemNameBeforeDelete(master._id.toString());
+              } catch (error) {
+                console.warn('Failed to snapshot before deleting duplicate InventoryMaster:', error);
+              }
+              
               await InventoryMaster.findByIdAndDelete(master._id);
             }
           }
           
           // ลบ master ที่เหลือทั้งหมดและสร้างใหม่
+          // 🆕 Snapshot ก่อนลบ masters ทั้งหมด
+          const mastersToDeleteAll = await InventoryMaster.find({ 
+            itemName: updatedItem.itemName, 
+            categoryId: finalCategoryId 
+          });
+          
+          for (const master of mastersToDeleteAll) {
+            try {
+              const { snapshotItemNameBeforeDelete } = await import('@/lib/equipment-snapshot-helpers');
+              await snapshotItemNameBeforeDelete(master._id.toString());
+            } catch (error) {
+              console.warn('Failed to snapshot before deleting InventoryMaster:', error);
+            }
+          }
+          
           await InventoryMaster.deleteMany({ 
             itemName: updatedItem.itemName, 
             categoryId: finalCategoryId 

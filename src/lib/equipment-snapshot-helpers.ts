@@ -615,3 +615,96 @@ export async function checkInventoryMasterUsage(masterId: string) {
   }
 }
 
+/**
+ * =========================================
+ * BULK SNAPSHOT FUNCTIONS สำหรับ CONFIG CHANGES
+ * =========================================
+ */
+
+/**
+ * Snapshot การเปลี่ยนแปลง Config ทั้งหมดก่อน Bulk Update
+ * - เปรียบเทียบ config เก่ากับใหม่
+ * - Snapshot เฉพาะรายการที่มีการเปลี่ยนชื่อ
+ */
+export async function snapshotConfigChangesBeforeBulkUpdate(
+  oldConfig: any,
+  newConfig: {
+    categoryConfigs?: any[];
+    statusConfigs?: any[];
+    conditionConfigs?: any[];
+  }
+) {
+  const results = {
+    categories: { updated: 0, errors: 0 },
+    statuses: { updated: 0, errors: 0 },
+    conditions: { updated: 0, errors: 0 }
+  };
+
+  try {
+    // 1. Snapshot Categories ที่เปลี่ยนชื่อ
+    if (newConfig.categoryConfigs && oldConfig.categoryConfigs) {
+      for (const newCat of newConfig.categoryConfigs) {
+        const oldCat = oldConfig.categoryConfigs.find((c: any) => c.id === newCat.id);
+        if (oldCat && oldCat.name !== newCat.name) {
+          try {
+            await snapshotCategoryConfigBeforeChange(newCat.id, newCat.name);
+            results.categories.updated++;
+            console.log(`📸 Snapshot category: "${oldCat.name}" → "${newCat.name}"`);
+          } catch (error) {
+            console.error(`Error snapshotting category ${newCat.id}:`, error);
+            results.categories.errors++;
+          }
+        }
+      }
+    }
+
+    // 2. Snapshot Statuses ที่เปลี่ยนชื่อ
+    if (newConfig.statusConfigs && oldConfig.statusConfigs) {
+      for (const newStatus of newConfig.statusConfigs) {
+        const oldStatus = oldConfig.statusConfigs.find((s: any) => s.id === newStatus.id);
+        if (oldStatus && oldStatus.name !== newStatus.name) {
+          try {
+            await snapshotStatusConfigBeforeChange(newStatus.id, newStatus.name);
+            results.statuses.updated++;
+            console.log(`📸 Snapshot status: "${oldStatus.name}" → "${newStatus.name}"`);
+          } catch (error) {
+            console.error(`Error snapshotting status ${newStatus.id}:`, error);
+            results.statuses.errors++;
+          }
+        }
+      }
+    }
+
+    // 3. Snapshot Conditions ที่เปลี่ยนชื่อ
+    if (newConfig.conditionConfigs && oldConfig.conditionConfigs) {
+      for (const newCondition of newConfig.conditionConfigs) {
+        const oldCondition = oldConfig.conditionConfigs.find((c: any) => c.id === newCondition.id);
+        if (oldCondition && oldCondition.name !== newCondition.name) {
+          try {
+            await snapshotConditionConfigBeforeChange(newCondition.id, newCondition.name);
+            results.conditions.updated++;
+            console.log(`📸 Snapshot condition: "${oldCondition.name}" → "${newCondition.name}"`);
+          } catch (error) {
+            console.error(`Error snapshotting condition ${newCondition.id}:`, error);
+            results.conditions.errors++;
+          }
+        }
+      }
+    }
+
+    console.log('✅ Bulk snapshot completed:', results);
+    return {
+      success: true,
+      results
+    };
+
+  } catch (error) {
+    console.error('Error in bulk snapshot:', error);
+    return {
+      success: false,
+      error,
+      results
+    };
+  }
+}
+

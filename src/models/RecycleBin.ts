@@ -120,9 +120,24 @@ RecycleBinSchema.index({ itemName: 1, categoryId: 1, deleteType: 1 }); // สำ
 // Pre-save middleware: คำนวณ permanentDeleteAt
 RecycleBinSchema.pre('save', function(next) {
   if (this.isNew && !this.permanentDeleteAt) {
-    // กำหนดให้ลบถาวรหลัง 30 วัน
+    // 🕐 ระบบนับวัน: เริ่มนับที่ 18:00 น. ของวันที่ลบ
+    // ตัวอย่าง: ลบ 15 ม.ค. 12:00 → เริ่มนับ 15 ม.ค. 18:00 → วันที่ 16 ม.ค. 18:00 = วันที่ 1
     const deleteDate = this.deletedAt || new Date();
-    this.permanentDeleteAt = new Date(deleteDate.getTime() + (30 * 24 * 60 * 60 * 1000));
+    
+    // หาเวลา 18:00 ของวันที่ลบ
+    const startCountDate = new Date(deleteDate);
+    startCountDate.setHours(18, 0, 0, 0); // ตั้งเป็น 18:00:00.000
+    
+    // ถ้าลบก่อน 18:00 → เริ่มนับวันนี้ 18:00
+    // ถ้าลบหลัง 18:00 → เริ่มนับพรุ่งนี้ 18:00
+    if (deleteDate.getHours() >= 18 || 
+        (deleteDate.getHours() === 18 && deleteDate.getMinutes() > 0)) {
+      // ลบหลัง 18:00 แล้ว → เริ่มนับพรุ่งนี้ 18:00
+      startCountDate.setDate(startCountDate.getDate() + 1);
+    }
+    
+    // บวก 30 วันจากวันที่เริ่มนับ
+    this.permanentDeleteAt = new Date(startCountDate.getTime() + (30 * 24 * 60 * 60 * 1000));
   }
   next();
 });

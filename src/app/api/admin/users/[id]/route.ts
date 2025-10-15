@@ -390,6 +390,8 @@ export async function DELETE(
       });
     } else {
       // ไม่มีอุปกรณ์ - ลบ user ได้ทันที (snapshot ก่อน)
+      
+      // 1. Snapshot User record ใน DeletedUsers
       try {
         const snapData = {
           userMongoId: userToDelete._id.toString(),
@@ -411,6 +413,16 @@ export async function DELETE(
       } catch (e) {
         console.error('Failed to snapshot user before delete:', e);
       }
+      
+      // 🆕 2. Snapshot ข้อมูลใน IssueLog และ Equipment Logs
+      try {
+        const { snapshotUserBeforeDelete } = await import('@/lib/snapshot-helpers');
+        const snapshotResult = await snapshotUserBeforeDelete(userToDelete.user_id);
+        console.log('📸 Snapshot user data in logs:', snapshotResult);
+      } catch (e) {
+        console.error('Failed to snapshot user data in logs:', e);
+      }
+      
       const deletedUser = await User.findByIdAndDelete(id);
 
       return NextResponse.json({ 

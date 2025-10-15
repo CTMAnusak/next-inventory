@@ -880,8 +880,17 @@ export async function handleMasterItemDeletion(deletedItemId: string) {
     master.relatedItemIds = master.relatedItemIds.filter(id => id !== deletedItemId);
     
     if (master.relatedItemIds.length === 0) {
-      // ไม่มี item เหลือ -> ลบ InventoryMaster
-      console.log('❌ No items left in group, deleting InventoryMaster:', master._id);
+      // ไม่มี item เหลือ -> Snapshot แล้วลบ InventoryMaster
+      console.log('❌ No items left in group, snapshotting and deleting InventoryMaster:', master._id);
+      
+      // 🆕 Snapshot ก่อนลบ
+      try {
+        const { snapshotItemNameBeforeDelete } = await import('@/lib/equipment-snapshot-helpers');
+        await snapshotItemNameBeforeDelete(master._id.toString());
+      } catch (error) {
+        console.warn('Failed to snapshot before deleting InventoryMaster:', error);
+      }
+      
       await InventoryMaster.deleteOne({ _id: master._id });
       return;
     }
@@ -896,8 +905,17 @@ export async function handleMasterItemDeletion(deletedItemId: string) {
     });
     
     if (!nextMasterItem) {
-      // ไม่มี item ที่ใช้งานได้เหลือ -> ลบ InventoryMaster
-      console.log('❌ No active items left in group, deleting InventoryMaster:', master._id);
+      // ไม่มี item ที่ใช้งานได้เหลือ -> Snapshot แล้วลบ InventoryMaster
+      console.log('❌ No active items left in group, snapshotting and deleting InventoryMaster:', master._id);
+      
+      // 🆕 Snapshot ก่อนลบ
+      try {
+        const { snapshotItemNameBeforeDelete } = await import('@/lib/equipment-snapshot-helpers');
+        await snapshotItemNameBeforeDelete(master._id.toString());
+      } catch (error) {
+        console.warn('Failed to snapshot before deleting InventoryMaster:', error);
+      }
+      
       await InventoryMaster.deleteOne({ _id: master._id });
       return;
     }

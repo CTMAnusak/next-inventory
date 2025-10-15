@@ -348,7 +348,41 @@ export async function POST(
           
           
           if (remainingEquipment.length === 0) {
-            // ไม่มีอุปกรณ์เหลือ - ลบ user ได้
+            // ไม่มีอุปกรณ์เหลือ - Snapshot และลบ user
+            
+            // 🆕 1. Snapshot ข้อมูลใน IssueLog และ Equipment Logs ก่อนลบ
+            try {
+              const { snapshotUserBeforeDelete } = await import('@/lib/snapshot-helpers');
+              const snapshotResult = await snapshotUserBeforeDelete(userToCheck.user_id);
+              console.log('📸 Snapshot user data before final deletion:', snapshotResult);
+            } catch (e) {
+              console.error('Failed to snapshot user data before final deletion:', e);
+            }
+            
+            // 🆕 2. Snapshot User record ใน DeletedUsers
+            try {
+              const DeletedUsers = (await import('@/models/DeletedUser')).default;
+              await DeletedUsers.findOneAndUpdate(
+                { userMongoId: userToCheck._id.toString() },
+                {
+                  userMongoId: userToCheck._id.toString(),
+                  user_id: userToCheck.user_id,
+                  firstName: userToCheck.firstName,
+                  lastName: userToCheck.lastName,
+                  nickname: userToCheck.nickname,
+                  department: userToCheck.department,
+                  office: userToCheck.office,
+                  phone: userToCheck.phone,
+                  email: userToCheck.email,
+                  deletedAt: new Date()
+                },
+                { upsert: true, new: true }
+              );
+            } catch (e) {
+              console.error('Failed to snapshot user record:', e);
+            }
+            
+            // 3. ลบ user
             await User.findByIdAndDelete(userToCheck._id);
             userDeletionMessage = ` และลบบัญชีผู้ใช้ ${userToCheck.firstName} ${userToCheck.lastName} เรียบร้อยแล้ว`;
             

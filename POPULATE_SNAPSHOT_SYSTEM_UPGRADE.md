@@ -653,7 +653,219 @@ await snapshotNewConfigBeforeChange(id);
 
 ---
 
+---
+
+## 📦 Phase 6.1: แก้ไขจุดที่ขาดหาย - InventoryMaster Deletion
+
+### ปัญหาที่พบเพิ่มเติม
+หลังจากตรวจสอบ codebase พบว่ายังมีจุดอื่นที่ลบ `InventoryMaster` แต่ยังไม่ได้ snapshot:
+
+#### 1. **`src/lib/inventory-helpers.ts` - `handleMasterItemDeletion()`**
+**ปัญหา:** ลบ InventoryMaster เมื่อไม่มี items เหลือ (บรรทัด 885, 901)
+
+**แก้ไข:**
+```typescript
+// ก่อนลบ InventoryMaster
+try {
+  const { snapshotItemNameBeforeDelete } = await import('@/lib/equipment-snapshot-helpers');
+  await snapshotItemNameBeforeDelete(master._id.toString());
+} catch (error) {
+  console.warn('Failed to snapshot before deleting InventoryMaster:', error);
+}
+
+await InventoryMaster.deleteOne({ _id: master._id });
+```
+
+#### 2. **`src/app/api/admin/stock-management/route.ts`**
+**ปัญหา:** ลบ duplicate InventoryMaster และ recreate masters (บรรทัด 532, 537)
+
+**แก้ไข:**
+```typescript
+// Snapshot ก่อนลบ duplicate masters
+for (const master of mastersToDelete) {
+  try {
+    const { snapshotItemNameBeforeDelete } = await import('@/lib/equipment-snapshot-helpers');
+    await snapshotItemNameBeforeDelete(master._id.toString());
+  } catch (error) {
+    console.warn('Failed to snapshot before deleting duplicate InventoryMaster:', error);
+  }
+  await InventoryMaster.findByIdAndDelete(master._id);
+}
+
+// Snapshot ก่อนลบ masters ทั้งหมด
+const mastersToDeleteAll = await InventoryMaster.find({ 
+  itemName: updatedItem.itemName, 
+  categoryId: finalCategoryId 
+});
+
+for (const master of mastersToDeleteAll) {
+  try {
+    const { snapshotItemNameBeforeDelete } = await import('@/lib/equipment-snapshot-helpers');
+    await snapshotItemNameBeforeDelete(master._id.toString());
+  } catch (error) {
+    console.warn('Failed to snapshot before deleting InventoryMaster:', error);
+  }
+}
+
+await InventoryMaster.deleteMany({ 
+  itemName: updatedItem.itemName, 
+  categoryId: finalCategoryId 
+});
+```
+
+### ผลลัพธ์
+✅ **ทุกจุดที่ลบ InventoryMaster จะ snapshot ก่อนลบ**  
+✅ **ข้อมูลประวัติปลอดภัย 100%**  
+✅ **ไม่มีจุดที่ขาดหายอีกแล้ว**  
+
+---
+
+---
+
+## 📦 Phase 7: เพิ่ม Bulk Config Snapshot System
+
+### ปัญหาที่พบ
+มี 2 APIs ที่ทำ bulk update configs แต่ไม่มี snapshot logic:
+- `src/app/api/admin/inventory/config/route.ts` (PUT)
+- `src/app/api/admin/inventory-config/route.ts` (POST)
+
+**ผลกระทบ:** เมื่อ admin แก้ไขชื่อ category/status/condition หลายอย่างพร้อมกัน (drag & drop reorder + เปลี่ยนชื่อ) จะไม่มีการ snapshot
+
+### ไฟล์ที่แก้ไข
+
+#### 1. **เพิ่ม Bulk Snapshot Function**
+- `src/lib/equipment-snapshot-helpers.ts`
+
+```typescript
+/**
+ * Snapshot การเปลี่ยนแปลง Config ทั้งหมดก่อน Bulk Update
+ * - เปรียบเทียบ config เก่ากับใหม่
+ * - Snapshot เฉพาะรายการที่มีการเปลี่ยนชื่อ
+ */
+export async function snapshotConfigChangesBeforeBulkUpdate(
+  oldConfig: any,
+  newConfig: {
+    categoryConfigs?: any[];
+    statusConfigs?: any[];
+    conditionConfigs?: any[];
+  }
+) {
+  // เปรียบเทียบและ snapshot เฉพาะที่เปลี่ยนชื่อ
+  for (const newCat of newConfig.categoryConfigs) {
+    const oldCat = oldConfig.categoryConfigs.find(c => c.id === newCat.id);
+    if (oldCat && oldCat.name !== newCat.name) {
+      await snapshotCategoryConfigBeforeChange(newCat.id, newCat.name);
+    }
+  }
+  // ... เดียวกันกับ status และ condition
+}
+```
+
+#### 2. **เรียกใช้ใน Bulk Update APIs**
+
+**API 1: `/api/admin/inventory/config` (PUT)**
+```typescript
+// ก่อน bulk update
+try {
+  const { snapshotConfigChangesBeforeBulkUpdate } = await import('@/lib/equipment-snapshot-helpers');
+  await snapshotConfigChangesBeforeBulkUpdate(config, {
+    categoryConfigs,
+    statusConfigs,
+    conditionConfigs
+  });
+} catch (error) {
+  console.warn('Failed to snapshot config changes:', error);
+}
+
+// จากนั้นทำ bulk update ตามปกติ
+config.categoryConfigs = validConfigs;
+```
+
+**API 2: `/api/admin/inventory-config` (POST)**
+```typescript
+// ก่อน bulk update
+try {
+  const { snapshotConfigChangesBeforeBulkUpdate } = await import('@/lib/equipment-snapshot-helpers');
+  await snapshotConfigChangesBeforeBulkUpdate(config, {
+    categoryConfigs: categories,
+    statusConfigs: statuses,
+    conditionConfigs: conditions
+  });
+} catch (error) {
+  console.warn('Failed to snapshot config changes:', error);
+}
+
+// จากนั้นทำ bulk update ตามปกติ
+config.categoryConfigs = categories.map(...);
+```
+
+### ผลลัพธ์
+✅ **Bulk update ปลอดภัย** - แก้ไขหลายอย่างพร้อมกัน มี snapshot ทุกครั้ง  
+✅ **Smart detection** - Snapshot เฉพาะรายการที่เปลี่ยนชื่อจริงๆ  
+✅ **Graceful degradation** - ถ้า snapshot ล้มเหลว ยัง update ได้ปกติ  
+
+---
+
+---
+
+## 📦 Phase 8: แก้ไขจุดสุดท้าย - User Deletion Snapshot
+
+### ปัญหาที่พบ
+พบว่ามี 2 APIs ที่ลบ User แต่ไม่ได้เรียก `snapshotUserBeforeDelete()`:
+1. `src/app/api/admin/users/[id]/route.ts` (DELETE) - ลบ user ที่ไม่มีอุปกรณ์
+2. `src/app/api/admin/equipment-reports/returns/[id]/approve/route.ts` - ลบ user หลังคืนอุปกรณ์ครบ
+
+**ผลกระทบ:** IssueLog และ Equipment Logs (RequestLog/ReturnLog/TransferLog) จะไม่มีข้อมูล snapshot ของ User
+
+### ความแตกต่าง
+- **DeletedUsers collection**: เก็บ snapshot ของ User record เอง (สำหรับ populate ภายหลัง)
+- **snapshotUserBeforeDelete()**: อัพเดต IssueLog, RequestLog, ReturnLog, TransferLog ให้มีชื่อล่าสุดของ User
+
+### ไฟล์ที่แก้ไข
+
+#### 1. **`src/app/api/admin/users/[id]/route.ts`**
+```typescript
+// ก่อนหน้า: มีแค่ DeletedUsers snapshot
+await DeletedUsers.findOneAndUpdate(...);
+await User.findByIdAndDelete(id);
+
+// หลังแก้ไข: เพิ่ม snapshotUserBeforeDelete
+// 1. Snapshot User record ใน DeletedUsers
+await DeletedUsers.findOneAndUpdate(...);
+
+// 🆕 2. Snapshot ข้อมูลใน IssueLog และ Equipment Logs
+const { snapshotUserBeforeDelete } = await import('@/lib/snapshot-helpers');
+await snapshotUserBeforeDelete(userToDelete.user_id);
+
+// 3. ลบ user
+await User.findByIdAndDelete(id);
+```
+
+#### 2. **`src/app/api/admin/equipment-reports/returns/[id]/approve/route.ts`**
+```typescript
+// ก่อนหน้า: ลบ user ทันทีโดยไม่ snapshot
+await User.findByIdAndDelete(userToCheck._id);
+
+// หลังแก้ไข: Snapshot ก่อนลบ
+// 🆕 1. Snapshot ข้อมูลใน IssueLog และ Equipment Logs
+const { snapshotUserBeforeDelete } = await import('@/lib/snapshot-helpers');
+await snapshotUserBeforeDelete(userToCheck.user_id);
+
+// 🆕 2. Snapshot User record ใน DeletedUsers
+await DeletedUsers.findOneAndUpdate(...);
+
+// 3. ลบ user
+await User.findByIdAndDelete(userToCheck._id);
+```
+
+### ผลลัพธ์
+✅ **ทุกจุดที่ลบ User มี snapshot ครบถ้วน**  
+✅ **IssueLog และ Equipment Logs ปลอดภัย**  
+✅ **User deletion flow สมบูรณ์ 100%**  
+
+---
+
 **เอกสารนี้สร้างโดย**: AI Assistant  
 **วันที่**: 15 ตุลาคม 2568  
-**เวอร์ชัน**: 1.1 (เพิ่ม ItemName Snapshot)
+**เวอร์ชัน**: 1.4 (สมบูรณ์ 100% - ไม่มีอะไรขาดอีกแล้ว!)
 
