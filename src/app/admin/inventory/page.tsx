@@ -147,6 +147,9 @@ export default function AdminInventoryPage() {
   const [showRenameConfirm, setShowRenameConfirm] = useState(false);
   const [renameLoading, setRenameLoading] = useState(false);
   
+  // Stock button loading states
+  const [stockButtonLoading, setStockButtonLoading] = useState<string | null>(null);
+  
   // 🆕 Modal for stock reduction error
   const [showStockReductionError, setShowStockReductionError] = useState(false);
   const [stockReductionErrorData, setStockReductionErrorData] = useState<{
@@ -825,6 +828,9 @@ export default function AdminInventoryPage() {
 
   // Stock Modal functions
   const openStockModal = async (item: any) => {
+    // เริ่มแสดง loading animation สำหรับปุ่มนี้
+    setStockButtonLoading(item._id);
+    
     setStockItem({ 
       itemId: item._id, // ใช้ ID แทนชื่อ
       itemName: item.itemName, // เก็บชื่อไว้สำหรับแสดงผล
@@ -893,6 +899,7 @@ export default function AdminInventoryPage() {
       setStockInfo(null);
     } finally {
       setStockLoading(false);
+      setStockButtonLoading(null); // หยุดแสดง loading animation ของปุ่ม
       setShowStockModal(true);
       
       // Fetch available items immediately when modal opens
@@ -915,6 +922,7 @@ export default function AdminInventoryPage() {
     setStockRenameOldName('');
     setStockRenameNewName('');
     setShowRenameConfirm(false);
+    setStockButtonLoading(null); // หยุด loading animation ของปุ่มเมื่อปิด modal
     
     // Reset adjust stock fields
     setNewStatusId('');
@@ -2734,7 +2742,20 @@ export default function AdminInventoryPage() {
                   const threshold = lowStockThreshold;
                   const isLowStock = item.quantity <= threshold && !hasSerials;
                   return (
-                    <tr key={item._id} className={isLowStock ? 'bg-red-100' : (index % 2 === 0 ? 'bg-white' : 'bg-blue-50')}>
+                    <tr 
+                      key={item._id} 
+                      className={isLowStock ? 'bg-red-100 hover:!bg-red-200 transition-colors duration-200' : (index % 2 === 0 ? 'bg-white' : 'bg-blue-50')}
+                      onMouseEnter={(e) => {
+                        if (isLowStock) {
+                          e.currentTarget.style.setProperty('background-color', '#fecaca', 'important');
+                        }
+                      }}
+                      onMouseLeave={(e) => {
+                        if (isLowStock) {
+                          e.currentTarget.style.setProperty('background-color', '#fee2e2', 'important');
+                        }
+                      }}
+                    >
                       <td className="px-6 py-4 text-sm font-medium text-gray-900 text-center text-selectable">
                         {item.itemName}
                       </td>
@@ -2794,28 +2815,39 @@ export default function AdminInventoryPage() {
                         <div className="flex justify-center space-x-2">
                           <button
                             onClick={() => openStockModal(item)}
-                            className={`px-3 py-1 rounded-md text-sm font-medium cursor-pointer ${
-                              item.quantity === 0 && item.userOwnedQuantity > 0
-                                ? 'bg-yellow-100 hover:bg-yellow-200 text-yellow-800'
-                                : item.quantity > 0 && item.userOwnedQuantity > 0
-                                  ? 'bg-orange-100 hover:bg-orange-200 text-orange-700'
-                                  : 'bg-purple-100 hover:bg-purple-200 text-purple-700'
+                            disabled={stockButtonLoading === item._id}
+                            className={`px-3 py-1 rounded-md text-sm font-medium cursor-pointer flex items-center justify-center min-w-[120px] ${
+                              stockButtonLoading === item._id
+                                ? 'bg-gray-100 text-gray-500 cursor-not-allowed'
+                                : item.quantity === 0 && item.userOwnedQuantity > 0
+                                  ? 'bg-yellow-100 hover:bg-yellow-200 text-yellow-800'
+                                  : item.quantity > 0 && item.userOwnedQuantity > 0
+                                    ? 'bg-orange-100 hover:bg-orange-200 text-orange-700'
+                                    : 'bg-purple-100 hover:bg-purple-200 text-purple-700'
                             }`}
                             aria-label="จัดการ Stock"
                             title={
-                              item.quantity === 0 && item.userOwnedQuantity > 0
-                                ? `ลบไม่ได้ - User ครอบครอง ${item.userOwnedQuantity} ชิ้น`
-                                : item.quantity > 0 && item.userOwnedQuantity > 0
-                                  ? `ลบได้บางส่วน - Admin: ${item.quantity}, User: ${item.userOwnedQuantity}`
-                                  : `ลบได้ทั้งหมด - ${item.quantity} ชิ้น`
+                              stockButtonLoading === item._id
+                                ? 'กำลังโหลด...'
+                                : item.quantity === 0 && item.userOwnedQuantity > 0
+                                  ? `ลบไม่ได้ - User ครอบครอง ${item.userOwnedQuantity} ชิ้น`
+                                  : item.quantity > 0 && item.userOwnedQuantity > 0
+                                    ? `ลบได้บางส่วน - Admin: ${item.quantity}, User: ${item.userOwnedQuantity}`
+                                    : `ลบได้ทั้งหมด - ${item.quantity} ชิ้น`
                             }
                           >
-                            {item.quantity === 0 && item.userOwnedQuantity > 0
-                              ? '🚫 ลบไม่ได้'
-                              : item.quantity > 0 && item.userOwnedQuantity > 0
-                                ? '⚠️ ลบบางส่วน'
-                                : '🗑️ จัดการ Stock'
-                            }
+                            {stockButtonLoading === item._id ? (
+                              <div className="flex items-center space-x-2">
+                                <div className="animate-spin rounded-full h-4 w-4 border-2 border-gray-300 border-t-gray-600"></div>
+                                <span>โหลด...</span>
+                              </div>
+                            ) : (
+                              item.quantity === 0 && item.userOwnedQuantity > 0
+                                ? '🚫 ลบไม่ได้'
+                                : item.quantity > 0 && item.userOwnedQuantity > 0
+                                  ? '⚠️ ลบบางส่วน'
+                                  : '🗑️ จัดการ Stock'
+                            )}
                           </button>
                         </div>
                       </td>
