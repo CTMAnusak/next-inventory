@@ -5,6 +5,7 @@ export interface IDeletedUser extends Document {
   userMongoId: string;
   // Business user id stored in User.user_id
   user_id?: string;
+  userType?: 'individual' | 'branch'; // 🆕 เพิ่ม userType
   firstName?: string;
   lastName?: string;
   nickname?: string;
@@ -20,6 +21,7 @@ export interface IDeletedUser extends Document {
 const DeletedUserSchema = new Schema<IDeletedUser>({
   userMongoId: { type: String, required: true, unique: true, index: true },
   user_id: { type: String },
+  userType: { type: String, enum: ['individual', 'branch'] }, // 🆕 เพิ่ม userType
   firstName: { type: String },
   lastName: { type: String },
   nickname: { type: String },

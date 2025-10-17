@@ -281,6 +281,16 @@ export async function POST(request: NextRequest) {
         console.error('❌ Failed to move item to recycle bin, but continuing with deletion:', recycleBinError);
       }
       
+      // 🆕 Update snapshot ก่อนลบ
+      try {
+        const { updateSnapshotsBeforeDelete } = await import('@/lib/snapshot-helpers');
+        const snapshotResult = await updateSnapshotsBeforeDelete(existingItem._id.toString());
+        console.log('📸 Snapshot update result:', snapshotResult);
+      } catch (snapshotError) {
+        console.error('❌ Failed to update snapshots before delete:', snapshotError);
+        // ไม่หยุดการทำงาน แค่ log error
+      }
+      
       // Now delete from InventoryItem collection
       await InventoryItem.findByIdAndDelete(existingItem._id);
 

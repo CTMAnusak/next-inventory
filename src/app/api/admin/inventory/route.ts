@@ -477,6 +477,21 @@ export async function DELETE(request: NextRequest) {
       console.error('❌ Error with recycle bin process:', recycleBinError);
     }
     
+    // 🆕 Update snapshots ก่อนลบแต่ละ item
+    console.log('📸 Updating snapshots before bulk deletion...');
+    for (const item of itemsToActuallyDelete) {
+      try {
+        const { updateSnapshotsBeforeDelete } = await import('@/lib/snapshot-helpers');
+        const snapshotResult = await updateSnapshotsBeforeDelete(item._id.toString());
+        if (snapshotResult.success) {
+          console.log(`   ✅ Updated ${snapshotResult.updatedRequestLogs} snapshot(s) for ${item.itemName} ${item.serialNumber ? `(SN: ${item.serialNumber})` : ''}`);
+        }
+      } catch (snapshotError) {
+        console.error(`   ❌ Failed to update snapshot for item ${item._id}:`, snapshotError);
+        // ไม่หยุดการทำงาน แค่ log error
+      }
+    }
+    
     // Now delete items - เฉพาะ Admin Stock
     // 1. Delete only Admin Stock InventoryItems
     await InventoryItem.deleteMany({ 

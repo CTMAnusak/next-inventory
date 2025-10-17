@@ -63,18 +63,33 @@ export async function GET(request: NextRequest) {
       requestType: 'request'
     }).lean();
     
-    // Build a map of itemId -> requestLog for quick lookup
+    // Build a map of itemId -> requestLog + snapshot for quick lookup
     const itemToRequestMap = new Map();
     
     approvedRequests.forEach(req => {
       req.items?.forEach((item: any) => {
-        item.assignedItemIds?.forEach((itemId: string) => {
-          itemToRequestMap.set(itemId, {
-            requestDate: req.requestDate,
-            userId: req.userId,
-            deliveryLocation: req.deliveryLocation || ''
+        // 🆕 ใช้ assignedItemSnapshots ถ้ามี
+        if (item.assignedItemSnapshots && item.assignedItemSnapshots.length > 0) {
+          item.assignedItemSnapshots.forEach((snapshot: any) => {
+            itemToRequestMap.set(snapshot.itemId, {
+              requestDate: req.requestDate,
+              userId: req.userId,
+              deliveryLocation: req.deliveryLocation || '',
+              snapshot: snapshot // 🆕 เก็บ snapshot ไว้
+            });
           });
-        });
+        } 
+        // Fallback: ใช้ assignedItemIds ถ้าไม่มี snapshot (backward compatibility)
+        else if (item.assignedItemIds) {
+          item.assignedItemIds.forEach((itemId: string) => {
+            itemToRequestMap.set(itemId, {
+              requestDate: req.requestDate,
+              userId: req.userId,
+              deliveryLocation: req.deliveryLocation || '',
+              snapshot: null
+            });
+          });
+        }
       });
     });
     
@@ -133,11 +148,14 @@ export async function GET(request: NextRequest) {
       
         // Check if this item came from a request
         const requestInfo = itemToRequestMap.get(String(item._id));
+        let itemSnapshot = null;
+        
         if (requestInfo || item.transferInfo?.requestId) {
           source = 'request';
           if (requestInfo) {
             dateAdded = requestInfo.requestDate;
             deliveryLocationValue = requestInfo.deliveryLocation || userOffice || '';
+            itemSnapshot = requestInfo.snapshot; // 🆕 เก็บ snapshot
           } else if (item.transferInfo?.transferDate) {
             dateAdded = item.transferInfo.transferDate;
           }
@@ -147,14 +165,26 @@ export async function GET(request: NextRequest) {
         if (department && userDepartment !== department) continue;
         if (office && userOffice !== office) continue;
         
-        // Get category name
-        const categoryConfig = categoryConfigs.find((c: any) => c.id === item.categoryId);
+        // 🆕 ใช้ snapshot ถ้ามี (จากการเบิก) ไม่เช่นนั้นใช้ real-time data
+        // ลำดับความสำคัญ: snapshot (ถ้าเบิกมา) > real-time InventoryItem > config lookup
+        const finalItemName = itemSnapshot?.itemName || item.itemName || 'ไม่ระบุ';
+        const finalCategoryId = itemSnapshot?.categoryId || item.categoryId || 'ไม่ระบุ';
+        const finalSerialNumber = itemSnapshot?.serialNumber || item.serialNumber || '';
+        const finalNumberPhone = itemSnapshot?.numberPhone || item.numberPhone || '';
         
-        // Get status name
+        // Get category name: snapshot > config lookup
+        const categoryConfig = categoryConfigs.find((c: any) => c.id === finalCategoryId);
+        const finalCategoryName = itemSnapshot?.categoryName || categoryConfig?.name || finalCategoryId || 'ไม่ระบุ';
+        
+        // Get status name: snapshot > real-time > config lookup
         const statusConfig = statusConfigs.find((s: any) => s.id === item.statusId);
+        const finalStatusId = itemSnapshot?.statusId || item.statusId || '';
+        const finalStatusName = itemSnapshot?.statusName || statusConfig?.name || item.statusId || 'ไม่ระบุ';
         
-        // Get condition name
+        // Get condition name: snapshot > real-time > config lookup
         const conditionConfig = conditionConfigs.find((c: any) => c.id === item.conditionId);
+        const finalConditionId = itemSnapshot?.conditionId || item.conditionId || '';
+        const finalConditionName = itemSnapshot?.conditionName || conditionConfig?.name || item.conditionId || 'ไม่ระบุ';
         
         trackingRecords.push({
           _id: String(item._id),
@@ -167,25 +197,26 @@ export async function GET(request: NextRequest) {
           phone: userPhone,     // จาก User collection
           pendingDeletion: user?.pendingDeletion || false,
           itemId: String(item._id),
-          itemName: item.itemName || 'ไม่ระบุ',
-          currentItemName: item.itemName || 'ไม่ระบุ',
+          itemName: finalItemName, // 🆕 ใช้ snapshot หรือ real-time
+          currentItemName: finalItemName, // 🆕 ใช้ snapshot หรือ real-time
           quantity: 1, // Each InventoryItem represents 1 physical item
-          serialNumber: item.serialNumber || '',
-          numberPhone: item.numberPhone || '', // ✅ เพิ่มเบอร์โทรศัพท์สำหรับซิมการ์ด
-          category: item.categoryId || 'ไม่ระบุ',
-          categoryId: item.categoryId || '', // ✅ เพิ่ม categoryId สำหรับเช็คประเภทอุปกรณ์
-          categoryName: categoryConfig?.name || item.categoryId || 'ไม่ระบุ',
-          status: item.statusId || '',
-          statusName: statusConfig?.name || item.statusId || 'ไม่ระบุ',
-          condition: item.conditionId || '',
-          conditionName: conditionConfig?.name || item.conditionId || 'ไม่ระบุ',
+          serialNumber: finalSerialNumber, // 🆕 ใช้ snapshot หรือ real-time
+          numberPhone: finalNumberPhone, // 🆕 ใช้ snapshot หรือ real-time
+          category: finalCategoryId,
+          categoryId: finalCategoryId, // 🆕 ใช้ snapshot หรือ real-time
+          categoryName: finalCategoryName, // 🆕 ใช้ snapshot หรือ real-time
+          status: finalStatusId,
+          statusName: finalStatusName, // 🆕 ใช้ snapshot หรือ real-time
+          condition: finalConditionId,
+          conditionName: finalConditionName, // 🆕 ใช้ snapshot หรือ real-time
           source: source,
           dateAdded: dateAdded,
           submittedAt: dateAdded,
           requestDate: dateAdded,
           urgency: 'normal',
           deliveryLocation: deliveryLocationValue,
-          reason: source === 'request' ? 'การเบิกอุปกรณ์' : 'อุปกรณ์ที่มีอยู่เดิม'
+          reason: source === 'request' ? 'การเบิกอุปกรณ์' : 'อุปกรณ์ที่มีอยู่เดิม',
+          hasSnapshot: !!itemSnapshot // 🆕 บอกว่ามี snapshot หรือไม่
         });
       } catch (itemError: any) {
         console.error(`❌ Error processing item ${item._id}:`, itemError.message);

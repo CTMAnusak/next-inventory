@@ -1,4 +1,4 @@
-import { getStatusName, getConditionName, getUserName } from '@/lib/equipment-snapshot-helpers';
+import { getStatusName, getConditionName, getUserName, getCategoryName } from '@/lib/equipment-snapshot-helpers';
 import { getItemNameAndCategory, getCategoryNameById } from '@/lib/item-name-resolver';
 import InventoryMaster from '@/models/InventoryMaster';
 
@@ -24,20 +24,31 @@ export async function populateRequestLogItems(requestLog: any) {
   // Populate แต่ละ item (ถ้ามี)
   if (populated.items) {
     for (const item of populated.items) {
-      // Populate item name และ category (ถ้ามี masterId และยังไม่มี snapshot)
-      if (item.masterId && !item.itemName) {
-        const itemInfo = await getItemNameAndCategory(item.masterId);
-        if (itemInfo) {
-          item.itemName = itemInfo.itemName;
-          item.category = itemInfo.category;
-          item.categoryId = itemInfo.categoryId;
-        } else {
-          // ถ้าไม่เจอ InventoryMaster (อาจถูกลบ) ใช้ masterId เป็น fallback
-          item.itemName = item.itemName || `[Deleted Item: ${item.masterId}]`;
-          item.category = item.category || 'Unknown';
+      // Populate item name และ category (ถ้ามี masterId)
+      if (item.masterId) {
+        // ถ้ายังไม่มี itemName หรือ category ให้ดึงข้อมูลจาก InventoryMaster
+        if (!item.itemName || !item.category) {
+          const itemInfo = await getItemNameAndCategory(item.masterId);
+          if (itemInfo) {
+            if (!item.itemName) item.itemName = itemInfo.itemName;
+            if (!item.category) item.category = itemInfo.category;
+            if (!item.categoryId) item.categoryId = itemInfo.categoryId;
+          } else {
+            // ถ้าไม่เจอ InventoryMaster (อาจถูกลบ) ใช้ fallback
+            item.itemName = item.itemName || `[Deleted Item: ${item.masterId}]`;
+            item.category = item.category || 'Unknown';
+          }
         }
       }
-      // ถ้ามี itemName อยู่แล้ว (snapshot) ไม่ต้อง populate
+      // ถ้าไม่มี masterId หรือมีข้อมูลครบแล้ว ไม่ต้อง populate
+      
+      // ✅ ถ้ามี categoryId แต่ไม่มี category name ให้ populate จาก config
+      if (item.categoryId && !item.category) {
+        const categoryName = await getCategoryName(item.categoryId);
+        if (categoryName) {
+          item.category = categoryName;
+        }
+      }
       
       // Populate status name (ถ้ามี statusOnRequest และยังไม่มี snapshot)
       if (item.statusOnRequest && !item.statusOnRequestName) {
@@ -75,20 +86,31 @@ export async function populateReturnLogItems(returnLog: any) {
   
   // Populate แต่ละ item
   for (const item of populated.items) {
-    // Populate item name และ category (ถ้ามี inventoryItemId หรือ itemId และยังไม่มี snapshot)
-    if ((item.inventoryItemId || item.itemId) && !item.itemName) {
-      const itemInfo = await getItemNameAndCategory(undefined, item.inventoryItemId || item.itemId);
-      if (itemInfo) {
-        item.itemName = itemInfo.itemName;
-        item.category = itemInfo.category;
-        item.categoryId = itemInfo.categoryId;
-      } else {
-        // ถ้าไม่เจอ InventoryItem (อาจถูกลบ) ใช้ itemId เป็น fallback
-        item.itemName = item.itemName || `[Deleted Item: ${item.itemId}]`;
-        item.category = item.category || 'Unknown';
+    // Populate item name และ category (ถ้ามี inventoryItemId หรือ itemId)
+    if (item.inventoryItemId || item.itemId) {
+      // ถ้ายังไม่มี itemName หรือ category ให้ดึงข้อมูลจาก InventoryItem
+      if (!item.itemName || !item.category) {
+        const itemInfo = await getItemNameAndCategory(undefined, item.inventoryItemId || item.itemId);
+        if (itemInfo) {
+          if (!item.itemName) item.itemName = itemInfo.itemName;
+          if (!item.category) item.category = itemInfo.category;
+          if (!item.categoryId) item.categoryId = itemInfo.categoryId;
+        } else {
+          // ถ้าไม่เจอ InventoryItem (อาจถูกลบ) ใช้ fallback
+          item.itemName = item.itemName || `[Deleted Item: ${item.itemId}]`;
+          item.category = item.category || 'Unknown';
+        }
       }
     }
-    // ถ้ามี itemName อยู่แล้ว (snapshot) ไม่ต้อง populate
+    // ถ้าไม่มี itemId หรือมีข้อมูลครบแล้ว ไม่ต้อง populate
+    
+    // ✅ ถ้ามี categoryId แต่ไม่มี category name ให้ populate จาก config
+    if (item.categoryId && !item.category) {
+      const categoryName = await getCategoryName(item.categoryId);
+      if (categoryName) {
+        item.category = categoryName;
+      }
+    }
     
     // Populate status name (ถ้ามี statusOnReturn และยังไม่มี snapshot)
     if (item.statusOnReturn && !item.statusOnReturnName) {
@@ -169,8 +191,18 @@ export async function populateTransferLogBatch(transferLogs: any[]) {
 
 /**
  * Populate ข้อมูล User ใน RequestLog
- * - Populate ข้อมูลผู้เบิกล่าสุดจาก User collection
- * - ถ้า User ถูกลบ จะใช้ snapshot ที่เก็บไว้
+ * 
+ * **Individual User:**
+ * - Populate ข้อมูลทั้งหมดจาก User collection (real-time)
+ * - ถ้า User ถูกลบ → ใช้ snapshot ใน DeletedUsers
+ * 
+ * **Branch User:**
+ * - Populate เฉพาะ office, phone, email จาก User collection (real-time)
+ * - ข้อมูลส่วนตัว (firstName, lastName, etc.) → ใช้ snapshot จากฟอร์มที่กรอก
+ * - ⚠️ Snapshot จากฟอร์ม = ข้อมูลที่กรอกในแต่ละครั้ง (ไม่ใช่ข้อมูลล่าสุดก่อนลบ)
+ * 
+ * @param requestLog - RequestLog document
+ * @returns Populated RequestLog with user info
  */
 export async function populateRequestLogUser(requestLog: any) {
   if (!requestLog) return requestLog;
@@ -185,7 +217,7 @@ export async function populateRequestLogUser(requestLog: any) {
     );
     
     if (user) {
-      // Individual User: Populate ทุกฟิลด์
+      // Individual User: Populate ทุกฟิลด์จาก User collection
       if (user.userType === 'individual') {
         populated.firstName = user.firstName;
         populated.lastName = user.lastName;
@@ -195,13 +227,15 @@ export async function populateRequestLogUser(requestLog: any) {
         populated.phone = user.phone;
         populated.email = user.email;
       }
-      // Branch User: Populate เฉพาะ office
+      // Branch User: Populate เฉพาะข้อมูลสาขา (ข้อมูลส่วนตัวใช้จากฟอร์ม)
       else if (user.userType === 'branch') {
         populated.office = user.office;
-        // firstName, lastName, etc. ใช้จาก snapshot (ที่กรอกในฟอร์ม)
+        populated.phone = user.phone;
+        populated.email = user.email;
+        // firstName, lastName, etc. → ใช้จาก requesterFirstName, requesterLastName (snapshot ในฟอร์ม)
       }
     }
-    // ถ้าไม่เจอ user (ถูกลบแล้ว) จะใช้ snapshot ที่เก็บไว้
+    // ถ้าไม่เจอ user (ถูกลบแล้ว) → ใช้ snapshot ที่เก็บไว้
   }
   
   return populated;
@@ -209,8 +243,18 @@ export async function populateRequestLogUser(requestLog: any) {
 
 /**
  * Populate ข้อมูล User ใน ReturnLog
- * - Populate ข้อมูลผู้คืนล่าสุดจาก User collection
- * - ถ้า User ถูกลบ จะใช้ snapshot ที่เก็บไว้
+ * 
+ * **Individual User:**
+ * - Populate ข้อมูลทั้งหมดจาก User collection (real-time)
+ * - ถ้า User ถูกลบ → ใช้ snapshot ใน DeletedUsers
+ * 
+ * **Branch User:**
+ * - Populate เฉพาะ office, phone, email จาก User collection (real-time)
+ * - ข้อมูลส่วนตัว (firstName, lastName, etc.) → ใช้ snapshot จากฟอร์มที่กรอก
+ * - ⚠️ Snapshot จากฟอร์ม = ข้อมูลที่กรอกในแต่ละครั้ง (ไม่ใช่ข้อมูลล่าสุดก่อนลบ)
+ * 
+ * @param returnLog - ReturnLog document
+ * @returns Populated ReturnLog with user info
  */
 export async function populateReturnLogUser(returnLog: any) {
   if (!returnLog) return returnLog;
@@ -225,7 +269,7 @@ export async function populateReturnLogUser(returnLog: any) {
     );
     
     if (user) {
-      // Individual User: Populate ทุกฟิลด์
+      // Individual User: Populate ทุกฟิลด์จาก User collection
       if (user.userType === 'individual') {
         populated.firstName = user.firstName;
         populated.lastName = user.lastName;
@@ -235,13 +279,15 @@ export async function populateReturnLogUser(returnLog: any) {
         populated.phone = user.phone;
         populated.email = user.email;
       }
-      // Branch User: Populate เฉพาะ office
+      // Branch User: Populate เฉพาะข้อมูลสาขา (ข้อมูลส่วนตัวใช้จากฟอร์ม)
       else if (user.userType === 'branch') {
         populated.office = user.office;
-        // firstName, lastName, etc. ใช้จาก snapshot (ที่กรอกในฟอร์ม)
+        populated.phone = user.phone;
+        populated.email = user.email;
+        // firstName, lastName, etc. → ใช้จาก returnerFirstName, returnerLastName (snapshot ในฟอร์ม)
       }
     }
-    // ถ้าไม่เจอ user (ถูกลบแล้ว) จะใช้ snapshot ที่เก็บไว้
+    // ถ้าไม่เจอ user (ถูกลบแล้ว) → ใช้ snapshot ที่เก็บไว้
   }
   
   return populated;

@@ -1,5 +1,18 @@
 import mongoose, { Document, Schema } from 'mongoose';
 
+export interface IAssignedItemSnapshot {
+  itemId: string;           // InventoryItem._id
+  itemName: string;         // Snapshot: ชื่ออุปกรณ์
+  categoryId: string;       // Snapshot: ID หมวดหมู่
+  categoryName: string;     // Snapshot: ชื่อหมวดหมู่
+  serialNumber?: string;    // Snapshot: Serial Number
+  numberPhone?: string;     // Snapshot: เบอร์โทรศัพท์ (ซิมการ์ด)
+  statusId?: string;        // Snapshot: ID สถานะ
+  statusName?: string;      // Snapshot: ชื่อสถานะ
+  conditionId?: string;     // Snapshot: ID สภาพ
+  conditionName?: string;   // Snapshot: ชื่อสภาพ
+}
+
 export interface IRequestItem {
   masterId: string;     // Reference to InventoryMaster._id (for lookup itemName/categoryId)
   itemName?: string;    // 🆕 Snapshot: ชื่ออุปกรณ์ (เก็บไว้เมื่อ InventoryMaster ถูกลบ)
@@ -9,6 +22,7 @@ export interface IRequestItem {
   serialNumbers?: string[]; // Serial numbers if applicable (user request)
   assignedSerialNumbers?: string[]; // SN ที่ Admin assign ให้เมื่อ approve
   assignedItemIds?: string[]; // IDs ของ InventoryItem ที่ assign ให้
+  assignedItemSnapshots?: IAssignedItemSnapshot[]; // 🆕 Snapshot: ข้อมูลอุปกรณ์ที่ assign แต่ละชิ้น
   assignedPhoneNumbers?: string[]; // Phone numbers ที่ Admin assign ให้ (สำหรับซิมการ์ด)
   availableItemIds?: string[]; // Available items for admin selection
   itemNotes?: string; // หมายเหตุของรายการเบิก (ไม่บังคับ)
@@ -53,6 +67,19 @@ export interface IRequestLog extends Document {
   updatedAt: Date;
 }
 
+const AssignedItemSnapshotSchema = new Schema({
+  itemId: { type: String, required: true },
+  itemName: { type: String, required: true },
+  categoryId: { type: String, required: true },
+  categoryName: { type: String, required: true },
+  serialNumber: { type: String },
+  numberPhone: { type: String },
+  statusId: { type: String },
+  statusName: { type: String },
+  conditionId: { type: String },
+  conditionName: { type: String }
+}, { _id: false });
+
 const RequestItemSchema = new Schema<IRequestItem>({
   masterId: { type: String, required: true },       // Reference to InventoryMaster._id
   itemName: { type: String },                       // 🆕 Snapshot: ชื่ออุปกรณ์
@@ -62,6 +89,7 @@ const RequestItemSchema = new Schema<IRequestItem>({
   serialNumbers: [{ type: String, required: false }],   // Serial numbers if available (user request)
   assignedSerialNumbers: [{ type: String, required: false }], // SN ที่ Admin assign ให้
   assignedItemIds: [{ type: String, required: false }],  // InventoryItem IDs ที่ assign ให้
+  assignedItemSnapshots: [AssignedItemSnapshotSchema], // 🆕 Snapshot: ข้อมูลอุปกรณ์ที่ assign แต่ละชิ้น
   assignedPhoneNumbers: [{ type: String, required: false }], // Phone numbers ที่ Admin assign ให้
   availableItemIds: [{ type: String, required: false }],  // Available items for admin selection
   itemNotes: { type: String },

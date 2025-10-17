@@ -1,208 +1,190 @@
-import User from '@/models/User';
-import IssueLog from '@/models/IssueLog';
-import {
-  snapshotEquipmentLogsBeforeUserDelete,
-  checkUserRelatedEquipmentLogs
-} from '@/lib/equipment-snapshot-helpers';
-
 /**
- * Snapshot ข้อมูลล่าสุดก่อนลบ User (Requester)
- * ใช้เมื่อต้องการลบ User ออกจากระบบ
- */
-export async function snapshotRequesterBeforeDelete(userId: string) {
-  try {
-    // 1. ดึงข้อมูลล่าสุดจาก User Collection
-    const user = await User.findOne({ user_id: userId });
-    
-    if (!user) {
-      console.warn(`User ${userId} not found for snapshot`);
-      return { success: false, error: 'User not found' };
-    }
-
-    // 2. เตรียมข้อมูล Snapshot ตามประเภทผู้ใช้
-    const snapshotData: any = {
-      office: user.office, // ทั้ง individual และ branch มี office
-    };
-
-    if (user.userType === 'individual') {
-      snapshotData.firstName = user.firstName;
-      snapshotData.lastName = user.lastName;
-      snapshotData.nickname = user.nickname;
-      snapshotData.department = user.department;
-      snapshotData.phone = user.phone;
-      snapshotData.email = user.email;
-    }
-    // สำหรับ branch user: firstName, lastName ฯลฯ ใช้ที่กรอกในฟอร์มอยู่แล้ว
-    // แต่ office ต้องอัพเดทเป็นล่าสุด
-
-    // 3. อัพเดท Snapshot ในทุก Issue ที่ user เป็นผู้แจ้ง
-    const updateResult = await IssueLog.updateMany(
-      { requesterId: userId },
-      { $set: snapshotData }
-    );
-
-    console.log(`✅ Snapshot ${updateResult.modifiedCount} issues for user ${userId}`);
-
-    // 4. ลบ requesterId และ officeId (ไม่ populate อีกต่อไป)
-    await IssueLog.updateMany(
-      { requesterId: userId },
-      { 
-        $unset: { 
-          requesterId: "",
-          officeId: ""
-        }
-      }
-    );
-
-    return { 
-      success: true, 
-      modifiedCount: updateResult.modifiedCount,
-      userData: snapshotData
-    };
-  } catch (error) {
-    console.error('Error snapshotting requester:', error);
-    return { success: false, error };
-  }
-}
-
-/**
- * Snapshot ข้อมูลล่าสุดก่อนลบ IT Admin
- * ใช้เมื่อต้องการลบ IT Admin ออกจากระบบ
- */
-export async function snapshotAdminBeforeDelete(adminId: string) {
-  try {
-    // 1. ดึงข้อมูลล่าสุดจาก User Collection
-    const admin = await User.findOne({ user_id: adminId });
-    
-    if (!admin) {
-      console.warn(`Admin ${adminId} not found for snapshot`);
-      return { success: false, error: 'Admin not found' };
-    }
-
-    // 2. เตรียมข้อมูล Snapshot
-    const adminName = admin.userType === 'individual'
-      ? `${admin.firstName} ${admin.lastName}`.trim()
-      : admin.office;
-
-    // 3. อัพเดท Snapshot ในทุก Issue ที่ admin รับผิดชอบ
-    const updateResult = await IssueLog.updateMany(
-      { assignedAdminId: adminId },
-      { 
-        $set: {
-          'assignedAdmin.name': adminName,
-          'assignedAdmin.email': admin.email
-        }
-      }
-    );
-
-    console.log(`✅ Snapshot ${updateResult.modifiedCount} issues for admin ${adminId}`);
-
-    // 4. ลบ assignedAdminId (ไม่ populate อีกต่อไป)
-    await IssueLog.updateMany(
-      { assignedAdminId: adminId },
-      { $unset: { assignedAdminId: "" } }
-    );
-
-    return { 
-      success: true, 
-      modifiedCount: updateResult.modifiedCount,
-      adminData: { name: adminName, email: admin.email }
-    };
-  } catch (error) {
-    console.error('Error snapshotting admin:', error);
-    return { success: false, error };
-  }
-}
-
-/**
- * Snapshot ทั้ง Requester และ Admin ที่เกี่ยวข้องกับ User (IssueLog)
- * และ Equipment Logs (RequestLog, ReturnLog, TransferLog)
- * ใช้เมื่อลบ User ที่อาจเป็นทั้งผู้แจ้งและ Admin
+ * =========================================
+ * SNAPSHOT HELPERS
+ * =========================================
  * 
- * ⚠️ NOTE: ฟังก์ชันนี้ Snapshot ทั้ง Requester และ Admin
- * เพราะ User อาจเป็นทั้งผู้แจ้งงานและ IT Admin
+ * สร้าง snapshot ของข้อมูลอุปกรณ์เพื่อเก็บไว้ใน RequestLog และ ReturnLog
+ * เพื่อป้องกันการสูญหายของข้อมูลเมื่อ InventoryItem หรือ InventoryMaster ถูกลบ
  */
-export async function snapshotUserBeforeDelete(userId: string) {
-  const results = {
-    issueLog: {
-      requester: { success: false, modifiedCount: 0 },
-      admin: { success: false, modifiedCount: 0 }
-    },
-    equipmentLogs: {
-      requestLogs: { success: false, modifiedCount: 0 },
-      returnLogs: { success: false, modifiedCount: 0 },
-      transferLogs: { success: false, modifiedCount: 0 }
+
+import InventoryItem from '@/models/InventoryItem';
+import InventoryConfig from '@/models/InventoryConfig';
+
+/**
+ * สร้าง snapshot ของ InventoryItem สำหรับเก็บใน RequestLog
+ */
+export async function createInventoryItemSnapshot(itemId: string) {
+  try {
+    const inventoryItem = await InventoryItem.findById(itemId);
+    
+    if (!inventoryItem) {
+      console.warn(`⚠️ InventoryItem not found: ${itemId}`);
+      return null;
     }
-  };
+    
+    // Get configurations for names
+    const config = await InventoryConfig.findOne({});
+    const categoryConfigs = config?.categoryConfigs || [];
+    const statusConfigs = config?.statusConfigs || [];
+    const conditionConfigs = config?.conditionConfigs || [];
+    
+    const categoryConfig = categoryConfigs.find((c: any) => c.id === (inventoryItem as any).categoryId);
+    const statusConfig = statusConfigs.find((s: any) => s.id === inventoryItem.statusId);
+    const conditionConfig = conditionConfigs.find((c: any) => c.id === inventoryItem.conditionId);
 
-  // 1. Snapshot IssueLog (ระบบแจ้งงาน IT)
-  // Snapshot เป็น Requester
-  const requesterResult = await snapshotRequesterBeforeDelete(userId);
-  if (requesterResult.success) {
-    results.issueLog.requester = {
-      success: true,
-      modifiedCount: requesterResult.modifiedCount || 0
+    return { 
+      itemId: itemId,
+      itemName: (inventoryItem as any).itemName || 'ไม่ระบุ',
+      categoryId: (inventoryItem as any).categoryId || 'ไม่ระบุ',
+      categoryName: categoryConfig?.name || (inventoryItem as any).categoryId || 'ไม่ระบุ',
+      serialNumber: inventoryItem.serialNumber || undefined,
+      numberPhone: inventoryItem.numberPhone || undefined,
+      statusId: inventoryItem.statusId || 'ไม่ระบุ',
+      statusName: statusConfig?.name || inventoryItem.statusId || 'ไม่ระบุ',
+      conditionId: inventoryItem.conditionId || 'ไม่ระบุ',
+      conditionName: conditionConfig?.name || inventoryItem.conditionId || 'ไม่ระบุ'
     };
+  } catch (error) {
+    console.error(`❌ Error creating snapshot for item ${itemId}:`, error);
+    return null;
   }
-
-  // Snapshot เป็น Admin (เฉพาะกรณีที่ User นี้เป็น Admin ด้วย)
-  const adminResult = await snapshotAdminBeforeDelete(userId);
-  if (adminResult.success) {
-    results.issueLog.admin = {
-      success: true,
-      modifiedCount: adminResult.modifiedCount || 0
-    };
-  }
-
-  // 2. Snapshot Equipment Logs (ระบบเบิก/คืน/โอนย้ายอุปกรณ์)
-  const equipmentResult = await snapshotEquipmentLogsBeforeUserDelete(userId);
-  if (equipmentResult.requestLogs.success) {
-    results.equipmentLogs.requestLogs = {
-      success: true,
-      modifiedCount: equipmentResult.requestLogs.modifiedCount || 0
-    };
-  }
-  if (equipmentResult.returnLogs.success) {
-    results.equipmentLogs.returnLogs = {
-      success: true,
-      modifiedCount: equipmentResult.returnLogs.modifiedCount || 0
-    };
-  }
-  if (equipmentResult.transferLogs.success) {
-    results.equipmentLogs.transferLogs = {
-      success: true,
-      modifiedCount: equipmentResult.transferLogs.modifiedCount || 0
-    };
-  }
-
-  return results;
 }
 
 /**
- * ตรวจสอบว่า User มีข้อมูลที่เกี่ยวข้องใน IssueLog และ Equipment Logs หรือไม่
+ * สร้าง snapshot สำหรับหลายๆ items พร้อมกัน
  */
-export async function checkUserRelatedIssues(userId: string) {
-  // IssueLog (ระบบแจ้งงาน IT)
-  const asRequester = await IssueLog.countDocuments({ requesterId: userId });
-  const asAdmin = await IssueLog.countDocuments({ assignedAdminId: userId });
+export async function createInventoryItemSnapshotsBatch(itemIds: string[]) {
+  const snapshots = await Promise.all(
+    itemIds.map(itemId => createInventoryItemSnapshot(itemId))
+  );
   
-  // Equipment Logs (ระบบเบิก/คืน/โอนย้าย)
-  const equipmentLogs = await checkUserRelatedEquipmentLogs(userId);
-  
-  return {
-    issueLog: {
-      asRequester,
-      asAdmin,
-      total: asRequester + asAdmin
-    },
-    equipmentLogs: {
-      requestLogs: equipmentLogs.requestLogs,
-      returnLogs: equipmentLogs.returnLogs,
-      transferLogs: equipmentLogs.transferLogs,
-      total: equipmentLogs.total
-    },
-    grandTotal: asRequester + asAdmin + equipmentLogs.total,
-    hasRelatedIssues: (asRequester + asAdmin + equipmentLogs.total) > 0
-  };
+  // Filter out null values
+  return snapshots.filter(snapshot => snapshot !== null);
 }
 
+/**
+ * สร้าง snapshot จาก InventoryItem object ที่มีอยู่แล้ว (ประหยัด query)
+ */
+export async function createInventoryItemSnapshotFromObject(inventoryItem: any) {
+  try {
+    // Get configurations for names
+    const config = await InventoryConfig.findOne({});
+    const categoryConfigs = config?.categoryConfigs || [];
+    const statusConfigs = config?.statusConfigs || [];
+    const conditionConfigs = config?.conditionConfigs || [];
+    
+    const categoryConfig = categoryConfigs.find((c: any) => c.id === inventoryItem.categoryId);
+    const statusConfig = statusConfigs.find((s: any) => s.id === inventoryItem.statusId);
+    const conditionConfig = conditionConfigs.find((c: any) => c.id === inventoryItem.conditionId);
+    
+    return {
+      itemId: inventoryItem._id.toString(),
+      itemName: inventoryItem.itemName || 'ไม่ระบุ',
+      categoryId: inventoryItem.categoryId || 'ไม่ระบุ',
+      categoryName: categoryConfig?.name || inventoryItem.categoryId || 'ไม่ระบุ',
+      serialNumber: inventoryItem.serialNumber || undefined,
+      numberPhone: inventoryItem.numberPhone || undefined,
+      statusId: inventoryItem.statusId || 'ไม่ระบุ',
+      statusName: statusConfig?.name || inventoryItem.statusId || 'ไม่ระบุ',
+      conditionId: inventoryItem.conditionId || 'ไม่ระบุ',
+      conditionName: conditionConfig?.name || inventoryItem.conditionId || 'ไม่ระบุ'
+    };
+  } catch (error) {
+    console.error(`❌ Error creating snapshot from object:`, error);
+    return null;
+  }
+}
+
+/**
+ * =========================================
+ * UPDATE SNAPSHOT BEFORE DELETE
+ * =========================================
+ * อัปเดต snapshot ในทุก RequestLog ที่มี itemId นี้ก่อนที่จะลบ
+ * เพื่อเก็บข้อมูลล่าสุดของอุปกรณ์ไว้
+ */
+export async function updateSnapshotsBeforeDelete(itemId: string) {
+  try {
+    console.log(`\n📸 Updating snapshots before deleting item: ${itemId}`);
+    
+    // ดึงข้อมูลล่าสุดของ InventoryItem
+    const inventoryItem = await InventoryItem.findById(itemId);
+    
+    if (!inventoryItem) {
+      console.warn(`⚠️ InventoryItem not found: ${itemId}`);
+      return { success: false, message: 'Item not found' };
+    }
+    
+    // สร้าง snapshot ล่าสุด
+    const latestSnapshot = await createInventoryItemSnapshotFromObject(inventoryItem);
+    
+    if (!latestSnapshot) {
+      console.error(`❌ Failed to create snapshot for item: ${itemId}`);
+      return { success: false, message: 'Failed to create snapshot' };
+    }
+    
+    console.log(`📸 Created latest snapshot:`, latestSnapshot);
+    
+    // อัปเดต snapshot ใน RequestLog ทั้งหมดที่มี itemId นี้
+    const RequestLog = (await import('@/models/RequestLog')).default;
+    
+    const requestLogs = await RequestLog.find({
+      'items.assignedItemIds': itemId
+    });
+    
+    console.log(`📋 Found ${requestLogs.length} RequestLogs with this item`);
+    
+    let updatedCount = 0;
+    
+    for (const requestLog of requestLogs) {
+      let hasUpdates = false;
+      
+      for (const item of requestLog.items) {
+        // เช็คว่า item นี้มี itemId ที่เราจะลบหรือไม่
+        if (item.assignedItemIds?.includes(itemId)) {
+          // Initialize assignedItemSnapshots ถ้ายังไม่มี
+          if (!item.assignedItemSnapshots) {
+            (item as any).assignedItemSnapshots = [];
+          }
+          
+          // หา snapshot เดิมของ itemId นี้
+          const existingSnapshotIndex = (item as any).assignedItemSnapshots.findIndex(
+            (s: any) => s.itemId === itemId
+          );
+          
+          if (existingSnapshotIndex >= 0) {
+            // อัปเดต snapshot เดิม
+            (item as any).assignedItemSnapshots[existingSnapshotIndex] = latestSnapshot;
+            console.log(`   ✅ Updated existing snapshot for item in RequestLog ${requestLog._id}`);
+          } else {
+            // เพิ่ม snapshot ใหม่
+            (item as any).assignedItemSnapshots.push(latestSnapshot);
+            console.log(`   ✅ Added new snapshot for item in RequestLog ${requestLog._id}`);
+          }
+          
+          hasUpdates = true;
+        }
+      }
+      
+      if (hasUpdates) {
+        (requestLog as any).markModified('items');
+        await requestLog.save();
+        updatedCount++;
+      }
+    }
+    
+    console.log(`✅ Updated ${updatedCount} RequestLogs with latest snapshot`);
+    
+    return {
+      success: true,
+      updatedRequestLogs: updatedCount,
+      snapshot: latestSnapshot
+    };
+    
+  } catch (error) {
+    console.error(`❌ Error updating snapshots before delete:`, error);
+    return {
+      success: false,
+      message: error instanceof Error ? error.message : 'Unknown error'
+    };
+  }
+}

@@ -287,107 +287,36 @@ export async function DELETE(
     });
 
 
-    // หากมีอุปกรณ์ที่ user เป็นเจ้าของ - ไม่ลบ user แต่ทำเครื่องหมายรอลบ
+    // หากมีอุปกรณ์ที่ user เป็นเจ้าของ - ไม่สามารถลบได้
     if (userOwnedItems.length > 0) {
       
-      // จัดกลุ่มอุปกรณ์ตามชนิด
-      const itemGroups = new Map();
-      for (const item of userOwnedItems) {
-        const key = `${item.itemName}-${item.category}`;
-        if (!itemGroups.has(key)) {
-          itemGroups.set(key, []);
-        }
-        itemGroups.get(key).push(item);
-      }
-
-      // สร้าง ReturnLog อัตโนมัติ
-      const returnLogData = {
-        userId: userToDelete.user_id, // เพิ่ม userId สำหรับการอ้างอิง
-        firstName: userToDelete.firstName || 'ผู้ใช้ที่ถูกลบ',
-        lastName: userToDelete.lastName || '',
-        nickname: userToDelete.nickname || '',
-        department: userToDelete.department || 'ไม่ระบุ',
-        office: userToDelete.office || 'ไม่ระบุ',
-        email: userToDelete.email || '',
-        phoneNumber: userToDelete.phoneNumber || '',
-        returnDate: new Date(),
-        items: Array.from(itemGroups.entries()).flatMap(([key, items]) => {
-          const firstItem = items[0];
-          
-          // ถ้ามี SN หลายตัว ให้แยกเป็นรายการย่อย
-          const itemsWithSN = items.filter(item => item.serialNumber);
-          const itemsWithoutSN = items.filter(item => !item.serialNumber);
-          
-          const result = [];
-          
-          // เพิ่มรายการที่มี SN แต่ละตัว
-          for (const item of itemsWithSN) {
-            result.push({
-              itemId: item._id.toString(),
-              itemName: item.itemName,
-              category: item.category,
-              quantity: 1,
-              serialNumber: item.serialNumber, // ใช้ singular
-              reason: 'อุปกรณ์คืนอัตโนมัติเนื่องจากบัญชีผู้ใช้ถูกลบ'
-            });
-          }
-          
-          // เพิ่มรายการที่ไม่มี SN (ถ้ามี)
-          if (itemsWithoutSN.length > 0) {
-            result.push({
-              itemId: firstItem._id.toString(),
-              itemName: firstItem.itemName,
-              category: firstItem.category,
-              quantity: itemsWithoutSN.length,
-              reason: 'อุปกรณ์คืนอัตโนมัติเนื่องจากบัญชีผู้ใช้ถูกลบ'
-            });
-          }
-          
-          return result;
-        }),
-        status: 'pending', // รอการอนุมัติ
-        isAutoReturn: true, // flag พิเศษสำหรับการคืนอัตโนมัติ
-        autoReturnReason: `บัญชีผู้ใช้ ${userToDelete.firstName} ${userToDelete.lastName} (${userToDelete.user_id}) ถูกร้องขอลบโดย admin`,
-        submittedAt: new Date(),
-        notes: `การคืนอุปกรณ์อัตโนมัติ: บัญชีผู้ใช้ถูกร้องขอลบโดย admin ${decoded.firstName || decoded.user_id} เมื่อ ${new Date().toLocaleString('th-TH')}`
+      // สร้างรายการอุปกรณ์ที่ต้องคืน
+      const equipmentList = userOwnedItems.map(item => {
+        const displayName = item.itemName;
+        const sn = item.serialNumber ? ` (S/N: ${item.serialNumber})` : '';
+        const phone = item.numberPhone ? ` (เบอร์: ${item.numberPhone})` : '';
+        return `${displayName}${sn}${phone}`;
+      });
+      
+      // เตรียมข้อมูลผู้ติดต่อ
+      const userContact = {
+        name: userToDelete.userType === 'individual' 
+          ? `${userToDelete.firstName || ''} ${userToDelete.lastName || ''}`.trim()
+          : userToDelete.office,
+        phone: userToDelete.phone || 'ไม่ระบุ',
+        email: userToDelete.email || 'ไม่ระบุ',
+        office: userToDelete.office || 'ไม่ระบุ'
       };
 
-      const returnLog = new ReturnLog(returnLogData);
-      await returnLog.save();
-
-      // ทำเครื่องหมาย user ว่ารอลบ แทนการลบทันที
-      userToDelete.pendingDeletion = true;
-      userToDelete.pendingDeletionReason = `มีอุปกรณ์ ${userOwnedItems.length} รายการที่ต้องคืนก่อน`;
-      userToDelete.pendingDeletionRequestedBy = decoded.userId;
-      userToDelete.pendingDeletionRequestedAt = new Date();
-      await userToDelete.save();
-
-      // ส่งสัญญาณให้ user รอลบ logout ทันที (ไม่ต้องรอ 10 วินาที)
-      try {
-        await fetch(new URL('/api/admin/force-logout-user', request.url).toString(), {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-            'Cookie': request.headers.get('Cookie') || ''
-          },
-          body: JSON.stringify({ userId: userToDelete.user_id })
-        });
-      } catch (logoutError) {
-        console.error('Error sending immediate logout signal:', logoutError);
-      }
-
-      // บังคับให้ user login ใหม่โดยการ invalidate JWT token
-      // โดยการเพิ่ม field ที่ทำให้ JWT token เก่าใช้ไม่ได้
-      userToDelete.jwtInvalidatedAt = new Date();
-      await userToDelete.save();
-
-
       return NextResponse.json({ 
-        message: `ผู้ใช้ถูกทำเครื่องหมายรอลบ และสร้างรายการคืนอุปกรณ์อัตโนมัติ ${userOwnedItems.length} รายการ กรุณาตรวจสอบที่ "ประวัติคืน" เพื่ออนุมัติการคืนอุปกรณ์`,
+        error: 'ไม่สามารถลบผู้ใช้ได้',
+        message: `ผู้ใช้มีอุปกรณ์ ${userOwnedItems.length} รายการที่ต้องคืนก่อน กรุณาแจ้งให้ผู้ใช้คืนอุปกรณ์ผ่านหน้า "คืนอุปกรณ์" หรือติดต่อผู้ใช้โดยตรง`,
         equipmentCount: userOwnedItems.length,
+        equipmentList: equipmentList,
+        userContact: userContact,
         hasEquipment: true,
-        pendingDeletion: true
-      });
+        requiresUserAction: true // 🆕 Flag บอกว่าต้องให้ User ดำเนินการเอง
+      }, { status: 400 });
     } else {
       // ไม่มีอุปกรณ์ - ลบ user ได้ทันที (snapshot ก่อน)
       
@@ -396,6 +325,7 @@ export async function DELETE(
         const snapData = {
           userMongoId: userToDelete._id.toString(),
           user_id: userToDelete.user_id,
+          userType: userToDelete.userType, // 🆕 เพิ่ม userType
           firstName: userToDelete.firstName,
           lastName: userToDelete.lastName,
           nickname: userToDelete.nickname,
@@ -410,6 +340,7 @@ export async function DELETE(
           snapData,
           { upsert: true, new: true }
         );
+        console.log(`📸 Snapshot user data to DeletedUsers: ${userToDelete.userType} - ${snapData.user_id}`);
       } catch (e) {
         console.error('Failed to snapshot user before delete:', e);
       }

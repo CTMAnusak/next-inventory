@@ -139,18 +139,34 @@ export async function POST(request: NextRequest) {
       }
     }
 
-    // Create new return log with new structure (real-time lookup)
-    const cleanItems = returnData.items.map((item: any) => ({
-      itemId: item.itemId,
-      quantity: item.quantity,
-      serialNumber: item.serialNumber || undefined,
-      numberPhone: item.numberPhone || undefined,
-      assetNumber: item.assetNumber || undefined,
-      image: item.image || undefined,
-      statusOnReturn: item.statusOnReturn || 'status_available',
-      conditionOnReturn: item.conditionOnReturn || 'cond_working',
-      itemNotes: item.itemNotes || undefined
-    }));
+    // 🆕 สร้าง snapshots สำหรับ items ที่คืน
+    const { createInventoryItemSnapshotsBatch } = await import('@/lib/snapshot-helpers');
+    const itemIds = returnData.items.map((item: any) => item.itemId);
+    const snapshots = await createInventoryItemSnapshotsBatch(itemIds);
+    const snapshotMap = new Map(snapshots.map(s => [s?.itemId, s]));
+
+    // Create new return log with new structure (real-time lookup + snapshots)
+    const cleanItems = returnData.items.map((item: any) => {
+      const snapshot = snapshotMap.get(item.itemId);
+      
+      return {
+        itemId: item.itemId,
+        // 🆕 เพิ่ม snapshot fields
+        itemName: snapshot?.itemName,
+        category: snapshot?.categoryName,
+        categoryId: snapshot?.categoryId,
+        quantity: item.quantity,
+        serialNumber: snapshot?.serialNumber || item.serialNumber || undefined,
+        numberPhone: snapshot?.numberPhone || item.numberPhone || undefined,
+        assetNumber: item.assetNumber || undefined,
+        image: item.image || undefined,
+        statusOnReturn: item.statusOnReturn || 'status_available',
+        conditionOnReturn: item.conditionOnReturn || 'cond_working',
+        statusOnReturnName: snapshot?.statusName,
+        conditionOnReturnName: snapshot?.conditionName,
+        itemNotes: item.itemNotes || undefined
+      };
+    });
 
     const returnLogData = {
       userId: currentUserId,

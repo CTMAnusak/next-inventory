@@ -2,12 +2,12 @@ import mongoose, { Document, Schema } from 'mongoose';
 
 export interface IReturnItem {
   itemId: string;       // Reference to specific InventoryItem._id being returned
-  itemName?: string;    // 🆕 Snapshot: ชื่ออุปกรณ์ (เก็บไว้เมื่อ InventoryMaster ถูกลบ)
-  category?: string;    // 🆕 Snapshot: ชื่อหมวดหมู่ (เก็บไว้เมื่อ InventoryMaster ถูกลบ)
-  categoryId?: string;  // 🆕 Snapshot: ID หมวดหมู่ (เก็บไว้เมื่อ InventoryMaster ถูกลบ)
+  itemName?: string;    // 🆕 Snapshot: ชื่ออุปกรณ์ (เก็บไว้เมื่อ InventoryItem ถูกลบ)
+  category?: string;    // 🆕 Snapshot: ชื่อหมวดหมู่ (เก็บไว้เมื่อ InventoryItem ถูกลบ)
+  categoryId?: string;  // 🆕 Snapshot: ID หมวดหมู่ (เก็บไว้เมื่อ InventoryItem ถูกลบ)
   quantity: number;
-  serialNumber?: string; // Serial Number (ถ้ามี)
-  numberPhone?: string; // Phone Number (สำหรับซิมการ์ด)
+  serialNumber?: string; // 🆕 Snapshot: Serial Number (ถ้ามี)
+  numberPhone?: string; // 🆕 Snapshot: Phone Number (สำหรับซิมการ์ด)
   assetNumber?: string; // เลขทรัพย์สิน
   image?: string; // รูปภาพ
   statusOnReturn?: string; // สถานะอุปกรณ์เมื่อคืน (มี/หาย/ชำรุด - จาก status config)

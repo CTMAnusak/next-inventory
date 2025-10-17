@@ -74,7 +74,7 @@ interface ReturnLog {
   nickname: string;
   department: string;
   office: string;
-  phoneNumber?: string; // เพิ่ม phoneNumber property
+  phone?: string; // ✅ แก้ไขจาก phoneNumber เป็น phone ให้ตรงกับ API
   returnDate: string;
   items: Array<{
     itemId: string;        // Primary reference to inventory
@@ -1734,11 +1734,11 @@ export default function AdminEquipmentReportsPage() {
                         </td>
                         {/* สถานะ */}
                         <td className="px-6 py-4 text-sm text-gray-500 text-center text-selectable">
-                          {item.statusOnRequest || 'ไม่ระบุ'}
+                          {(item as any).statusOnRequestName || item.statusOnRequest || 'ไม่ระบุ'}
                         </td>
                         {/* สภาพ */}
                         <td className="px-6 py-4 text-sm text-gray-500 text-center text-selectable">
-                          {item.conditionOnRequest || 'ไม่ระบุ'}
+                          {(item as any).conditionOnRequestName || item.conditionOnRequest || 'ไม่ระบุ'}
                         </td>
                         {/* Serial Number */}
                         <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500 text-center">
@@ -1994,7 +1994,7 @@ export default function AdminEquipmentReportsPage() {
                         </td>
                         {/* เบอร์โทร */}
                         <td className="px-6 py-4 text-sm text-gray-500 text-center text-selectable">
-                          {returnLog.phoneNumber || '-'}
+                          {returnLog.phone || '-'}
                         </td>
                         {/* ชื่ออุปกรณ์ */}
                         <td className="px-6 py-4 text-sm font-medium text-gray-900 text-center text-selectable">
@@ -2006,11 +2006,11 @@ export default function AdminEquipmentReportsPage() {
                         </td>
                         {/* สถานะ */}
                         <td className="px-6 py-4 text-sm text-gray-500 text-center text-selectable">
-                          {item.statusOnReturn || 'ไม่ระบุ'}
+                          {(item as any).statusOnReturnName || item.statusOnReturn || 'ไม่ระบุ'}
                         </td>
                         {/* สภาพ */}
                         <td className="px-6 py-4 text-sm text-gray-500 text-center text-selectable">
-                          {item.conditionOnReturn || 'ไม่ระบุ'}
+                          {(item as any).conditionOnReturnName || item.conditionOnReturn || 'ไม่ระบุ'}
                         </td>
                         {/* Serial Number */}
                         <td className="px-6 py-4 text-sm text-gray-500 text-center text-selectable">

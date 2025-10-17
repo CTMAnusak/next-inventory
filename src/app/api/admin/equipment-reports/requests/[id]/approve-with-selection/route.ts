@@ -185,6 +185,11 @@ export async function POST(
 
           totalAssigned += 1;
         }
+        
+        // 🆕 สร้าง snapshots สำหรับ items ที่ assign
+        const { createInventoryItemSnapshotsBatch } = await import('@/lib/snapshot-helpers');
+        const itemIds = selection.selectedItems.map(item => item.itemId);
+        const snapshots = await createInventoryItemSnapshotsBatch(itemIds);
 
         console.log('🔍 DEBUG: Final assigned data for this selection:', {
           itemName: selection.itemName,
@@ -202,7 +207,8 @@ export async function POST(
           assignedPhoneNumbers: assignedPhoneNumbers, // ✅ เพิ่ม assignedPhoneNumbers
           assignedQuantity: totalAssigned,
           masterId: selection.masterId,
-          assignedItemIds: selection.selectedItems.map(item => item.itemId) // ✅ เพิ่ม assignedItemIds
+          assignedItemIds: selection.selectedItems.map(item => item.itemId), // ✅ เพิ่ม assignedItemIds
+          assignedItemSnapshots: snapshots // 🆕 เพิ่ม snapshots
         });
       }
 
@@ -242,6 +248,14 @@ export async function POST(
           }
           if (assignedItem.assignedItemIds && assignedItem.assignedItemIds.length > 0) {
             (requestLog.items[requestItemIndex] as any).assignedItemIds.push(...assignedItem.assignedItemIds);
+          }
+          
+          // 🆕 Add assignedItemSnapshots to RequestLog
+          if (!(requestLog.items[requestItemIndex] as any).assignedItemSnapshots) {
+            (requestLog.items[requestItemIndex] as any).assignedItemSnapshots = [];
+          }
+          if ((assignedItem as any).assignedItemSnapshots && (assignedItem as any).assignedItemSnapshots.length > 0) {
+            (requestLog.items[requestItemIndex] as any).assignedItemSnapshots.push(...(assignedItem as any).assignedItemSnapshots);
           }
 
           // Set default status and condition IDs when approved

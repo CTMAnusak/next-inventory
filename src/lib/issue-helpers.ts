@@ -45,9 +45,18 @@ export async function populateAdminInfo(issue: any) {
 
 /**
  * Populate requester information from User collection
- * - Individual users: Populate ทุกฟิลด์จาก User
- * - Branch users: Populate เฉพาะ office จาก User, ส่วนอื่นใช้ที่กรอกในฟอร์ม
- * - ถ้าไม่มี requesterId (ถูกลบแล้ว): ใช้ Snapshot
+ * 
+ * **Individual User:**
+ * - Populate ข้อมูลทั้งหมดจาก User collection (real-time)
+ * - ถ้า User ถูกลบ → ใช้ snapshot ที่เก็บไว้
+ * 
+ * **Branch User:**
+ * - Populate เฉพาะ office, phone, email จาก User collection (real-time)
+ * - ข้อมูลส่วนตัว → ใช้ snapshot จากฟอร์มที่กรอก
+ * - ⚠️ Snapshot จากฟอร์ม = ข้อมูลที่กรอกในแต่ละครั้ง (ไม่ใช่ข้อมูลล่าสุดก่อนลบ)
+ * 
+ * @param issue - IssueLog document
+ * @returns Populated issue with requester info
  */
 export async function populateRequesterInfo(issue: any) {
   if (!issue) return null;
@@ -70,7 +79,7 @@ export async function populateRequesterInfo(issue: any) {
       return issueObj;
     }
 
-    // Individual User: Populate ทุกฟิลด์
+    // Individual User: Populate ทุกฟิลด์จาก User collection
     if (issue.requesterType === 'individual' || user.userType === 'individual') {
       return {
         ...issueObj,
@@ -84,12 +93,14 @@ export async function populateRequesterInfo(issue: any) {
       };
     }
 
-    // Branch User: Populate เฉพาะ office, ส่วนอื่นใช้ Snapshot
+    // Branch User: Populate เฉพาะข้อมูลสาขา (ข้อมูลส่วนตัวใช้จากฟอร์ม)
     if (issue.requesterType === 'branch' || user.userType === 'branch') {
       return {
         ...issueObj,
-        office: user.office || issueObj.office, // ✨ อัพเดทชื่อสาขาล่าสุด
-        // firstName, lastName, etc. ใช้จาก Snapshot (ที่กรอกในฟอร์ม)
+        office: user.office || issueObj.office, // อัพเดทชื่อสาขาล่าสุด
+        phone: user.phone || issueObj.phone, // อัพเดทเบอร์โทรล่าสุด
+        email: user.email || issueObj.email, // อัพเดทอีเมลล่าสุด
+        // firstName, lastName, etc. → ใช้จาก snapshot ในฟอร์ม
       };
     }
 
