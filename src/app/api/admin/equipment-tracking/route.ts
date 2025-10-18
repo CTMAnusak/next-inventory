@@ -57,25 +57,32 @@ export async function GET(request: NextRequest) {
     const users = await User.find({ user_id: { $in: userIds } }).lean();
     const userMap = new Map(users.map((user: any) => [user.user_id, user]));
     
+    // 🆕 ดึง InventoryMaster ทั้งหมดมาก่อน เพื่อหาชื่ออุปกรณ์ล่าสุด
+    const uniqueItems = [...new Set(ownedItems.map(item => `${item.itemName}||${item.categoryId}`))];
+    const masterRecords = await InventoryMaster.find({}).lean();
+    const masterMap = new Map(masterRecords.map((master: any) => [
+      `${master.itemName}||${master.categoryId}`,
+      master
+    ]));
+    
     // Fetch approved request logs to determine which items came from requests
     const approvedRequests = await RequestLog.find({
       status: 'approved', // ✅ ใช้ approved เท่านั้น (อนุมัติทีละรายการ)
       requestType: 'request'
     }).lean();
     
-    // Build a map of itemId -> requestLog + snapshot for quick lookup
+    // Build a map of itemId -> requestLog for quick lookup
     const itemToRequestMap = new Map();
     
     approvedRequests.forEach(req => {
       req.items?.forEach((item: any) => {
-        // 🆕 ใช้ assignedItemSnapshots ถ้ามี
+        // ใช้ assignedItemSnapshots ถ้ามี
         if (item.assignedItemSnapshots && item.assignedItemSnapshots.length > 0) {
           item.assignedItemSnapshots.forEach((snapshot: any) => {
             itemToRequestMap.set(snapshot.itemId, {
               requestDate: req.requestDate,
               userId: req.userId,
-              deliveryLocation: req.deliveryLocation || '',
-              snapshot: snapshot // 🆕 เก็บ snapshot ไว้
+              deliveryLocation: req.deliveryLocation || ''
             });
           });
         } 
@@ -85,8 +92,7 @@ export async function GET(request: NextRequest) {
             itemToRequestMap.set(itemId, {
               requestDate: req.requestDate,
               userId: req.userId,
-              deliveryLocation: req.deliveryLocation || '',
-              snapshot: null
+              deliveryLocation: req.deliveryLocation || ''
             });
           });
         }
@@ -148,14 +154,12 @@ export async function GET(request: NextRequest) {
       
         // Check if this item came from a request
         const requestInfo = itemToRequestMap.get(String(item._id));
-        let itemSnapshot = null;
         
         if (requestInfo || item.transferInfo?.requestId) {
           source = 'request';
           if (requestInfo) {
             dateAdded = requestInfo.requestDate;
             deliveryLocationValue = requestInfo.deliveryLocation || userOffice || '';
-            itemSnapshot = requestInfo.snapshot; // 🆕 เก็บ snapshot
           } else if (item.transferInfo?.transferDate) {
             dateAdded = item.transferInfo.transferDate;
           }
@@ -165,26 +169,33 @@ export async function GET(request: NextRequest) {
         if (department && userDepartment !== department) continue;
         if (office && userOffice !== office) continue;
         
-        // 🆕 ใช้ snapshot ถ้ามี (จากการเบิก) ไม่เช่นนั้นใช้ real-time data
-        // ลำดับความสำคัญ: snapshot (ถ้าเบิกมา) > real-time InventoryItem > config lookup
-        const finalItemName = itemSnapshot?.itemName || item.itemName || 'ไม่ระบุ';
-        const finalCategoryId = itemSnapshot?.categoryId || item.categoryId || 'ไม่ระบุ';
-        const finalSerialNumber = itemSnapshot?.serialNumber || item.serialNumber || '';
-        const finalNumberPhone = itemSnapshot?.numberPhone || item.numberPhone || '';
+        // 🆕 ดึงข้อมูลล่าสุดจาก InventoryMaster และ Config (ไม่ใช้ snapshot)
+        // เพื่อให้แสดงข้อมูลที่อัพเดตล่าสุดเมื่อแอดมินแก้ไข
         
-        // Get category name: snapshot > config lookup
+        // 1. ค้นหาชื่ออุปกรณ์และหมวดหมู่ล่าสุดจาก InventoryMaster Map
+        const masterKey = `${item.itemName}||${item.categoryId}`;
+        const inventoryMaster = masterMap.get(masterKey);
+        
+        const finalItemName = inventoryMaster?.itemName || item.itemName || 'ไม่ระบุ';
+        const finalCategoryId = inventoryMaster?.categoryId || item.categoryId || 'ไม่ระบุ';
+        
+        // 2. ดึง Serial Number และ Phone Number จาก item โดยตรง (ข้อมูลเฉพาะชิ้น)
+        const finalSerialNumber = item.serialNumber || '';
+        const finalNumberPhone = item.numberPhone || '';
+        
+        // 3. ดึงชื่อหมวดหมู่ล่าสุดจาก Config
         const categoryConfig = categoryConfigs.find((c: any) => c.id === finalCategoryId);
-        const finalCategoryName = itemSnapshot?.categoryName || categoryConfig?.name || finalCategoryId || 'ไม่ระบุ';
+        const finalCategoryName = categoryConfig?.name || finalCategoryId || 'ไม่ระบุ';
         
-        // Get status name: snapshot > real-time > config lookup
+        // 4. ดึงสถานะล่าสุดจาก Config
         const statusConfig = statusConfigs.find((s: any) => s.id === item.statusId);
-        const finalStatusId = itemSnapshot?.statusId || item.statusId || '';
-        const finalStatusName = itemSnapshot?.statusName || statusConfig?.name || item.statusId || 'ไม่ระบุ';
+        const finalStatusId = item.statusId || '';
+        const finalStatusName = statusConfig?.name || item.statusId || 'ไม่ระบุ';
         
-        // Get condition name: snapshot > real-time > config lookup
+        // 5. ดึงสภาพล่าสุดจาก Config
         const conditionConfig = conditionConfigs.find((c: any) => c.id === item.conditionId);
-        const finalConditionId = itemSnapshot?.conditionId || item.conditionId || '';
-        const finalConditionName = itemSnapshot?.conditionName || conditionConfig?.name || item.conditionId || 'ไม่ระบุ';
+        const finalConditionId = item.conditionId || '';
+        const finalConditionName = conditionConfig?.name || item.conditionId || 'ไม่ระบุ';
         
         trackingRecords.push({
           _id: String(item._id),
@@ -215,8 +226,7 @@ export async function GET(request: NextRequest) {
           requestDate: dateAdded,
           urgency: 'normal',
           deliveryLocation: deliveryLocationValue,
-          reason: source === 'request' ? 'การเบิกอุปกรณ์' : 'อุปกรณ์ที่มีอยู่เดิม',
-          hasSnapshot: !!itemSnapshot // 🆕 บอกว่ามี snapshot หรือไม่
+          reason: source === 'request' ? 'การเบิกอุปกรณ์' : 'อุปกรณ์ที่มีอยู่เดิม'
         });
       } catch (itemError: any) {
         console.error(`❌ Error processing item ${item._id}:`, itemError.message);
