@@ -2,8 +2,9 @@ import { NextRequest, NextResponse } from 'next/server';
 import dbConnect from '@/lib/mongodb';
 import IssueLog from '@/models/IssueLog';
 import { sendIssueNotification } from '@/lib/email';
-import { generateIssueId, verifyToken } from '@/lib/auth';
+import { generateIssueId } from '@/lib/auth';
 import { populateIssueInfoBatch, formatIssueForEmail } from '@/lib/issue-helpers';
+import { authenticateUser } from '@/lib/auth-helpers';
 
 export async function POST(request: NextRequest) {
   try {
@@ -34,25 +35,18 @@ export async function POST(request: NextRequest) {
     await dbConnect();
     console.log('Database connected successfully');
 
+    // 🆕 ตรวจสอบ authentication และ user ใน database
+    const { error, user } = await authenticateUser(request);
+    if (error) return error;
+
     // Generate unique Issue ID
     const issueId = generateIssueId();
     console.log('Generated issue ID:', issueId);
 
-    // Get user info from token
-    const userInfo = (() => {
-      try {
-        const token = request.cookies.get('auth-token')?.value;
-        const payload: any = token ? verifyToken(token) : null;
-        return payload || null;
-      } catch {
-        return null;
-      }
-    })();
-
     // Determine requester type and ID
-    const requesterType = reportData.requesterType || userInfo?.userType;
-    const requesterId = reportData.requesterId || userInfo?.userId; // ✅ เก็บ ID สำหรับทั้ง individual และ branch
-    const officeId = userInfo?.office; // เก็บ office ID สำหรับ populate
+    const requesterType = reportData.requesterType || user.userType;
+    const requesterId = reportData.requesterId || user.user_id; // ✅ เก็บ ID สำหรับทั้ง individual และ branch
+    const officeId = user.office; // เก็บ office ID สำหรับ populate
 
     const newIssue = new IssueLog({
       issueId,
@@ -74,7 +68,7 @@ export async function POST(request: NextRequest) {
       status: 'pending',
       reportDate: reportData.reportDate || new Date(),
       closeLink: `/close-issue/${issueId}`,
-      userId: userInfo?.userId || undefined // Keep for backward compatibility
+      userId: user?.userId || undefined // Keep for backward compatibility
     });
 
     await newIssue.save();

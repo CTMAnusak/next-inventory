@@ -354,6 +354,14 @@ export async function DELETE(
         console.error('Failed to snapshot user data in logs:', e);
       }
       
+      // ตั้งค่า jwtInvalidatedAt เพื่อให้ JWT token หมดอายุทันที
+      await User.findByIdAndUpdate(id, {
+        jwtInvalidatedAt: new Date(),
+        deletedAt: new Date(),
+        isDeleted: true
+      });
+
+      // ลบผู้ใช้จากฐานข้อมูล
       const deletedUser = await User.findByIdAndDelete(id);
 
       return NextResponse.json({ 

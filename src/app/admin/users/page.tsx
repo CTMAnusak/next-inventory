@@ -78,6 +78,7 @@ export default function AdminUsersPage() {
   const [showApprovalModal, setShowApprovalModal] = useState(false);
   const [approvingUser, setApprovingUser] = useState<User | null>(null);
   const [selectedRole, setSelectedRole] = useState<'user' | 'admin' | 'it_admin'>('user');
+  const [isApproving, setIsApproving] = useState(false);
   
   // States สำหรับ pending deletion popup
   const [showPendingDeletionModal, setShowPendingDeletionModal] = useState(false);
@@ -319,8 +320,9 @@ export default function AdminUsersPage() {
         method: 'DELETE',
       });
 
+      const data = await response.json();
+
       if (response.ok) {
-        const data = await response.json();
         if (data.pendingDeletion) {
           toast.success('ผู้ใช้ถูกทำเครื่องหมายรอลบ กรุณาตรวจสอบการคืนอุปกรณ์');
         } else {
@@ -328,7 +330,57 @@ export default function AdminUsersPage() {
         }
         await fetchUsers();
       } else {
-        toast.error('เกิดข้อผิดพลาดในการลบ');
+        // ตรวจสอบว่ามีอุปกรณ์ครอบครองหรือไม่
+        if (data.hasEquipment && data.equipmentList) {
+          const equipmentCount = data.equipmentCount || 0;
+          const equipmentItems = data.equipmentList.slice(0, 5); // แสดงแค่ 5 รายการแรก
+          const remainingCount = equipmentCount - equipmentItems.length;
+          
+          // สร้างข้อความแสดงรายการอุปกรณ์
+          let equipmentMessage = `❌ ไม่สามารถลบผู้ใช้ได้\n\n`;
+          equipmentMessage += `🔴 ผู้ใช้นี้ยังมีอุปกรณ์ครอบครองอยู่ ${equipmentCount} รายการ\n`;
+          equipmentMessage += `กรุณาให้ผู้ใช้คืนอุปกรณ์ทั้งหมดก่อนลบบัญชี\n\n`;
+          equipmentMessage += `📦 อุปกรณ์ที่ต้องคืน:\n`;
+          equipmentItems.forEach((item: string, index: number) => {
+            equipmentMessage += `  ${index + 1}. ${item}\n`;
+          });
+          
+          if (remainingCount > 0) {
+            equipmentMessage += `  ... และอีก ${remainingCount} รายการ\n`;
+          }
+          
+          // แสดง contact info ถ้ามี
+          if (data.userContact) {
+            equipmentMessage += `\n📞 ข้อมูลติดต่อผู้ใช้:\n`;
+            equipmentMessage += `  • ชื่อ: ${data.userContact.name}\n`;
+            equipmentMessage += `  • สำนักงาน: ${data.userContact.office}\n`;
+            equipmentMessage += `  • โทร: ${data.userContact.phone}\n`;
+            equipmentMessage += `  • อีเมล: ${data.userContact.email}`;
+          }
+          
+          // แสดง custom toast แบบยาว ตรงกลางจอทั้งแนวตั้งและแนวนอน
+          customToast.error(equipmentMessage, {
+            duration: 15000, // แสดง 15 วินาที
+            style: {
+              maxWidth: '600px',
+              whiteSpace: 'pre-line',
+              textAlign: 'left',
+              fontSize: '14px',
+              lineHeight: '1.6',
+              padding: '20px',
+              borderRadius: '12px',
+              boxShadow: '0 10px 40px rgba(0, 0, 0, 0.2)',
+              position: 'fixed',
+              top: '0%',
+              right: '0%',
+              zIndex: '9999'
+            }
+          });
+        } else {
+          // กรณีอื่นๆ ที่ไม่ใช่เรื่องอุปกรณ์
+          const errorMessage = data.error || data.message || 'เกิดข้อผิดพลาดในการลบ';
+          customToast.error(errorMessage);
+        }
       }
     } catch (error) {
       toast.error('เกิดข้อผิดพลาดในการเชื่อมต่อ');
@@ -415,6 +467,7 @@ export default function AdminUsersPage() {
   const confirmApproval = async () => {
     if (!approvingUser) return;
 
+    setIsApproving(true);
     try {
       const response = await fetch(`/api/admin/users/${approvingUser._id}/approve`, {
         method: 'POST',
@@ -435,6 +488,8 @@ export default function AdminUsersPage() {
       }
     } catch (error) {
       toast.error('เกิดข้อผิดพลาดในการเชื่อมต่อ');
+    } finally {
+      setIsApproving(false);
     }
   };
 
@@ -1293,15 +1348,24 @@ export default function AdminUsersPage() {
               <div className="flex space-x-3">
                 <button
                   onClick={() => setShowApprovalModal(false)}
-                  className="flex-1 px-4 py-2 text-gray-600 hover:text-gray-800 hover:bg-gray-100 rounded-lg transition-colors"
+                  disabled={isApproving}
+                  className="flex-1 px-4 py-2 text-gray-600 hover:text-gray-800 hover:bg-gray-100 rounded-lg transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
                 >
                   ยกเลิก
                 </button>
                 <button
                   onClick={confirmApproval}
-                  className="flex-1 px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors"
+                  disabled={isApproving}
+                  className="flex-1 px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center space-x-2"
                 >
-                  อนุมัติ
+                  {isApproving ? (
+                    <>
+                      <RefreshCw className="w-4 h-4 animate-spin" />
+                      <span>กำลังอนุมัติ...</span>
+                    </>
+                  ) : (
+                    <span>อนุมัติ</span>
+                  )}
                 </button>
               </div>
             </div>

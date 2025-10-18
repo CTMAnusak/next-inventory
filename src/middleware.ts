@@ -2,7 +2,7 @@ import { NextResponse } from 'next/server';
 import type { NextRequest } from 'next/server';
 import { verifyTokenFromRequestEdge } from './lib/auth-edge';
 
-export function middleware(request: NextRequest) {
+export async function middleware(request: NextRequest) {
   const { pathname } = request.nextUrl;
   
   
@@ -26,6 +26,27 @@ export function middleware(request: NextRequest) {
         // ลบ auth token cookie
         response.cookies.delete('auth-token');
         return response;
+      }
+
+      // ตรวจสอบเพิ่มเติม: เรียก API auth check เพื่อตรวจสอบสถานะผู้ใช้ในฐานข้อมูล
+      // (เฉพาะสำหรับการเข้าถึงหน้าที่สำคัญ)
+      if (pathname.startsWith('/dashboard') || pathname.startsWith('/admin')) {
+        try {
+          const authCheckResponse = await fetch(new URL('/api/auth/check', request.url), {
+            headers: {
+              'Cookie': request.headers.get('cookie') || '',
+            },
+          });
+          
+          if (!authCheckResponse.ok) {
+            const response = NextResponse.redirect(new URL('/login?error=session_expired', request.url));
+            response.cookies.delete('auth-token');
+            return response;
+          }
+        } catch (error) {
+          // ถ้าไม่สามารถตรวจสอบได้ ให้ผ่านไป (ป้องกันการบล็อกที่ไม่จำเป็น)
+          console.log('⚠️ Middleware: Auth check failed, allowing access');
+        }
       }
       
       // ตรวจสอบสิทธิ์ Admin เฉพาะหน้า Admin

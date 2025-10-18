@@ -1,27 +1,14 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { connectDB } from '@/lib/mongodb';
-import { verifyToken } from '@/lib/auth';
+import { authenticateUser } from '@/lib/auth-helpers';
 import IssueLog from '@/models/IssueLog';
 import { formatIssueForEmail } from '@/lib/issue-helpers';
 
 export async function POST(request: NextRequest) {
   try {
-    // Verify user authentication
-    const token = request.cookies.get('auth-token')?.value;
-    if (!token) {
-      return NextResponse.json(
-        { error: 'ไม่พบการยืนยันตัวตน' },
-        { status: 401 }
-      );
-    }
-
-    const payload: any = verifyToken(token);
-    if (!payload) {
-      return NextResponse.json(
-        { error: 'Token ไม่ถูกต้อง' },
-        { status: 401 }
-      );
-    }
+    // 🆕 ตรวจสอบ authentication และ user ใน database
+    const { error, user } = await authenticateUser(request);
+    if (error) return error;
 
     const { issueId, action, reason } = await request.json();
     
@@ -52,9 +39,9 @@ export async function POST(request: NextRequest) {
 
     // Verify the user owns this issue
     const ownsIssue = 
-      issue.requesterId === payload.userId || // New way: check requesterId
-      issue.userId === payload.userId || // Legacy: check userId
-      issue.email === payload.email; // Fallback: check email
+      issue.requesterId === user!.user_id || // New way: check requesterId
+      issue.userId === user!.user_id || // Legacy: check userId
+      issue.email === user!.email; // Fallback: check email
       
     if (!ownsIssue) {
       return NextResponse.json(

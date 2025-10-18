@@ -4,6 +4,7 @@ import RequestLog from '@/models/RequestLog';
 import InventoryItem from '@/models/InventoryItem';
 import InventoryMaster from '@/models/InventoryMaster';
 import User from '@/models/User';
+import DeletedUsers from '@/models/DeletedUser';
 import InventoryConfig from '@/models/InventoryConfig';
 
 // GET - ดึงข้อมูลการติดตามอุปกรณ์ทั้งหมด (รวมอุปกรณ์ที่เบิกและอุปกรณ์ที่ user มี)
@@ -56,6 +57,22 @@ export async function GET(request: NextRequest) {
     // Fetch all users at once (using user_id field, not _id)
     const users = await User.find({ user_id: { $in: userIds } }).lean();
     const userMap = new Map(users.map((user: any) => [user.user_id, user]));
+    
+    // 🆕 Fetch deleted users for users not found in active User collection
+    const foundUserIds = users.map((u: any) => u.user_id);
+    const missingUserIds = userIds.filter(id => !foundUserIds.includes(id));
+    
+    if (missingUserIds.length > 0) {
+      console.log(`🔍 Looking for ${missingUserIds.length} deleted users...`);
+      const deletedUsers = await DeletedUsers.find({ user_id: { $in: missingUserIds } }).lean();
+      deletedUsers.forEach((deletedUser: any) => {
+        userMap.set(deletedUser.user_id, {
+          ...deletedUser,
+          _isDeleted: true // Mark as deleted for special handling
+        });
+      });
+      console.log(`📸 Found ${deletedUsers.length} deleted users in DeletedUsers collection`);
+    }
     
     // 🆕 ดึง InventoryMaster ทั้งหมดมาก่อน เพื่อหาชื่ออุปกรณ์ล่าสุด
     const uniqueItems = [...new Set(ownedItems.map(item => `${item.itemName}||${item.categoryId}`))];
@@ -115,16 +132,17 @@ export async function GET(request: NextRequest) {
         const user = userMap.get(userId);
         
         if (!user) {
-          console.warn(`⚠️ User ${userId} not found for item ${item._id}`);
+          console.warn(`⚠️ User ${userId} not found for item ${item._id} (not in User or DeletedUsers)`);
         }
         
-        // ✅ ดึงข้อมูลจาก User collection เป็นหลัก
+        // ✅ ดึงข้อมูลจาก User collection หรือ DeletedUsers
         let firstName = user?.firstName || '';
         let lastName = user?.lastName || '';
         let nickname = user?.nickname || '';
         let userDepartment = user?.department || '';
         let userPhone = user?.phone || '';
         let userOffice = user?.office || '';
+        const isDeletedUser = (user as any)?._isDeleted || false;
         
         // 🔍 Debug: Log item data
         console.log(`\n📦 Processing item: ${item.itemName} (${item._id})`);
@@ -142,7 +160,16 @@ export async function GET(request: NextRequest) {
           nickname = itemRequesterInfo.nickname || nickname;
           userDepartment = itemRequesterInfo.department || userDepartment;
           userPhone = itemRequesterInfo.phone || userPhone;
-          userOffice = itemRequesterInfo.office || userOffice;
+          // 🆕 สำหรับผู้ใช้สาขาที่ถูกลบ: office ใช้จาก DeletedUsers
+          if (isDeletedUser && user?.userType === 'branch') {
+            userOffice = user.office || itemRequesterInfo.office || userOffice;
+          } else {
+            userOffice = itemRequesterInfo.office || userOffice;
+          }
+        } else if (isDeletedUser && user?.userType === 'branch') {
+          // 🆕 สำหรับผู้ใช้สาขาที่ถูกลบ แต่ไม่มี requesterInfo:
+          // ใช้ข้อมูลจาก DeletedUsers เฉพาะ office
+          userOffice = user.office || userOffice;
         }
         
         console.log(`   Final data:`, { firstName, lastName, nickname, userDepartment });

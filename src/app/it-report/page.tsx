@@ -302,7 +302,8 @@ export default function ITReportPage() {
         setImageURLs([]);
       } else {
         console.error('API Error:', data);
-        toast.error(data.error || 'เกิดข้อผิดพลาดในการส่งข้อมูล');
+        const errorMessage = data?.error || data?.message || 'เกิดข้อผิดพลาดในการส่งข้อมูล';
+        toast.error(errorMessage);
       }
     } catch (error) {
       console.error('Submit error:', error);
@@ -488,7 +489,7 @@ export default function ITReportPage() {
                             className="w-full h-full object-cover"
                           />
                         </div>
-                        <div className="mt-1 text-xs text-gray-600 truncate text-center mt-2">
+                        <div className="mt-2 text-xs text-gray-600 truncate text-center">
                           {file.name}
                         </div>
                         <div className="text-xs text-gray-500 text-center">

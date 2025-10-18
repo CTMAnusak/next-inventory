@@ -407,7 +407,7 @@ export default function AdminITReportsPage() {
         { header: 'วันที่แจ้ง', key: 'reportDate', width: 15 },
         { header: 'ความเร่งด่วน', key: 'urgency', width: 12 },
         { header: 'Issue ID', key: 'issueId', width: 15 },
-        { header: 'ชื่อ-นามสกุล', key: 'name', width: 20 },
+        { header: 'ชื่อ-นามสกุล', key: 'name', width: 25 },
         { header: 'เบอร์โทร', key: 'phone', width: 15 },
         { header: 'อีเมล', key: 'email', width: 25 },
         { header: 'แผนก', key: 'department', width: 20 },
@@ -415,21 +415,53 @@ export default function AdminITReportsPage() {
         { header: 'หัวข้อปัญหา', key: 'issueCategory', width: 25 },
         { header: 'รายละเอียดปัญหา', key: 'description', width: 40 },
         { header: 'สถานะงาน', key: 'status', width: 15 },
-        { header: 'วันที่ดำเนินการเสร็จ', key: 'completedDate', width: 20 },
-        { header: 'หมายเหตุ', key: 'notes', width: 30 },
+        { header: 'วันที่แอดมินรับงาน', key: 'acceptedDate', width: 20 },
+        { header: 'วันที่แอดมินดำเนินการเสร็จ', key: 'completedDate', width: 25 },
+        { header: 'วันที่ปิดงาน', key: 'closedDate', width: 20 },
+        { header: 'IT Admin ผู้รับงาน', key: 'assignedAdmin', width: 25 },
         { header: 'รูปภาพ', key: 'images', width: 25 },
+        { header: 'หมายเหตุล่าสุด (Admin)', key: 'latestAdminNote', width: 30 },
+        { header: 'หมายเหตุล่าสุด (ผู้แจ้ง)', key: 'latestUserNote', width: 30 },
       ];
 
       // เพิ่มข้อมูลและรูปภาพ
       for (let index = 0; index < filteredIssues.length; index++) {
         const issue = filteredIssues[index];
         
+        // สร้างชื่อ-นามสกุลพร้อมชื่อเล่น
+        const fullName = issue.firstName && issue.lastName 
+          ? `${issue.firstName} ${issue.lastName}${issue.nickname ? ` (${issue.nickname})` : ''}`
+          : '(ผู้ใช้ถูกลบแล้ว)';
+
+        // หาหมายเหตุล่าสุดจาก admin (ต้องเป็น admin เท่านั้น ไม่ใช่ user)
+        const latestAdminNote = issue.notesHistory && issue.notesHistory.length > 0
+          ? issue.notesHistory
+              .filter(note => note.adminId && note.adminName) // กรองเฉพาะหมายเหตุจาก admin
+              .sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()) // เรียงตามวันที่ล่าสุด
+              .map(note => note.note)[0] || '-'
+          : (issue.notes || '-');
+
+        // หาหมายเหตุล่าสุดจากผู้แจ้ง
+        let latestUserNote = '-';
+        if (issue.userFeedbackHistory && issue.userFeedbackHistory.length > 0) {
+          // เรียงตามวันที่ล่าสุดและเอาหมายเหตุล่าสุด
+          const latestFeedback = issue.userFeedbackHistory
+            .sort((a, b) => new Date(b.submittedAt).getTime() - new Date(a.submittedAt).getTime())[0];
+          latestUserNote = latestFeedback.reason;
+        } else if (issue.userFeedback) {
+          // Fallback สำหรับข้อมูลเก่า
+          latestUserNote = issue.userFeedback.reason;
+        } else if (issue.status === 'closed') {
+          // ถ้าปิดงานแล้วแต่ไม่มี feedback ให้แสดง "แก้ไขสำเร็จ"
+          latestUserNote = 'แก้ไขสำเร็จ';
+        }
+
         const excelRow = worksheet.addRow({
           no: index + 1,
           reportDate: new Date(issue.reportDate).toLocaleDateString('th-TH', { timeZone: 'Asia/Bangkok' }),
           urgency: issue.urgency === 'very_urgent' ? 'ด่วนมาก' : 'ปกติ',
           issueId: issue.issueId,
-          name: issue.firstName && issue.lastName ? `${issue.firstName} ${issue.lastName}` : '(ผู้ใช้ถูกลบแล้ว)',
+          name: fullName,
           phone: issue.phone,
           email: issue.email,
           department: issue.department,
@@ -437,9 +469,13 @@ export default function AdminITReportsPage() {
           issueCategory: issue.issueCategory + (issue.customCategory ? ` (${issue.customCategory})` : ''),
           description: issue.description,
           status: getStatusDisplayName(issue.status),
+          acceptedDate: issue.acceptedDate ? new Date(issue.acceptedDate).toLocaleDateString('th-TH', { timeZone: 'Asia/Bangkok' }) : '-',
           completedDate: issue.completedDate ? new Date(issue.completedDate).toLocaleDateString('th-TH', { timeZone: 'Asia/Bangkok' }) : '-',
-          notes: issue.notes || '-',
+          closedDate: issue.closedDate ? new Date(issue.closedDate).toLocaleDateString('th-TH', { timeZone: 'Asia/Bangkok' }) : '-',
+          assignedAdmin: issue.assignedAdmin?.name || '-',
           images: '',
+          latestAdminNote: latestAdminNote,
+          latestUserNote: latestUserNote,
         });
 
         // ถ้ามีรูปภาพ ให้ใส่รูปลงใน Excel
@@ -464,24 +500,22 @@ export default function AdminITReportsPage() {
               // ปรับความสูงของแถวให้พอดีกับรูป
               excelRow.height = 80;
 
-              // ใส่รูปลงใน cell
+              // ใส่รูปลงใน cell (คอลัมน์รูปภาพอยู่ที่ตำแหน่ง 17)
               worksheet.addImage(imageId, {
-                tl: { col: 14, row: index + 1 },
+                tl: { col: 16, row: index + 1 },
                 ext: { width: 90, height: 90 },
                 editAs: 'oneCell'
               });
 
-              // แสดงจำนวนรูปภาพทั้งหมด
-              excelRow.getCell('images').value = issue.images.length > 1 
-                ? `มี ${issue.images.length} รูป (แสดงรูปแรก)` 
-                : 'มี 1 รูป';
+              // ไม่แสดงข้อความใดๆ เมื่อมีรูป (แสดงแค่รูป)
+              excelRow.getCell('images').value = '';
             }
           } catch (error) {
             console.error('Error loading image:', error);
             excelRow.getCell('images').value = 'ไม่สามารถโหลดรูปได้';
           }
         } else {
-          excelRow.getCell('images').value = 'ไม่มีรูปภาพ';
+          excelRow.getCell('images').value = 'ไม่มีรูป';
         }
       }
 
@@ -790,7 +824,7 @@ export default function AdminITReportsPage() {
                     Issue ID
                   </th>
                   <th className="px-6 py-3 text-center text-xs font-medium text-white uppercase tracking-wider">
-                    ชื่อ
+                    ชื่อ-นามสกุล
                   </th>
                   <th className="px-6 py-3 text-center text-xs font-medium text-white uppercase tracking-wider">
                     เบอร์โทร
@@ -806,6 +840,9 @@ export default function AdminITReportsPage() {
                   </th>
                   <th className="px-6 py-3 text-center text-xs font-medium text-white uppercase tracking-wider">
                     สถานะงาน
+                  </th>
+                  <th className="px-6 py-3 text-center text-xs font-medium text-white uppercase tracking-wider">
+                    IT Admin ผู้รับงาน
                   </th>
                   {(activeTab === 'pending' || activeTab === 'in_progress') && (
                     <th className="px-6 py-3 text-center text-xs font-medium text-white uppercase tracking-wider">
@@ -857,7 +894,7 @@ export default function AdminITReportsPage() {
                       }>
                         {issue.firstName && issue.lastName ? (
                           <>
-                            {issue.firstName} {issue.lastName}
+                            {issue.firstName} {issue.lastName}{issue.nickname ? ` (${issue.nickname})` : ''}
                             {(issue as any).userId?.pendingDeletion && ' (รอลบ)'}
                           </>
                         ) : (
@@ -885,6 +922,13 @@ export default function AdminITReportsPage() {
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap text-center">
                       {getStatusBadge(issue.status)}
+                    </td>
+                    <td className="px-6 py-4 text-sm text-center text-selectable">
+                      {issue.assignedAdmin?.name ? (
+                        <span className="text-green-700 font-medium">{issue.assignedAdmin.name}</span>
+                      ) : (
+                        <span className="text-yellow-700 font-medium">รอรับงาน</span>
+                      )}
                     </td>
                     {activeTab === 'pending' && (
                       <td className="px-6 py-4 whitespace-nowrap text-center">

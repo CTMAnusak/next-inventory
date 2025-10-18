@@ -289,7 +289,7 @@ export default function ITTrackingPage() {
                       
                       {/* ชื่อ-นามสกุล */}
                       <td className="px-4 py-3 whitespace-nowrap text-sm text-gray-900 text-center border-r border-gray-200">
-                        {issue.firstName} {issue.lastName}
+                        {issue.firstName} {issue.lastName}{issue.nickname ? ` (${issue.nickname})` : ''}
                       </td>
                       
                       {/* เบอร์โทรศัพท์ */}

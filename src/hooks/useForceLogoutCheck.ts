@@ -12,20 +12,22 @@ export function useForceLogoutCheck() {
   useEffect(() => {
     if (!user) return;
 
-    // ตรวจสอบเฉพาะ user ที่มี pendingDeletion = true
+    // ตรวจสอบเฉพาะ user ที่มี pendingDeletion = true เท่านั้น
+    // (user ที่ถูกลบแล้วจะถูกจัดการโดย AuthContext.checkAuth)
     if (!user.pendingDeletion) {
       return;
     }
 
+    let isActive = true;
 
     const checkForceLogout = async () => {
       // ป้องกันการแสดง alert ซ้ำ
-      if (hasShownAlert) {
+      if (hasShownAlert || !isActive) {
         return;
       }
 
       try {
-        // ตรวจสอบ force logout signal
+        // ตรวจสอบ force logout signal (สำหรับ user ที่มี pendingDeletion = true)
         const forceLogoutResponse = await fetch('/api/admin/force-logout-user', {
           method: 'GET',
           credentials: 'include'
@@ -34,8 +36,7 @@ export function useForceLogoutCheck() {
         if (forceLogoutResponse.ok) {
           const data = await forceLogoutResponse.json();
           
-          if (data.shouldLogout) {
-            
+          if (data.shouldLogout && isActive) {
             // แสดงข้อความแจ้งเตือนก่อน logout (ครั้งเดียว)
             if (!hasShownAlert) {
               setHasShownAlert(true);
@@ -48,14 +49,13 @@ export function useForceLogoutCheck() {
           }
         }
 
-        // ตรวจสอบ auth status (กรณี user ถูกลบแล้ว)
+        // ตรวจสอบ auth status
         const authResponse = await fetch('/api/auth/check', {
           method: 'GET',
           credentials: 'include'
         });
 
-        if (!authResponse.ok || authResponse.status === 401) {
-          
+        if ((!authResponse.ok || authResponse.status === 401) && isActive) {
           // แสดงข้อความแจ้งเตือนก่อน logout (ครั้งเดียว)
           if (!hasShownAlert) {
             setHasShownAlert(true);
@@ -70,13 +70,15 @@ export function useForceLogoutCheck() {
       }
     };
 
-    // ตรวจสอบทันทีเมื่อ component mount เท่านั้น (ไม่ต้องเช็คทุก 10 วินาที)
+    // ตรวจสอบทันทีเมื่อ component mount
     checkForceLogout();
     
-    // ไม่ต้องใช้ interval เพราะ admin จะส่งสัญญาณทันทีเมื่อลบ user
-    // const interval = setInterval(checkForceLogout, 10000);
+    // ตรวจสอบทุก 10 วินาทีสำหรับ pendingDeletion users
+    const interval = setInterval(checkForceLogout, 10000);
 
-    // ไม่ต้อง clear interval เพราะไม่ได้ใช้
-    // return () => clearInterval(interval);
+    return () => {
+      isActive = false;
+      clearInterval(interval);
+    };
   }, [user, logout, hasShownAlert]);
 }

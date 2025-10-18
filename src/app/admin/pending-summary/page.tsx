@@ -59,7 +59,7 @@ interface ReturnLog {
   department: string;
   office: string;
   returnDate: string;
-  phoneNumber?: string;
+  phone?: string;
   items: Array<{
     itemName: string;
     quantity: number;
@@ -601,7 +601,7 @@ export default function PendingSummaryPage() {
                               {returnLog.office}
                             </td>
                             <td className="px-6 py-4 text-sm text-gray-500 text-center">
-                              {returnLog.phoneNumber || '-'}
+                              {returnLog.phone || '-'}
                             </td>
                             <td className="px-6 py-4 text-sm font-medium text-gray-900 text-center">
                               {item.itemName}

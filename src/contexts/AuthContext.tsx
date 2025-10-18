@@ -71,9 +71,18 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
           });
         } else {
           setUser(null);
+          // ถ้าไม่ authenticated ให้ redirect ไป login ทันที
+          if (typeof window !== 'undefined' && window.location.pathname !== '/login') {
+            window.location.href = '/login';
+          }
         }
       } else {
         setUser(null);
+        // ถ้า response ไม่ ok (เช่น 401) ให้ redirect ไป login ทันที
+        if (typeof window !== 'undefined' && window.location.pathname !== '/login') {
+          console.log('❌ AuthContext: Authentication failed, redirecting to login');
+          window.location.href = '/login?error=session_expired';
+        }
       }
     } catch (error) {
       // Silent fail - this is normal when not authenticated

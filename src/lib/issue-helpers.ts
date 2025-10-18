@@ -22,7 +22,27 @@ export async function populateAdminInfo(issue: any) {
     );
 
     if (!admin) {
-      // Admin ไม่พบ (อาจถูกลบโดยไม่ผ่าน snapshot) → ใช้ Snapshot
+      // ✅ Admin ไม่พบ → ค้นหาจาก DeletedUsers collection
+      const DeletedUsers = (await import('@/models/DeletedUser')).default;
+      const deletedAdmin = await DeletedUsers.findOne({ user_id: issue.assignedAdminId }).select(
+        'firstName lastName office email userType user_id'
+      );
+      
+      if (deletedAdmin) {
+        // ✅ ใช้ข้อมูลจาก DeletedUsers snapshot
+        return {
+          ...issueObj,
+          assignedAdmin: {
+            userId: deletedAdmin.user_id,
+            name: deletedAdmin.userType === 'individual'
+              ? `${deletedAdmin.firstName} ${deletedAdmin.lastName}`.trim()
+              : deletedAdmin.office || '',
+            email: deletedAdmin.email || ''
+          }
+        };
+      }
+      
+      // ✅ ถ้าไม่มีใน DeletedUsers → ใช้ข้อมูลที่เก็บไว้ใน IssueLog (assignedAdmin)
       return issueObj;
     }
 
@@ -75,7 +95,43 @@ export async function populateRequesterInfo(issue: any) {
     );
 
     if (!user) {
-      // User ไม่พบ (อาจถูกลบโดยไม่ผ่าน snapshot) → ใช้ Snapshot
+      // ✅ User ไม่พบ → ค้นหาจาก DeletedUsers collection
+      const DeletedUsers = (await import('@/models/DeletedUser')).default;
+      const deletedUser = await DeletedUsers.findOne({ user_id: issue.requesterId }).select(
+        'firstName lastName nickname department office phone email userType'
+      );
+      
+      if (deletedUser) {
+        // ✅ แยกการจัดการตามประเภทผู้ใช้
+        if (deletedUser.userType === 'branch') {
+          // ผู้ใช้สาขา: ข้อมูลส่วนตัวจากฟอร์ม, เฉพาะสาขาจาก DeletedUsers
+          return {
+            ...issueObj,
+            firstName: issueObj.firstName, // ใช้จากฟอร์มแจ้งงาน
+            lastName: issueObj.lastName,   // ใช้จากฟอร์มแจ้งงาน
+            nickname: issueObj.nickname,   // ใช้จากฟอร์มแจ้งงาน
+            department: issueObj.department, // ใช้จากฟอร์มแจ้งงาน
+            phone: issueObj.phone,         // ใช้จากฟอร์มแจ้งงาน
+            email: issueObj.email,         // ใช้จากฟอร์มแจ้งงาน
+            // เฉพาะสาขาใช้จาก DeletedUsers (ข้อมูลล่าสุดก่อนลบ)
+            office: deletedUser.office || issueObj.office,
+          };
+        } else {
+          // ผู้ใช้บุคคล: ใช้ข้อมูลจาก DeletedUsers เป็นหลัก (ข้อมูลล่าสุดก่อนลบ)
+          return {
+            ...issueObj,
+            firstName: deletedUser.firstName || issueObj.firstName,
+            lastName: deletedUser.lastName || issueObj.lastName,
+            nickname: deletedUser.nickname || issueObj.nickname,
+            department: deletedUser.department || issueObj.department,
+            office: deletedUser.office || issueObj.office,
+            phone: deletedUser.phone || issueObj.phone,
+            email: deletedUser.email || issueObj.email,
+          };
+        }
+      }
+      
+      // ✅ ถ้าไม่มีใน DeletedUsers → ใช้ข้อมูลที่เก็บไว้ใน IssueLog
       return issueObj;
     }
 

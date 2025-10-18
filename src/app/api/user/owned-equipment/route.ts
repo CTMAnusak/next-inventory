@@ -2,25 +2,18 @@ import { NextRequest, NextResponse } from 'next/server';
 import dbConnect from '@/lib/mongodb';
 import InventoryItem from '@/models/InventoryItem';
 import InventoryConfig from '@/models/InventoryConfig';
-import { verifyToken } from '@/lib/auth';
+import { authenticateUser } from '@/lib/auth-helpers';
 
 // GET - ดึงอุปกรณ์ที่ User เป็นเจ้าของ
 export async function GET(request: NextRequest) {
   try {
     await dbConnect();
     
-    // Verify user token
-    const token = request.cookies.get('auth-token')?.value;
-    const payload: any = token ? verifyToken(token) : null;
+    // 🆕 ตรวจสอบ authentication และ user ใน database
+    const { error, user } = await authenticateUser(request);
+    if (error) return error;
     
-    if (!payload) {
-      return NextResponse.json(
-        { error: 'กรุณาเข้าสู่ระบบ' },
-        { status: 401 }
-      );
-    }
-    
-    const userId = payload.userId;
+    const userId = user!.user_id;
     
     // Get user's owned items
     const ownedItems = await InventoryItem.find({
@@ -231,18 +224,11 @@ export async function GET(request: NextRequest) {
 // POST - เพิ่มอุปกรณ์ที่มี (User)
 export async function POST(request: NextRequest) {
   try {
-    // Verify user token
-    const token = request.cookies.get('auth-token')?.value;
-    const payload: any = token ? verifyToken(token) : null;
-    
-    if (!payload) {
-      return NextResponse.json(
-        { error: 'กรุณาเข้าสู่ระบบ' },
-        { status: 401 }
-      );
-    }
-    
     await dbConnect();
+    
+    // 🆕 ตรวจสอบ authentication และ user ใน database
+    const { error, user } = await authenticateUser(request);
+    if (error) return error;
     
     const equipmentData = await request.json();
     const {
@@ -282,9 +268,8 @@ export async function POST(request: NextRequest) {
     
     const createdItems = [];
     
-    // Get user's office for requesterInfo
-    const User = (await import('@/models/User')).default;
-    const currentUser = await User.findOne({ user_id: payload.userId });
+    // Use authenticated user info
+    const currentUser = user;
     
     // Create multiple items if quantity > 1
     for (let i = 0; i < quantity; i++) {
@@ -296,9 +281,9 @@ export async function POST(request: NextRequest) {
         statusId,
         conditionId,
         addedBy: 'user' as const,
-        addedByUserId: payload.userId,
+        addedByUserId: user!.user_id,
         initialOwnerType: 'user_owned' as const,
-        userId: payload.userId,
+        userId: user!.user_id,
         notes: notes || undefined,
         // ✅ เพิ่มข้อมูลผู้ใช้สาขา (สำหรับผู้ใช้ประเภทสาขาเท่านั้น)
         requesterInfo: (firstName || lastName || department) ? {

@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import dbConnect from '@/lib/mongodb';
 import RequestLog from '@/models/RequestLog';
-import { verifyToken } from '@/lib/auth';
+import { authenticateUser } from '@/lib/auth-helpers';
 import InventoryMaster from '@/models/InventoryMaster';
 import InventoryItem from '@/models/InventoryItem';
 import InventoryConfig from '@/models/InventoryConfig';
@@ -69,17 +69,11 @@ export async function POST(request: NextRequest) {
 
     await dbConnect();
 
-    // Get user ID for personal item updates
-    const token = request.cookies.get('auth-token')?.value;
-    const payload: any = token ? verifyToken(token) : null;
-    const currentUserId = payload?.userId;
-
-    if (!currentUserId) {
-      return NextResponse.json(
-        { error: 'กรุณาเข้าสู่ระบบ' },
-        { status: 401 }
-      );
-    }
+    // 🆕 ตรวจสอบ authentication และ user ใน database
+    const { error, user } = await authenticateUser(request);
+    if (error) return error;
+    
+    const currentUserId = user!.user_id;
 
     // Load inventory config to get correct status and condition IDs
     const inventoryConfig = await InventoryConfig.findOne({});

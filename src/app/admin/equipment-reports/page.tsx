@@ -87,6 +87,7 @@ interface ReturnLog {
     statusOnReturn?: string; // สถานะอุปกรณ์เมื่อคืน (มี/หาย)
     conditionOnReturn?: string; // สภาพอุปกรณ์เมื่อคืน (ใช้งานได้/ชำรุด)
     numberPhone?: string; // เพิ่ม numberPhone property
+    itemNotes?: string; // หมายเหตุเฉพาะรายการ
     approvalStatus?: 'pending' | 'approved'; // สถานะการอนุมัติ
   }>;
   submittedAt: string;
@@ -1040,6 +1041,7 @@ export default function AdminEquipmentReportsPage() {
           { header: 'Phone Number', key: 'phoneNumber', width: 15 },
           { header: 'เลขทรัพย์สิน', key: 'assetNumber', width: 15 },
           { header: 'จำนวน', key: 'quantity', width: 10 },
+          { header: 'หมายเหตุ', key: 'itemNotes', width: 30 },
           { header: 'รูปภาพ', key: 'image', width: 25 },
           { header: 'สถานะการดำเนินการ', key: 'actionStatus', width: 18 },
         ];
@@ -1066,6 +1068,7 @@ export default function AdminEquipmentReportsPage() {
             phoneNumber: item.numberPhone || '-',
             assetNumber: item.assetNumber || '-',
             quantity: item.quantity,
+            itemNotes: item.itemNotes ? item.itemNotes.replace(/\n/g, ' ') : '-',
             image: '',
             actionStatus: item.approvalStatus === 'approved' ? 'ยืนยันแล้ว' : 'รอยืนยัน',
           });
@@ -1115,6 +1118,7 @@ export default function AdminEquipmentReportsPage() {
           } else {
             excelRow.getCell('image').value = 'ไม่มีรูปภาพ';
           }
+
         }
       }
 
@@ -1129,15 +1133,27 @@ export default function AdminEquipmentReportsPage() {
       headerRow.alignment = { vertical: 'middle', horizontal: 'center', wrapText: true };
       headerRow.height = 25; // ความสูง header
 
-      // จัดตำแหน่งข้อมูลทุก cell ให้อยู่กึ่งกลาง
+      // จัดตำแหน่งข้อมูลทุก cell ให้อยู่กึ่งกลาง (ยกเว้นคอลัมน์หมายเหตุ)
       worksheet.eachRow((row, rowNumber) => {
         if (rowNumber > 1) {
-          row.eachCell({ includeEmpty: true }, (cell) => {
-            cell.alignment = { 
-              vertical: 'middle', 
-              horizontal: 'center', 
-              wrapText: true 
-            };
+          row.eachCell({ includeEmpty: true }, (cell, colNumber) => {
+            const columnKey = worksheet.getColumn(colNumber).key;
+            
+            // คอลัมน์หมายเหตุให้จัดชิดซ้ายและ wrap text
+            if (columnKey === 'itemNotes') {
+              cell.alignment = { 
+                vertical: 'top', 
+                horizontal: 'left', 
+                wrapText: true 
+              };
+            } else {
+              cell.alignment = { 
+                vertical: 'middle', 
+                horizontal: 'center', 
+                wrapText: true 
+              };
+            }
+            
             // เพิ่มขอบให้สวยงาม
             cell.border = {
               top: { style: 'thin', color: { argb: 'FFD1D5DB' } },
@@ -1925,6 +1941,9 @@ export default function AdminEquipmentReportsPage() {
                       จำนวน
                     </th>
                     <th className="px-6 py-3 text-center text-xs font-medium text-white uppercase tracking-wider">
+                      หมายเหตุ
+                    </th>
+                    <th className="px-6 py-3 text-center text-xs font-medium text-white uppercase tracking-wider">
                       รูปภาพ
                     </th>
                     <th className="px-6 py-3 text-center text-xs font-medium text-white uppercase tracking-wider">
@@ -1935,7 +1954,7 @@ export default function AdminEquipmentReportsPage() {
                 <tbody className="bg-white divide-y divide-gray-200">
                   {(loading || isTabSwitching) && (
                     <tr>
-                      <td colSpan={16} className="px-6 py-8 text-center text-gray-500">
+                      <td colSpan={17} className="px-6 py-8 text-center text-gray-500">
                         <RefreshCw className="inline-block w-4 h-4 mr-2 animate-spin text-gray-400" />
                         กำลังโหลดข้อมูล
                       </td>
@@ -1943,7 +1962,7 @@ export default function AdminEquipmentReportsPage() {
                   )}
                   {!loading && !isTabSwitching && currentItems.length === 0 && (
                     <tr>
-                      <td colSpan={16} className="px-6 py-8 text-center text-gray-500">ไม่พบข้อมูล</td>
+                      <td colSpan={17} className="px-6 py-8 text-center text-gray-500">ไม่พบข้อมูล</td>
                     </tr>
                   )}
                   {!isTabSwitching && currentItems.map((row, rowIndex) => {
@@ -2039,6 +2058,10 @@ export default function AdminEquipmentReportsPage() {
                         {/* จำนวน */}
                         <td className="px-6 py-4 text-sm text-gray-500 text-center text-selectable">
                           {item.quantity}
+                        </td>
+                        {/* หมายเหตุ */}
+                        <td className="px-6 py-4 text-sm text-gray-500 text-center text-selectable">
+                          {item.itemNotes || '-'}
                         </td>
                         {/* รูปภาพ */}
                         <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500 text-center">

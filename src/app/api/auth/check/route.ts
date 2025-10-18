@@ -23,6 +23,13 @@ export async function GET(request: NextRequest) {
     await client.close();
     
     if (!user) {
+      console.log(`❌ Auth Check: User ${payload.userId} not found in database`);
+      return NextResponse.json({ authenticated: false }, { status: 401 });
+    }
+
+    // ตรวจสอบว่าผู้ใช้ถูกลบแล้วหรือไม่ (เพิ่มการตรวจสอบเพิ่มเติม)
+    if (user.deletedAt || user.isDeleted) {
+      console.log(`❌ Auth Check: User ${payload.userId} has been deleted`);
       return NextResponse.json({ authenticated: false }, { status: 401 });
     }
 

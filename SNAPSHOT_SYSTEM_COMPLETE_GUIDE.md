@@ -1,33 +1,53 @@
 # 📸 คู่มือระบบ Snapshot ฉบับสมบูรณ์
 
 > **เอกสารรวม**: ระบบ Snapshot สำหรับทุก Logs ในระบบจัดการอุปกรณ์  
-> **รุ่น**: v3.0 - Hybrid Approach (Snapshot on Approve + Update on Delete)  
-> **อัปเดทล่าสุด**: ตุลาคม 2568
+> **รุ่น**: v4.0 - Complete System (รวมทุกเอกสาร)  
+> **อัปเดทล่าสุด**: มกราคม 2568  
+> **สถานะ**: ✅ พร้อมใช้งาน
 
 ---
 
 ## 📋 **สารบัญ**
 
 ### [ส่วนที่ 1: ภาพรวมระบบ](#ส่วนที่-1-ภาพรวมระบบ)
-- วัตถุประสงค์
-- สถาปัตยกรรม
-- แนวคิด Hybrid Approach
+- วัตถุประสงค์และปัญหาที่แก้ไข
+- สถาปัตยกรรมระบบ
+- หลักการ Hybrid Approach
 
-### [ส่วนที่ 2: Equipment Tracking Snapshot](#ส่วนที่-2-equipment-tracking-snapshot)
-- โครงสร้างข้อมูล
-- ลำดับการทำงาน
-- Helper Functions
+### [ส่วนที่ 2: ระบบผู้ใช้และแอดมิน](#ส่วนที่-2-ระบบผู้ใช้และแอดมิน)
+- DeletedUsers Collection
+- ผู้ใช้บุคคล vs ผู้ใช้สาขา
+- การจัดการแอดมิน
 
-### [ส่วนที่ 3: Issue Log Snapshot](#ส่วนที่-3-issue-log-snapshot)
-- ระบบผู้แจ้งงาน
+### [ส่วนที่ 3: Equipment Tracking Snapshot](#ส่วนที่-3-equipment-tracking-snapshot)
+- โครงสร้างข้อมูล RequestLog/ReturnLog
+- ลำดับการทำงาน (เบิก/คืน/ลบ)
+- Equipment Tracking Display
+
+### [ส่วนที่ 4: Issue Log Snapshot](#ส่วนที่-4-issue-log-snapshot)
+- ระบบผู้แจ้งงาน (Requester)
 - ระบบ IT Admin
-- Status & Condition
+- การจัดการ Status & Condition
 
-### [ส่วนที่ 4: การทดสอบ](#ส่วนที่-4-การทดสอบ)
-- Test Scenarios
+### [ส่วนที่ 5: Config Management](#ส่วนที่-5-config-management)
+- Category, Status, Condition Configs
+- การ Snapshot ก่อนลบ/แก้ไข
+- Bulk Update Operations
+
+### [ส่วนที่ 6: Populate Functions](#ส่วนที่-6-populate-functions)
+- Equipment Populate Helpers
+- Issue Populate Helpers
+- Priority และ Fallback Logic
+
+### [ส่วนที่ 7: การทดสอบ](#ส่วนที่-7-การทดสอบ)
+- Test Scenarios ทั้ง 7 กรณี
 - Expected Results
+- การตรวจสอบ Database
 
-### [ส่วนที่ 5: FAQ & Best Practices](#ส่วนที่-5-faq--best-practices)
+### [ส่วนที่ 8: การใช้งานและ Best Practices](#ส่วนที่-8-การใช้งานและ-best-practices)
+- API Endpoints
+- Helper Functions
+- ข้อควรระวัง
 
 ---
 
@@ -35,19 +55,40 @@
 
 ## 🎯 **วัตถุประสงค์**
 
-Snapshot System ออกแบบมาเพื่อแก้ปัญหา:
+ระบบ Snapshot ออกแบบมาเพื่อแก้ปัญหาการสูญหายของข้อมูลประวัติ:
 
-1. **ข้อมูลอุปกรณ์หายเมื่อลบ**
-   - ลบอุปกรณ์ → ประวัติการเบิก/คืนแสดง "Unknown"
-   - ลบ `InventoryMaster` → หา `masterId` ไม่เจอ
+### ปัญหาเดิม:
+```
+❌ ผู้ใช้ U004 ถูกลบ
+   → ข้อมูลในตาราง /admin/equipment-reports แสดงเป็น "-"
+   → ข้อมูลในตาราง /admin/it-reports แสดงเป็น "-"
+   → ข้อมูลในตาราง /it-tracking แสดงเป็น "-"
 
-2. **ข้อมูล User/Admin หายเมื่อลบ**
-   - ลบ User → ไม่รู้ว่าใครเบิก/คืน
-   - ลบ Admin → ไม่รู้ว่าใครอนุมัติ
+❌ อุปกรณ์ถูกลบ
+   → ประวัติการเบิก/คืนแสดง "Unknown"
+   → ลบ InventoryMaster → หา masterId ไม่เจอ
 
-3. **Config หายเมื่อแก้ไข/ลบ**
-   - ลบ Status Config → ไม่รู้สถานะเดิม
-   - แก้ไขชื่อ → ประวัติไม่ตรง
+❌ Config ถูกลบ/แก้ไข
+   → ลบ Status Config → ไม่รู้สถานะเดิม
+   → แก้ไขชื่อ → ประวัติไม่ตรง
+```
+
+### วิธีแก้ไข:
+```
+✅ ผู้ใช้ U004 ถูกลบ
+   → สร้าง Snapshot ข้อมูลล่าสุดก่อนลบ
+   → เก็บใน DeletedUsers collection
+   → Populate ข้อมูลจาก DeletedUsers เมื่อแสดงผล
+   → ตารางแสดงข้อมูลได้อย่างถูกต้อง ✅
+
+✅ อุปกรณ์ถูกลบ
+   → Snapshot itemName, category ลงใน RequestLog
+   → แสดงผลจาก Snapshot แทน real-time lookup
+
+✅ Config ถูกลบ/แก้ไข
+   → Snapshot ชื่อล่าสุดลงใน Equipment Logs
+   → ประวัติแสดงชื่อถูกต้อง
+```
 
 ---
 
@@ -56,19 +97,31 @@ Snapshot System ออกแบบมาเพื่อแก้ปัญหา:
 ### **Database Collections**
 
 ```
-inventoryitems (หลัก)
-  ↓
-inventorymasters (สรุป)
-  ↓
-requestlogs (+ snapshot)  ← เก็บประวัติการเบิก
-returnlogs (+ snapshot)   ← เก็บประวัติการคืน
-transferlogs (+ snapshot) ← เก็บประวัติการโอนย้าย
-issuelogs (+ snapshot)    ← เก็บประวัติแจ้งงาน IT
+Users (หลัก)
+  ↓ (ลบ)
+DeletedUsers (snapshot)
+
+InventoryMaster (หลัก)
+  ↓ (ลบ)
+RequestLog.items[].itemName (snapshot)
+
+InventoryConfig (หลัก)
+  ↓ (ลบ/แก้ไข)
+RequestLog.items[].categoryName (snapshot)
+RequestLog.items[].statusOnRequestName (snapshot)
+RequestLog.items[].conditionOnRequestName (snapshot)
+
+Collections ที่มี Snapshot:
+├── RequestLog (+ snapshot)  ← เก็บประวัติการเบิก
+├── ReturnLog (+ snapshot)   ← เก็บประวัติการคืน
+├── TransferLog (+ snapshot) ← เก็บประวัติการโอนย้าย
+├── IssueLog (+ snapshot)    ← เก็บประวัติแจ้งงาน IT
+└── DeletedUsers (snapshot)  ← เก็บข้อมูลผู้ใช้ที่ถูกลบ
 ```
 
 ---
 
-## 💡 **Hybrid Approach**
+## 💡 **หลักการ Hybrid Approach**
 
 ### **แนวคิด: Snapshot 2 ครั้ง**
 
@@ -89,8 +142,6 @@ issuelogs (+ snapshot)    ← เก็บประวัติแจ้งง�
 **เหตุผล:**
 - ถ้าไม่ลบจะไม่มี snapshot (ใช้ real-time)
 - เมื่อลบแล้ว snapshot จะเป็นข้อมูลล่าสุด
-
----
 
 ### **ตัวอย่างการทำงาน:**
 
@@ -118,7 +169,168 @@ Equipment Tracking
 
 ---
 
-# ส่วนที่ 2: Equipment Tracking Snapshot
+# ส่วนที่ 2: ระบบผู้ใช้และแอดมิน
+
+## 🗂️ **DeletedUsers Collection**
+
+### **วัตถุประสงค์**
+เก็บ Snapshot ข้อมูลผู้ใช้ล่าสุดก่อนลบ
+
+### **โครงสร้างข้อมูล**
+```typescript
+interface IDeletedUser extends Document {
+  userMongoId: string;     // ObjectId ใน MongoDB
+  user_id?: string;        // ID ในระบบ (เช่น "U004")
+  userType?: 'individual' | 'branch';
+  firstName?: string;
+  lastName?: string;
+  nickname?: string;
+  department?: string;
+  office?: string;         // สำคัญสำหรับ Branch User
+  phone?: string;
+  email?: string;
+  deletedAt: Date;         // วันที่ลบ
+  createdAt: Date;
+  updatedAt: Date;
+}
+```
+
+### **การสร้าง Snapshot**
+```typescript
+// ใน API DELETE /api/admin/users/[id]
+try {
+  const snapData = {
+    userMongoId: userToDelete._id.toString(),
+    user_id: userToDelete.user_id,
+    userType: userToDelete.userType,
+    firstName: userToDelete.firstName,
+    lastName: userToDelete.lastName,
+    nickname: userToDelete.nickname,
+    department: userToDelete.department,
+    office: userToDelete.office,
+    phone: userToDelete.phone,
+    email: userToDelete.email,
+    deletedAt: new Date()
+  };
+  
+  await DeletedUsers.findOneAndUpdate(
+    { userMongoId: snapData.userMongoId },
+    snapData,
+    { upsert: true, new: true }
+  );
+  
+  console.log(`📸 Snapshot user data to DeletedUsers: ${userToDelete.userType} - ${snapData.user_id}`);
+} catch (e) {
+  console.error('Failed to snapshot user before delete:', e);
+}
+```
+
+---
+
+## 👤 **ผู้ใช้บุคคล (Individual User)**
+
+### **หลักการ**
+- **ยังมีอยู่:** แสดงข้อมูล Real-time ทุกฟิลด์
+- **ถูกลบแล้ว:** แสดงข้อมูลจาก DeletedUsers ทุกฟิลด์
+
+### **ตัวอย่าง**
+```typescript
+// ผู้ใช้บุคคล U001
+{
+  userType: 'individual',
+  firstName: 'สมชาย',
+  lastName: 'ใจดี',
+  department: 'IT',
+  office: 'กรุงเทพ'
+}
+
+// เมื่อถูกลบ → DeletedUsers
+// เมื่อแสดงผล → ใช้ข้อมูลจาก DeletedUsers ทุกฟิลด์
+```
+
+---
+
+## 🏢 **ผู้ใช้สาขา (Branch User)**
+
+### **หลักการพิเศษ**
+- **ข้อมูลส่วนตัว** (firstName, lastName, phone, email) → จากฟอร์มแต่ละครั้ง
+- **ข้อมูลสาขา** (office) → จาก DeletedUsers (ล่าสุดก่อนลบ)
+
+### **เหตุผล**
+ผู้ใช้สาขาอาจมีคนต่างกันมาเบิก/คืนอุปกรณ์ในแต่ละครั้ง แต่สาขาเป็นข้อมูลเดียวกัน
+
+### **ตัวอย่าง**
+```typescript
+// กิจกรรมที่ 1: เบิกอุปกรณ์
+{
+  userId: 'BRANCH001',
+  requesterFirstName: 'พนักงาน A',
+  requesterLastName: 'สาขาภูเก็ต',
+  requesterPhone: '081-111-1111',
+  requesterEmail: 'a@branch.com'
+}
+
+// กิจกรรมที่ 2: แจ้งปัญหา IT
+{
+  requesterId: 'BRANCH001',
+  firstName: 'พนักงาน B',
+  lastName: 'สาขาภูเก็ต',
+  phone: '082-222-2222',
+  email: 'b@branch.com'
+}
+
+// เมื่อลบผู้ใช้สาขา → DeletedUsers
+{
+  user_id: 'BRANCH001',
+  userType: 'branch',
+  office: 'สาขาภูเก็ต (Central)' // ชื่อล่าสุดก่อนลบ
+}
+
+// การแสดงผล:
+// กิจกรรมที่ 1: ชื่อ "พนักงาน A", สาขา "สาขาภูเก็ต (Central)"
+// กิจกรรมที่ 2: ชื่อ "พนักงาน B", สาขา "สาขาภูเก็ต (Central)"
+```
+
+---
+
+## 👨‍💼 **การจัดการแอดมิน**
+
+### **หลักการ**
+แอดมินใช้ระบบเดียวกับผู้ใช้ เพราะเป็น User ที่มี `userRole = 'admin'` หรือ `'it_admin'`
+
+### **การ Populate**
+```typescript
+// populateAdminInfo() ใน issue-helpers.ts
+const admin = await User.findOne({ user_id: adminId });
+
+if (admin) {
+  // Real-time
+  return {
+    userId: admin.user_id,
+    name: admin.userType === 'individual'
+      ? `${admin.firstName} ${admin.lastName}`.trim()
+      : admin.office,
+    email: admin.email
+  };
+} else {
+  // ค้นหาจาก DeletedUsers
+  const deletedAdmin = await DeletedUsers.findOne({ user_id: adminId });
+  
+  if (deletedAdmin) {
+    return {
+      userId: deletedAdmin.user_id,
+      name: deletedAdmin.userType === 'individual'
+        ? `${deletedAdmin.firstName} ${deletedAdmin.lastName}`.trim()
+        : deletedAdmin.office || '',
+      email: deletedAdmin.email || ''
+    };
+  }
+}
+```
+
+---
+
+# ส่วนที่ 3: Equipment Tracking Snapshot
 
 ## 📊 **โครงสร้างข้อมูล**
 
@@ -154,6 +366,8 @@ interface IRequestLog {
   }];
   approvedBy?: string;                          // ID
   approvedByName?: string;                      // Snapshot
+  rejectedBy?: string;                          // ID
+  rejectedByName?: string;                      // Snapshot
 }
 ```
 
@@ -212,8 +426,6 @@ const snapshots = await createInventoryItemSnapshotsBatch(itemIds);
 requestLog.items[0].assignedItemSnapshots = snapshots;
 ```
 
----
-
 ### **Scenario 2: คืนอุปกรณ์**
 
 ```
@@ -245,8 +457,6 @@ const cleanItems = returnData.items.map((item) => {
 });
 ```
 
----
-
 ### **Scenario 3: ลบอุปกรณ์**
 
 ```
@@ -267,8 +477,6 @@ const { updateSnapshotsBeforeDelete } = await import('@/lib/snapshot-helpers');
 await updateSnapshotsBeforeDelete(itemId);
 // อัปเดต assignedItemSnapshots[] ใน RequestLog อัตโนมัติ
 ```
-
----
 
 ### **Scenario 4: Equipment Tracking**
 
@@ -301,27 +509,7 @@ const finalItemName =
 
 ---
 
-## 🛠️ **Helper Functions**
-
-### **`snapshot-helpers.ts`**
-
-```typescript
-// สร้าง snapshot สำหรับ 1 item
-async function createInventoryItemSnapshot(itemId: string)
-
-// สร้าง snapshot สำหรับหลาย items
-async function createInventoryItemSnapshotsBatch(itemIds: string[])
-
-// สร้าง snapshot จาก object (ประหยัด query)
-async function createInventoryItemSnapshotFromObject(item: any)
-
-// 🆕 อัปเดต snapshot ก่อนลบ
-async function updateSnapshotsBeforeDelete(itemId: string)
-```
-
----
-
-# ส่วนที่ 3: Issue Log Snapshot
+# ส่วนที่ 4: Issue Log Snapshot
 
 ## 📋 **ระบบผู้แจ้งงาน (Requester)**
 
@@ -400,345 +588,340 @@ await snapshotStatusConfigBeforeChange('status_available', 'พร้อมใ�
 
 ---
 
-# ส่วนที่ 4: การทดสอบ
+# ส่วนที่ 5: Config Management
 
-## 🧪 **Test Scenario: Equipment Tracking**
+## 📁 **Category Config**
 
-### **วัตถุประสงค์:**
-ทดสอบว่าระบบ Snapshot ทำงานถูกต้อง:
-- เบิกอุปกรณ์ → มี snapshot
-- คืนอุปกรณ์ → มี snapshot
-- ลบอุปกรณ์ → snapshot อัปเดตล่าสุด
-- ตารางแสดงข้อมูลล่าสุด (ไม่มี "Unknown")
+### **การลบ/แก้ไข**
+```typescript
+// API: PUT/DELETE /api/admin/inventory-config/categories/[id]
+
+// ก่อนแก้ไข/ลบ
+await snapshotCategoryConfigBeforeChange(id, newName);
+
+// ผลลัพธ์:
+// - RequestLog.items[].category = newName
+// - ReturnLog.items[].category = newName  
+// - TransferLog.categoryName = newName
+```
+
+### **Collections ที่ได้รับ Snapshot**
+- RequestLog: `items[].category`
+- ReturnLog: `items[].category`
+- TransferLog: `categoryName`
 
 ---
 
-### **Step 1: เตรียมข้อมูล**
+## 📊 **Status Config**
 
-#### **1.1 สร้าง Admin User**
-- User ID: `ADMIN001`
-- ชื่อ: สมชาย ใจดี
-- Role: admin
+### **การลบ/แก้ไข**
+```typescript
+// API: PUT/DELETE /api/admin/inventory-config/statuses/[id]
 
-#### **1.2 สร้าง Regular User**
-- User ID: `USER001`
-- ชื่อ: สมหญิง มีสุข
-- Role: user
+// ก่อนแก้ไข/ลบ
+await snapshotStatusConfigBeforeChange(id, newName);
 
-#### **1.3 สร้างอุปกรณ์ในคลัง (Admin)**
-```
-หมวดหมู่: อุปกรณ์เสริม (cat_accessories)
-ชื่ออุปกรณ์: Mouse Logitech
-Serial Number: SN-MOUSE-001
-สถานะ: มี (status_available)
-สภาพ: ใช้งานได้ (cond_working)
-จำนวน: 3 ชิ้น
+// ผลลัพธ์:
+// - RequestLog.items[].statusOnRequestName = newName
+// - ReturnLog.items[].statusOnReturnName = newName
 ```
 
-**Expected Result:**
-```
-✅ InventoryMaster created
-✅ 3 InventoryItems created (admin_stock)
-```
+### **Collections ที่ได้รับ Snapshot**
+- RequestLog: `items[].statusOnRequestName`
+- ReturnLog: `items[].statusOnReturnName`
 
 ---
 
-### **Step 2: การเบิกอุปกรณ์**
+## 🏷️ **Condition Config**
 
-#### **2.1 User ส่งคำขอเบิก**
-```
-User: USER001 (สมหญิง มีสุข)
-อุปกรณ์: Mouse Logitech x 1
-Serial Number: ไม่ระบุ (ให้ Admin เลือก)
-วันที่ต้องการ: วันนี้
-สถานที่จัดส่ง: สำนักงานใหญ่
-```
+### **การลบ/แก้ไข**
+```typescript
+// API: PUT/DELETE /api/admin/inventory-config/conditions/[id]
 
-**Expected Result:**
-```
-✅ RequestLog created (status: pending)
-✅ masterId: [InventoryMaster._id]
-✅ ไม่มี assignedItemSnapshots (ยังไม่อนุมัติ)
+// ก่อนแก้ไข/ลบ
+await snapshotConditionConfigBeforeChange(id, newName);
+
+// ผลลัพธ์:
+// - RequestLog.items[].conditionOnRequestName = newName
+// - ReturnLog.items[].conditionOnReturnName = newName
 ```
 
-#### **2.2 Admin อนุมัติและเลือกอุปกรณ์**
-```
-Admin: ADMIN001 (สมชาย ใจดี)
-เลือก: Mouse SN-MOUSE-001
-```
-
-**Expected Result:**
-```
-✅ RequestLog updated:
-   - status: approved
-   - assignedItemIds: ["item_id_001"]
-   - assignedItemSnapshots: [{
-       itemId: "item_id_001",
-       itemName: "Mouse Logitech",
-       categoryId: "cat_accessories",
-       categoryName: "อุปกรณ์เสริม",
-       serialNumber: "SN-MOUSE-001",
-       statusId: "status_available",
-       statusName: "มี",
-       conditionId: "cond_working",
-       conditionName: "ใช้งานได้"
-     }]
-   - approvedBy: "ADMIN001"
-   
-✅ InventoryItem updated:
-   - currentOwnership.ownerType: "user_owned"
-   - currentOwnership.userId: "USER001"
-
-✅ TransferLog created
-```
+### **Collections ที่ได้รับ Snapshot**
+- RequestLog: `items[].conditionOnRequestName`
+- ReturnLog: `items[].conditionOnReturnName`
 
 ---
 
-### **Step 3: User เพิ่มอุปกรณ์เอง**
+## 🔄 **Bulk Update Operations**
 
-#### **3.1 เพิ่มอุปกรณ์ที่มีอยู่แล้ว**
-```
-User: USER001
-อุปกรณ์: Keyboard Logitech
-หมวดหมู่: อุปกรณ์เสริม
-Serial Number: KB-12345
-สถานะ: มี
-สภาพ: ใช้งานได้
-```
+### **API Endpoints**
+- `POST /api/admin/inventory-config` (Bulk Update)
+- `PUT /api/admin/inventory/config` (Bulk Update)
 
-**Expected Result:**
-```
-✅ InventoryItem created:
-   - itemName: "Keyboard Logitech"
-   - serialNumber: "KB-12345"
-   - currentOwnership.ownerType: "user_owned"
-   - currentOwnership.userId: "USER001"
-   - sourceInfo.addedBy: "user"
-   - sourceInfo.acquisitionMethod: "self_reported"
-
-✅ ไม่สร้าง RequestLog (เพราะเพิ่มเอง)
-```
-
----
-
-### **Step 4: ตรวจสอบหน้าติดตามอุปกรณ์ (ก่อนลบ)**
-
-#### **เข้าหน้า: `/admin/equipment-tracking`**
-
-**Expected Result:**
-
-| อุปกรณ์ | Serial Number | หมวดหมู่ | สถานะ | สภาพ | ผู้ถือครอง | Source |
-|---------|---------------|----------|-------|------|-----------|--------|
-| Mouse Logitech | SN-MOUSE-001 | อุปกรณ์เสริม | มี | ใช้งานได้ | สมหญิง มีสุข | เบิก |
-| Keyboard Logitech | KB-12345 | อุปกรณ์เสริม | มี | ใช้งานได้ | สมหญิง มีสุข | เพิ่มเอง |
-
-**ตรวจสอบ:**
-```
-✅ Mouse: ใช้ข้อมูลจาก assignedItemSnapshots
-✅ Keyboard: ใช้ข้อมูลจาก InventoryItem real-time
-✅ ไม่มี "Unknown" ทั้งหมด
-```
-
----
-
-### **Step 5: คืนอุปกรณ์**
-
-#### **5.1 User ส่งคำขอคืน Mouse**
-```
-User: USER001
-อุปกรณ์: Mouse Logitech (SN-MOUSE-001)
-สถานะเมื่อคืน: มี
-สภาพเมื่อคืน: ชำรุด (เปลี่ยนจาก "ใช้งานได้")
-หมายเหตุ: ปุ่มซ้ายชำรุด
-```
-
-**Expected Result:**
-```
-✅ ReturnLog created:
-   - items[0].itemId: "item_id_001"
-   - items[0].itemName: "Mouse Logitech" (snapshot)
-   - items[0].categoryName: "อุปกรณ์เสริม" (snapshot)
-   - items[0].serialNumber: "SN-MOUSE-001" (snapshot)
-   - items[0].statusOnReturn: "status_available"
-   - items[0].statusOnReturnName: "มี" (snapshot)
-   - items[0].conditionOnReturn: "cond_damaged"
-   - items[0].conditionOnReturnName: "ชำรุด" (snapshot)
-   - items[0].approvalStatus: "pending"
-```
-
-#### **5.2 Admin อนุมัติการคืน**
-```
-Admin: ADMIN001
-```
-
-**Expected Result:**
-```
-✅ ReturnLog updated:
-   - items[0].approvalStatus: "approved"
-   - items[0].approvedBy: "ADMIN001"
-   - items[0].approvedByName: "สมชาย ใจดี" (snapshot)
-
-✅ InventoryItem updated:
-   - statusId: "status_available"
-   - conditionId: "cond_damaged" (อัปเดตเป็น "ชำรุด")
-   - currentOwnership.ownerType: "admin_stock"
-```
-
----
-
-### **Step 6: ตรวจสอบตารางประวัติคืน**
-
-#### **เข้าหน้า: `/admin/equipment-reports` → Tab "ประวัติคืน"**
-
-**Expected Result:**
-
-| วันที่คืน | ผู้คืน | อุปกรณ์ | Serial Number | สถานะเมื่อคืน | สภาพเมื่อคืน |
-|----------|--------|---------|---------------|--------------|-------------|
-| วันนี้ | สมหญิง มีสุข | Mouse Logitech | SN-MOUSE-001 | มี | ชำรุด |
-
-**ตรวจสอบ:**
-```
-✅ ชื่ออุปกรณ์: "Mouse Logitech" (จาก snapshot)
-✅ หมวดหมู่: "อุปกรณ์เสริม" (จาก snapshot)
-✅ สภาพ: "ชำรุด" (จาก snapshot ตอนคืน)
-✅ ไม่มี "Unknown"
-```
-
----
-
-### **Step 7: ลบอุปกรณ์**
-
-#### **7.1 Admin แก้ไขสภาพอุปกรณ์ก่อนลบ**
-```
-Admin: ADMIN001
-อุปกรณ์: Mouse (SN-MOUSE-001)
-แก้ไข: conditionId = "cond_broken" (เสียหายมาก)
-```
-
-**Expected Result:**
-```
-✅ InventoryItem updated:
-   - conditionId: "cond_broken"
-   - conditionName: "เสียหายมาก"
-
-⏸️ RequestLog ไม่เปลี่ยน (snapshot ยังคงเป็น "ชำรุด")
-```
-
-#### **7.2 Admin ลบอุปกรณ์ลงถังขยะ**
-```
-Admin: ADMIN001
-อุปกรณ์: Mouse (SN-MOUSE-001)
-เหตุผล: เสียหายไม่สามารถซ่อมได้
-```
-
-**Expected Log:**
-```
-📸 Updating snapshots before deleting item: item_id_001
-📸 Created latest snapshot: {
-  itemId: "item_id_001",
-  itemName: "Mouse Logitech",
-  categoryId: "cat_accessories",
-  categoryName: "อุปกรณ์เสริม",
-  serialNumber: "SN-MOUSE-001",
-  statusId: "status_available",
-  statusName: "มี",
-  conditionId: "cond_broken",
-  conditionName: "เสียหายมาก"  // 🆕 อัปเดตเป็นสถานะล่าสุด
+### **การทำงาน**
+```typescript
+// ก่อน Bulk Update
+try {
+  const { snapshotConfigChangesBeforeBulkUpdate } = await import('@/lib/equipment-snapshot-helpers');
+  const snapshotResult = await snapshotConfigChangesBeforeBulkUpdate(config, {
+    categoryConfigs: categories,
+    statusConfigs: statuses,
+    conditionConfigs: conditions
+  });
+  console.log('📸 Bulk snapshot result:', snapshotResult);
+} catch (snapshotError) {
+  console.warn('Failed to snapshot config changes:', snapshotError);
+  // Continue with update even if snapshot fails
 }
-📋 Found 1 RequestLog with this item
-   ✅ Updated existing snapshot for item in RequestLog [id]
-✅ Updated 1 RequestLog with latest snapshot
-```
-
-**Expected Result:**
-```
-✅ RequestLog.assignedItemSnapshots อัปเดตเป็น:
-   - conditionId: "cond_broken"
-   - conditionName: "เสียหายมาก" (ข้อมูลล่าสุดก่อนลบ)
-
-✅ InventoryItem moved to RecycleBin
-✅ InventoryItem deleted
 ```
 
 ---
 
-### **Step 8: ตรวจสอบหลังลบ**
+# ส่วนที่ 6: Populate Functions
 
-#### **8.1 ตรวจสอบหน้าติดตามอุปกรณ์**
+## 🔧 **Equipment Populate Helpers**
 
-**เข้าหน้า: `/admin/equipment-tracking`**
+### **populateRequestLogUser()**
+```typescript
+// หาผู้ใช้จาก User collection
+const user = await User.findOne({ user_id: requestLog.userId });
 
-**Expected Result:**
-
-| อุปกรณ์ | Serial Number | หมวดหมู่ | สถานะ | สภาพ | ผู้ถือครอง | Source |
-|---------|---------------|----------|-------|------|-----------|--------|
-| Keyboard Logitech | KB-12345 | อุปกรณ์เสริม | มี | ใช้งานได้ | สมหญิง มีสุข | เพิ่มเอง |
-
-**ตรวจสอบ:**
+if (user) {
+  if (user.userType === 'individual') {
+    // บุคคล: ใช้ข้อมูลจาก User ทั้งหมด
+    return { ...requestLog, firstName: user.firstName, ... };
+  } else {
+    // สาขา: ใช้เฉพาะข้อมูลสาขาจาก User
+    return { 
+      ...requestLog, 
+      office: user.office,
+      // firstName, lastName, etc. ใช้จากฟอร์ม (requesterFirstName)
+    };
+  }
+} else {
+  // ไม่เจอ User → ค้นหาจาก DeletedUsers
+  const deletedUser = await DeletedUsers.findOne({ user_id: requestLog.userId });
+  
+  if (deletedUser) {
+    if (deletedUser.userType === 'branch') {
+      // สาขา: ข้อมูลส่วนตัวจากฟอร์ม, สาขาจาก DeletedUsers
+      return {
+        ...requestLog,
+        firstName: requestLog.requesterFirstName,  // จากฟอร์ม
+        office: deletedUser.office                 // จาก DeletedUsers
+      };
+    } else {
+      // บุคคล: ใช้ข้อมูลจาก DeletedUsers ทั้งหมด
+      return {
+        ...requestLog,
+        firstName: deletedUser.firstName,
+        office: deletedUser.office,
+        ...
+      };
+    }
+  }
+}
 ```
-✅ Mouse หายจากตาราง (เพราะลบไปถังขยะแล้ว)
-✅ Keyboard ยังแสดงอยู่ปกติ
-```
 
-#### **8.2 ตรวจสอบตารางประวัติเบิก**
-
-**เข้าหน้า: `/admin/equipment-reports` → Tab "ประวัติเบิก"**
-
-**Expected Result:**
-
-| วันที่เบิก | ผู้เบิก | อุปกรณ์ | Serial Number | สถานะ | สภาพ | ผู้อนุมัติ |
-|-----------|--------|---------|---------------|-------|------|-----------|
-| วันนี้ | สมหญิง มีสุข | Mouse Logitech | SN-MOUSE-001 | มี | **เสียหายมาก** | สมชาย ใจดี |
-
-**ตรวจสอบ:**
-```
-✅ ชื่ออุปกรณ์: "Mouse Logitech" (จาก snapshot)
-✅ หมวดหมู่: "อุปกรณ์เสริม" (จาก snapshot)
-✅ สภาพ: "เสียหายมาก" (อัปเดตเป็นข้อมูลล่าสุดก่อนลบ)
-✅ ไม่มี "Unknown" !!!
-```
-
-#### **8.3 ตรวจสอบตารางประวัติคืน**
-
-**Expected Result:**
-
-| วันที่คืน | ผู้คืน | อุปกรณ์ | Serial Number | สถานะเมื่อคืน | สภาพเมื่อคืน |
-|----------|--------|---------|---------------|--------------|-------------|
-| วันนี้ | สมหญิง มีสุข | Mouse Logitech | SN-MOUSE-001 | มี | ชำรุด |
-
-**ตรวจสอบ:**
-```
-✅ ยังแสดงข้อมูลปกติ
-✅ สภาพเมื่อคืน: "ชำรุด" (ข้อมูลตอนคืน)
-✅ ไม่มี "Unknown"
+### **populateRequestLogItems()**
+```typescript
+// Populate ชื่อ Item, Category, Status, Condition
+for (const item of requestLog.items) {
+  // ถ้ามี masterId → ดึงชื่อจาก InventoryMaster (Real-time)
+  if (item.masterId) {
+    const master = await InventoryMaster.findById(item.masterId);
+    item.itemName = master?.itemName || item.itemName;
+  }
+  
+  // ถ้ามี categoryId → ดึงชื่อจาก CategoryConfig (Real-time)
+  if (item.categoryId) {
+    const config = await InventoryConfig.findOne();
+    const category = config.categoryConfigs.find(c => c.id === item.categoryId);
+    item.category = category?.name || item.category;
+  }
+  
+  // เหมือนกันกับ Status และ Condition
+}
 ```
 
 ---
 
-### **Step 9: กู้คืนอุปกรณ์จากถังขยะ (Optional)**
+## 🎯 **Issue Populate Helpers**
 
-#### **9.1 Admin กู้คืน Mouse จากถังขยะ**
+### **populateRequesterInfo()**
+```typescript
+// หาผู้ใช้จาก User collection
+const user = await User.findOne({ user_id: issue.requesterId });
+
+if (user) {
+  if (user.userType === 'individual') {
+    // บุคคล: ใช้ข้อมูลจาก User ทั้งหมด
+    return { ...issue, firstName: user.firstName, ... };
+  } else {
+    // สาขา: ใช้เฉพาะสาขาจาก User, ข้อมูลส่วนตัวจากฟอร์ม
+    return { 
+      ...issue, 
+      office: user.office,
+      firstName: issue.firstName  // จากฟอร์มแจ้งปัญหา
+    };
+  }
+} else {
+  // ไม่เจอ User → ค้นหาจาก DeletedUsers
+  const deletedUser = await DeletedUsers.findOne({ user_id: issue.requesterId });
+  
+  if (deletedUser) {
+    if (deletedUser.userType === 'branch') {
+      // สาขา: ข้อมูลส่วนตัวจากฟอร์ม, สาขาจาก DeletedUsers
+      return {
+        ...issue,
+        firstName: issue.firstName,    // จากฟอร์ม
+        office: deletedUser.office     // จาก DeletedUsers
+      };
+    } else {
+      // บุคคล: ใช้ข้อมูลจาก DeletedUsers ทั้งหมด
+      return {
+        ...issue,
+        firstName: deletedUser.firstName,
+        office: deletedUser.office,
+        ...
+      };
+    }
+  }
+}
 ```
-Admin: ADMIN001
-อุปกรณ์: Mouse (SN-MOUSE-001)
+
+### **populateAdminInfo()**
+```typescript
+// หาแอดมินจาก User collection
+const admin = await User.findOne({ user_id: issue.assignedAdmin?.userId });
+
+if (admin) {
+  // Real-time
+  return {
+    ...issue,
+    assignedAdmin: {
+      userId: admin.user_id,
+      name: admin.firstName + ' ' + admin.lastName,
+      email: admin.email
+    }
+  };
+} else {
+  // ค้นหาจาก DeletedUsers
+  const deletedAdmin = await DeletedUsers.findOne({ user_id: issue.assignedAdmin?.userId });
+  
+  if (deletedAdmin) {
+    return {
+      ...issue,
+      assignedAdmin: {
+        userId: deletedAdmin.user_id,
+        name: deletedAdmin.firstName + ' ' + deletedAdmin.lastName,
+        email: deletedAdmin.email
+      }
+    };
+  }
+}
 ```
+
+---
+
+## 🎯 **Priority และ Fallback Logic**
+
+### **ลำดับความสำคัญ**
+```
+1. Snapshot (ถ้ามี)
+2. Real-time (ถ้ายังมี ID)
+3. Config Lookup (ถ้ามี configId)
+4. "ไม่ระบุ" (fallback สุดท้าย)
+```
+
+### **ตัวอย่าง**
+```typescript
+// สำหรับ Status Name
+const finalStatusName = 
+  item.statusOnRequestName ||           // 1. Snapshot
+  (await getStatusName(item.statusOnRequest)) ||  // 2. Real-time
+  'ไม่ระบุ';                            // 3. Fallback
+```
+
+---
+
+# ส่วนที่ 7: การทดสอบ
+
+## 🧪 **Test Scenario: ครบทั้ง 7 กรณี**
+
+### **กรณี 1: ลบแอดมิน**
+
+**สถานการณ์:**
+1. แอดมิน ADMIN_IT อนุมัติการเบิกอุปกรณ์
+2. แอดมิน ADMIN_IT อัพเดตข้อมูลเป็น "Super Admin"
+3. แอดมิน ADMIN_IT ถูกลบ
+4. ผู้ใช้, อุปกรณ์, หมวดหมู่, สถานะ, สภาพ → อัพเดตข้อมูลทั้งหมด
 
 **Expected Result:**
-```
-✅ InventoryItem created (ID ใหม่: item_id_002)
-✅ InventoryMaster อาจถูกสร้างใหม่ (ID ใหม่)
-✅ RequestLog เก่ายังมี snapshot (ชี้ไป item_id_001)
-✅ ตาราง Equipment Tracking แสดง Mouse 2 รายการ:
-   - รายการเก่า (snapshot จาก item_id_001)
-   - รายการใหม่ (real-time จาก item_id_002)
-```
+| ข้อมูล | แสดงผล | เหตุผล |
+|--------|---------|--------|
+| **แอดมิน** | "Super Admin IT" | 📸 Snapshot ก่อนลบ |
+| ผู้ใช้ | ข้อมูลล่าสุด | ✅ ยังมีอยู่ในระบบ |
+| อุปกรณ์ | ชื่อล่าสุด | ✅ ยังมีอยู่ในระบบ |
+| หมวดหมู่ | ชื่อล่าสุด | ✅ ยังมีอยู่ในระบบ |
+| สถานะ | ชื่อล่าสุด | ✅ ยังมีอยู่ในระบบ |
+| สภาพ | ชื่อล่าสุด | ✅ ยังมีอยู่ในระบบ |
+
+### **กรณี 2: ลบผู้ใช้บุคคล**
+
+**สถานการณ์:**
+1. ผู้ใช้ U001 (บุคคล) เบิกอุปกรณ์
+2. ผู้ใช้ U001 อัพเดตข้อมูลเป็น "สมชาย (Updated)"
+3. ผู้ใช้ U001 ถูกลบ
+4. แอดมิน, อุปกรณ์, หมวดหมู่, สถานะ, สภาพ → อัพเดตข้อมูลทั้งหมด
+
+**Expected Result:**
+| ข้อมูล | แสดงผล | เหตุผล |
+|--------|---------|--------|
+| **ผู้ใช้** | "สมชาย (Updated)" | 📸 Snapshot ก่อนลบ |
+| แอดมิน | ชื่อล่าสุด | ✅ ยังมีอยู่ในระบบ |
+| อุปกรณ์ | ชื่อล่าสุด | ✅ ยังมีอยู่ในระบบ |
+| หมวดหมู่ | ชื่อล่าสุด | ✅ ยังมีอยู่ในระบบ |
+| สถานะ | ชื่อล่าสุด | ✅ ยังมีอยู่ในระบบ |
+| สภาพ | ชื่อล่าสุด | ✅ ยังมีอยู่ในระบบ |
+
+### **กรณี 3: ลบผู้ใช้สาขา**
+
+**สถานการณ์:**
+1. ผู้ใช้สาขา U002 เบิกอุปกรณ์ (กรอกฟอร์ม: ชื่อ "พนักงาน A", โทร "081-111", สาขา "ภูเก็ต")
+2. ผู้ใช้สาขา U002 แจ้งปัญหา IT (กรอกฟอร์ม: ชื่อ "พนักงาน B", โทร "082-222")
+3. ผู้ใช้สาขา U002 อัพเดตสาขาเป็น "ภูเก็ต (Central)"
+4. ผู้ใช้สาขา U002 ถูกลบ
+
+**Expected Result:**
+
+**การเบิกอุปกรณ์:**
+| ฟิลด์ | แสดงผล | เหตุผล |
+|------|---------|--------|
+| ชื่อ-นามสกุล | "พนักงาน A" | 📋 จากฟอร์มเบิก |
+| โทรศัพท์ | "081-111" | 📋 จากฟอร์มเบิก |
+| อีเมล | (ตามฟอร์ม) | 📋 จากฟอร์มเบิก |
+| **สาขา** | "ภูเก็ต (Central)" | 📸 Snapshot ล่าสุดก่อนลบ |
+
+**การแจ้งปัญหา IT:**
+| ฟิลด์ | แสดงผล | เหตุผล |
+|------|---------|--------|
+| ชื่อ-นามสกุล | "พนักงาน B" | 📋 จากฟอร์มแจ้งปัญหา |
+| โทรศัพท์ | "082-222" | 📋 จากฟอร์มแจ้งปัญหา |
+| **สาขา** | "ภูเก็ต (Central)" | 📸 Snapshot ล่าสุดก่อนลบ |
+
+### **กรณี 4-7: ลบอุปกรณ์, หมวดหมู่, สถานะ, สภาพ**
+
+**หลักการเดียวกัน:**
+- ข้อมูลที่ถูกลบ → แสดง Snapshot
+- ข้อมูลที่ยังอยู่ → แสดง Real-time
 
 ---
 
 ## ✅ **Expected Results Summary**
 
-| สถานการณ์ | ผลลัพธ์ที่คาดหวัง |
-|-----------|------------------|
+| กรณี | ผลลัพธ์ที่คาดหวัง |
+|------|------------------|
 | **เบิกอุปกรณ์** | ✅ สร้าง snapshot ใน RequestLog |
 | **คืนอุปกรณ์** | ✅ สร้าง snapshot ใน ReturnLog |
 | **แก้ไขอุปกรณ์** | ⏸️ Snapshot ไม่เปลี่ยน |
@@ -750,37 +933,123 @@ Admin: ADMIN001
 
 ---
 
-# ส่วนที่ 5: FAQ & Best Practices
+## 🔍 **การตรวจสอบ Database**
 
-## ❓ **FAQ**
-
-### **Q1: Snapshot จะ auto-update เมื่อแก้ไขข้อมูลหรือไม่?**
-```
-A: ⚠️ Update เฉพาะตอนลบเท่านั้น
-   - ✅ เมื่อลบ → auto-update เป็นข้อมูลล่าสุด
-   - ❌ เมื่อแก้ไข → ไม่ update (เก็บข้อมูล ณ ตอนเบิก/คืน)
+### **ตรวจสอบ DeletedUsers**
+```javascript
+// MongoDB Shell
+db.deletedusers.find({ user_id: "U001" }).pretty()
 ```
 
-### **Q2: RequestLog เก่าที่ไม่มี snapshot จะทำยังไง?**
-```
-A: ✅ ระบบจัดการเอง
-   - เมื่อลบอุปกรณ์ → สร้าง snapshot อัตโนมัติ
-   - ถ้ายังไม่ลบ → ใช้ real-time lookup (backward compatible)
+### **ตรวจสอบ Snapshot ใน Logs**
+```javascript
+// RequestLog
+db.requestlogs.find({ userId: "U001" }).pretty()
+
+// IssueLog
+db.issuelogs.find({ requesterId: "U001" }).pretty()
+
+// ReturnLog
+db.returnlogs.find({ userId: "U001" }).pretty()
 ```
 
-### **Q3: ถ้าลบ InventoryMaster แล้ว masterId หาย?**
-```
-A: ✅ ไม่มีปัญหา
-   - RequestLog มี assignedItemSnapshots[]
-   - ไม่ต้องพึ่ง masterId อีกต่อไป
+### **ตรวจสอบ Config Snapshots**
+```javascript
+// Status Snapshot
+db.requestlogs.find(
+  { "items.statusOnRequestName": { $exists: true } },
+  { "items.statusOnRequestName": 1 }
+).pretty()
+
+// Category Snapshot
+db.requestlogs.find(
+  { "items.category": { $exists: true } },
+  { "items.category": 1 }
+).pretty()
 ```
 
-### **Q4: กู้คืนแล้วได้ ID ใหม่จะทำยังไง?**
-```
-A: ✅ Snapshot เก่ายังคงอยู่
-   - ประวัติเก่าใช้ snapshot (item_id เก่า)
-   - ประวัติใหม่ใช้ real-time (item_id ใหม่)
-```
+---
+
+# ส่วนที่ 8: การใช้งานและ Best Practices
+
+## 📁 **ไฟล์สำคัญ**
+
+### **Models:**
+- ✅ `src/models/DeletedUser.ts` - Model สำหรับ DeletedUsers collection
+- ✅ `src/models/RequestLog.ts` - Model สำหรับ RequestLog
+- ✅ `src/models/ReturnLog.ts` - Model สำหรับ ReturnLog
+- ✅ `src/models/IssueLog.ts` - Model สำหรับ IssueLog
+- ✅ `src/models/TransferLog.ts` - Model สำหรับ TransferLog
+
+### **Helpers:**
+- ✅ `src/lib/equipment-populate-helpers.ts` - Populate functions สำหรับ Equipment Logs
+- ✅ `src/lib/issue-helpers.ts` - Populate functions สำหรับ Issue Logs
+- ✅ `src/lib/equipment-snapshot-helpers.ts` - Snapshot functions สำหรับ Config, Item
+- ✅ `src/lib/snapshot-helpers.ts` - Snapshot functions สำหรับ User, Admin
+
+### **API Endpoints:**
+- ✅ `src/app/api/admin/users/[id]/route.ts` - ลบ User (สร้าง DeletedUsers)
+- ✅ `src/app/api/admin/inventory/route.ts` - ลบ InventoryMaster (Snapshot)
+- ✅ `src/app/api/admin/inventory-config/categories/[id]/route.ts` - ลบ/แก้ไข Category (Snapshot)
+- ✅ `src/app/api/admin/inventory-config/statuses/[id]/route.ts` - ลบ/แก้ไข Status (Snapshot)
+- ✅ `src/app/api/admin/inventory-config/conditions/[id]/route.ts` - ลบ/แก้ไข Condition (Snapshot)
+- ✅ `src/app/api/admin/equipment-reports/requests/route.ts` - ดึงข้อมูล RequestLog (Populate)
+- ✅ `src/app/api/admin/equipment-reports/returns/route.ts` - ดึงข้อมูล ReturnLog (Populate)
+- ✅ `src/app/api/admin/it-reports/route.ts` - ดึงข้อมูล IssueLog (Populate)
+- ✅ `src/app/api/user/issues/route.ts` - ดึงข้อมูล IssueLog ของ User (Populate)
+
+---
+
+## 🛠️ **Helper Functions**
+
+### **Equipment Snapshot Helpers** (`src/lib/equipment-snapshot-helpers.ts`)
+
+| Function | หน้าที่ | Collection ที่เกี่ยวข้อง |
+|----------|---------|-------------------------|
+| `getUserName()` | ดึงชื่อ User จาก user_id | User |
+| `getStatusName()` | ดึงชื่อ Status จาก status_id | InventoryConfig |
+| `getConditionName()` | ดึงชื่อ Condition จาก condition_id | InventoryConfig |
+| `getCategoryName()` | ดึงชื่อ Category จาก category_id | InventoryConfig |
+| `snapshotRequestLogsBeforeUserDelete()` | Snapshot User ใน RequestLog | RequestLog |
+| `snapshotReturnLogsBeforeUserDelete()` | Snapshot User ใน ReturnLog | ReturnLog |
+| `snapshotTransferLogsBeforeUserDelete()` | Snapshot User ใน TransferLog | TransferLog |
+| `snapshotEquipmentLogsBeforeUserDelete()` | Snapshot User ทั้งหมด | RequestLog, ReturnLog, TransferLog |
+| `snapshotStatusConfigBeforeChange()` | Snapshot Status Config | RequestLog, ReturnLog |
+| `snapshotConditionConfigBeforeChange()` | Snapshot Condition Config | RequestLog, ReturnLog |
+| `snapshotCategoryConfigBeforeChange()` | Snapshot Category Config | RequestLog, ReturnLog, TransferLog |
+| `snapshotItemNameBeforeDelete()` | Snapshot Item Name | RequestLog |
+| `snapshotConfigChangesBeforeBulkUpdate()` | Bulk Snapshot Configs | RequestLog, ReturnLog, TransferLog |
+
+### **Equipment Populate Helpers** (`src/lib/equipment-populate-helpers.ts`)
+
+| Function | หน้าที่ | รองรับ DeletedUsers |
+|----------|---------|---------------------|
+| `populateRequestLogItems()` | Populate items ใน RequestLog | N/A (สำหรับ item data) |
+| `populateReturnLogItems()` | Populate items ใน ReturnLog | N/A (สำหรับ item data) |
+| `populateRequestLogUser()` | Populate user ใน RequestLog | ✅ |
+| `populateReturnLogUser()` | Populate user ใน ReturnLog | ✅ |
+| `populateRequestLogComplete()` | Populate ทั้ง user + items | ✅ |
+| `populateReturnLogComplete()` | Populate ทั้ง user + items | ✅ |
+| `populateTransferLog()` | Populate user ใน TransferLog | N/A |
+| `populateRequestLogCompleteBatch()` | Batch populate RequestLog | ✅ |
+| `populateReturnLogCompleteBatch()` | Batch populate ReturnLog | ✅ |
+
+### **Issue Helpers** (`src/lib/issue-helpers.ts`)
+
+| Function | หน้าที่ | รองรับ DeletedUsers |
+|----------|---------|---------------------|
+| `populateAdminInfo()` | Populate admin ใน IssueLog | ✅ |
+| `populateRequesterInfo()` | Populate requester ใน IssueLog | ✅ |
+| `populateIssueInfo()` | Populate ทั้ง requester + admin | ✅ |
+| `populateIssueInfoBatch()` | Batch populate IssueLog | ✅ |
+
+### **Main Snapshot Helpers** (`src/lib/snapshot-helpers.ts`)
+
+| Function | หน้าที่ |
+|----------|---------|
+| `snapshotUserBeforeDelete()` | Snapshot User ใน IssueLog |
+| `checkUserRelatedIssues()` | ตรวจสอบ IssueLog ที่เกี่ยวข้อง |
+| `updateSnapshotsBeforeDelete()` | Update snapshot ก่อนลบ InventoryItem |
 
 ---
 
@@ -814,26 +1083,107 @@ Snapshot > Real-time > Config Lookup > "ไม่ระบุ"
 
 ---
 
-## 📚 **ไฟล์ที่เกี่ยวข้อง**
+## ⚠️ **ข้อควรระวัง**
 
-### **Models:**
-- `src/models/RequestLog.ts` - เพิ่ม assignedItemSnapshots
-- `src/models/ReturnLog.ts` - เพิ่ม snapshot fields
-- `src/models/InventoryItem.ts`
-- `src/models/IssueLog.ts`
+### **1. ผู้ใช้สาขา (Branch User)**
+```
+✅ ถูกต้อง:
+- ข้อมูลส่วนตัว (ชื่อ, นามสกุล, โทร, อีเมล) → จากฟอร์มแต่ละครั้ง
+- ข้อมูลสาขา (office) → จาก DeletedUsers (ล่าสุดก่อนลบ)
 
-### **Helper Functions:**
-- `src/lib/snapshot-helpers.ts` - Equipment snapshots
-- `src/lib/equipment-snapshot-helpers.ts` - Config snapshots
-- `src/lib/equipment-populate-helpers.ts` - Populate functions
-- `src/lib/issue-helpers.ts` - Issue snapshots
+❌ ผิด:
+- ใช้ข้อมูลสาขาจากฟอร์ม (จะได้สาขาเก่าที่ไม่ตรงกับความเป็นจริง)
+```
 
-### **API Routes:**
-- `src/app/api/admin/equipment-reports/requests/[id]/approve-with-selection/route.ts`
-- `src/app/api/equipment-return/route.ts`
-- `src/app/api/admin/inventory/route.ts`
-- `src/app/api/admin/inventory/edit-item/route.ts`
-- `src/app/api/admin/equipment-tracking/route.ts`
+### **2. การลบ Config**
+```
+⚠️ ไม่สามารถลบ Config ที่มีการใช้งานใน InventoryItem
+- ระบบจะตรวจสอบและแจ้งเตือนก่อน
+- ต้องย้ายหรือลบ InventoryItem ก่อน
+
+✅ สามารถลบได้:
+- Config ที่ไม่มี InventoryItem ใช้งาน
+- ระบบจะ snapshot ลงใน RequestLog, ReturnLog, TransferLog
+```
+
+### **3. Populate Order**
+```
+ลำดับการ Populate:
+1. ดึงจาก Collection หลัก (User, InventoryMaster, Config)
+2. ถ้าไม่เจอ → ดึงจาก DeletedUsers
+3. ถ้ายังไม่เจอ → ใช้ข้อมูลที่เก็บในฟิลด์ของ Log
+```
+
+### **4. การใช้ API**
+```typescript
+// ✅ ถูกต้อง: ใช้ API ที่มี Snapshot
+DELETE /api/admin/users/[id]  // มี snapshot อัตโนมัติ
+
+// ❌ ผิด: ลบโดยตรงใน Database
+await User.deleteOne({ user_id });  // ไม่มี snapshot
+```
+
+---
+
+## 📈 **Performance**
+
+### **การ Optimize:**
+1. **Batch Populate:**
+   ```typescript
+   // ✅ ดี: Populate ทั้งหมดพร้อมกัน
+   await populateRequestLogCompleteBatch(requests);
+   
+   // ❌ ไม่ดี: Populate ทีละรายการ
+   for (const request of requests) {
+     await populateRequestLogComplete(request);
+   }
+   ```
+
+2. **Index:**
+   ```typescript
+   // DeletedUsers collection
+   { userMongoId: 1 }        // unique index
+   { user_id: 1 }            // index สำหรับค้นหา
+   { deletedAt: 1 }          // index สำหรับเรียงลำดับ
+   ```
+
+3. **Select Fields:**
+   ```typescript
+   // เลือกเฉพาะฟิลด์ที่ต้องการ
+   await User.findOne({ user_id }).select('firstName lastName office');
+   ```
+
+---
+
+## ❓ **FAQ**
+
+### **Q1: Snapshot จะ auto-update เมื่อแก้ไขข้อมูลหรือไม่?**
+```
+A: ⚠️ Update เฉพาะตอนลบเท่านั้น
+   - ✅ เมื่อลบ → auto-update เป็นข้อมูลล่าสุด
+   - ❌ เมื่อแก้ไข → ไม่ update (เก็บข้อมูล ณ ตอนเบิก/คืน)
+```
+
+### **Q2: RequestLog เก่าที่ไม่มี snapshot จะทำยังไง?**
+```
+A: ✅ ระบบจัดการเอง
+   - เมื่อลบอุปกรณ์ → สร้าง snapshot อัตโนมัติ
+   - ถ้ายังไม่ลบ → ใช้ real-time lookup (backward compatible)
+```
+
+### **Q3: ถ้าลบ InventoryMaster แล้ว masterId หาย?**
+```
+A: ✅ ไม่มีปัญหา
+   - RequestLog มี assignedItemSnapshots[]
+   - ไม่ต้องพึ่ง masterId อีกต่อไป
+```
+
+### **Q4: กู้คืนแล้วได้ ID ใหม่จะทำยังไง?**
+```
+A: ✅ Snapshot เก่ายังคงอยู่
+   - ประวัติเก่าใช้ snapshot (item_id เก่า)
+   - ประวัติใหม่ใช้ real-time (item_id ใหม่)
+```
 
 ---
 
@@ -852,12 +1202,34 @@ Snapshot > Real-time > Config Lookup > "ไม่ระบุ"
 - ✅ แสดงข้อมูล historical ถูกต้อง
 - ✅ แก้ปัญหา masterId หายเมื่อกู้คืน
 - ✅ ไม่มี "Unknown" ในตาราง
+- ✅ รองรับผู้ใช้สาขาได้อย่างถูกต้อง
+- ✅ จัดการ Config deletion ได้สมบูรณ์
+
+### **ตารางที่ใช้ระบบ Snapshot**
+
+| หน้าตาราง | URL | ข้อมูลที่แสดง |
+|-----------|-----|--------------|
+| รายงานเบิก/คืนอุปกรณ์ | `/admin/equipment-reports` | User, Admin, Item, Category, Status, Condition |
+| รายงานแจ้งปัญหา IT | `/admin/it-reports` | User (Requester), Admin |
+| ติดตามงาน IT | `/it-tracking` | User (Requester), Admin |
+| ติดตามอุปกรณ์ | `/admin/equipment-tracking` | User, Item, Category, Status, Condition |
+| Dashboard | `/dashboard` | User, Item (ถ้ามี) |
+
+---
+
+## 📚 **เอกสารเพิ่มเติม**
+
+เอกสารนี้รวมเนื้อหาจาก:
+- `SNAPSHOT_SYSTEM_VERIFICATION.md` - รายละเอียดเทคนิคและโค้ด
+- `SNAPSHOT_SYSTEM_TESTING_GUIDE.md` - คู่มือทดสอบแบบละเอียด
+- `SNAPSHOT_SYSTEM_SUMMARY.md` - ตารางเปรียบเทียบ 7 กรณี
+- `SNAPSHOT_SYSTEM_README_TH.md` - คู่มือฉบับสมบูรณ์
+- `SNAPSHOT_FINAL_SUMMARY.md` - สรุปสุดท้าย
 
 ---
 
 **สถานะ:** ✅ พร้อมใช้งาน  
-**รุ่น:** v3.0  
-**อัปเดทล่าสุด:** ตุลาคม 2568
+**รุ่น:** v4.0  
+**อัปเดทล่าสุด:** มกราคม 2568
 
 🎉 **Happy Tracking!**
-
