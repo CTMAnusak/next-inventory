@@ -326,13 +326,22 @@ export async function DELETE(
           userMongoId: userToDelete._id.toString(),
           user_id: userToDelete.user_id,
           userType: userToDelete.userType, // 🆕 เพิ่ม userType
-          firstName: userToDelete.firstName,
-          lastName: userToDelete.lastName,
-          nickname: userToDelete.nickname,
-          department: userToDelete.department,
-          office: userToDelete.office,
-          phone: userToDelete.phone,
-          email: userToDelete.email,
+          // สำหรับผู้ใช้ประเภทสาขา ไม่ snapshot ข้อมูลส่วนตัว เพราะใช้ข้อมูลจากฟอร์ม
+          ...(userToDelete.userType === 'branch' ? {
+            // เฉพาะข้อมูลสาขา
+            office: userToDelete.office,
+            phone: userToDelete.phone,
+            email: userToDelete.email,
+          } : {
+            // ผู้ใช้บุคคล snapshot ข้อมูลทั้งหมด
+            firstName: userToDelete.firstName,
+            lastName: userToDelete.lastName,
+            nickname: userToDelete.nickname,
+            department: userToDelete.department,
+            office: userToDelete.office,
+            phone: userToDelete.phone,
+            email: userToDelete.email,
+          }),
           deletedAt: new Date()
         } as any;
         await DeletedUsers.findOneAndUpdate(

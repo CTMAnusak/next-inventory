@@ -9,11 +9,13 @@ export async function GET() {
   try {
     await dbConnect();
     
+    // ❌ ลบ .populate('userId') เพราะทำให้ไม่แสดงรายการของ user ที่ถูกลบ
+    // ✅ ให้ populateIssueInfoBatch จัดการ populate แทน (รองรับ DeletedUsers)
     const issues = await IssueLog.find({})
-      .populate('userId', 'firstName lastName nickname department office phone pendingDeletion')
       .sort({ reportDate: -1 });
     
     // Populate both requester and admin information
+    // รองรับทั้ง User ปกติและ DeletedUsers
     const populatedIssues = await populateIssueInfoBatch(issues);
     
     return NextResponse.json(populatedIssues);

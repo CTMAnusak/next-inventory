@@ -15,6 +15,10 @@ export async function GET(request: NextRequest) {
     
     const userId = user!.user_id;
     
+    // ✅ เพิ่ม query parameter สำหรับควบคุมการกรองอุปกรณ์ที่มี pending return
+    const url = new URL(request.url);
+    const excludePendingReturns = url.searchParams.get('excludePendingReturns') === 'true';
+    
     // Get user's owned items
     const ownedItems = await InventoryItem.find({
       'currentOwnership.ownerType': 'user_owned',
@@ -66,8 +70,15 @@ export async function GET(request: NextRequest) {
 
     // ✅ Filter out items that have been approved for return AFTER they were owned
     // (i.e., only filter if return was approved AFTER the current ownership started)
+    // ✅ Also filter out items with pending returns (เฉพาะเมื่อ excludePendingReturns = true)
     const availableItems = ownedItems.filter(item => {
       const itemKey = item.serialNumber ? `${item._id}-${item.serialNumber}` : item._id.toString();
+      
+      // ❌ Filter out items with pending returns เฉพาะเมื่อ excludePendingReturns = true
+      // (สำหรับหน้า equipment-return เท่านั้น, หน้า dashboard ยังแสดงได้)
+      if (excludePendingReturns && pendingReturnItems.has(itemKey)) {
+        return false;
+      }
       
       // Check if this item has a return log
       const returnApprovedAt = returnedItemsMap.get(itemKey);
@@ -165,7 +176,12 @@ export async function GET(request: NextRequest) {
       const finalNickname = itemRequesterInfo?.nickname || mostRecentRequesterInfo?.nickname || undefined;
       const finalDepartment = itemRequesterInfo?.department || mostRecentRequesterInfo?.department || undefined;
       const finalPhone = itemRequesterInfo?.phone || mostRecentRequesterInfo?.phone || undefined;
-      const finalOffice = itemRequesterInfo?.office || mostRecentRequesterInfo?.office || undefined;
+      
+      // ⚠️ สำหรับผู้ใช้สาขา: office ต้องใช้จาก User Collection เสมอ (ไม่ใช้ snapshot เก่า)
+      // เพื่อให้แสดงชื่อสาขาล่าสุดที่แอดมินแก้ไข
+      const finalOffice = user?.userType === 'branch' 
+        ? user?.office 
+        : (itemRequesterInfo?.office || mostRecentRequesterInfo?.office || undefined);
       
       // ✅ กำหนด source ตามการได้มาของอุปกรณ์
       // - self_reported = เพิ่มเองผ่าน "เพิ่มอุปกรณ์ที่มี" → แสดงปุ่มแก้ไข

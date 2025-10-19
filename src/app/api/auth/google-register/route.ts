@@ -128,17 +128,36 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // Generate user_id
-    const lastUser = await User.findOne().sort({ user_id: -1 });
-    let nextUserId = 'U001';
-    if (lastUser && lastUser.user_id) {
-      const lastId = parseInt(lastUser.user_id.substring(1));
-      nextUserId = `U${String(lastId + 1).padStart(3, '0')}`;
+    // Generate unique random user_id for Google users (Format: G + timestamp + random number)
+    let user_id;
+    let isUnique = false;
+    let attempts = 0;
+    
+    while (!isUnique && attempts < 10) {
+      // สร้าง user_id แบบสุ่ม: G + timestamp + random 3 digits
+      user_id = 'G' + Date.now() + Math.floor(Math.random() * 1000);
+      
+      // ตรวจสอบว่าไม่ซ้ำกับที่มีอยู่
+      const existingUser = await User.findOne({ user_id });
+      if (!existingUser) {
+        isUnique = true;
+      }
+      attempts++;
+      
+      // หน่วงเวลานิดหน่อยเพื่อให้ได้ timestamp ที่ต่างกัน
+      if (!isUnique) await new Promise(resolve => setTimeout(resolve, 1));
+    }
+
+    if (!isUnique) {
+      return NextResponse.json(
+        { error: 'ไม่สามารถสร้าง user ID ที่ไม่ซ้ำได้ กรุณาลองใหม่อีกครั้ง' },
+        { status: 500 }
+      );
     }
 
     // Create new user
     const newUser = new User({
-      user_id: nextUserId,
+      user_id: user_id,
       firstName: profileData.userType === 'individual' ? profileData.firstName : undefined,
       lastName: profileData.userType === 'individual' ? profileData.lastName : undefined,
       nickname: profileData.userType === 'individual' ? profileData.nickname : undefined,

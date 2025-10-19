@@ -7,6 +7,8 @@ import { toast } from 'react-hot-toast';
 import { Search, RefreshCw } from 'lucide-react';
 import RequesterInfoForm from '@/components/RequesterInfoForm';
 import DatePicker from '@/components/DatePicker';
+import { handleAuthError } from '@/lib/auth-error-handler';
+import AuthGuard from '@/components/AuthGuard';
 
 interface RequestItem {
   itemId: string;
@@ -94,12 +96,22 @@ export default function EquipmentRequestPage() {
       setIsLoadingEquipment(true);
       const configResponse = await fetch('/api/admin/inventory/config');
       
+      // ✅ จัดการ 401/403 error - เด้งออกจากระบบทันที
+      if (handleAuthError(configResponse)) {
+        return;
+      }
+      
       if (configResponse.ok) {
         const configData = await configResponse.json();
         setCategoryConfigs(configData.categoryConfigs || []);
         
         // ✅ ดึงข้อมูลอุปกรณ์ที่สามารถเบิกได้จาก API ที่กรองตามสถานะและสภาพแล้ว
         const availableResponse = await fetch('/api/equipment-request/available');
+        
+        // ✅ จัดการ 401/403 error - เด้งออกจากระบบทันที
+        if (handleAuthError(availableResponse)) {
+          return;
+        }
         
         if (availableResponse.ok) {
           const availableData = await availableResponse.json();
@@ -194,6 +206,11 @@ export default function EquipmentRequestPage() {
       const response = await fetch(
         `/api/admin/equipment-reports/available-items?itemName=${encodeURIComponent(inventoryItem.itemName)}&category=${encodeURIComponent(inventoryItem.categoryId || '')}`
       );
+      
+      // ✅ จัดการ 401/403 error - เด้งออกจากระบบทันที
+      if (handleAuthError(response)) {
+        return;
+      }
       
       if (response.ok) {
         const data = await response.json();
@@ -396,13 +413,20 @@ export default function EquipmentRequestPage() {
         urgency: formData.urgency,
         deliveryLocation: formData.deliveryLocation,
         userId: user?.id || undefined,
-        items: selectedItems.map(it => ({
+        items: selectedItems.map(it => {
           // API expects masterId; current UI itemId equals InventoryMaster._id from /api/inventory
-          masterId: it.itemId,
-          quantity: it.quantity,
-          serialNumber: it.serialNumber || '',
-          itemNotes: it.itemNotes || ''
-        }))
+          const selectedItem = inventoryItems.find(i => String(i._id) === it.itemId);
+          const isSIMCard = selectedItem?.categoryId === 'cat_sim_card';
+          
+          return {
+            masterId: it.itemId,
+            quantity: it.quantity,
+            // ✅ แยกชัดเจน: ถ้าเป็นซิมการ์ดเก็บใน requestedPhoneNumbers, ถ้าไม่ใช่เก็บใน serialNumbers
+            serialNumbers: !isSIMCard && it.serialNumber ? [it.serialNumber] : undefined,
+            requestedPhoneNumbers: isSIMCard && it.serialNumber ? [it.serialNumber] : undefined,
+            itemNotes: it.itemNotes || ''
+          };
+        })
       };
 
       // Debug: Log the data being sent
@@ -414,6 +438,11 @@ export default function EquipmentRequestPage() {
         },
         body: JSON.stringify(requestData),
       });
+
+      // ✅ จัดการ 401/403 error - เด้งออกจากระบบทันที
+      if (handleAuthError(response)) {
+        return;
+      }
 
       const data = await response.json();
 
@@ -460,10 +489,11 @@ export default function EquipmentRequestPage() {
   }
 
   return (
-    <Layout>
-      <div className="max-w-5xl mx-auto">
-        <div className="bg-white/90 backdrop-blur-sm rounded-2xl shadow-xl px-5 py-8 sm:p-8 border border-white/50">
-          <h1 className="text-2xl font-bold text-gray-900 mb-6">เบิกอุปกรณ์</h1>
+    <AuthGuard>
+      <Layout>
+        <div className="max-w-5xl mx-auto">
+          <div className="bg-white/90 backdrop-blur-sm rounded-2xl shadow-xl px-5 py-8 sm:p-8 border border-white/50">
+            <h1 className="text-2xl font-bold text-gray-900 mb-6">เบิกอุปกรณ์</h1>
 
           {/* User Profile Display */}
           <RequesterInfoForm 
@@ -868,5 +898,6 @@ export default function EquipmentRequestPage() {
         </div>
       </div>
     </Layout>
+    </AuthGuard>
   );
 }

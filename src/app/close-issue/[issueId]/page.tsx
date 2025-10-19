@@ -4,6 +4,8 @@ import { useState, useEffect } from 'react';
 import { useParams } from 'next/navigation';
 import { CheckCircle, XCircle, AlertTriangle, Send } from 'lucide-react';
 import { toast } from 'react-hot-toast';
+import { handleAuthError } from '@/lib/auth-error-handler';
+import AuthGuard from '@/components/AuthGuard';
 
 interface ITIssue {
   _id: string;
@@ -37,6 +39,12 @@ export default function CloseIssuePage() {
   const fetchIssue = async () => {
     try {
       const response = await fetch(`/api/close-issue/${issueId}`);
+      
+      // ✅ จัดการ 401/403 error - เด้งออกจากระบบทันที
+      if (handleAuthError(response)) {
+        return;
+      }
+      
       if (response.ok) {
         const data = await response.json();
         setIssue(data);
@@ -63,6 +71,11 @@ export default function CloseIssuePage() {
       const response = await fetch(`/api/close-issue/${issueId}/close`, {
         method: 'POST',
       });
+
+      // ✅ จัดการ 401/403 error - เด้งออกจากระบบทันที
+      if (handleAuthError(response)) {
+        return;
+      }
 
       if (response.ok) {
         toast.success('ปิดงานเรียบร้อยแล้ว');
@@ -93,6 +106,11 @@ export default function CloseIssuePage() {
         },
         body: JSON.stringify({ notes }),
       });
+
+      // ✅ จัดการ 401/403 error - เด้งออกจากระบบทันที
+      if (handleAuthError(response)) {
+        return;
+      }
 
       if (response.ok) {
         toast.success('บันทึกหมายเหตุเรียบร้อยแล้ว');
@@ -144,15 +162,16 @@ export default function CloseIssuePage() {
   }
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-blue-50 via-indigo-50 to-cyan-50 flex items-center justify-center p-4">
-      <div className="max-w-2xl w-full">
-        <div className="bg-white/95 backdrop-blur-sm rounded-2xl shadow-2xl p-8 border border-white/20">
-          <div className="text-center mb-8">
-            <h1 className="text-3xl font-bold text-gray-900 mb-4">การจัดการงาน IT</h1>
-            <div className="inline-flex items-center px-4 py-2 bg-blue-100 text-blue-800 rounded-full">
-              <span className="font-semibold">Issue ID: {issue.issueId}</span>
+    <AuthGuard>
+      <div className="min-h-screen bg-gradient-to-br from-blue-50 via-indigo-50 to-cyan-50 flex items-center justify-center p-4">
+        <div className="max-w-2xl w-full">
+          <div className="bg-white/95 backdrop-blur-sm rounded-2xl shadow-2xl p-8 border border-white/20">
+            <div className="text-center mb-8">
+              <h1 className="text-3xl font-bold text-gray-900 mb-4">การจัดการงาน IT</h1>
+              <div className="inline-flex items-center px-4 py-2 bg-blue-100 text-blue-800 rounded-full">
+                <span className="font-semibold">Issue ID: {issue.issueId}</span>
+              </div>
             </div>
-          </div>
 
           {/* Issue Details */}
           <div className="bg-gray-50 rounded-lg p-6 mb-8">
@@ -262,5 +281,6 @@ export default function CloseIssuePage() {
         </div>
       </div>
     </div>
+    </AuthGuard>
   );
 }

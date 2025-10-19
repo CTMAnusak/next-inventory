@@ -8,6 +8,8 @@ import { toast } from 'react-hot-toast';
 import { Search, Upload, ChevronDown, RefreshCw } from 'lucide-react';
 import RequesterInfoForm from '@/components/RequesterInfoForm';
 import DatePicker from '@/components/DatePicker';
+import { handleAuthError } from '@/lib/auth-error-handler';
+import AuthGuard from '@/components/AuthGuard';
 
 interface ReturnItem {
   itemId: string;
@@ -314,6 +316,7 @@ export default function EquipmentReturnPage() {
         firstName: firstName || '',
         lastName: lastName || '',
         office: office,
+        excludePendingReturns: 'true', // ✅ กรองอุปกรณ์ที่มี pending return ออก
       });
       
       if (user?.id) {
@@ -321,6 +324,12 @@ export default function EquipmentReturnPage() {
       }
       
       const res = await fetch(`/api/user/owned-equipment?${params.toString()}`);
+      
+      // ✅ จัดการ 401/403 error - เด้งออกจากระบบทันที
+      if (handleAuthError(res)) {
+        return;
+      }
+      
       if (res.ok) {
         const data = await res.json();
         console.log('🔍 API Response:', data);
@@ -1020,10 +1029,11 @@ export default function EquipmentReturnPage() {
   };
 
   return (
-    <Layout>
-      <div className="max-w-5xl mx-auto">
-        <div className="bg-white/90 backdrop-blur-sm rounded-2xl shadow-xl px-5 py-8 sm:p-8 border border-white/50">
-          <h1 className="text-2xl font-bold text-gray-900 mb-6">คืนอุปกรณ์</h1>
+    <AuthGuard>
+      <Layout>
+        <div className="max-w-5xl mx-auto">
+          <div className="bg-white/90 backdrop-blur-sm rounded-2xl shadow-xl px-5 py-8 sm:p-8 border border-white/50">
+            <h1 className="text-2xl font-bold text-gray-900 mb-6">คืนอุปกรณ์</h1>
 
           {/* User Profile Display */}
           <RequesterInfoForm 
@@ -1494,5 +1504,6 @@ export default function EquipmentReturnPage() {
         </div>
       </div>
     </Layout>
+    </AuthGuard>
   );
 }

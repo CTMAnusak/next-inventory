@@ -217,8 +217,21 @@ export async function populateRequestLogUser(requestLog: any) {
     );
     
     if (user) {
-      // Individual User: Populate ทุกฟิลด์จาก User collection
-      if (user.userType === 'individual') {
+      // ✅ ตรวจสอบประเภทผู้ใช้จาก User collection ก่อน (ข้อมูลล่าสุด)
+      // Branch User: Populate เฉพาะข้อมูลสาขา (ข้อมูลส่วนตัวใช้จากฟอร์ม)
+      if (user.userType === 'branch') {
+        populated.office = user.office;
+        populated.email = user.email;
+        // ✅ firstName, lastName, phone, etc. → ใช้จาก requesterFirstName, requesterLastName (snapshot ในฟอร์ม)
+        // ⚠️ ไม่ populate จาก User collection เพราะเป็นข้อมูลส่วนตัวที่เปลี่ยนไปตามคนที่มาเบิก
+        populated.firstName = populated.requesterFirstName || '-';
+        populated.lastName = populated.requesterLastName || '-';
+        populated.nickname = populated.requesterNickname || '-';
+        populated.department = populated.requesterDepartment || '-';
+        populated.phone = populated.requesterPhone || '-';
+      }
+      // Individual User: Populate ทุกฟิลด์จาก User collection (ข้อมูลล่าสุด)
+      else if (user.userType === 'individual') {
         populated.firstName = user.firstName;
         populated.lastName = user.lastName;
         populated.nickname = user.nickname;
@@ -226,13 +239,6 @@ export async function populateRequestLogUser(requestLog: any) {
         populated.office = user.office;
         populated.phone = user.phone;
         populated.email = user.email;
-      }
-      // Branch User: Populate เฉพาะข้อมูลสาขา (ข้อมูลส่วนตัวใช้จากฟอร์ม)
-      else if (user.userType === 'branch') {
-        populated.office = user.office;
-        populated.phone = user.phone;
-        populated.email = user.email;
-        // firstName, lastName, etc. → ใช้จาก requesterFirstName, requesterLastName (snapshot ในฟอร์ม)
       }
     } else {
       // ✅ ไม่เจอ user (ถูกลบแล้ว) → ค้นหาจาก DeletedUsers collection
@@ -255,13 +261,13 @@ export async function populateRequestLogUser(requestLog: any) {
           populated.office = deletedUser.office || populated.requesterOffice || '-';
         } else {
           // ผู้ใช้บุคคล: ใช้ข้อมูลจาก DeletedUsers เป็นหลัก (ข้อมูลล่าสุดก่อนลบ)
-          populated.firstName = deletedUser.firstName || populated.requesterFirstName || '-';
-          populated.lastName = deletedUser.lastName || populated.requesterLastName || '-';
-          populated.nickname = deletedUser.nickname || populated.requesterNickname || '-';
-          populated.department = deletedUser.department || populated.requesterDepartment || '-';
-          populated.office = deletedUser.office || populated.requesterOffice || '-';
-          populated.phone = deletedUser.phone || populated.requesterPhone || '-';
-          populated.email = deletedUser.email || '-';
+          populated.firstName = deletedUser.firstName ?? populated.requesterFirstName ?? '-';
+          populated.lastName = deletedUser.lastName ?? populated.requesterLastName ?? '-';
+          populated.nickname = deletedUser.nickname ?? populated.requesterNickname ?? '-';
+          populated.department = deletedUser.department ?? populated.requesterDepartment ?? '-';
+          populated.office = deletedUser.office ?? populated.requesterOffice ?? '-';
+          populated.phone = deletedUser.phone ?? populated.requesterPhone ?? '-';
+          populated.email = deletedUser.email ?? '-';
         }
       } else {
         // ✅ Fallback: ใช้ snapshot จากฟอร์ม
@@ -306,8 +312,21 @@ export async function populateReturnLogUser(returnLog: any) {
     );
     
     if (user) {
-      // Individual User: Populate ทุกฟิลด์จาก User collection
-      if (user.userType === 'individual') {
+      // ✅ ตรวจสอบประเภทผู้ใช้จาก User collection ก่อน (ข้อมูลล่าสุด)
+      // Branch User: Populate เฉพาะข้อมูลสาขา (ข้อมูลส่วนตัวใช้จากฟอร์ม)
+      if (user.userType === 'branch') {
+        populated.office = user.office;
+        populated.email = user.email;
+        // ✅ firstName, lastName, phone, etc. → ใช้จาก returnerFirstName, returnerLastName (snapshot ในฟอร์ม)
+        // ⚠️ ไม่ populate จาก User collection เพราะเป็นข้อมูลส่วนตัวที่เปลี่ยนไปตามคนที่มาคืน
+        populated.firstName = populated.returnerFirstName || '-';
+        populated.lastName = populated.returnerLastName || '-';
+        populated.nickname = populated.returnerNickname || '-';
+        populated.department = populated.returnerDepartment || '-';
+        populated.phone = populated.returnerPhone || '-';
+      }
+      // Individual User: Populate ทุกฟิลด์จาก User collection (ข้อมูลล่าสุด)
+      else if (user.userType === 'individual') {
         populated.firstName = user.firstName;
         populated.lastName = user.lastName;
         populated.nickname = user.nickname;
@@ -315,13 +334,6 @@ export async function populateReturnLogUser(returnLog: any) {
         populated.office = user.office;
         populated.phone = user.phone;
         populated.email = user.email;
-      }
-      // Branch User: Populate เฉพาะข้อมูลสาขา (ข้อมูลส่วนตัวใช้จากฟอร์ม)
-      else if (user.userType === 'branch') {
-        populated.office = user.office;
-        populated.phone = user.phone;
-        populated.email = user.email;
-        // firstName, lastName, etc. → ใช้จาก returnerFirstName, returnerLastName (snapshot ในฟอร์ม)
       }
     } else {
       // ✅ ไม่เจอ user (ถูกลบแล้ว) → ค้นหาจาก DeletedUsers collection
@@ -344,13 +356,13 @@ export async function populateReturnLogUser(returnLog: any) {
           populated.office = deletedUser.office || populated.returnerOffice || '-';
         } else {
           // ผู้ใช้บุคคล: ใช้ข้อมูลจาก DeletedUsers เป็นหลัก (ข้อมูลล่าสุดก่อนลบ)
-          populated.firstName = deletedUser.firstName || populated.returnerFirstName || '-';
-          populated.lastName = deletedUser.lastName || populated.returnerLastName || '-';
-          populated.nickname = deletedUser.nickname || populated.returnerNickname || '-';
-          populated.department = deletedUser.department || populated.returnerDepartment || '-';
-          populated.office = deletedUser.office || populated.returnerOffice || '-';
-          populated.phone = deletedUser.phone || populated.returnerPhone || '-';
-          populated.email = deletedUser.email || '-';
+          populated.firstName = deletedUser.firstName ?? populated.returnerFirstName ?? '-';
+          populated.lastName = deletedUser.lastName ?? populated.returnerLastName ?? '-';
+          populated.nickname = deletedUser.nickname ?? populated.returnerNickname ?? '-';
+          populated.department = deletedUser.department ?? populated.returnerDepartment ?? '-';
+          populated.office = deletedUser.office ?? populated.returnerOffice ?? '-';
+          populated.phone = deletedUser.phone ?? populated.returnerPhone ?? '-';
+          populated.email = deletedUser.email ?? '-';
         }
       } else {
         // ✅ Fallback: ใช้ snapshot จากฟอร์ม

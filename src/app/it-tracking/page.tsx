@@ -5,6 +5,8 @@ import Layout from '@/components/Layout';
 import { toast } from 'react-hot-toast';
 import { Clock, CheckCircle, XCircle, AlertCircle, RefreshCw, Eye, X } from 'lucide-react';
 import { useAuth } from '@/contexts/AuthContext';
+import { handleAuthError } from '@/lib/auth-error-handler';
+import AuthGuard from '@/components/AuthGuard';
 
 interface IssueItem {
   _id: string;
@@ -76,6 +78,12 @@ export default function ITTrackingPage() {
     setIsLoading(true);
     try {
       const response = await fetch('/api/user/issues');
+      
+      // ✅ จัดการ 401/403 error - เด้งออกจากระบบทันที
+      if (handleAuthError(response)) {
+        return;
+      }
+      
       const data = await response.json();
 
       if (response.ok) {
@@ -126,6 +134,11 @@ export default function ITTrackingPage() {
           reason: reasonText
         }),
       });
+
+      // ✅ จัดการ 401/403 error - เด้งออกจากระบบทันที
+      if (handleAuthError(response)) {
+        return;
+      }
 
       const data = await response.json();
 
@@ -201,7 +214,8 @@ export default function ITTrackingPage() {
   };
 
   return (
-    <Layout>
+    <AuthGuard>
+      <Layout>
       <div className="max-w-[1600px] mx-auto px-4">
         <div className="bg-white rounded-lg shadow-lg">
           {/* Header */}
@@ -963,5 +977,6 @@ export default function ITTrackingPage() {
         </div>
       )}
     </Layout>
+    </AuthGuard>
   );
 }

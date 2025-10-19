@@ -62,6 +62,7 @@ interface RequestLog {
     assignedQuantity?: number; // จำนวนที่ Admin assign ให้แล้ว
     itemApproved?: boolean; // สถานะว่ารายการนี้ได้รับการอนุมัติแล้วหรือยัง
     approvedAt?: string; // วันที่อนุมัติรายการนี้
+    itemNotes?: string; // เหตุผลของรายการเบิก (ไม่บังคับ)
   }>;
   submittedAt: string;
   status?: 'pending' | 'completed'; // เพิ่ม status
@@ -536,9 +537,9 @@ export default function AdminEquipmentReportsPage() {
     let filtered = data.filter(item => {
       // Search filter - ค้นหาเฉพาะ: ชื่อ, นามสกุล, ชื่อเล่น
       const matchesSearch = !searchTerm || 
-        item.firstName.toLowerCase().includes(searchTerm.toLowerCase()) ||
-        item.lastName.toLowerCase().includes(searchTerm.toLowerCase()) ||
-        item.nickname.toLowerCase().includes(searchTerm.toLowerCase());
+        (item.firstName && item.firstName.toLowerCase().includes(searchTerm.toLowerCase())) ||
+        (item.lastName && item.lastName.toLowerCase().includes(searchTerm.toLowerCase())) ||
+        (item.nickname && item.nickname.toLowerCase().includes(searchTerm.toLowerCase()));
 
       // Item Name filter
       const matchesItemName = !itemNameFilter || 
@@ -573,10 +574,10 @@ export default function AdminEquipmentReportsPage() {
         });
 
       // Department filter
-      const matchesDepartment = !departmentFilter || item.department.includes(departmentFilter);
+      const matchesDepartment = !departmentFilter || (item.department && item.department.includes(departmentFilter));
 
       // Office filter
-      const matchesOffice = !officeFilter || item.office.includes(officeFilter);
+      const matchesOffice = !officeFilter || (item.office && item.office.includes(officeFilter));
 
       // Serial Number filter - กรองตามค่า Serial Number ที่แสดงในตาราง (ใช้ logic เดียวกับตาราง)
       const matchesSerialNumber = !serialNumberFilter || 
@@ -693,18 +694,18 @@ export default function AdminEquipmentReportsPage() {
                 return searchValue === '-';
               }
             } else {
-              // ยังไม่อนุมัติ แสดง serialNumbers (สำหรับซิมการ์ดเก็บเป็นเบอร์โทร - เหมือนตาราง)
-              if (Array.isArray(requestItem.serialNumbers) && requestItem.serialNumbers.length > 0) {
+              // ยังไม่อนุมัติ แสดง requestedPhoneNumbers (สำหรับซิมการ์ด)
+              if (Array.isArray((requestItem as any).requestedPhoneNumbers) && (requestItem as any).requestedPhoneNumbers.length > 0) {
                 // ถ้าค้นหา "-" และมีเบอร์ = ไม่แสดง
                 if (searchValue === '-') {
                   return false;
                 }
                 // ค้นหาตามค่าเบอร์ที่มี
-                return requestItem.serialNumbers.some((phone: string) => 
+                return (requestItem as any).requestedPhoneNumbers.some((phone: string) => 
                   phone && phone.toLowerCase().includes(searchValue.toLowerCase())
                 );
               } else {
-                // ถ้าไม่มี serialNumbers = แสดง "-" ในตาราง
+                // ถ้าไม่มี requestedPhoneNumbers = แสดง "-" ในตาราง
                 return searchValue === '-';
               }
             }
@@ -834,10 +835,10 @@ export default function AdminEquipmentReportsPage() {
                       if (searchValue !== '-') return false;
                     }
                   } else {
-                    // ยังไม่อนุมัติ แสดง serialNumbers (สำหรับซิมการ์ดเก็บเป็นเบอร์โทร)
-                    if (Array.isArray(requestItem.serialNumbers) && requestItem.serialNumbers.length > 0) {
+                    // ยังไม่อนุมัติ แสดง requestedPhoneNumbers (สำหรับซิมการ์ด)
+                    if (Array.isArray((requestItem as any).requestedPhoneNumbers) && (requestItem as any).requestedPhoneNumbers.length > 0) {
                       if (searchValue === '-') return false;
-                      if (!requestItem.serialNumbers.some((phone: string) => 
+                      if (!(requestItem as any).requestedPhoneNumbers.some((phone: string) => 
                         phone && phone.toLowerCase().includes(searchValue.toLowerCase())
                       )) return false;
                     } else {
@@ -997,8 +998,8 @@ export default function AdminEquipmentReportsPage() {
           if (isSimCard) {
             if (isApproved && Array.isArray(item.assignedPhoneNumbers) && item.assignedPhoneNumbers.length > 0) {
               phoneNumbers = item.assignedPhoneNumbers.join(', ');
-            } else if (!isApproved && Array.isArray(item.serialNumbers) && item.serialNumbers.length > 0) {
-              phoneNumbers = item.serialNumbers.join(', ');
+            } else if (!isApproved && Array.isArray((item as any).requestedPhoneNumbers) && (item as any).requestedPhoneNumbers.length > 0) {
+              phoneNumbers = (item as any).requestedPhoneNumbers.join(', ');
             }
           }
 
@@ -1012,14 +1013,14 @@ export default function AdminEquipmentReportsPage() {
             phone: log.phone || '-',
             itemName: getCurrentItemName(item),
             category: item.category || 'Unknown Category',
-            status: item.statusOnRequest || 'ไม่ระบุ',
-            condition: item.conditionOnRequest || 'ไม่ระบุ',
+            status: (item as any).statusOnRequestName || item.statusOnRequest || 'ไม่ระบุ',
+            condition: (item as any).conditionOnRequestName || item.conditionOnRequest || 'ไม่ระบุ',
             serialNumber: serialNumbers,
             phoneNumber: phoneNumbers,
             quantity: item.quantity,
             urgency: log.urgency === 'very_urgent' ? 'ด่วนมาก' : 'ปกติ',
             deliveryLocation: log.deliveryLocation || '-',
-            reason: log.reason || '-',
+            reason: item.itemNotes || '-',
             actionStatus: isApproved ? 'เสร็จสิ้น' : 'รอดำเนินการ',
           });
         });
@@ -1059,11 +1060,11 @@ export default function AdminEquipmentReportsPage() {
             nickname: log.nickname || '-',
             department: log.department || '-',
             office: log.office || '-',
-            phone: log.phoneNumber || '-',
+            phone: log.phone || '-',
             itemName: getCurrentItemName(item),
             category: item.category || 'Unknown Category',
-            status: item.statusOnReturn || 'ไม่ระบุ',
-            condition: item.conditionOnReturn || 'ไม่ระบุ',
+            status: (item as any).statusOnReturnName || item.statusOnReturn || 'ไม่ระบุ',
+            condition: (item as any).conditionOnReturnName || item.conditionOnReturn || 'ไม่ระบุ',
             serialNumber: item.serialNumber || '-',
             phoneNumber: item.numberPhone || '-',
             assetNumber: item.assetNumber || '-',
@@ -1105,7 +1106,7 @@ export default function AdminEquipmentReportsPage() {
                 const rowOffset = Math.max(0, (cellHeight - imageHeight) / 2);
 
                 worksheet.addImage(imageId, {
-                  tl: { col: 15, row: index + 1, colOff: colOffset, rowOff: rowOffset },
+                  tl: { col: 16, row: index + 1, colOff: colOffset, rowOff: rowOffset },
                   ext: { width: imageWidth, height: imageHeight },
                   editAs: 'oneCell' // รูปจะย้ายตามแถว/คอลัมน์
                 });
@@ -1826,9 +1827,9 @@ export default function AdminEquipmentReportsPage() {
                                   return <span>-</span>;
                                 }
                               } else {
-                                // ยังไม่อนุมัติ - แสดง serialNumbers (ที่ผู้ใช้เลือกมา - สำหรับซิมการ์ดจะเป็นเบอร์โทรศัพท์)
-                                if (Array.isArray(item.serialNumbers) && item.serialNumbers.length > 0) {
-                                  return item.serialNumbers.map((phone: string, idx: number) => (
+                                // ยังไม่อนุมัติ - แสดง requestedPhoneNumbers (ที่ผู้ใช้ขอเบิก)
+                                if (Array.isArray((item as any).requestedPhoneNumbers) && (item as any).requestedPhoneNumbers.length > 0) {
+                                  return (item as any).requestedPhoneNumbers.map((phone: string, idx: number) => (
                                     <span key={idx} className="text-xs bg-orange-100 text-orange-800 px-2 py-1 rounded">
                                       {phone}
                                     </span>
@@ -1860,8 +1861,8 @@ export default function AdminEquipmentReportsPage() {
                         </td>
                         {/* เหตุผลการเบิก */}
                         <td className="px-6 py-4 text-sm text-gray-500 text-center">
-                          <div className="max-w-xs truncate" title={requestLog.reason}>
-                            {requestLog.reason || '-'}
+                          <div className="max-w-xs truncate" title={item.itemNotes}>
+                            {item.itemNotes || '-'}
                           </div>
                         </td>
                          {/* การดำเนินการ */}

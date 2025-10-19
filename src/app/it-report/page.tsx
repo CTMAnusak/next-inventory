@@ -6,6 +6,8 @@ import Layout from '@/components/Layout';
 import { toast } from 'react-hot-toast';
 import { Upload, X } from 'lucide-react';
 import RequesterInfoForm from '@/components/RequesterInfoForm';
+import { handleAuthError } from '@/lib/auth-error-handler';
+import AuthGuard from '@/components/AuthGuard';
 
 const issueCategories = [
   'ปัญหา Internet',
@@ -268,6 +270,11 @@ export default function ITReportPage() {
       console.log('API Response status:', response.status);
       console.log('API Response content-type:', response.headers.get('content-type'));
       
+      // ✅ จัดการ 401/403 error - เด้งออกจากระบบทันที
+      if (handleAuthError(response)) {
+        return;
+      }
+      
       // ตรวจสอบว่า response เป็น JSON หรือไม่
       const contentType = response.headers.get('content-type');
       if (!contentType || !contentType.includes('application/json')) {
@@ -333,11 +340,12 @@ export default function ITReportPage() {
   }
 
   return (
-    <Layout>
-      <div className="max-w-5xl mx-auto">
-        <div className="bg-white/90 backdrop-blur-sm rounded-2xl shadow-xl px-5 py-8 sm:p-8 border border-white/50">
-          <div className="flex flex-col sm:flex-row justify-between items-center mb-6">
-            <h1 className="text-2xl font-bold text-gray-900">แจ้งงาน IT</h1>
+    <AuthGuard>
+      <Layout>
+        <div className="max-w-5xl mx-auto">
+          <div className="bg-white/90 backdrop-blur-sm rounded-2xl shadow-xl px-5 py-8 sm:p-8 border border-white/50">
+            <div className="flex flex-col sm:flex-row justify-between items-center mb-6">
+              <h1 className="text-2xl font-bold text-gray-900">แจ้งงาน IT</h1>
             <div className="text-center sm:text-right mt-4 sm:mt-0">
               <div className="text-sm text-gray-600">วันที่แจ้ง</div>
               <div className="text-lg font-semibold text-blue-600">
@@ -555,5 +563,6 @@ export default function ITReportPage() {
 
       {/* Google Auth Modal removed - no longer needed */}
     </Layout>
+    </AuthGuard>
   );
 }

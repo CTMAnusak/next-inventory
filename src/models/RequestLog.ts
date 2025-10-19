@@ -20,6 +20,7 @@ export interface IRequestItem {
   categoryId?: string;  // 🆕 Snapshot: ID หมวดหมู่ (เก็บไว้เมื่อ InventoryMaster ถูกลบ)
   quantity: number;
   serialNumbers?: string[]; // Serial numbers if applicable (user request)
+  requestedPhoneNumbers?: string[]; // 🆕 Phone numbers ที่ผู้ใช้ขอเบิก (สำหรับซิมการ์ด)
   assignedSerialNumbers?: string[]; // SN ที่ Admin assign ให้เมื่อ approve
   assignedItemIds?: string[]; // IDs ของ InventoryItem ที่ assign ให้
   assignedItemSnapshots?: IAssignedItemSnapshot[]; // 🆕 Snapshot: ข้อมูลอุปกรณ์ที่ assign แต่ละชิ้น
@@ -87,6 +88,7 @@ const RequestItemSchema = new Schema<IRequestItem>({
   categoryId: { type: String },                     // 🆕 Snapshot: ID หมวดหมู่
   quantity: { type: Number, required: true, min: 1 },
   serialNumbers: [{ type: String, required: false }],   // Serial numbers if available (user request)
+  requestedPhoneNumbers: [{ type: String, required: false }], // 🆕 Phone numbers ที่ผู้ใช้ขอเบิก
   assignedSerialNumbers: [{ type: String, required: false }], // SN ที่ Admin assign ให้
   assignedItemIds: [{ type: String, required: false }],  // InventoryItem IDs ที่ assign ให้
   assignedItemSnapshots: [AssignedItemSnapshotSchema], // 🆕 Snapshot: ข้อมูลอุปกรณ์ที่ assign แต่ละชิ้น

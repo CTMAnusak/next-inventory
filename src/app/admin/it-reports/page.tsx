@@ -202,8 +202,8 @@ export default function AdminITReportsPage() {
       // Search filter
       const matchesSearch = !searchTerm || 
         issue.issueId.toLowerCase().includes(searchTerm.toLowerCase()) ||
-        issue.firstName.toLowerCase().includes(searchTerm.toLowerCase()) ||
-        issue.lastName.toLowerCase().includes(searchTerm.toLowerCase()) ||
+        (issue.firstName && issue.firstName.toLowerCase().includes(searchTerm.toLowerCase())) ||
+        (issue.lastName && issue.lastName.toLowerCase().includes(searchTerm.toLowerCase())) ||
         issue.description.toLowerCase().includes(searchTerm.toLowerCase());
 
       // Urgency filter

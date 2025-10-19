@@ -126,12 +126,12 @@ export default function AdminEquipmentTrackingPage() {
     let filtered = trackingData.filter(record => {
       // Search filter (general search across multiple fields)
       const matchesSearch = !searchTerm || 
-        record.firstName.toLowerCase().includes(searchTerm.toLowerCase()) ||
-        record.lastName.toLowerCase().includes(searchTerm.toLowerCase()) ||
-        record.nickname.toLowerCase().includes(searchTerm.toLowerCase()) ||
-        record.department.toLowerCase().includes(searchTerm.toLowerCase()) ||
-        record.office.toLowerCase().includes(searchTerm.toLowerCase()) ||
-        record.phone.includes(searchTerm) ||
+        (record.firstName && record.firstName.toLowerCase().includes(searchTerm.toLowerCase())) ||
+        (record.lastName && record.lastName.toLowerCase().includes(searchTerm.toLowerCase())) ||
+        (record.nickname && record.nickname.toLowerCase().includes(searchTerm.toLowerCase())) ||
+        (record.department && record.department.toLowerCase().includes(searchTerm.toLowerCase())) ||
+        (record.office && record.office.toLowerCase().includes(searchTerm.toLowerCase())) ||
+        (record.phone && record.phone.includes(searchTerm)) ||
         record.currentItemName.toLowerCase().includes(searchTerm.toLowerCase()) ||
         (record.serialNumber && record.serialNumber.toLowerCase().includes(searchTerm.toLowerCase())) ||
         (record.numberPhone && record.numberPhone.includes(searchTerm)); // ✅ เพิ่มการค้นหาเบอร์โทรศัพท์
@@ -155,10 +155,10 @@ export default function AdminEquipmentTrackingPage() {
       const matchesCondition = !conditionFilter || record.condition === conditionFilter;
 
       // Department filter
-      const matchesDepartment = !departmentFilter || record.department.includes(departmentFilter);
+      const matchesDepartment = !departmentFilter || (record.department && record.department.includes(departmentFilter));
 
       // Office filter
-      const matchesOffice = !officeFilter || record.office.includes(officeFilter);
+      const matchesOffice = !officeFilter || (record.office && record.office.includes(officeFilter));
 
       // Date filter (based on dateAdded)
       const recordDate = new Date(record.dateAdded || record.requestDate);

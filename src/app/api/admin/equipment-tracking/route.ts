@@ -155,15 +155,23 @@ export async function GET(request: NextRequest) {
         const itemRequesterInfo = (item as any).requesterInfo;
         if (itemRequesterInfo && (itemRequesterInfo.firstName || itemRequesterInfo.lastName)) {
           console.log(`   ✅ Using requesterInfo from item`);
-          firstName = itemRequesterInfo.firstName || firstName;
-          lastName = itemRequesterInfo.lastName || lastName;
-          nickname = itemRequesterInfo.nickname || nickname;
-          userDepartment = itemRequesterInfo.department || userDepartment;
-          userPhone = itemRequesterInfo.phone || userPhone;
-          // 🆕 สำหรับผู้ใช้สาขาที่ถูกลบ: office ใช้จาก DeletedUsers
-          if (isDeletedUser && user?.userType === 'branch') {
-            userOffice = user.office || itemRequesterInfo.office || userOffice;
+          
+          // ✅ สำหรับผู้ใช้สาขา: ข้อมูลส่วนตัวจาก requesterInfo, office จาก User Collection
+          if (user?.userType === 'branch') {
+            firstName = itemRequesterInfo.firstName || firstName;
+            lastName = itemRequesterInfo.lastName || lastName;
+            nickname = itemRequesterInfo.nickname || nickname;
+            userDepartment = itemRequesterInfo.department || userDepartment;
+            userPhone = itemRequesterInfo.phone || userPhone;
+            // ⚠️ office ต้องใช้จาก User Collection เสมอ (เพื่อให้อัปเดตตามที่แอดมินแก้ไข)
+            userOffice = user?.office || userOffice;
           } else {
+            // ผู้ใช้ individual: ใช้ข้อมูลจาก requesterInfo ทั้งหมด
+            firstName = itemRequesterInfo.firstName || firstName;
+            lastName = itemRequesterInfo.lastName || lastName;
+            nickname = itemRequesterInfo.nickname || nickname;
+            userDepartment = itemRequesterInfo.department || userDepartment;
+            userPhone = itemRequesterInfo.phone || userPhone;
             userOffice = itemRequesterInfo.office || userOffice;
           }
         } else if (isDeletedUser && user?.userType === 'branch') {

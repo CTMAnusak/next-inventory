@@ -248,20 +248,35 @@ export async function snapshotUserBeforeDelete(userId: string) {
  * Snapshot IssueLog ก่อนลบ User
  * - อัพเดตชื่อผู้แจ้ง (requesterName)
  * - อัพเดตชื่อผู้รับงาน (assignedToName)
+ * - สำหรับผู้ใช้ประเภทสาขา: snapshot ข้อมูลส่วนตัวไว้ใน IssueLog
  */
 async function snapshotIssueLogsBeforeUserDelete(userId: string) {
   try {
     const IssueLog = (await import('@/models/IssueLog')).default;
     const { getUserName } = await import('@/lib/equipment-snapshot-helpers');
+    const User = (await import('@/models/User')).default;
     
     const userName = await getUserName(userId);
+    
+    // ดึงข้อมูลผู้ใช้เพื่อตรวจสอบ userType
+    const user = await User.findOne({ user_id: userId }).select('userType firstName lastName nickname department office phone email');
     
     // Snapshot as Requester
     const requesterResult = await IssueLog.updateMany(
       { requester: userId },
       { 
         $set: {
-          requesterName: userName
+          requesterName: userName,
+          // สำหรับผู้ใช้ประเภทสาขา: snapshot ข้อมูลส่วนตัวไว้ใน IssueLog
+          ...(user?.userType === 'branch' ? {
+            firstName: user.firstName || '',
+            lastName: user.lastName || '',
+            nickname: user.nickname || '',
+            department: user.department || '',
+            office: user.office || '',
+            phone: user.phone || '',
+            email: user.email || ''
+          } : {})
         }
       }
     );
@@ -279,6 +294,7 @@ async function snapshotIssueLogsBeforeUserDelete(userId: string) {
     console.log(`✅ Snapshot IssueLogs (user: ${userId})`);
     console.log(`   - As Requester: ${requesterResult.modifiedCount}`);
     console.log(`   - As Admin: ${adminResult.modifiedCount}`);
+    console.log(`   - User Type: ${user?.userType || 'unknown'}`);
     
     return {
       requester: { success: true, modifiedCount: requesterResult.modifiedCount },

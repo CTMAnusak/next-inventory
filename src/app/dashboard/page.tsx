@@ -8,8 +8,10 @@ import { Package, PackageOpen, AlertTriangle, BarChart3, Users, Plus, X, Refresh
 import { useAuth } from '@/contexts/AuthContext';
 import { enableDragScroll } from '@/lib/drag-scroll';
 import { isSIMCardSync } from '@/lib/sim-card-helpers';
+import { handleAuthError } from '@/lib/auth-error-handler';
 import SimpleErrorModal from '@/components/SimpleErrorModal';
 import CancelReturnModal from '@/components/CancelReturnModal';
+import AuthGuard from '@/components/AuthGuard';
 
 interface ICategoryConfig {
   id: string;
@@ -23,7 +25,7 @@ interface ICategoryConfig {
 
 export default function DashboardPage() {
   const router = useRouter();
-  const { user, loading } = useAuth();
+  const { user, loading, checkAuth } = useAuth();
   const [showAddOwned, setShowAddOwned] = useState(false);
   const [editItemId, setEditItemId] = useState<string | null>(null);
   const [showDetailModal, setShowDetailModal] = useState(false);
@@ -43,6 +45,7 @@ export default function DashboardPage() {
   const [showNewCategoryInput, setShowNewCategoryInput] = useState(false);
   const [ownedLoading, setOwnedLoading] = useState(false);
   const [dataLoaded, setDataLoaded] = useState(false);
+  const [isManualRefresh, setIsManualRefresh] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [isLoadingItems, setIsLoadingItems] = useState(false);
   
@@ -92,10 +95,20 @@ export default function DashboardPage() {
       const timeoutId = setTimeout(() => controller.abort(), 30000); // 30 second timeout
       
       const ownedRes = await fetch(`/api/user/owned-equipment?${withUserId.toString()}`, {
-        signal: controller.signal
+        signal: controller.signal,
+        cache: 'no-cache',
+        headers: {
+          'Cache-Control': 'no-cache'
+        }
       });
       
       clearTimeout(timeoutId);
+      
+      // ✅ จัดการ 401/403 error - เด้งออกจากระบบทันที
+      if (handleAuthError(ownedRes)) {
+        return;
+      }
+      
       const responseData = ownedRes.ok ? await ownedRes.json() : { items: [] };
       const ownedEquipment = responseData.items || [];
       
@@ -128,22 +141,67 @@ export default function DashboardPage() {
     }
   }, [user?.firstName, user?.lastName, user?.office, user?.id]);
 
-  // ✅ โหลดข้อมูลอุปกรณ์เมื่อ user โหลดเสร็จ
+  // ✅ โหลดข้อมูลอุปกรณ์เมื่อ user โหลดเสร็จ (ยกเว้นเมื่อกำลัง manual refresh)
   useEffect(() => {
-    if (user && !loading && !dataLoaded) {
+    if (user && !loading && !dataLoaded && !isManualRefresh) {
       console.log('🔄 Dashboard - User loaded, fetching owned equipment...');
       fetchOwned();
     }
-  }, [user, loading, dataLoaded, fetchOwned]);
+  }, [user, loading, dataLoaded, isManualRefresh, fetchOwned]);
 
   // Force refresh function for manual refresh
   const refreshData = useCallback(async () => {
-    setDataLoaded(false); // Reset loaded flag
-    // ✅ ดึง category configs ใหม่เพื่อให้ชื่อหมวดหมู่อัปเดต
-    await fetchCategories();
-    // ดึงข้อมูลอุปกรณ์ใหม่
-    await fetchOwned();
-  }, [fetchOwned]);
+    try {
+      setIsManualRefresh(true); // ป้องกันการเรียก fetchOwned ซ้ำจาก useEffect
+      setOwnedLoading(true); // แสดงสถานะกำลังโหลด
+      setDataLoaded(false); // Reset loaded flag
+      
+      // 🧹 ขั้นตอนที่ 1: เคลียร์แคชทั้งหมดก่อน
+      console.log('🧹 Step 1: Clearing all caches...');
+      
+      // เคลียร์แคชเบราว์เซอร์ (ถ้าเป็นไปได้)
+      if ('caches' in window) {
+        try {
+          const cacheNames = await caches.keys();
+          await Promise.all(
+            cacheNames.map(cacheName => caches.delete(cacheName))
+          );
+          console.log('✅ Browser caches cleared');
+        } catch (error) {
+          console.log('⚠️ Could not clear browser caches:', error);
+        }
+      }
+      
+      // รอสักครู่เพื่อให้แน่ใจว่าแคชถูกเคลียร์
+      await new Promise(resolve => setTimeout(resolve, 100));
+      
+      // 🔄 ขั้นตอนที่ 2: รีเฟรชข้อมูลทีละขั้นตอน
+      console.log('🔄 Step 2: Refreshing data...');
+      
+      // 2.1 ดึงข้อมูลผู้ใช้ใหม่เพื่อให้ข้อมูลสาขาอัปเดต
+      console.log('👤 Refreshing user data...');
+      await checkAuth();
+      
+      // 2.2 ดึง category configs ใหม่เพื่อให้ชื่อหมวดหมู่อัปเดต
+      console.log('📂 Refreshing category configs...');
+      await fetchCategories();
+      
+      // 2.3 ดึงข้อมูลอุปกรณ์ใหม่
+      console.log('📦 Refreshing equipment data...');
+      await fetchOwned();
+      
+      console.log('✅ All data refreshed successfully!');
+      toast.success('รีเฟรชข้อมูลเรียบร้อย');
+      
+    } catch (error) {
+      console.error('❌ Error during refresh:', error);
+      toast.error('เกิดข้อผิดพลาดในการรีเฟรชข้อมูล');
+    } finally {
+      setOwnedLoading(false);
+      setIsManualRefresh(false); // รีเซ็ต flag หลังเสร็จสิ้น
+      setDataLoaded(true); // ตั้งค่าว่าข้อมูลโหลดเสร็จแล้ว
+    }
+  }, [checkAuth, fetchOwned]);
 
   // Cancel return function - แสดง modal ยืนยัน
   const handleCancelReturn = async (returnLogId: string, itemId: string, equipmentName?: string) => {
@@ -203,7 +261,12 @@ export default function DashboardPage() {
 
   const fetchCategories = async () => {
     try {
-      const res = await fetch('/api/admin/inventory/config');
+      const res = await fetch('/api/admin/inventory/config', {
+        cache: 'no-cache',
+        headers: {
+          'Cache-Control': 'no-cache'
+        }
+      });
       if (res.ok) {
         const data = await res.json();
         setCategoryConfigs(data.categoryConfigs || []);
@@ -691,7 +754,8 @@ export default function DashboardPage() {
   }
 
   return (
-    <Layout>
+    <AuthGuard>
+      <Layout>
       <div className="max-w-7xl mx-auto">
         <div className="mb-8">
           <h1 className="text-3xl font-bold text-gray-900 mb-2">
@@ -744,7 +808,7 @@ export default function DashboardPage() {
           <div className="flex flex-col md:flex-row text-center md:text-left justify-between mb-7 gap-4">
             <div className="text-2xl font-bold text-blue-600">{
               (user?.userType === 'branch'
-                ? `ทรัพย์สินที่มี ของ สาขา${user?.office || ''}`
+                ? `ทรัพย์สินที่มี ของ สาขา ${user?.office || ''}`
                 : `ทรัพย์สินที่มี ของ ${[user?.firstName, user?.lastName].filter(Boolean).join(' ')}`
               ).trim()
             }</div>
@@ -753,8 +817,10 @@ export default function DashboardPage() {
                 onClick={refreshData}
                 disabled={ownedLoading}
                 className="inline-flex items-center px-3 py-2 bg-blue-100 text-blue-700 rounded-md hover:bg-blue-200 disabled:opacity-50 transition-colors"
+                title="เคลียร์แคชและรีเฟรชข้อมูลทั้งหมด"
               >
-                <RefreshCw className={`h-4 w-4 mr-2 ${ownedLoading ? 'animate-spin' : ''}`} /> รีเฟรช
+                <RefreshCw className={`h-4 w-4 mr-2 ${ownedLoading ? 'animate-spin' : ''}`} /> 
+                {ownedLoading ? 'กำลังรีเฟรช...' : 'รีเฟรช'}
               </button>
               <button 
                 onClick={() => { resetAddModal(); setShowAddOwned(true); }} 
@@ -919,7 +985,7 @@ export default function DashboardPage() {
                                   const detailDataObj = {
                                     itemName: row.itemName,
                                     categoryId: row.categoryId,
-                                    categoryName: getCategoryName(row.categoryId),
+                                    categoryName: getCategoryName(row.categoryId || ''),
                                     hasSerialItems,
                                     hasPhoneItems,
                                     hasNonSpecialItems: hasNonSpecialItems,
@@ -958,7 +1024,7 @@ export default function DashboardPage() {
                                     setDetailData({
                                       itemName: row.itemName,
                                       categoryId: row.categoryId,
-                                      categoryName: getCategoryName(row.categoryId),
+                                      categoryName: getCategoryName(row.categoryId || ''),
                                       hasSerialItems,
                                       hasPhoneItems,
                                       hasNonSpecialItems: 0,
@@ -1056,9 +1122,11 @@ export default function DashboardPage() {
                                       console.log('🔍 Setting form data:', formData);
                                       
                                       setForm(formData);
-                                      setSelectedCategoryId(categoryId);
+                                      setSelectedCategoryId(categoryId || '');
                                       // Fetch items in category for dropdown
-                                      await fetchItemsInCategory(itemData.categoryId || row.categoryId);
+                                      if (categoryId) {
+                                        await fetchItemsInCategory(categoryId);
+                                      }
                                       // Ensure the current item is in the available items list
                                       const itemName = itemData.itemName || row.itemName;
                                       setAvailableItems(prev => {
@@ -1077,7 +1145,7 @@ export default function DashboardPage() {
                                       
                                       setForm({
                                         itemName: row.itemName,
-                                        categoryId: categoryId,
+                                        categoryId: categoryId || '',
                                         serialNumber: serialNumberValue,
                                         quantity: row.quantity || 1,
                                         firstName: row.firstName || '',
@@ -1089,9 +1157,11 @@ export default function DashboardPage() {
                                         condition: row.conditionId || '',
                                         notes: row.notes || ''
                                       });
-                                      setSelectedCategoryId(categoryId);
+                                      setSelectedCategoryId(categoryId || '');
                                       // Fetch items in category for dropdown
-                                      await fetchItemsInCategory(row.categoryId);
+                                      if (row.categoryId) {
+                                        await fetchItemsInCategory(row.categoryId);
+                                      }
                                       // Ensure the current item is in the available items list
                                       setAvailableItems(prev => {
                                         if (!prev.includes(row.itemName)) {
@@ -1110,7 +1180,7 @@ export default function DashboardPage() {
                                     
                                     setForm({
                                       itemName: row.itemName,
-                                      categoryId: categoryId,
+                                      categoryId: categoryId || '',
                                       serialNumber: serialNumberValue,
                                       quantity: row.quantity || 1,
                                       firstName: row.firstName || '',
@@ -1122,9 +1192,11 @@ export default function DashboardPage() {
                                       condition: row.conditionId || '',
                                       notes: row.notes || ''
                                     });
-                                    setSelectedCategoryId(categoryId);
+                                    setSelectedCategoryId(categoryId || '');
                                     // Fetch items in category for dropdown
-                                    await fetchItemsInCategory(row.categoryId);
+                                    if (row.categoryId) {
+                                      await fetchItemsInCategory(row.categoryId);
+                                    }
                                     // Ensure the current item is in the available items list
                                     setAvailableItems(prev => {
                                       if (!prev.includes(row.itemName)) {
@@ -1671,5 +1743,6 @@ export default function DashboardPage() {
         />
       </div>
     </Layout>
+    </AuthGuard>
   );
 }

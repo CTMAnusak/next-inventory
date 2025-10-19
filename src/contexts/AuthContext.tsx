@@ -2,6 +2,7 @@
 
 import { createContext, useContext, useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
+import { handleAuthError } from '@/lib/auth-error-handler';
 
 interface User {
   id: string;
@@ -48,7 +49,11 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
       // ใช้ API auth check ที่แก้ไขแล้ว
       const response = await fetch('/api/auth/check', {
-        credentials: 'include' // เพิ่ม credentials เพื่อส่ง cookies
+        credentials: 'include', // เพิ่ม credentials เพื่อส่ง cookies
+        cache: 'no-cache',
+        headers: {
+          'Cache-Control': 'no-cache'
+        }
       });
       
       if (response.ok) {
@@ -81,7 +86,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         // ถ้า response ไม่ ok (เช่น 401) ให้ redirect ไป login ทันที
         if (typeof window !== 'undefined' && window.location.pathname !== '/login') {
           console.log('❌ AuthContext: Authentication failed, redirecting to login');
-          window.location.href = '/login?error=session_expired';
+          handleAuthError(response);
         }
       }
     } catch (error) {

@@ -158,8 +158,9 @@ export async function POST(request: NextRequest) {
           itemName: itemName,
           categoryId: categoryId,
           quantity: item.quantity,
-          // ✅ บันทึก serialNumbers เป็น array (ตาม model)
-          serialNumbers: item.serialNumber ? [item.serialNumber] : undefined,
+          // ✅ บันทึก serialNumbers และ requestedPhoneNumbers เป็น array (ตาม model)
+          serialNumbers: item.serialNumbers || (item.serialNumber ? [item.serialNumber] : undefined),
+          requestedPhoneNumbers: item.requestedPhoneNumbers || undefined,
           availableItemIds: availableItems.map(it => it._id.toString()),
           itemNotes: item.itemNotes || undefined,
           // ✅ บันทึกสถานะและสภาพของอุปกรณ์ที่เบิก (เพราะอุปกรณ์ที่แสดงให้เบิกได้มีสถานะ "มี" และสภาพ "ใช้งานได้")

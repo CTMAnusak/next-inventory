@@ -9,7 +9,11 @@ import { authenticateUser } from '@/lib/auth-helpers';
 export async function POST(request: NextRequest) {
   try {
     const reportData = await request.json();
-    console.log('Received report data:', reportData);
+    console.log('📝 Received report data:', reportData);
+    console.log('📝 Form data - firstName:', reportData.firstName);
+    console.log('📝 Form data - lastName:', reportData.lastName);
+    console.log('📝 Form data - phone:', reportData.phone);
+    console.log('📝 Form data - email:', reportData.email);
 
     // Validate required fields (including email for notifications)
     const requiredFields = ['firstName', 'lastName', 'nickname', 'phone', 'email', 'department', 'office', 'issueCategory', 'urgency', 'description'];
@@ -70,6 +74,14 @@ export async function POST(request: NextRequest) {
       closeLink: `/close-issue/${issueId}`,
       userId: user?.userId || undefined // Keep for backward compatibility
     });
+
+    console.log('💾 Saving IssueLog with data:');
+    console.log('💾 - firstName:', newIssue.firstName);
+    console.log('💾 - lastName:', newIssue.lastName);
+    console.log('💾 - phone:', newIssue.phone);
+    console.log('💾 - email:', newIssue.email);
+    console.log('💾 - requesterId:', newIssue.requesterId);
+    console.log('💾 - requesterType:', newIssue.requesterType);
 
     await newIssue.save();
     console.log('Issue saved successfully:', newIssue._id);
