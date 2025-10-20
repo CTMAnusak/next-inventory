@@ -10,7 +10,18 @@ export async function POST(request: NextRequest) {
   try {
     const returnData = await request.json();
     
-    // Debug: Log the received data
+    // 🔍 Debug: Log the received data
+    console.log('\n📥 Received equipment return data:');
+    console.log('  User data:', {
+      firstName: returnData.firstName,
+      lastName: returnData.lastName,
+      nickname: returnData.nickname,
+      department: returnData.department,
+      phone: returnData.phone,
+      office: returnData.office
+    });
+    console.log('  Items count:', returnData.items?.length);
+    console.log('  Return date:', returnData.returnDate);
 
     // Validate required fields
     const requiredFields = ['returnDate', 'items'];
@@ -170,6 +181,7 @@ export async function POST(request: NextRequest) {
       returnerNickname: returnData.nickname || undefined,
       returnerDepartment: returnData.department || undefined,
       returnerPhone: returnData.phone || undefined,
+      returnerEmail: returnData.email || user?.email || undefined,
       returnerOffice: returnData.office || undefined,
       returnDate: new Date(returnData.returnDate),
       items: cleanItems,

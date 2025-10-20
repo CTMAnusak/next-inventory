@@ -46,6 +46,7 @@ interface RequestLog {
   urgency: string;
   deliveryLocation: string;
   phone: string;
+  email?: string;
   reason: string;
   items: Array<{
     itemId: string;        // Primary reference to inventory
@@ -76,6 +77,7 @@ interface ReturnLog {
   department: string;
   office: string;
   phone?: string; // ✅ แก้ไขจาก phoneNumber เป็น phone ให้ตรงกับ API
+  email?: string;
   returnDate: string;
   items: Array<{
     itemId: string;        // Primary reference to inventory
@@ -139,6 +141,7 @@ export default function AdminEquipmentReportsPage() {
   const [officeFilter, setOfficeFilter] = useState('');
   const [serialNumberFilter, setSerialNumberFilter] = useState('');
   const [phoneNumberFilter, setPhoneNumberFilter] = useState('');
+  const [emailFilter, setEmailFilter] = useState('');
   const [deliveryLocationFilter, setDeliveryLocationFilter] = useState('');
   const [urgencyFilter, setUrgencyFilter] = useState('');
   const [dateFromFilter, setDateFromFilter] = useState('');
@@ -180,7 +183,7 @@ export default function AdminEquipmentReportsPage() {
 
   useEffect(() => {
     applyFilters();
-  }, [requestLogs, returnLogs, activeTab, searchTerm, itemNameFilter, categoryFilter, statusFilter, conditionFilter, departmentFilter, officeFilter, serialNumberFilter, phoneNumberFilter, deliveryLocationFilter, urgencyFilter, dateFromFilter, dateToFilter]);
+  }, [requestLogs, returnLogs, activeTab, searchTerm, itemNameFilter, categoryFilter, statusFilter, conditionFilter, departmentFilter, officeFilter, serialNumberFilter, phoneNumberFilter, emailFilter, deliveryLocationFilter, urgencyFilter, dateFromFilter, dateToFilter]);
 
 
 
@@ -226,6 +229,25 @@ export default function AdminEquipmentReportsPage() {
 
       if (returnResponse.ok) {
         const returnData = await returnResponse.json();
+        
+        // 🔍 Debug: Log return data received from API
+        console.log('\n=== 🔍 RETURN DATA FROM API ===');
+        returnData.slice(0, 5).forEach((log: any, index: number) => {
+          console.log(`\nReturn Log ${index + 1}:`, {
+            _id: log._id,
+            userId: log.userId,
+            firstName: log.firstName,
+            lastName: log.lastName,
+            nickname: log.nickname,
+            department: log.department,
+            phone: log.phone,
+            office: log.office,
+            returnerFirstName: log.returnerFirstName,
+            returnerLastName: log.returnerLastName,
+            itemsCount: log.items?.length
+          });
+        });
+        
         setReturnLogs(returnData);
       } else {
         console.error('❌ Return API failed:', returnResponse.status, returnResponse.statusText);
@@ -532,7 +554,10 @@ export default function AdminEquipmentReportsPage() {
   };
 
   const applyFilters = () => {
-    const data = activeTab === 'request' ? requestLogs : returnLogs;
+    // ✅ Deep copy เพื่อป้องกัน mutation ของ object
+    const data = activeTab === 'request' 
+      ? JSON.parse(JSON.stringify(requestLogs))
+      : JSON.parse(JSON.stringify(returnLogs));
     
     let filtered = data.filter(item => {
       // Search filter - ค้นหาเฉพาะ: ชื่อ, นามสกุล, ชื่อเล่น
@@ -734,6 +759,9 @@ export default function AdminEquipmentReportsPage() {
       const matchesDeliveryLocation = !deliveryLocationFilter || 
         (activeTab === 'request' && (item as RequestLog).deliveryLocation?.includes(deliveryLocationFilter));
 
+      // Email filter
+      const matchesEmail = !emailFilter || (item.email && item.email.toLowerCase().includes(emailFilter.toLowerCase()));
+
       // Urgency filter (only for request tab)
       const matchesUrgency = !urgencyFilter || 
         (activeTab === 'request' && (item as RequestLog).urgency === urgencyFilter);
@@ -755,7 +783,7 @@ export default function AdminEquipmentReportsPage() {
 
       return matchesSearch && matchesItemName && matchesCategory && matchesStatus && 
              matchesCondition && matchesDepartment && matchesOffice && 
-             matchesSerialNumber && matchesPhoneNumber &&
+             matchesSerialNumber && matchesPhoneNumber && matchesEmail &&
              matchesDeliveryLocation && matchesUrgency && matchesRequestDate && matchesReturnDate;
     });
 
@@ -865,7 +893,18 @@ export default function AdminEquipmentReportsPage() {
         });
       });
     } else {
-      (filtered as ReturnLog[]).forEach((log) => {
+      (filtered as ReturnLog[]).forEach((log, logIndex) => {
+        // 🔍 Debug: Log each return log
+        if (logIndex < 5) {
+          console.log(`\n🔍 Processing Return Log ${logIndex + 1}:`, {
+            _id: log._id,
+            firstName: log.firstName,
+            lastName: log.lastName,
+            nickname: log.nickname,
+            itemsCount: log.items?.length
+          });
+        }
+        
         log.items.forEach((item: any, index: number) => {
           // ✅ กรองรายการย่อยตาม Serial Number และ Phone Number
           const shouldIncludeItem = (() => {
@@ -904,6 +943,16 @@ export default function AdminEquipmentReportsPage() {
             const isPending = item.approvalStatus !== 'approved';
             const group = isPending ? 'pending' : 'approved';
             const dateValue = group === 'approved' ? (item.approvedAt || (log as any).updatedAt || log.returnDate) : (log.returnDate || (log as any).createdAt || (log as any).updatedAt);
+            
+            // 🔍 Debug: Log row being added
+            if (rows.length < 5) {
+              console.log(`  📝 Adding row for item ${index + 1}:`, {
+                firstName: log.firstName,
+                lastName: log.lastName,
+                itemName: item.itemName
+              });
+            }
+            
             rows.push({ type: 'return', log, item, itemIndex: index, group, date: new Date(dateValue as any) });
           }
         });
@@ -963,6 +1012,7 @@ export default function AdminEquipmentReportsPage() {
           { header: 'ชื่อเล่น', key: 'nickname', width: 12 },
           { header: 'แผนก', key: 'department', width: 20 },
           { header: 'ออฟฟิศ/สาขา', key: 'office', width: 20 },
+          { header: 'E-mail', key: 'email', width: 25 },
           { header: 'เบอร์โทร', key: 'phone', width: 15 },
           { header: 'ชื่ออุปกรณ์', key: 'itemName', width: 25 },
           { header: 'หมวดหมู่', key: 'category', width: 20 },
@@ -1010,6 +1060,7 @@ export default function AdminEquipmentReportsPage() {
             nickname: log.nickname || '-',
             department: log.department || '-',
             office: log.office || '-',
+            email: log.email || '-',
             phone: log.phone || '-',
             itemName: getCurrentItemName(item),
             category: item.category || 'Unknown Category',
@@ -1033,6 +1084,7 @@ export default function AdminEquipmentReportsPage() {
           { header: 'ชื่อเล่น', key: 'nickname', width: 12 },
           { header: 'แผนก', key: 'department', width: 20 },
           { header: 'ออฟฟิศ/สาขา', key: 'office', width: 20 },
+          { header: 'E-mail', key: 'email', width: 25 },
           { header: 'เบอร์โทร', key: 'phone', width: 15 },
           { header: 'ชื่ออุปกรณ์', key: 'itemName', width: 25 },
           { header: 'หมวดหมู่', key: 'category', width: 20 },
@@ -1060,6 +1112,7 @@ export default function AdminEquipmentReportsPage() {
             nickname: log.nickname || '-',
             department: log.department || '-',
             office: log.office || '-',
+            email: log.email || '-',
             phone: log.phone || '-',
             itemName: getCurrentItemName(item),
             category: item.category || 'Unknown Category',
@@ -1399,6 +1452,22 @@ export default function AdminEquipmentReportsPage() {
                 
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-1">
+                    E-mail
+                  </label>
+                  <div className="relative">
+                    <Search className="absolute left-3 top-2.5 h-4 w-4 text-gray-400" />
+                    <input
+                      type="text"
+                      value={emailFilter}
+                      onChange={(e) => setEmailFilter(e.target.value)}
+                      className="w-full pl-10 pr-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 text-gray-900"
+                      placeholder="ค้นหา E-mail"
+                    />
+                  </div>
+                </div>
+                
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">
                     อุปกรณ์
                   </label>
                   <input
@@ -1640,6 +1709,9 @@ export default function AdminEquipmentReportsPage() {
                       ออฟฟิศ/สาขา
                     </th>
                     <th className="px-6 py-3 text-center text-xs font-medium text-white uppercase tracking-wider">
+                      E-mail
+                    </th>
+                    <th className="px-6 py-3 text-center text-xs font-medium text-white uppercase tracking-wider">
                       เบอร์โทร
                     </th>
                     <th className="px-6 py-3 text-center text-xs font-medium text-white uppercase tracking-wider">
@@ -1680,7 +1752,7 @@ export default function AdminEquipmentReportsPage() {
                 <tbody className="bg-white divide-y divide-gray-200">
                   {(loading || isTabSwitching) && (
                     <tr>
-                      <td colSpan={17} className="px-6 py-8 text-center text-gray-500">
+                      <td colSpan={18} className="px-6 py-8 text-center text-gray-500">
                         <RefreshCw className="inline-block w-4 h-4 mr-2 animate-spin text-gray-400" />
                         กำลังโหลดข้อมูล
                       </td>
@@ -1688,7 +1760,7 @@ export default function AdminEquipmentReportsPage() {
                   )}
                   {!loading && !isTabSwitching && currentItems.length === 0 && (
                     <tr>
-                      <td colSpan={17} className="px-6 py-8 text-center text-gray-500">ไม่พบข้อมูล</td>
+                      <td colSpan={18} className="px-6 py-8 text-center text-gray-500">ไม่พบข้อมูล</td>
                     </tr>
                   )}
                   {!isTabSwitching && currentItems.map((row, rowIndex) => {
@@ -1736,6 +1808,10 @@ export default function AdminEquipmentReportsPage() {
                         {/* ออฟฟิศ/สาขา */}
                         <td className="px-6 py-4 text-sm text-gray-500 text-center text-selectable">
                           {requestLog.office || '-'}
+                        </td>
+                        {/* E-mail */}
+                        <td className="px-6 py-4 text-sm text-gray-500 text-center text-selectable">
+                          {requestLog.email || '-'}
                         </td>
                         {/* เบอร์โทร */}
                         <td className="px-6 py-4 text-sm text-gray-500 text-center text-selectable">
@@ -1915,6 +1991,9 @@ export default function AdminEquipmentReportsPage() {
                       ออฟฟิศ/สาขา
                     </th>
                     <th className="px-6 py-3 text-center text-xs font-medium text-white uppercase tracking-wider">
+                      E-mail
+                    </th>
+                    <th className="px-6 py-3 text-center text-xs font-medium text-white uppercase tracking-wider">
                       เบอร์โทร
                     </th>
                     <th className="px-6 py-3 text-center text-xs font-medium text-white uppercase tracking-wider">
@@ -1955,7 +2034,7 @@ export default function AdminEquipmentReportsPage() {
                 <tbody className="bg-white divide-y divide-gray-200">
                   {(loading || isTabSwitching) && (
                     <tr>
-                      <td colSpan={17} className="px-6 py-8 text-center text-gray-500">
+                      <td colSpan={19} className="px-6 py-8 text-center text-gray-500">
                         <RefreshCw className="inline-block w-4 h-4 mr-2 animate-spin text-gray-400" />
                         กำลังโหลดข้อมูล
                       </td>
@@ -1963,7 +2042,7 @@ export default function AdminEquipmentReportsPage() {
                   )}
                   {!loading && !isTabSwitching && currentItems.length === 0 && (
                     <tr>
-                      <td colSpan={17} className="px-6 py-8 text-center text-gray-500">ไม่พบข้อมูล</td>
+                      <td colSpan={19} className="px-6 py-8 text-center text-gray-500">ไม่พบข้อมูล</td>
                     </tr>
                   )}
                   {!isTabSwitching && currentItems.map((row, rowIndex) => {
@@ -2011,6 +2090,10 @@ export default function AdminEquipmentReportsPage() {
                         {/* ออฟฟิศ/สาขา */}
                         <td className="px-6 py-4 text-sm text-gray-500 text-center text-selectable">
                           {returnLog.office || '-'}
+                        </td>
+                        {/* E-mail */}
+                        <td className="px-6 py-4 text-sm text-gray-500 text-center text-selectable">
+                          {returnLog.email || '-'}
                         </td>
                         {/* เบอร์โทร */}
                         <td className="px-6 py-4 text-sm text-gray-500 text-center text-selectable">

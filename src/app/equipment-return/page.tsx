@@ -96,6 +96,7 @@ export default function EquipmentReturnPage() {
     nickname: '',
     department: '',
     phone: '',
+    email: '',
     office: '',
     returnDate: new Date().toISOString().split('T')[0], // Today's date
   });
@@ -553,7 +554,7 @@ export default function EquipmentReturnPage() {
         handleItemChange('availableOptions', availableOptions);
         handleItemChange('selectedOption', only.value);
         handleItemChange('serialNumber', only.serialNumber || '');
-        handleItemChange('numberPhone', only.numberPhone || '');
+        handleItemChange('numberPhone', (only as any).numberPhone || '');
         handleItemChange('inventorySerialNumber', only.serialNumber || '');
         // ดึงค่าสถานะและสภาพจากอุปกรณ์
         handleItemChange('statusOnReturn', (equipment as any).statusId || 'status_available');
@@ -635,16 +636,23 @@ export default function EquipmentReturnPage() {
       toast.error('เลือกรายการซ้ำไม่ได้');
       return;
     }
-    // ✅ เก็บข้อมูลผู้คืนจาก formData ลงในรายการ (สำหรับผู้ใช้ประเภท branch)
-    const itemToAdd = { ...returnItem };
+    // ✅ สำหรับผู้ใช้ประเภท branch: ตรวจสอบว่ากรอกข้อมูลผู้คืนครบหรือไม่
     if (user?.userType === 'branch') {
-      itemToAdd.returnerFirstName = formData.firstName || returnItem.returnerFirstName;
-      itemToAdd.returnerLastName = formData.lastName || returnItem.returnerLastName;
-      itemToAdd.returnerNickname = formData.nickname || returnItem.returnerNickname;
-      itemToAdd.returnerDepartment = formData.department || returnItem.returnerDepartment;
-      itemToAdd.returnerPhone = formData.phone || returnItem.returnerPhone;
-      itemToAdd.returnerOffice = formData.office || returnItem.returnerOffice;
+      if (!returnItem.returnerFirstName || !returnItem.returnerLastName || !returnItem.returnerPhone) {
+        toast.error('กรุณากรอกข้อมูลผู้คืน (ชื่อ, นามสกุล, เบอร์โทร)');
+        return;
+      }
     }
+    
+    // เก็บข้อมูลผู้คืนลงในรายการ (มาจาก returnItem โดยตรง)
+    const itemToAdd = { ...returnItem };
+    
+    console.log('✅ Adding item to cart:', {
+      itemName: itemToAdd.itemName,
+      returnerFirstName: itemToAdd.returnerFirstName,
+      returnerLastName: itemToAdd.returnerLastName,
+      returnerPhone: itemToAdd.returnerPhone
+    });
     
     setReturnItems(prev => [...prev, itemToAdd]);
     
@@ -863,74 +871,178 @@ export default function EquipmentReturnPage() {
         })
       );
 
-      const returnData = {
-        // Use user profile data for individual users, form data for branch users
-        firstName: user?.userType === 'individual' ? user.firstName : formData.firstName,
-        lastName: user?.userType === 'individual' ? user.lastName : formData.lastName,
-        nickname: user?.userType === 'individual' ? (user.nickname || '') : formData.nickname,
-        department: user?.userType === 'individual' ? (user.department || '') : formData.department,
-        office: user?.office || '',
-        phone: user?.userType === 'individual' ? (user.phone || '') : formData.phone,
-        returnDate: formData.returnDate,
-        items: itemsWithUploadedImages
-      };
+      // 🔍 Debug: ตรวจสอบข้อมูลใน returnItems ก่อนจัดกลุ่ม
+      console.log('\n🔍 Debug returnItems before grouping:');
+      returnItems.forEach((item, index) => {
+        console.log(`  Item ${index + 1}:`, {
+          itemName: item.itemName,
+          returnerFirstName: item.returnerFirstName,
+          returnerLastName: item.returnerLastName,
+          returnerNickname: item.returnerNickname,
+          returnerDepartment: item.returnerDepartment,
+          returnerPhone: item.returnerPhone
+        });
+      });
 
-      // Add timeout and retry logic
-      const controller = new AbortController();
-      const timeoutId = setTimeout(() => controller.abort(), 30000); // 30 second timeout
+      // ✅ สำหรับผู้ใช้ประเภทสาขา: จัดกลุ่ม items ตามข้อมูลผู้คืน (แยก returnLog ถ้าข้อมูลผู้คืนต่างกัน)
+      let returnDataList: any[] = [];
       
-      let response: Response | undefined;
-      let retryCount = 0;
-      const maxRetries = 2;
+      if (user?.userType === 'branch') {
+        // จัดกลุ่ม items ตามข้อมูลผู้คืน
+        const itemsByReturner = returnItems.reduce((acc, item, index) => {
+          const key = `${item.returnerFirstName || ''}_${item.returnerLastName || ''}_${item.returnerNickname || ''}_${item.returnerDepartment || ''}_${item.returnerPhone || ''}`;
+          console.log(`🔍 Grouping item "${item.itemName}" with key: "${key}"`);
+          if (!acc[key]) {
+            acc[key] = [];
+          }
+          // ใช้ข้อมูลจาก itemsWithUploadedImages ที่ตำแหน่งเดียวกัน
+          acc[key].push(itemsWithUploadedImages[index]);
+          return acc;
+        }, {} as { [key: string]: any[] });
+        
+        console.log('\n🔍 Groups created:', Object.keys(itemsByReturner).length);
+        Object.keys(itemsByReturner).forEach((key, index) => {
+          console.log(`  Group ${index + 1} (${key}): ${itemsByReturner[key].length} items`);
+        });
+        
+        // สร้าง returnData แยกตามกลุ่มผู้คืน
+        returnDataList = Object.keys(itemsByReturner).map(key => {
+          const items = itemsByReturner[key];
+          // หา returnItem ที่ตรงกับ key เพื่อดึงข้อมูลผู้คืน
+          const firstReturnItem = returnItems.find(ri => 
+            `${ri.returnerFirstName || ''}_${ri.returnerLastName || ''}_${ri.returnerNickname || ''}_${ri.returnerDepartment || ''}_${ri.returnerPhone || ''}` === key
+          );
+          
+          return {
+            firstName: firstReturnItem?.returnerFirstName || formData.firstName,
+            lastName: firstReturnItem?.returnerLastName || formData.lastName,
+            nickname: firstReturnItem?.returnerNickname || formData.nickname,
+            department: firstReturnItem?.returnerDepartment || formData.department,
+            phone: firstReturnItem?.returnerPhone || formData.phone,
+            email: user?.email || '',
+            office: user?.office || '',
+            returnDate: formData.returnDate,
+            items: items
+          };
+        });
+      } else {
+        // ผู้ใช้ประเภทบุคคล: ใช้ข้อมูลจาก user profile
+        returnDataList = [{
+          firstName: user?.firstName || '',
+          lastName: user?.lastName || '',
+          nickname: user?.nickname || '',
+          department: user?.department || '',
+          office: user?.office || '',
+          phone: user?.phone || '',
+          email: user?.email || '',
+          returnDate: formData.returnDate,
+          items: itemsWithUploadedImages
+        }];
+      }
+
+      // ✅ ส่ง API แยกตามจำนวน returnDataList (แต่ละกลุ่มผู้คืน)
+      console.log(`\n📤 กำลังส่ง ${returnDataList.length} รายการคืนอุปกรณ์...`);
       
-      while (retryCount <= maxRetries) {
+      let allSuccess = true;
+      let successCount = 0;
+      
+      for (let i = 0; i < returnDataList.length; i++) {
+        const returnData = returnDataList[i];
+        console.log(`\n📦 รายการที่ ${i + 1}:`, {
+          firstName: returnData.firstName,
+          lastName: returnData.lastName,
+          itemsCount: returnData.items.length
+        });
+        
+        // Add timeout and retry logic
+        const controller = new AbortController();
+        const timeoutId = setTimeout(() => controller.abort(), 30000); // 30 second timeout
+        
+        let response: Response | undefined;
+        let retryCount = 0;
+        const maxRetries = 2;
+        
+        while (retryCount <= maxRetries) {
+          try {
+            response = await fetch('/api/equipment-return', {
+              method: 'POST',
+              headers: {
+                'Content-Type': 'application/json',
+              },
+              body: JSON.stringify(returnData),
+              signal: controller.signal
+            });
+            
+            clearTimeout(timeoutId);
+            break; // Success, exit retry loop
+            
+          } catch (fetchError) {
+            retryCount++;
+            const errorMessage = fetchError instanceof Error ? fetchError.message : 'Unknown error';
+            console.warn(`⚠️ Fetch attempt ${retryCount} failed:`, errorMessage);
+            
+            if (retryCount > maxRetries) {
+              clearTimeout(timeoutId);
+              throw fetchError; // Re-throw after max retries
+            }
+            
+            // Wait before retry (exponential backoff)
+            await new Promise(resolve => setTimeout(resolve, 1000 * retryCount));
+          }
+        }
+
+        if (!response) {
+          toast.error(`ไม่สามารถเชื่อมต่อกับเซิร์ฟเวอร์ได้ (รายการที่ ${i + 1})`);
+          allSuccess = false;
+          continue;
+        }
+
+        let data;
         try {
-          response = await fetch('/api/equipment-return', {
-            method: 'POST',
-            headers: {
-              'Content-Type': 'application/json',
-            },
-            body: JSON.stringify(returnData),
-            signal: controller.signal
+          data = await response.json();
+        } catch (jsonError) {
+          console.error('❌ Failed to parse JSON response:', jsonError);
+          const textResponse = await response.text();
+          console.error('📄 Raw response:', textResponse);
+          
+          toast.error(`เซิร์ฟเวอร์ตอบกลับในรูปแบบที่ไม่ถูกต้อง (รายการที่ ${i + 1})`);
+          allSuccess = false;
+          continue;
+        }
+
+        if (response.ok) {
+          console.log(`✅ รายการที่ ${i + 1} ส่งสำเร็จ`);
+          successCount++;
+        } else {
+          console.error(`❌ รายการที่ ${i + 1} เกิดข้อผิดพลาด:`, {
+            status: response.status,
+            statusText: response.statusText,
+            data: data
           });
           
-          clearTimeout(timeoutId);
-          break; // Success, exit retry loop
-          
-        } catch (fetchError) {
-          retryCount++;
-          const errorMessage = fetchError instanceof Error ? fetchError.message : 'Unknown error';
-          console.warn(`⚠️ Fetch attempt ${retryCount} failed:`, errorMessage);
-          
-          if (retryCount > maxRetries) {
-            clearTimeout(timeoutId);
-            throw fetchError; // Re-throw after max retries
+          // More specific error messages
+          if (response.status === 400) {
+            toast.error(`รายการที่ ${i + 1}: ${data?.error || 'ข้อมูลที่ส่งไม่ถูกต้อง'}`);
+          } else if (response.status === 401) {
+            toast.error('กรุณาเข้าสู่ระบบใหม่');
+          } else if (response.status === 500) {
+            toast.error(`รายการที่ ${i + 1}: เกิดข้อผิดพลาดในเซิร์ฟเวอร์`);
+          } else {
+            toast.error(`รายการที่ ${i + 1}: ${data?.error || `เกิดข้อผิดพลาด (${response.status})`}`);
           }
           
-          // Wait before retry (exponential backoff)
-          await new Promise(resolve => setTimeout(resolve, 1000 * retryCount));
+          // Show additional error details in development
+          if (data?.details && process.env.NODE_ENV === 'development') {
+            console.error('🔍 Error details:', data.details);
+          }
+          
+          allSuccess = false;
         }
       }
 
-      if (!response) {
-        toast.error('ไม่สามารถเชื่อมต่อกับเซิร์ฟเวอร์ได้');
-        return;
-      }
-
-      let data;
-      try {
-        data = await response.json();
-      } catch (jsonError) {
-        console.error('❌ Failed to parse JSON response:', jsonError);
-        const textResponse = await response.text();
-        console.error('📄 Raw response:', textResponse);
-        
-        toast.error('เซิร์ฟเวอร์ตอบกลับในรูปแบบที่ไม่ถูกต้อง');
-        return;
-      }
-
-      if (response.ok) {
-        toast.success('ส่งข้อมูลเรียบร้อยแล้ว');
+      // แสดงผลสรุปหลังส่งเสร็จทั้งหมด
+      if (allSuccess) {
+        toast.success(`ส่งข้อมูลเรียบร้อยแล้ว (${successCount} รายการ)`);
         
         // Redirect to clean URL without query parameters
         router.push('/equipment-return');
@@ -943,6 +1055,7 @@ export default function EquipmentReturnPage() {
           nickname: '',
           department: '',
           phone: '',
+          email: '',
           office: '',
           returnDate: new Date().toISOString().split('T')[0],
         });
@@ -982,27 +1095,8 @@ export default function EquipmentReturnPage() {
         setFilteredEquipment([]);
         setHasShownNotification(false);
       } else {
-        console.error('❌ Equipment return error:', {
-          status: response.status,
-          statusText: response.statusText,
-          data: data
-        });
-        
-        // More specific error messages
-        if (response.status === 400) {
-          toast.error(data?.error || 'ข้อมูลที่ส่งไม่ถูกต้อง');
-        } else if (response.status === 401) {
-          toast.error('กรุณาเข้าสู่ระบบใหม่');
-        } else if (response.status === 500) {
-          toast.error('เกิดข้อผิดพลาดในเซิร์ฟเวอร์');
-        } else {
-          toast.error(data?.error || `เกิดข้อผิดพลาด (${response.status})`);
-        }
-        
-        // Show additional error details in development
-        if (data?.details && process.env.NODE_ENV === 'development') {
-          console.error('🔍 Error details:', data.details);
-        }
+        // บางรายการส่งไม่สำเร็จ
+        toast.error(`ส่งข้อมูลไม่สำเร็จบางรายการ (สำเร็จ ${successCount} จาก ${returnDataList.length})`);
       }
     } catch (error) {
       console.error('❌ Network/Unexpected error:', error);
@@ -1035,16 +1129,35 @@ export default function EquipmentReturnPage() {
           <div className="bg-white/90 backdrop-blur-sm rounded-2xl shadow-xl px-5 py-8 sm:p-8 border border-white/50">
             <h1 className="text-2xl font-bold text-gray-900 mb-6">คืนอุปกรณ์</h1>
 
-          {/* User Profile Display */}
-          <RequesterInfoForm 
-            formData={{
-              ...formData,
-              office: formData.office || user?.office || ''
-            }}
-            onInputChange={handleInputChange}
-            title="ข้อมูลผู้คืนอุปกรณ์"
-            lockPersonalInfo={!!(formData.firstName && formData.lastName)} // Lock if data is pre-filled from URL
-          />
+          {/* User Profile Display - ซ่อนสำหรับผู้ใช้สาขา (จะกรอกข้อมูลในแต่ละรายการแทน) */}
+          {user?.userType !== 'branch' && (
+            <RequesterInfoForm 
+              formData={{
+                ...formData,
+                email: formData.email || user?.email || '',
+                office: formData.office || user?.office || ''
+              }}
+              onInputChange={handleInputChange}
+              title="ข้อมูลผู้คืนอุปกรณ์"
+              lockPersonalInfo={!!(formData.firstName && formData.lastName)} // Lock if data is pre-filled from URL
+              showEmail={true}
+            />
+          )}
+          
+          {/* 🆕 สำหรับผู้ใช้สาขา: แสดงข้อความแจ้งเตือน */}
+          {user?.userType === 'branch' && (
+            <div className="mb-6 p-4 bg-blue-50 border border-blue-200 rounded-lg">
+              <h3 className="text-sm font-semibold text-blue-900 mb-2">
+                📝 วิธีการคืนอุปกรณ์สำหรับสาขา
+              </h3>
+              <ul className="text-sm text-blue-800 space-y-1">
+                <li>• เลือกอุปกรณ์ที่ต้องการคืน</li>
+                <li>• <strong>กรอกข้อมูลผู้คืนสำหรับแต่ละรายการ</strong> (ถ้าคนละคน ระบบจะแยกบันทึกอัตโนมัติ)</li>
+                <li>• กดเพิ่มรายการเพื่อเพิ่มเข้ารายการที่จะคืน</li>
+                <li>• ส่งฟอร์มเมื่อเพิ่มรายการครบแล้ว</li>
+              </ul>
+            </div>
+          )}
 
           <form onSubmit={handleSubmit} className={`space-y-6 ${isSubmitted ? 'form-submitted' : ''}`}>
             {/* Return Date */}
@@ -1291,6 +1404,96 @@ export default function EquipmentReturnPage() {
                           />
                         </div>
                       </div>
+
+                      {/* 🆕 ข้อมูลผู้คืนอุปกรณ์ (สำหรับผู้ใช้ประเภทสาขา) */}
+                      {user?.userType === 'branch' && (
+                        <div className="mb-6 p-4 bg-yellow-50 border border-yellow-200 rounded-lg">
+                          <h3 className="text-sm font-semibold text-yellow-900 mb-3">
+                            ข้อมูลผู้คืนอุปกรณ์รายการนี้
+                          </h3>
+                          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                            <div>
+                              <label className="block text-sm font-medium text-gray-700 mb-1">
+                                ชื่อ *
+                              </label>
+                              <input
+                                type="text"
+                                value={returnItem.returnerFirstName || ''}
+                                onChange={(e) => handleItemChange('returnerFirstName', e.target.value)}
+                                className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 text-gray-900"
+                                placeholder="ชื่อผู้คืน"
+                                required
+                              />
+                            </div>
+                            <div>
+                              <label className="block text-sm font-medium text-gray-700 mb-1">
+                                นามสกุล *
+                              </label>
+                              <input
+                                type="text"
+                                value={returnItem.returnerLastName || ''}
+                                onChange={(e) => handleItemChange('returnerLastName', e.target.value)}
+                                className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 text-gray-900"
+                                placeholder="นามสกุลผู้คืน"
+                                required
+                              />
+                            </div>
+                            <div>
+                              <label className="block text-sm font-medium text-gray-700 mb-1">
+                                ชื่อเล่น
+                              </label>
+                              <input
+                                type="text"
+                                value={returnItem.returnerNickname || ''}
+                                onChange={(e) => handleItemChange('returnerNickname', e.target.value)}
+                                className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 text-gray-900"
+                                placeholder="ชื่อเล่น"
+                              />
+                            </div>
+                            <div>
+                              <label className="block text-sm font-medium text-gray-700 mb-1">
+                                แผนก
+                              </label>
+                              <input
+                                type="text"
+                                value={returnItem.returnerDepartment || ''}
+                                onChange={(e) => handleItemChange('returnerDepartment', e.target.value)}
+                                className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 text-gray-900"
+                                placeholder="แผนก"
+                              />
+                            </div>
+                            <div>
+                              <label className="block text-sm font-medium text-gray-700 mb-1">
+                                เบอร์โทรศัพท์ *
+                              </label>
+                              <input
+                                type="tel"
+                                value={returnItem.returnerPhone || ''}
+                                onChange={(e) => handleItemChange('returnerPhone', e.target.value)}
+                                className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 text-gray-900"
+                                placeholder="0812345678"
+                                required
+                              />
+                            </div>
+                            <div>
+                              <label className="block text-sm font-medium text-gray-700 mb-1">
+                                อีเมล
+                              </label>
+                              <input
+                                type="email"
+                                value={user?.email || ''}
+                                className="w-full px-3 py-2 border border-gray-300 rounded-md bg-gray-50 text-gray-700 cursor-not-allowed"
+                                placeholder="อีเมล (ดึงจากบัญชีผู้ใช้)"
+                                disabled
+                                readOnly
+                              />
+                            </div>
+                          </div>
+                          <p className="mt-2 text-xs text-yellow-700">
+                            💡 กรอกข้อมูลผู้คืนอุปกรณ์สำหรับรายการนี้
+                          </p>
+                        </div>
+                      )}
 
                       {/* Status and Condition */}
                       <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">

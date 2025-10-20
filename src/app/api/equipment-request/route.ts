@@ -188,6 +188,7 @@ export async function POST(request: NextRequest) {
       requesterNickname: requestData.nickname || undefined,
       requesterDepartment: requestData.department || undefined,
       requesterPhone: requestData.phone || undefined,
+      requesterEmail: requestData.email || user?.email || undefined,
       requesterOffice: requestData.office || undefined,
       requestDate: createDatabaseDate(),
       urgency: requestData.urgency,

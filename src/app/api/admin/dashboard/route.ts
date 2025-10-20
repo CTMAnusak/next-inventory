@@ -74,14 +74,17 @@ export async function GET(request: NextRequest) {
       IssueLog.countDocuments({ urgency: 'very_urgent' }),
       IssueLog.countDocuments({ urgency: 'normal' }),
 
-      // นับจำนวนรายการอุปกรณ์ทั้งหมดที่เบิก (นับ items ไม่ใช่ documents)
+      // นับจำนวนรายการอุปกรณ์ทั้งหมดที่เบิก (เฉพาะที่อนุมัติแล้ว)
       RequestLog.aggregate([
+        { $match: { status: 'approved' } },
         { $unwind: '$items' },
+        { $match: { 'items.itemApproved': true } },
         { $count: 'total' }
       ]).then(result => result[0]?.total || 0),
-      // นับจำนวนรายการอุปกรณ์ทั้งหมดที่คืน (นับ items ทั้งหมด ไม่กรอง approvalStatus)
+      // นับจำนวนรายการอุปกรณ์ทั้งหมดที่คืน (เฉพาะที่อนุมัติแล้ว)
       ReturnLog.aggregate([
         { $unwind: '$items' },
+        { $match: { 'items.approvalStatus': 'approved' } },
         { $count: 'total' }
       ]).then(result => result[0]?.total || 0),
       User.countDocuments({ pendingDeletion: { $ne: true } }),
@@ -127,16 +130,23 @@ export async function GET(request: NextRequest) {
         { $project: { _id: 0, month: { $concat: [ { $toString: '$_id.y' }, '-', { $toString: { $cond: [ { $lt: ['$_id.m', 10] }, { $concat: ['0', { $toString: '$_id.m' }] }, { $toString: '$_id.m' } ] } } ] }, count: 1 } },
         { $sort: { month: 1 } }
       ]),
-      // monthlyRequests
+      // monthlyRequests (เฉพาะที่อนุมัติแล้ว)
       RequestLog.aggregate([
-        ...(monthNumber ? [{ $match: { requestDate: { $gte: startDate, $lte: endDate } } }] : [{ $match: { requestDate: { $gte: startDate, $lte: endDate } } }]),
+        { $match: { 
+          status: 'approved',
+          requestDate: { $gte: startDate, $lte: endDate }
+        }},
+        { $unwind: '$items' },
+        { $match: { 'items.itemApproved': true } },
         { $group: { _id: { y: { $year: '$requestDate' }, m: { $month: '$requestDate' } }, count: { $sum: 1 } } },
         { $project: { _id: 0, month: { $concat: [ { $toString: '$_id.y' }, '-', { $toString: { $cond: [ { $lt: ['$_id.m', 10] }, { $concat: ['0', { $toString: '$_id.m' }] }, { $toString: '$_id.m' } ] } } ] }, count: 1 } },
         { $sort: { month: 1 } }
       ]),
-      // monthlyReturns
+      // monthlyReturns (เฉพาะที่อนุมัติแล้ว)
       ReturnLog.aggregate([
-        ...(monthNumber ? [{ $match: { returnDate: { $gte: startDate, $lte: endDate } } }] : [{ $match: { returnDate: { $gte: startDate, $lte: endDate } } }]),
+        { $match: { returnDate: { $gte: startDate, $lte: endDate } } },
+        { $unwind: '$items' },
+        { $match: { 'items.approvalStatus': 'approved' } },
         { $group: { _id: { y: { $year: '$returnDate' }, m: { $month: '$returnDate' } }, count: { $sum: 1 } } },
         { $project: { _id: 0, month: { $concat: [ { $toString: '$_id.y' }, '-', { $toString: { $cond: [ { $lt: ['$_id.m', 10] }, { $concat: ['0', { $toString: '$_id.m' }] }, { $toString: '$_id.m' } ] } } ] }, count: 1 } },
         { $sort: { month: 1 } }
@@ -148,10 +158,14 @@ export async function GET(request: NextRequest) {
         { $project: { _id: 0, category: { $ifNull: ['$_id', 'อื่นๆ'] }, count: 1 } },
         { $sort: { count: -1 } }
       ]),
-      // requestsByUrgency in selected period (นับจำนวน items ไม่ใช่ documents)
+      // requestsByUrgency in selected period (เฉพาะที่อนุมัติแล้ว)
       RequestLog.aggregate([
-        { $match: { requestDate: { $gte: startDate, $lte: endDate } } },
-        { $unwind: '$items' }, // ✅ Unwind items เพื่อนับจำนวนรายการอุปกรณ์
+        { $match: { 
+          status: 'approved',
+          requestDate: { $gte: startDate, $lte: endDate } 
+        } },
+        { $unwind: '$items' },
+        { $match: { 'items.itemApproved': true } },
         { $group: { _id: { $cond: [{ $eq: ['$urgency', 'very_urgent'] }, 'ด่วนมาก', 'ปกติ'] }, count: { $sum: 1 } } },
         { $project: { _id: 0, urgency: '$_id', count: 1 } },
         { $sort: { urgency: 1 } }

@@ -63,14 +63,7 @@ export default function RequesterInfoForm({ formData, onInputChange, showEmail =
             {showEmail && (
               <div className="bg-white rounded-lg p-3 border border-gray-200">
                 <span className="text-xs font-medium text-gray-500 uppercase tracking-wide">อีเมล</span>
-                <input
-                  type="email"
-                  name="email"
-                  value={formData.email || user.email || ''}
-                  onChange={onInputChange}
-                  className="w-full mt-1 px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 text-gray-900 text-sm"
-                  placeholder="อีเมล"
-                />
+                <p className="text-lg font-medium text-gray-900 mt-1">{user.email || '-'}</p>
               </div>
             )}
           </div>
@@ -200,16 +193,16 @@ export default function RequesterInfoForm({ formData, onInputChange, showEmail =
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               <div className="bg-white rounded-lg p-3 border border-gray-200">
                 <label className="block text-xs font-medium text-gray-500 uppercase tracking-wide mb-2">
-                  อีเมล *
+                  อีเมล
                 </label>
                 <input
                   type="email"
                   name="email"
-                  value={formData.email || user.email || ''}
-                  onChange={onInputChange}
-                  className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 text-gray-900"
-                  placeholder="อีเมล"
-                  required
+                  value={user.email || ''}
+                  className="w-full px-3 py-2 border border-gray-300 rounded-md bg-gray-100 text-gray-900 cursor-not-allowed"
+                  placeholder="อีเมล (ดึงจากบัญชีผู้ใช้)"
+                  disabled
+                  readOnly
                 />
               </div>
             </div>

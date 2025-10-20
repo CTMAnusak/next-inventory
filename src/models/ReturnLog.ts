@@ -30,6 +30,7 @@ export interface IReturnLog extends Document {
   returnerNickname?: string; // ชื่อเล่นผู้คืนอุปกรณ์ (สำหรับผู้ใช้ประเภทสาขา)
   returnerDepartment?: string; // แผนกผู้คืนอุปกรณ์ (สำหรับผู้ใช้ประเภทสาขา)
   returnerPhone?: string; // เบอร์โทรผู้คืนอุปกรณ์ (สำหรับผู้ใช้ประเภทสาขา)
+  returnerEmail?: string; // อีเมลผู้คืนอุปกรณ์ (ดึงจากบัญชีผู้ใช้)
   returnerOffice?: string; // ออฟฟิศ/สาขาผู้คืนอุปกรณ์ (สำหรับผู้ใช้ประเภทสาขา)
   returnDate: Date; // วันที่คืน
   items: IReturnItem[]; // รายการอุปกรณ์ที่คืน (แต่ละรายการมี approvalStatus แยกกัน)
@@ -72,6 +73,7 @@ const ReturnLogSchema = new Schema<IReturnLog>({
   returnerNickname: { type: String }, // ชื่อเล่นผู้คืนอุปกรณ์ (สำหรับผู้ใช้ประเภทสาขา)
   returnerDepartment: { type: String }, // แผนกผู้คืนอุปกรณ์ (สำหรับผู้ใช้ประเภทสาขา)
   returnerPhone: { type: String }, // เบอร์โทรผู้คืนอุปกรณ์ (สำหรับผู้ใช้ประเภทสาขา)
+  returnerEmail: { type: String }, // อีเมลผู้คืนอุปกรณ์ (ดึงจากบัญชีผู้ใช้)
   returnerOffice: { type: String }, // ออฟฟิศ/สาขาผู้คืนอุปกรณ์ (สำหรับผู้ใช้ประเภทสาขา)
   returnDate: { type: Date, required: true },
   items: [ReturnItemSchema],

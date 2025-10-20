@@ -11,11 +11,41 @@ export async function GET() {
     const returns = await ReturnLog.find({})
       .sort({ submittedAt: -1 });
     
+    // 🔍 Debug: Log raw data before populate
+    console.log('\n=== 🔍 RAW RETURN LOGS DATA (Before Populate) ===');
+    returns.slice(0, 5).forEach((log: any, index: number) => {
+      console.log(`\n--- Return Log ${index + 1} ---`);
+      console.log('_id:', log._id?.toString());
+      console.log('userId:', log.userId);
+      console.log('returnerFirstName:', log.returnerFirstName);
+      console.log('returnerLastName:', log.returnerLastName);
+      console.log('returnerNickname:', log.returnerNickname);
+      console.log('returnerDepartment:', log.returnerDepartment);
+      console.log('returnerPhone:', log.returnerPhone);
+      console.log('returnerOffice:', log.returnerOffice);
+    });
+    
     // ใช้ populate functions เพื่อ populate ข้อมูลล่าสุด
     // - Populate User info (ถ้า User ยังมีอยู่)
     // - Populate Item names, Categories, Status, Condition (ถ้ายังมีอยู่)
     // - ถ้าข้อมูลถูกลบ จะใช้ Snapshot ที่เก็บไว้
     const populatedReturns = await populateReturnLogCompleteBatch(returns);
+    
+    // 🔍 Debug: Log populated data
+    console.log('\n=== 🔍 POPULATED RETURN LOGS DATA (After Populate) ===');
+    populatedReturns.slice(0, 5).forEach((log: any, index: number) => {
+      console.log(`\n--- Return Log ${index + 1} ---`);
+      console.log('_id:', log._id?.toString());
+      console.log('userId:', log.userId);
+      console.log('firstName:', log.firstName);
+      console.log('lastName:', log.lastName);
+      console.log('nickname:', log.nickname);
+      console.log('department:', log.department);
+      console.log('phone:', log.phone);
+      console.log('office:', log.office);
+      console.log('returnerFirstName:', log.returnerFirstName);
+      console.log('returnerLastName:', log.returnerLastName);
+    });
     
     return NextResponse.json(populatedReturns);
   } catch (error) {

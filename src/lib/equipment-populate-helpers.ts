@@ -207,7 +207,9 @@ export async function populateTransferLogBatch(transferLogs: any[]) {
 export async function populateRequestLogUser(requestLog: any) {
   if (!requestLog) return requestLog;
   
-  const populated = requestLog.toObject ? requestLog.toObject() : requestLog;
+  // ✅ ใช้ JSON parse/stringify เพื่อทำ deep copy และป้องกันการ mutate object เดิม
+  const rawObject = requestLog.toObject ? requestLog.toObject() : requestLog;
+  const populated = JSON.parse(JSON.stringify(rawObject));
   
   // ถ้ามี userId ให้ populate ข้อมูลล่าสุด
   if (populated.userId) {
@@ -302,7 +304,16 @@ export async function populateRequestLogUser(requestLog: any) {
 export async function populateReturnLogUser(returnLog: any) {
   if (!returnLog) return returnLog;
   
-  const populated = returnLog.toObject ? returnLog.toObject() : returnLog;
+  // ✅ ใช้ JSON parse/stringify เพื่อทำ deep copy และป้องกันการ mutate object เดิม
+  const rawObject = returnLog.toObject ? returnLog.toObject() : returnLog;
+  const populated = JSON.parse(JSON.stringify(rawObject));
+  
+  // 🔍 Debug log
+  console.log(`\n🔍 populateReturnLogUser - _id: ${populated._id}`);
+  console.log('  Before populate:');
+  console.log('    returnerFirstName:', populated.returnerFirstName);
+  console.log('    returnerLastName:', populated.returnerLastName);
+  console.log('    returnerNickname:', populated.returnerNickname);
   
   // ถ้ามี userId ให้ populate ข้อมูลล่าสุด
   if (populated.userId) {
@@ -312,6 +323,7 @@ export async function populateReturnLogUser(returnLog: any) {
     );
     
     if (user) {
+      console.log('  User found - userType:', user.userType);
       // ✅ ตรวจสอบประเภทผู้ใช้จาก User collection ก่อน (ข้อมูลล่าสุด)
       // Branch User: Populate เฉพาะข้อมูลสาขา (ข้อมูลส่วนตัวใช้จากฟอร์ม)
       if (user.userType === 'branch') {
@@ -324,6 +336,11 @@ export async function populateReturnLogUser(returnLog: any) {
         populated.nickname = populated.returnerNickname || '-';
         populated.department = populated.returnerDepartment || '-';
         populated.phone = populated.returnerPhone || '-';
+        
+        console.log('  Branch User - After populate:');
+        console.log('    firstName:', populated.firstName);
+        console.log('    lastName:', populated.lastName);
+        console.log('    nickname:', populated.nickname);
       }
       // Individual User: Populate ทุกฟิลด์จาก User collection (ข้อมูลล่าสุด)
       else if (user.userType === 'individual') {
@@ -334,6 +351,10 @@ export async function populateReturnLogUser(returnLog: any) {
         populated.office = user.office;
         populated.phone = user.phone;
         populated.email = user.email;
+        
+        console.log('  Individual User - After populate:');
+        console.log('    firstName:', populated.firstName);
+        console.log('    lastName:', populated.lastName);
       }
     } else {
       // ✅ ไม่เจอ user (ถูกลบแล้ว) → ค้นหาจาก DeletedUsers collection

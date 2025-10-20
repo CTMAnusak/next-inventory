@@ -56,6 +56,7 @@ export default function EquipmentRequestPage() {
     nickname: '',
     department: '',
     phone: '',
+    email: '',
     office: '',
   });
 
@@ -499,10 +500,12 @@ export default function EquipmentRequestPage() {
           <RequesterInfoForm 
             formData={{
               ...formData,
+              email: formData.email || user?.email || '',
               office: formData.office || user?.office || ''
             }}
             onInputChange={handleInputChange}
             title="ข้อมูลผู้ขอเบิก"
+            showEmail={true}
           />
 
           <form onSubmit={handleSubmit} className={`space-y-6 ${isSubmitted ? 'form-submitted' : ''}`}>

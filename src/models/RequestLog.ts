@@ -45,6 +45,7 @@ export interface IRequestLog extends Document {
   requesterNickname?: string; // ชื่อเล่นผู้ขอเบิก (สำหรับผู้ใช้ประเภทสาขา)
   requesterDepartment?: string; // แผนกผู้ขอเบิก (สำหรับผู้ใช้ประเภทสาขา)
   requesterPhone?: string; // เบอร์โทรผู้ขอเบิก (สำหรับผู้ใช้ประเภทสาขา)
+  requesterEmail?: string; // อีเมลผู้ขอเบิก (ดึงจากบัญชีผู้ใช้)
   requesterOffice?: string; // ออฟฟิศ/สาขาผู้ขอเบิก (สำหรับผู้ใช้ประเภทสาขา)
   requestDate: Date; // วันที่ต้องการเบิก
   urgency: 'very_urgent' | 'normal'; // ความเร่งด่วน
@@ -112,6 +113,7 @@ const RequestLogSchema = new Schema<IRequestLog>({
   requesterNickname: { type: String }, // ชื่อเล่นผู้ขอเบิก (สำหรับผู้ใช้ประเภทสาขา)
   requesterDepartment: { type: String }, // แผนกผู้ขอเบิก (สำหรับผู้ใช้ประเภทสาขา)
   requesterPhone: { type: String }, // เบอร์โทรผู้ขอเบิก (สำหรับผู้ใช้ประเภทสาขา)
+  requesterEmail: { type: String }, // อีเมลผู้ขอเบิก (ดึงจากบัญชีผู้ใช้)
   requesterOffice: { type: String }, // ออฟฟิศ/สาขาผู้ขอเบิก (สำหรับผู้ใช้ประเภทสาขา)
   requestDate: { type: Date, required: true },
   urgency: { 
