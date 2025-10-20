@@ -53,6 +53,7 @@ export async function GET(request: NextRequest) {
       pendingIssuesInPeriod,
       inProgressIssuesInPeriod,
       completedIssuesInPeriod,
+      closedIssuesInPeriod,
       urgentIssuesInPeriod,
       normalIssuesInPeriod,
       // สำหรับกล่อง "สถานะคลังสินค้า" (อิงช่วงเวลา)
@@ -74,22 +75,26 @@ export async function GET(request: NextRequest) {
       IssueLog.countDocuments({ urgency: 'very_urgent' }),
       IssueLog.countDocuments({ urgency: 'normal' }),
 
-      // นับจำนวนรายการอุปกรณ์ทั้งหมดที่เบิก (เฉพาะที่อนุมัติแล้ว)
+      // นับจำนวนรายการอุปกรณ์ทั้งหมดที่เบิก (นับ items ที่อนุมัติแล้วเท่านั้น)
       RequestLog.aggregate([
-        { $match: { status: 'approved' } },
+        { $match: { status: { $in: ['approved', 'completed'] } } }, // เฉพาะที่อนุมัติแล้ว
         { $unwind: '$items' },
-        { $match: { 'items.itemApproved': true } },
         { $count: 'total' }
       ]).then(result => result[0]?.total || 0),
-      // นับจำนวนรายการอุปกรณ์ทั้งหมดที่คืน (เฉพาะที่อนุมัติแล้ว)
+      // นับจำนวนรายการอุปกรณ์ทั้งหมดที่คืน (นับ items ที่อนุมัติแล้วเท่านั้น)
       ReturnLog.aggregate([
         { $unwind: '$items' },
-        { $match: { 'items.approvalStatus': 'approved' } },
+        { $match: { 'items.approvalStatus': 'approved' } }, // เฉพาะ items ที่อนุมัติแล้ว
         { $count: 'total' }
       ]).then(result => result[0]?.total || 0),
       User.countDocuments({ pendingDeletion: { $ne: true } }),
       InventoryItem.estimatedDocumentCount(),
-      InventoryItem.countDocuments({ 'currentOwnership.ownerType': 'user_owned', 'sourceInfo.addedBy': 'user' }),
+      // นับจำนวนอุปกรณ์ที่ User เพิ่มเอง (self_reported)
+      InventoryItem.countDocuments({ 
+        'sourceInfo.acquisitionMethod': 'self_reported',
+        'currentOwnership.ownerType': 'user_owned',
+        deletedAt: { $exists: false }
+      }),
       // นับแถวสินค้าใกล้หมด (availableQuantity <= 2 และไม่มี serial number) - นับจำนวนแถว ไม่ใช่จำนวน items
       InventoryMaster.countDocuments({ 
         availableQuantity: { $lte: 2, $gte: 0 }, // มีจำนวนคงเหลือ 0-2 ชิ้น
@@ -98,11 +103,12 @@ export async function GET(request: NextRequest) {
       }),
 
       // กล่อง "สถานะแจ้งงาน IT" (อิงช่วงเวลา)
-      IssueLog.countDocuments({ status: 'pending', submittedAt: { $gte: startDate, $lte: endDate } }),
-      IssueLog.countDocuments({ status: 'in_progress', submittedAt: { $gte: startDate, $lte: endDate } }),
-      IssueLog.countDocuments({ status: 'completed', submittedAt: { $gte: startDate, $lte: endDate } }),
-      IssueLog.countDocuments({ urgency: 'very_urgent', submittedAt: { $gte: startDate, $lte: endDate } }),
-      IssueLog.countDocuments({ urgency: 'normal', submittedAt: { $gte: startDate, $lte: endDate } }),
+      IssueLog.countDocuments({ status: 'pending', reportDate: { $gte: startDate, $lte: endDate } }),
+      IssueLog.countDocuments({ status: 'in_progress', reportDate: { $gte: startDate, $lte: endDate } }),
+      IssueLog.countDocuments({ status: 'completed', reportDate: { $gte: startDate, $lte: endDate } }),
+      IssueLog.countDocuments({ status: 'closed', reportDate: { $gte: startDate, $lte: endDate } }),
+      IssueLog.countDocuments({ urgency: 'very_urgent', reportDate: { $gte: startDate, $lte: endDate } }),
+      IssueLog.countDocuments({ urgency: 'normal', reportDate: { $gte: startDate, $lte: endDate } }),
 
       // กล่อง "สถานะคลังสินค้า" (อิงช่วงเวลา - สำหรับรายการที่เพิ่มในช่วงเวลานั้น)
       InventoryItem.countDocuments({ 
@@ -118,54 +124,52 @@ export async function GET(request: NextRequest) {
       
       // สำหรับกล่อง "สรุป" - User เพิ่มเองในช่วงเวลา
       InventoryItem.countDocuments({ 
-        'currentOwnership.ownerType': 'user_owned', 
-        'sourceInfo.addedBy': 'user',
-        'sourceInfo.dateAdded': { $gte: startDate, $lte: endDate }
+        'sourceInfo.acquisitionMethod': 'self_reported',
+        'currentOwnership.ownerType': 'user_owned',
+        'sourceInfo.dateAdded': { $gte: startDate, $lte: endDate },
+        deletedAt: { $exists: false }
       }),
 
       // monthlyIssues
       IssueLog.aggregate([
-        ...(monthNumber ? [{ $match: { submittedAt: { $gte: startDate, $lte: endDate } } }] : [{ $match: { submittedAt: { $gte: startDate, $lte: endDate } } }]),
-        { $group: { _id: { y: { $year: '$submittedAt' }, m: { $month: '$submittedAt' } }, count: { $sum: 1 } } },
+        { $match: { reportDate: { $gte: startDate, $lte: endDate } } },
+        { $group: { _id: { y: { $year: '$reportDate' }, m: { $month: '$reportDate' } }, count: { $sum: 1 } } },
         { $project: { _id: 0, month: { $concat: [ { $toString: '$_id.y' }, '-', { $toString: { $cond: [ { $lt: ['$_id.m', 10] }, { $concat: ['0', { $toString: '$_id.m' }] }, { $toString: '$_id.m' } ] } } ] }, count: 1 } },
         { $sort: { month: 1 } }
       ]),
-      // monthlyRequests (เฉพาะที่อนุมัติแล้ว)
+      // monthlyRequests (นับเฉพาะที่อนุมัติแล้ว)
       RequestLog.aggregate([
         { $match: { 
-          status: 'approved',
-          requestDate: { $gte: startDate, $lte: endDate }
+          requestDate: { $gte: startDate, $lte: endDate },
+          status: { $in: ['approved', 'completed'] } // เฉพาะที่อนุมัติแล้ว
         }},
-        { $unwind: '$items' },
-        { $match: { 'items.itemApproved': true } },
         { $group: { _id: { y: { $year: '$requestDate' }, m: { $month: '$requestDate' } }, count: { $sum: 1 } } },
         { $project: { _id: 0, month: { $concat: [ { $toString: '$_id.y' }, '-', { $toString: { $cond: [ { $lt: ['$_id.m', 10] }, { $concat: ['0', { $toString: '$_id.m' }] }, { $toString: '$_id.m' } ] } } ] }, count: 1 } },
         { $sort: { month: 1 } }
       ]),
-      // monthlyReturns (เฉพาะที่อนุมัติแล้ว)
+      // monthlyReturns (นับเฉพาะ items ที่อนุมัติแล้ว)
       ReturnLog.aggregate([
-        { $match: { returnDate: { $gte: startDate, $lte: endDate } } },
+        { $match: { returnDate: { $gte: startDate, $lte: endDate } }},
         { $unwind: '$items' },
-        { $match: { 'items.approvalStatus': 'approved' } },
+        { $match: { 'items.approvalStatus': 'approved' }}, // เฉพาะ items ที่อนุมัติแล้ว
         { $group: { _id: { y: { $year: '$returnDate' }, m: { $month: '$returnDate' } }, count: { $sum: 1 } } },
         { $project: { _id: 0, month: { $concat: [ { $toString: '$_id.y' }, '-', { $toString: { $cond: [ { $lt: ['$_id.m', 10] }, { $concat: ['0', { $toString: '$_id.m' }] }, { $toString: '$_id.m' } ] } } ] }, count: 1 } },
         { $sort: { month: 1 } }
       ]),
       // issuesByCategory in selected period
       IssueLog.aggregate([
-        { $match: { submittedAt: { $gte: startDate, $lte: endDate } } },
+        { $match: { reportDate: { $gte: startDate, $lte: endDate } } },
         { $group: { _id: '$issueCategory', count: { $sum: 1 } } },
         { $project: { _id: 0, category: { $ifNull: ['$_id', 'อื่นๆ'] }, count: 1 } },
         { $sort: { count: -1 } }
       ]),
-      // requestsByUrgency in selected period (เฉพาะที่อนุมัติแล้ว)
+      // requestsByUrgency in selected period (นับจำนวน items ที่อนุมัติแล้วเท่านั้น)
       RequestLog.aggregate([
         { $match: { 
-          status: 'approved',
-          requestDate: { $gte: startDate, $lte: endDate } 
-        } },
-        { $unwind: '$items' },
-        { $match: { 'items.itemApproved': true } },
+          requestDate: { $gte: startDate, $lte: endDate },
+          status: { $in: ['approved', 'completed'] } // เฉพาะที่อนุมัติแล้ว
+        }},
+        { $unwind: '$items' }, // ✅ Unwind items เพื่อนับจำนวนรายการอุปกรณ์
         { $group: { _id: { $cond: [{ $eq: ['$urgency', 'very_urgent'] }, 'ด่วนมาก', 'ปกติ'] }, count: { $sum: 1 } } },
         { $project: { _id: 0, urgency: '$_id', count: 1 } },
         { $sort: { urgency: 1 } }
@@ -198,6 +202,7 @@ export async function GET(request: NextRequest) {
       pendingIssues: pendingIssuesInPeriod,
       inProgressIssues: inProgressIssuesInPeriod,
       completedIssues: completedIssuesInPeriod,
+      closedIssues: closedIssuesInPeriod,
       urgentIssues: urgentIssuesInPeriod,
       normalIssues: normalIssuesInPeriod,
       // กล่อง "สถานะคลังสินค้า" (อิงช่วงเวลา)

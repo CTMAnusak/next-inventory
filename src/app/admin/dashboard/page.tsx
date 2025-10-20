@@ -30,6 +30,7 @@ interface DashboardStats {
   pendingIssues: number;
   inProgressIssues: number;
   completedIssues: number;
+  closedIssues: number;
   urgentIssues: number;
   normalIssues: number;
   // กล่อง "สถานะคลังสินค้า" (อิงช่วงเวลา)
@@ -114,7 +115,8 @@ export default function AdminDashboardPage() {
         ['สถานะ', 'จำนวน'],
         ['รอดำเนินการ', stats.pendingIssues || 0],
         ['ดำเนินการแล้ว', stats.inProgressIssues || 0],
-        ['ปิดงานแล้ว', stats.completedIssues || 0],
+        ['เสร็จสิ้นแล้ว', stats.completedIssues || 0],
+        ['ปิดงานแล้ว', stats.closedIssues || 0],
         [''],
         ['ความเร่งด่วน'],
         ['ด่วนมาก', stats.urgentIssues || 0],
@@ -124,6 +126,13 @@ export default function AdminDashboardPage() {
         ['หัวข้อ', 'จำนวน'],
         ['จำนวนทั้งหมด', stats.totalInventoryItemsInPeriod || 0],
         ['รายการทั่วไป ใกล้หมด (≤ 2)', stats.lowStockItemsInPeriod || 0],
+        [''],
+        ['สรุป (ช่วงเวลาที่เลือก)'],
+        ['หัวข้อ', 'จำนวน'],
+        ['แจ้งงาน IT', selectedMonth === 'all' ? stats.monthlyIssues.filter(m => m.month.startsWith(`${selectedYear}-`)).reduce((sum, m) => sum + m.count, 0) : (stats.monthlyIssues.find(m => m.month === `${selectedYear}-${(selectedMonth as number).toString().padStart(2, '0')}`)?.count || 0)],
+        ['เบิกอุปกรณ์', selectedMonth === 'all' ? stats.monthlyRequests.filter(m => m.month.startsWith(`${selectedYear}-`)).reduce((sum, m) => sum + m.count, 0) : (stats.monthlyRequests.find(m => m.month === `${selectedYear}-${(selectedMonth as number).toString().padStart(2, '0')}`)?.count || 0)],
+        ['คืนอุปกรณ์', selectedMonth === 'all' ? stats.monthlyReturns.filter(m => m.month.startsWith(`${selectedYear}-`)).reduce((sum, m) => sum + m.count, 0) : (stats.monthlyReturns.find(m => m.month === `${selectedYear}-${(selectedMonth as number).toString().padStart(2, '0')}`)?.count || 0)],
+        ['User เพิ่มเองทั้งหมด', stats.userAddedItemsInPeriod || 0],
       ];
       
       const summaryWorksheet = XLSX.utils.aoa_to_sheet(summaryData);
@@ -516,8 +525,12 @@ export default function AdminDashboardPage() {
                   <span className="font-semibold text-blue-600">{stats.inProgressIssues || 0}</span>
                 </div>
                 <div className="flex justify-between items-center">
+                  <span className="text-sm text-gray-600">เสร็จสิ้นแล้ว</span>
+                  <span className="font-semibold text-blue-600">{stats.completedIssues || 0}</span>
+                </div>
+                <div className="flex justify-between items-center">
                   <span className="text-sm text-gray-600">ปิดงานแล้ว</span>
-                  <span className="font-semibold text-green-600">{stats.completedIssues || 0}</span>
+                  <span className="font-semibold text-green-600">{stats.closedIssues || 0}</span>
                 </div>
                 <div className="flex justify-between items-center border-t pt-2">
                   <span className="text-sm text-red-600 font-medium">ด่วนมาก</span>
