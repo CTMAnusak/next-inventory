@@ -1,10 +1,18 @@
 import type { Metadata } from "next";
+import { Kanit } from "next/font/google";
 import "./globals.css";
 import { AuthProvider } from "@/contexts/AuthContext";
 import { TutorialProvider } from "@/contexts/TutorialContext";
 import { Toaster } from "react-hot-toast";
 import ClientOnly from "@/components/ClientOnly";
 import TutorialOverlay from "@/components/TutorialOverlay";
+
+const kanit = Kanit({
+  weight: ['100', '200', '300', '400', '500', '600', '700', '800', '900'],
+  subsets: ['latin', 'thai'],
+  display: 'swap',
+  variable: '--font-kanit',
+});
 
 export const metadata: Metadata = {
   title: "Inventory Management Dashboard",
@@ -17,7 +25,7 @@ export default function RootLayout({
   children: React.ReactNode;
 }>) {
   return (
-    <html lang="th">
+    <html lang="th" className={kanit.variable}>
       <body suppressHydrationWarning={true}>
         <ClientOnly>
           <AuthProvider>
@@ -57,7 +65,6 @@ export default function RootLayout({
                   },
                 },
               }}
-              closeButton={true}
             />
           </AuthProvider>
         </ClientOnly>
