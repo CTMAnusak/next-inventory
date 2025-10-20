@@ -284,7 +284,7 @@ export default function AdminDashboardPage() {
         <h3 className="text-lg font-semibold text-gray-900 mb-4">{title}</h3>
         
         {total > 0 ? (
-          <div className="flex items-center justify-center">
+          <div className="flex flex-col sm:flex-row items-center justify-center gap-5 sm:gap-0">
             <div className="relative w-48 h-48">
               <svg viewBox="0 0 200 200" className="w-48 h-48 transform -rotate-90">
                 {data.map((item, index) => {
@@ -404,12 +404,12 @@ export default function AdminDashboardPage() {
       <div className="max-w-7xl mx-auto space-y-6">
         {/* Header */}
         <div className="bg-white/90 backdrop-blur-sm rounded-2xl shadow-xl p-8 border border-white/50">
-          <div className="flex flex-col md:flex-row justify-between items-center mb-6">
-            <div className="text-center md:text-left mb-5 md:mb-0">
+          <div className="flex flex-col lg:flex-row justify-between items-center mb-6">
+            <div className="text-center lg:text-left mb-5 lg:mb-0">
               <h1 className="text-2xl font-bold text-gray-900">Dashboard</h1>
               <p className="text-gray-600 mt-1">ภาพรวมระบบจัดการคลังสินค้า</p>
             </div>
-            <div className="flex items-center space-x-4">
+            <div className="flex flex-col md:flex-row items-center mx-auto md:mx-0 space-x-0 md:space-x-4 gap-5 md:gap-0">
               <div className="flex items-center space-x-2">
                 <select
                   value={selectedMonth as any}
@@ -442,8 +442,8 @@ export default function AdminDashboardPage() {
                 disabled={loading}
                 className="flex items-center space-x-2 px-4 py-2 bg-blue-100 text-blue-700 rounded-lg hover:bg-blue-200 transition-colors disabled:opacity-50"
               >
-                <RefreshCw className={`w-4 h-4  max-[420px]:mr-0 ${loading ? 'animate-spin' : ''}`} />
-                <span className="hidden min-[420px]:inline-block">รีเฟรช</span>
+                <RefreshCw className={`w-4 h-4 ${loading ? 'animate-spin' : ''}`} />
+                <span className="inline-block">รีเฟรช</span>
               </button>
               <button
                 onClick={handleExportExcel}
@@ -451,8 +451,8 @@ export default function AdminDashboardPage() {
                 className="flex items-center space-x-2 px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
                 title="Export Excel"
               >
-                <Download className="w-4 h-4 max-[420px]:mr-0" />
-                <span className="hidden min-[420px]:inline-block">Export Excel</span>
+                <Download className="w-4 h-4" />
+                <span className="inline-block">Export Excel</span>
               </button>
             </div>
           </div>

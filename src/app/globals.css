@@ -372,6 +372,7 @@ button span {
   border: none !important;
   position: relative;
   overflow: hidden;
+  font-weight: 400 !important; /* Set font-weight to 400 instead of bold */
 }
 
 .table-container thead th:first-child {
@@ -457,6 +458,11 @@ button span {
 /* Keep header padding unchanged */
 .table-container thead th {
   padding: 0.75rem 1.5rem !important; /* Keep px-6 py-3 for headers */
+}
+
+/* Global th font-weight override for all tables */
+th {
+  font-weight: 400 !important; /* Set font-weight to 400 instead of bold for all th elements */
 }
 
 /* Override text color in table cells (excluding headers) */

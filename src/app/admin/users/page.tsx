@@ -20,6 +20,7 @@ import {
 } from 'lucide-react';
 import { toast } from 'react-hot-toast';
 import { customToast } from '@/lib/custom-toast';
+import * as XLSX from 'xlsx';
 
 interface User {
   _id?: string; // MongoDB _id (for compatibility)
@@ -509,6 +510,113 @@ export default function AdminUsersPage() {
     setEditingUser(null);
   };
 
+  const handleExportExcel = () => {
+    try {
+      // ใช้ข้อมูลที่กรองแล้วตาม tab ปัจจุบัน
+      const dataToExport = activeTab === 'approved' ? filteredUsers : filteredPendingUsers;
+      
+      if (dataToExport.length === 0) {
+        toast.error('ไม่มีข้อมูลให้ Export');
+        return;
+      }
+
+      // เตรียมข้อมูลสำหรับ Excel
+      const exportData = dataToExport.map((user, index) => {
+        const baseData: any = {
+          'ลำดับ': index + 1,
+          'ประเภท': user.userType === 'individual' ? 'บุคคล' : 'สาขา',
+          'User ID': user.user_id || 'รอสร้าง',
+          'ชื่อ': user.firstName || '-',
+          'นามสกุล': user.lastName || '-',
+          'ชื่อเล่น': user.nickname || '-',
+          'แผนก': user.department || '-',
+          'สาขา': user.office,
+          'เบอร์โทร': user.phone || '-',
+          'อีเมล': user.email,
+          'วิธีสมัคร': user.registrationMethod === 'google' ? 'Google OAuth' : 'Manual',
+        };
+
+        // เพิ่มคอลัมน์ตามสถานะ
+        if (activeTab === 'approved') {
+          if (user.pendingDeletion) {
+            baseData['สถานะ'] = 'รอลบ';
+            baseData['เหตุผลรอลบ'] = user.pendingDeletionReason || '-';
+          } else if (user.isMainAdmin) {
+            baseData['สถานะ'] = 'Admin หลัก';
+          } else {
+            baseData['สถานะ'] = 
+              user.userRole === 'user' ? 'ทั่วไป' : 
+              user.userRole === 'admin' ? 'Admin' : 
+              user.userRole === 'it_admin' ? 'Admin ทีม IT' : 'ไม่ระบุ';
+          }
+        } else {
+          baseData['สถานะ'] = 'รอการอนุมัติ';
+        }
+
+        baseData['วันที่สร้าง'] = new Date(user.createdAt).toLocaleString('th-TH', { 
+          timeZone: 'Asia/Bangkok',
+          year: 'numeric',
+          month: '2-digit',
+          day: '2-digit',
+          hour: '2-digit',
+          minute: '2-digit',
+          second: '2-digit'
+        });
+
+        return baseData;
+      });
+
+      // สร้าง worksheet
+      const ws = XLSX.utils.json_to_sheet(exportData);
+      
+      // กำหนดความกว้างคอลัมน์
+      ws['!cols'] = [
+        { wch: 8 },  // ลำดับ
+        { wch: 12 }, // ประเภท
+        { wch: 15 }, // User ID
+        { wch: 20 }, // ชื่อ
+        { wch: 20 }, // นามสกุล
+        { wch: 12 }, // ชื่อเล่น
+        { wch: 25 }, // แผนก
+        { wch: 25 }, // สาขา
+        { wch: 15 }, // เบอร์โทร
+        { wch: 30 }, // อีเมล
+        { wch: 15 }, // วิธีสมัคร
+        { wch: 20 }, // สถานะ
+        { wch: 30 }, // เหตุผลรอลบ (ถ้ามี)
+        { wch: 25 }, // วันที่สร้าง
+      ];
+
+      // สร้าง workbook
+      const wb = XLSX.utils.book_new();
+      const sheetName = activeTab === 'approved' ? 'ผู้ใช้งาน' : 'รอการอนุมัติ';
+      XLSX.utils.book_append_sheet(wb, ws, sheetName);
+
+      // สร้างชื่อไฟล์พร้อมวันที่และเวลา
+      const now = new Date();
+      const dateStr = now.toLocaleDateString('th-TH', {
+        year: 'numeric',
+        month: '2-digit',
+        day: '2-digit'
+      }).replace(/\//g, '-');
+      const timeStr = now.toLocaleTimeString('th-TH', {
+        hour: '2-digit',
+        minute: '2-digit',
+        second: '2-digit'
+      }).replace(/:/g, '-');
+      
+      const filename = `รายชื่อผู้ใช้_${activeTab === 'approved' ? 'อนุมัติแล้ว' : 'รอการอนุมัติ'}_${dateStr}_${timeStr}.xlsx`;
+
+      // Export ไฟล์
+      XLSX.writeFile(wb, filename);
+      
+      toast.success(`ส่งออกข้อมูล ${dataToExport.length} รายการสำเร็จ`);
+    } catch (error) {
+      console.error('Export error:', error);
+      toast.error('เกิดข้อผิดพลาดในการส่งออกข้อมูล');
+    }
+  };
+
   // Get unique values for filters
   const allUsers = [...users, ...pendingUsers];
   const offices = [...new Set(allUsers.map(user => user.office))];
@@ -546,11 +654,10 @@ export default function AdminUsersPage() {
                 <span>รีเฟรช</span>
               </button>
               <button
-                onClick={() => {
-                  // TODO: Implement Excel export functionality
-                  toast.success('กำลังเตรียมไฟล์ Excel...');
-                }}
-                className="flex justify-center items-center space-x-2 px-4 py-2 bg-green-100 text-green-700 rounded-lg hover:bg-green-200 transition-colors"
+                onClick={handleExportExcel}
+                disabled={loading || currentData.length === 0}
+                className="flex justify-center items-center space-x-2 px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                title={currentData.length === 0 ? 'ไม่มีข้อมูลให้ Export' : 'Export ข้อมูลเป็น Excel'}
               >
                 <Download className="w-4 h-4" />
                 <span>Export Excel</span>

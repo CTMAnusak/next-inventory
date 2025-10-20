@@ -759,7 +759,7 @@ export default function DashboardPage() {
   return (
     <AuthGuard>
       <Layout>
-      <div className="max-w-7xl mx-auto">
+      <div className="max-w-full mx-auto">
         <div className="mb-8">
           <h1 className="text-3xl font-bold text-gray-900 mb-2">
             ยินดีต้อนรับสู่ระบบจัดการคลังสินค้า
@@ -809,7 +809,7 @@ export default function DashboardPage() {
         <div className="bg-white/80 backdrop-blur-sm rounded-2xl shadow-lg py-8 px-6 border border-white/50">
           {/* Desktop Layout (768px and above) */}
           <div className="flex flex-col md:flex-row text-center md:text-left justify-between mb-7 gap-4">
-            <div className="text-2xl font-bold text-blue-600">{
+            <div className="text-2xl font-semibold text-blue-600">{
               (user?.userType === 'branch'
                 ? `ทรัพย์สินที่มี ของ สาขา ${user?.office || ''}`
                 : `ทรัพย์สินที่มี ของ ${[user?.firstName, user?.lastName].filter(Boolean).join(' ')}`
@@ -1089,8 +1089,8 @@ export default function DashboardPage() {
                             {row.source === 'user-owned' && (
                               <button
                                 onClick={async () => {
+                                const itemId = row._id || (row as any).itemId;
                                 try {
-                                  const itemId = row._id || (row as any).itemId;
                                   if (!itemId) return;
                                   
                                   // Set loading state for this specific item

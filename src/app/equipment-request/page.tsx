@@ -67,6 +67,7 @@ export default function EquipmentRequestPage() {
   // State for available serial numbers/phone numbers
   const [availableSerialNumbers, setAvailableSerialNumbers] = useState<string[]>([]);
   const [selectedSerialNumber, setSelectedSerialNumber] = useState<string>('');
+  const [isLoadingSerialNumbers, setIsLoadingSerialNumbers] = useState<boolean>(false);
 
   // Multiple items support (prevent duplicates by itemId)
   const [requestItems, setRequestItems] = useState<RequestItem[]>([]);
@@ -196,6 +197,7 @@ export default function EquipmentRequestPage() {
   // ✅ ฟังก์ชันดึง Serial Numbers หรือเบอร์โทรศัพท์ที่พร้อมใช้งาน
   const fetchAvailableSerialNumbers = async (itemId: string) => {
     try {
+      setIsLoadingSerialNumbers(true);
       const inventoryItem = inventoryItems.find(i => String(i._id) === itemId);
       if (!inventoryItem) {
         setAvailableSerialNumbers([]);
@@ -263,6 +265,8 @@ export default function EquipmentRequestPage() {
       console.error('Error fetching serial numbers:', error);
       setAvailableSerialNumbers([]);
       setSelectedSerialNumber('');
+    } finally {
+      setIsLoadingSerialNumbers(false);
     }
   };
 
@@ -709,13 +713,16 @@ export default function EquipmentRequestPage() {
                     </div>
 
                     <div>
-                      <label className="block text-sm font-medium text-gray-700 mb-1">
+                      <label className="flex items-center gap-2 text-sm font-medium text-gray-700 mb-1">
                         {(() => {
                           // ตรวจสอบว่าเป็นซิมการ์ดหรือไม่
                           const selectedItem = inventoryItems.find(i => String(i._id) === requestItem.itemId);
                           const isSIMCard = selectedItem?.categoryId === 'cat_sim_card';
                           return isSIMCard ? 'เบอร์โทรศัพท์ (ถ้ามี)' : 'Serial Number (ถ้ามี)';
                         })()}
+                        {isLoadingSerialNumbers && (
+                          <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-blue-600"></div>
+                        )}
                       </label>
                       {availableSerialNumbers.length > 0 ? (
                         <>

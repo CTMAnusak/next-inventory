@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect, useRef, useMemo } from 'react';
+import React, { useState, useEffect, useRef, useMemo } from 'react';
 import { enableDragScroll } from '@/lib/drag-scroll';
 import Layout from '@/components/Layout';
 import { 
@@ -360,14 +360,14 @@ export default function AdminEquipmentTrackingPage() {
       <div className="max-w-full mx-auto">
         <div className="bg-white/90 backdrop-blur-sm rounded-2xl shadow-xl p-8 border border-white/50">
           {/* Header */}
-          <div className="flex justify-between items-center mb-6  flex-col md:flex-row ">
-            <div className="text-center md:text-left mb-5 md:mb-0">
+          <div className="flex justify-between items-center mb-6  flex-col lg:flex-row ">
+            <div className="text-center lg:text-left mb-5 lg:mb-0">
               <h1 className="text-2xl font-bold text-gray-900">ติดตามอุปกรณ์</h1>
               <p className="text-gray-600 mt-1">
                 ค้นหาและติดตามว่าใครเบิกอุปกรณ์อะไรไป
               </p>
             </div>
-            <div className="flex justify-center space-x-4 flex-wrap gap-2">
+            <div className="flex justify-center space-x-0 sm:space-x-4 flex-wrap gap-4 sm:gap-2">
               <button
                 onClick={() => setShowFilters(!showFilters)}
                 className="flex items-center space-x-2 px-4 py-2 bg-gray-100 text-gray-700 rounded-lg hover:bg-gray-200 transition-colors"

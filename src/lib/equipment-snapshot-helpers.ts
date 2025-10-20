@@ -70,13 +70,51 @@ export async function getConditionName(conditionId: string): Promise<string> {
  * Snapshot RequestLog ก่อนลบ User
  * - อัพเดตชื่อผู้อนุมัติ (approvedBy)
  * - อัพเดตชื่อผู้ปฏิเสธ (rejectedBy)
- * - **ไม่แตะ requester info** เพราะมี Snapshot อยู่แล้ว
+ * - Snapshot ข้อมูลผู้เบิก (requester) แบบแยกตาม userType
  */
 export async function snapshotRequestLogsBeforeUserDelete(userId: string) {
   try {
     const userName = await getUserName(userId);
     
+    // ดึงข้อมูลผู้ใช้เพื่อ snapshot
+    const user = await User.findOne({ user_id: userId }).select('userType firstName lastName nickname department office phone email');
+    
     let totalModified = 0;
+    
+    // 🆕 Snapshot ข้อมูลผู้เบิก (requester) ในทุก RequestLog ที่ userId ตรงกัน
+    if (user) {
+      // แยกการ snapshot ตาม userType
+      let updateFields: any = {};
+      
+      if (user.userType === 'individual') {
+        // ผู้ใช้บุคคล: Snapshot ทุกข้อมูล
+        updateFields = {
+          requesterFirstName: user.firstName || '',
+          requesterLastName: user.lastName || '',
+          requesterNickname: user.nickname || '',
+          requesterDepartment: user.department || '',
+          requesterOffice: user.office || '',
+          requesterPhone: user.phone || '',
+          requesterEmail: user.email || ''
+        };
+      } else if (user.userType === 'branch') {
+        // ผู้ใช้สาขา: Snapshot เฉพาะข้อมูลสาขา (ห้ามแตะข้อมูลส่วนตัว)
+        updateFields = {
+          requesterOffice: user.office || '',
+          requesterPhone: user.phone || '',
+          requesterEmail: user.email || ''
+          // ❌ ไม่แตะ: firstName, lastName, nickname, department
+          // เพราะข้อมูลเหล่านี้มาจากฟอร์มที่กรอกแต่ละครั้ง
+        };
+      }
+      
+      const requesterResult = await RequestLog.updateMany(
+        { userId: userId },
+        { $set: updateFields }
+      );
+      totalModified += requesterResult.modifiedCount;
+      console.log(`   - Requester (userId): ${requesterResult.modifiedCount}`);
+    }
     
     // อัพเดท approvedBy ในทุก RequestLog
     const approvedResult = await RequestLog.updateMany(
@@ -103,6 +141,7 @@ export async function snapshotRequestLogsBeforeUserDelete(userId: string) {
     console.log(`✅ Snapshot ${totalModified} RequestLogs (user: ${userId})`);
     console.log(`   - Approved by: ${approvedResult.modifiedCount}`);
     console.log(`   - Rejected by: ${rejectedResult.modifiedCount}`);
+    console.log(`   - User Type: ${user?.userType || 'unknown'}`);
     
     return { success: true, modifiedCount: totalModified };
   } catch (error) {
@@ -114,18 +153,56 @@ export async function snapshotRequestLogsBeforeUserDelete(userId: string) {
 /**
  * Snapshot ReturnLog ก่อนลบ User
  * - อัพเดตชื่อผู้อนุมัติ (items[].approvedBy)
- * - **ไม่แตะ returner info** เพราะมี Snapshot อยู่แล้ว
+ * - Snapshot ข้อมูลผู้คืน (returner) แบบแยกตาม userType
  */
 export async function snapshotReturnLogsBeforeUserDelete(userId: string) {
   try {
     const userName = await getUserName(userId);
     
+    // ดึงข้อมูลผู้ใช้เพื่อ snapshot
+    const user = await User.findOne({ user_id: userId }).select('userType firstName lastName nickname department office phone email');
+    
+    let modifiedCount = 0;
+    
+    // 🆕 Snapshot ข้อมูลผู้คืน (returner) ในทุก ReturnLog ที่ userId ตรงกัน
+    if (user) {
+      // แยกการ snapshot ตาม userType
+      let updateFields: any = {};
+      
+      if (user.userType === 'individual') {
+        // ผู้ใช้บุคคล: Snapshot ทุกข้อมูล
+        updateFields = {
+          returnerFirstName: user.firstName || '',
+          returnerLastName: user.lastName || '',
+          returnerNickname: user.nickname || '',
+          returnerDepartment: user.department || '',
+          returnerOffice: user.office || '',
+          returnerPhone: user.phone || '',
+          returnerEmail: user.email || ''
+        };
+      } else if (user.userType === 'branch') {
+        // ผู้ใช้สาขา: Snapshot เฉพาะข้อมูลสาขา (ห้ามแตะข้อมูลส่วนตัว)
+        updateFields = {
+          returnerOffice: user.office || '',
+          returnerPhone: user.phone || '',
+          returnerEmail: user.email || ''
+          // ❌ ไม่แตะ: firstName, lastName, nickname, department
+          // เพราะข้อมูลเหล่านี้มาจากฟอร์มที่กรอกแต่ละครั้ง
+        };
+      }
+      
+      const returnerResult = await ReturnLog.updateMany(
+        { userId: userId },
+        { $set: updateFields }
+      );
+      modifiedCount += returnerResult.modifiedCount;
+      console.log(`   - Returner (userId): ${returnerResult.modifiedCount}`);
+    }
+    
     // ดึง ReturnLog ที่มี items ที่ user นี้เป็นผู้อนุมัติ
     const returnLogs = await ReturnLog.find({
       'items.approvedBy': userId
     });
-    
-    let modifiedCount = 0;
     
     for (const log of returnLogs) {
       let modified = false;
@@ -148,7 +225,8 @@ export async function snapshotReturnLogsBeforeUserDelete(userId: string) {
       }
     }
     
-    console.log(`✅ Snapshot ${modifiedCount} ReturnLogs (approvedBy: ${userId})`);
+    console.log(`✅ Snapshot ${modifiedCount} ReturnLogs (user: ${userId})`);
+    console.log(`   - User Type: ${user?.userType || 'unknown'}`);
     return { success: true, modifiedCount };
   } catch (error) {
     console.error('Error snapshotting ReturnLogs:', error);

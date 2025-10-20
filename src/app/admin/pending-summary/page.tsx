@@ -12,10 +12,12 @@ import {
   Users,
   ExternalLink,
   CheckCircle,
-  FileText
+  FileText,
+  Download
 } from 'lucide-react';
 import { toast } from 'react-hot-toast';
 import { useRouter } from 'next/navigation';
+import * as XLSX from 'xlsx';
 
 interface ITIssue {
   _id: string;
@@ -244,6 +246,159 @@ export default function PendingSummaryPage() {
     pendingReturns.reduce((sum, ret) => sum + ret.items.filter(item => item.approvalStatus === 'pending' || !item.approvalStatus).length, 0) + 
     pendingUsers.length;
 
+  const handleExportExcel = () => {
+    try {
+      if (totalPendingCount === 0) {
+        toast.error('ไม่มีข้อมูลให้ Export');
+        return;
+      }
+
+      const wb = XLSX.utils.book_new();
+
+      // 1. Export Pending IT Issues
+      if (pendingITIssues.length > 0) {
+        const itData = pendingITIssues.map((issue, index) => {
+          const days = calculateBusinessDaysPending(issue.reportDate);
+          return {
+            'ลำดับ': index + 1,
+            'Issue ID': issue.issueId || '-',
+            'ชื่อ-นามสกุล': `${issue.firstName} ${issue.lastName}`,
+            'ชื่อเล่น': issue.nickname || '-',
+            'แผนก': issue.department || '-',
+            'สาขา': issue.office || '-',
+            'เบอร์โทร': issue.phone || '-',
+            'ประเภทปัญหา': issue.issueCategory || '-',
+            'ความเร่งด่วน': issue.urgency === 'very_urgent' ? 'ด่วนมาก' : 'ปกติ',
+            'คำอธิบาย': issue.description || '-',
+            'วันที่แจ้ง': new Date(issue.reportDate).toLocaleString('th-TH', { timeZone: 'Asia/Bangkok' }),
+            'จำนวนวันที่ค้าง': days,
+            'สถานะ': 'รอดำเนินการ'
+          };
+        });
+        const wsIT = XLSX.utils.json_to_sheet(itData);
+        wsIT['!cols'] = [
+          { wch: 8 }, { wch: 15 }, { wch: 25 }, { wch: 12 }, { wch: 20 },
+          { wch: 20 }, { wch: 15 }, { wch: 20 }, { wch: 12 }, { wch: 30 },
+          { wch: 22 }, { wch: 15 }, { wch: 15 }
+        ];
+        XLSX.utils.book_append_sheet(wb, wsIT, 'รอแจ้งงาน IT');
+      }
+
+      // 2. Export Pending Equipment Requests
+      if (pendingRequests.length > 0) {
+        const requestData: any[] = [];
+        let rowIndex = 1;
+        pendingRequests.forEach(req => {
+          const days = calculateBusinessDaysPending(req.requestDate);
+          req.items.forEach((item, itemIndex) => {
+            requestData.push({
+              'ลำดับ': rowIndex++,
+              'ชื่อ-นามสกุล': `${req.firstName} ${req.lastName}`,
+              'ชื่อเล่น': req.nickname || '-',
+              'แผนก': req.department || '-',
+              'สาขา': req.office || '-',
+              'เบอร์โทร': req.phone || '-',
+              'อุปกรณ์': item.itemName,
+              'หมวดหมู่': item.category || '-',
+              'จำนวน': item.quantity,
+              'ความเร่งด่วน': req.urgency === 'very_urgent' ? 'ด่วนมาก' : 'ปกติ',
+              'วันที่เบิก': new Date(req.requestDate).toLocaleString('th-TH', { timeZone: 'Asia/Bangkok' }),
+              'จำนวนวันที่ค้าง': days,
+              'สถานะ': 'รอจัดส่ง'
+            });
+          });
+        });
+        const wsRequests = XLSX.utils.json_to_sheet(requestData);
+        wsRequests['!cols'] = [
+          { wch: 8 }, { wch: 25 }, { wch: 12 }, { wch: 20 }, { wch: 20 },
+          { wch: 15 }, { wch: 25 }, { wch: 15 }, { wch: 10 }, { wch: 12 },
+          { wch: 22 }, { wch: 15 }, { wch: 15 }
+        ];
+        XLSX.utils.book_append_sheet(wb, wsRequests, 'รอจัดส่งอุปกรณ์');
+      }
+
+      // 3. Export Pending Returns
+      if (pendingReturns.length > 0) {
+        const returnData: any[] = [];
+        let rowIndex = 1;
+        pendingReturns.forEach(ret => {
+          const days = calculateBusinessDaysPending(ret.returnDate);
+          const pendingItems = ret.items.filter(item => item.approvalStatus === 'pending' || !item.approvalStatus);
+          pendingItems.forEach((item) => {
+            returnData.push({
+              'ลำดับ': rowIndex++,
+              'ชื่อ-นามสกุล': `${ret.firstName} ${ret.lastName}`,
+              'ชื่อเล่น': ret.nickname || '-',
+              'แผนก': ret.department || '-',
+              'สาขา': ret.office || '-',
+              'เบอร์โทร': ret.phone || '-',
+              'อุปกรณ์': item.itemName,
+              'หมวดหมู่': item.category || '-',
+              'จำนวน': item.quantity,
+              'วันที่คืน': new Date(ret.returnDate).toLocaleString('th-TH', { timeZone: 'Asia/Bangkok' }),
+              'จำนวนวันที่ค้าง': days,
+              'สถานะ': 'รออนุมัติ'
+            });
+          });
+        });
+        const wsReturns = XLSX.utils.json_to_sheet(returnData);
+        wsReturns['!cols'] = [
+          { wch: 8 }, { wch: 25 }, { wch: 12 }, { wch: 20 }, { wch: 20 },
+          { wch: 15 }, { wch: 25 }, { wch: 15 }, { wch: 10 }, { wch: 22 },
+          { wch: 15 }, { wch: 15 }
+        ];
+        XLSX.utils.book_append_sheet(wb, wsReturns, 'รออนุมัติคืนอุปกรณ์');
+      }
+
+      // 4. Export Pending Users
+      if (pendingUsers.length > 0) {
+        const userData = pendingUsers.map((user, index) => {
+          const days = calculateBusinessDaysPending(user.createdAt);
+          return {
+            'ลำดับ': index + 1,
+            'ประเภท': user.userType === 'individual' ? 'บุคคล' : 'สาขา',
+            'ชื่อ-นามสกุล': `${user.firstName} ${user.lastName}`,
+            'ชื่อเล่น': user.nickname || '-',
+            'อีเมล': user.email,
+            'สาขา': user.office,
+            'วันที่สมัคร': new Date(user.createdAt).toLocaleString('th-TH', { timeZone: 'Asia/Bangkok' }),
+            'จำนวนวันที่ค้าง': days,
+            'สถานะ': 'รออนุมัติ'
+          };
+        });
+        const wsUsers = XLSX.utils.json_to_sheet(userData);
+        wsUsers['!cols'] = [
+          { wch: 8 }, { wch: 12 }, { wch: 25 }, { wch: 12 }, 
+          { wch: 30 }, { wch: 20 }, { wch: 22 }, { wch: 15 }, { wch: 15 }
+        ];
+        XLSX.utils.book_append_sheet(wb, wsUsers, 'รออนุมัติผู้ใช้');
+      }
+
+      // Generate filename
+      const now = new Date();
+      const dateStr = now.toLocaleDateString('th-TH', {
+        year: 'numeric',
+        month: '2-digit',
+        day: '2-digit'
+      }).replace(/\//g, '-');
+      const timeStr = now.toLocaleTimeString('th-TH', {
+        hour: '2-digit',
+        minute: '2-digit',
+        second: '2-digit'
+      }).replace(/:/g, '-');
+      
+      const filename = `สรุปรายการรอดำเนินการ_${dateStr}_${timeStr}.xlsx`;
+
+      // Export file
+      XLSX.writeFile(wb, filename);
+      
+      toast.success(`ส่งออกข้อมูล ${totalPendingCount} รายการสำเร็จ`);
+    } catch (error) {
+      console.error('Export error:', error);
+      toast.error('เกิดข้อผิดพลาดในการส่งออกข้อมูล');
+    }
+  };
+
   return (
     <Layout>
       <div className="max-w-full mx-auto">
@@ -266,6 +421,15 @@ export default function PendingSummaryPage() {
               >
                 <RefreshCw className={`w-4 h-4 ${loading ? 'animate-spin' : ''}`} />
                 <span>รีเฟรช</span>
+              </button>
+              <button
+                onClick={handleExportExcel}
+                disabled={loading || totalPendingCount === 0}
+                className="flex items-center justify-center space-x-2 px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                title={totalPendingCount === 0 ? 'ไม่มีข้อมูลให้ Export' : 'Export ข้อมูลเป็น Excel'}
+              >
+                <Download className="w-4 h-4" />
+                <span>Export Excel</span>
               </button>
             </div>
           </div>
