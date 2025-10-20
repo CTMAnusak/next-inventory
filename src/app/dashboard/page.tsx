@@ -62,6 +62,9 @@ export default function DashboardPage() {
   } | null>(null);
   const [cancelReturnLoading, setCancelReturnLoading] = useState(false);
   
+  // Edit loading state - track loading for each item
+  const [editLoadingItems, setEditLoadingItems] = useState<Set<string>>(new Set());
+  
   // Drag scroll ref
   const tableContainerRef = useRef<HTMLDivElement>(null);
 
@@ -1087,11 +1090,16 @@ export default function DashboardPage() {
                               <button
                                 onClick={async () => {
                                 try {
+                                  const itemId = row._id || (row as any).itemId;
+                                  if (!itemId) return;
+                                  
+                                  // Set loading state for this specific item
+                                  setEditLoadingItems(prev => new Set(prev).add(itemId));
+                                  
                                   // Set edit mode
-                                  setEditItemId(row._id || '');
+                                  setEditItemId(itemId);
                                   
                                   // Fetch detailed item data from API
-                                  const itemId = row._id || (row as any).itemId;
                                   if (itemId) {
                                     const response = await fetch(`/api/inventory/${itemId}`);
                                     if (response.ok) {
@@ -1210,11 +1218,33 @@ export default function DashboardPage() {
                                 } catch (error) {
                                   console.error('Error fetching item data for edit:', error);
                                   toast.error('ไม่สามารถดึงข้อมูลอุปกรณ์ได้');
+                                } finally {
+                                  // Clear loading state for this item
+                                  setEditLoadingItems(prev => {
+                                    const newSet = new Set(prev);
+                                    newSet.delete(itemId);
+                                    return newSet;
+                                  });
                                 }
                               }}
-                                className="px-3 py-1 text-xs text-blue-600 hover:text-blue-800 hover:bg-blue-50 border border-blue-200 rounded"
+                                disabled={editLoadingItems.has(row._id || (row as any).itemId)}
+                                className={`px-3 py-1 text-xs border rounded transition-all duration-200 ${
+                                  editLoadingItems.has(row._id || (row as any).itemId)
+                                    ? 'bg-gray-100 text-gray-400 border-gray-200 cursor-not-allowed'
+                                    : 'text-blue-600 hover:text-blue-800 hover:bg-blue-50 border-blue-200'
+                                }`}
                               >
-                                แก้ไข
+                                {editLoadingItems.has(row._id || (row as any).itemId) ? (
+                                  <div className="flex items-center">
+                                    <svg className="animate-spin -ml-1 mr-1 h-3 w-3 text-gray-400" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                                      <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                                      <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                                    </svg>
+                                    กำลังโหลด...
+                                  </div>
+                                ) : (
+                                  'แก้ไข'
+                                )}
                               </button>
                             )}
                             

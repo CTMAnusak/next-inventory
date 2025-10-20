@@ -92,8 +92,14 @@ export default function SerialNumberSelector({
       // User เลือก Serial Number เจาะจง -> auto-select SN ที่ user ระบุ
       autoSelectRequestedSerialNumbers();
     } else {
-      // User เลือก "ไม่มี Serial Number (ไม่เจาะจง)" -> auto-select อุปกรณ์ไม่มี SN
-      autoSelectNoSerialNumber();
+      // User เลือก "ไม่มี Serial Number (ไม่เจาะจง)"
+      // ลองเลือกอุปกรณ์ไม่มี SN ก่อน ถ้าไม่มีให้เลือกแบบมี SN แทน
+      if (availableItems.withoutSerialNumber.count > 0) {
+        autoSelectNoSerialNumber();
+      } else if (availableItems.withSerialNumber.length > 0) {
+        // ✅ ถ้าไม่มีอุปกรณ์แบบไม่มี SN แต่มีแบบมี SN (เช่น ซิมการ์ด) ให้เลือกอัตโนมัติ
+        autoSelectItemsWithSerialNumber();
+      }
     }
   }, [availableItems, requestedSerialNumbers]);
 
@@ -213,6 +219,32 @@ export default function SerialNumberSelector({
       itemsToAdd.push({
         itemId: availableWithoutSN[i].itemId,
         serialNumber: undefined
+      });
+    }
+    
+    setSelectedItems(itemsToAdd);
+  };
+
+  const autoSelectItemsWithSerialNumber = () => {
+    if (!availableItems || availableItems.withSerialNumber.length === 0) {
+      return;
+    }
+
+    // ✅ Auto-select items WITH serial numbers/phone numbers up to requested quantity
+    // This happens when user selected "ไม่เจาะจง" but only items with SN/phone are available (e.g., SIM cards)
+    // Use FIFO (oldest first) for items with serial numbers
+    const itemsToAdd: SelectedItem[] = [];
+    const availableWithSN = availableItems.withSerialNumber; // Already in order from API
+    
+    const needToAdd = Math.min(
+      requestedQuantity,
+      availableWithSN.length
+    );
+    
+    for (let i = 0; i < needToAdd; i++) {
+      itemsToAdd.push({
+        itemId: availableWithSN[i].itemId,
+        serialNumber: availableWithSN[i].serialNumber || availableWithSN[i].numberPhone
       });
     }
     
@@ -411,15 +443,12 @@ export default function SerialNumberSelector({
           >
             <div className="flex items-center justify-between">
               <div className="flex items-center">
-                <div className={`w-3 h-3 rounded border mr-2 ${
-                  selectedItems.some(s => !s.serialNumber)
-                    ? 'bg-blue-600 border-blue-600'
-                    : 'border-gray-300'
-                }`}>
-                  {selectedItems.some(s => !s.serialNumber) && (
-                    <CheckCircle className="w-3 h-3 text-white" />
-                  )}
-                </div>
+                <input
+                  type="checkbox"
+                  checked={selectedItems.some(s => !s.serialNumber)}
+                  readOnly
+                  className="w-4 h-4 text-blue-600 border-gray-300 rounded focus:ring-blue-500 mr-2 cursor-pointer"
+                />
                 <span className="text-sm text-gray-600">
                   อุปกรณ์ไม่มี SN
                 </span>
@@ -467,15 +496,12 @@ export default function SerialNumberSelector({
               >
                 <div className="flex items-center justify-between">
                   <div className="flex items-center">
-                    <div className={`w-3 h-3 rounded border mr-2 ${
-                      isSelected(uniqueKey)
-                        ? 'bg-blue-600 border-blue-600'
-                        : 'border-gray-300'
-                    }`}>
-                      {isSelected(uniqueKey) && (
-                        <CheckCircle className="w-3 h-3 text-white" />
-                      )}
-                    </div>
+                    <input
+                      type="checkbox"
+                      checked={isSelected(uniqueKey)}
+                      readOnly
+                      className="w-4 h-4 text-blue-600 border-gray-300 rounded focus:ring-blue-500 mr-2 cursor-pointer"
+                    />
                     <span className="text-sm font-mono text-blue-600">
                       {itemIdentifier}
                     </span>
