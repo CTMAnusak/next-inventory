@@ -202,12 +202,12 @@ input[type="tel"] {
   background: white;
 }
 
-/* Allow text selection only in table cell content, not the cells themselves */
+/* Allow text selection for text content in table cells */
 .table-container td *:not(button):not(a):not([role="button"]),
 .table-container th *:not(button):not(a):not([role="button"]) {
-  user-select: none;
-  cursor: inherit;
-  pointer-events: none;
+  user-select: text;
+  cursor: auto;
+  pointer-events: auto;
 }
 
 /* Override cursor for interactive elements in table cells */
@@ -239,11 +239,15 @@ input[type="tel"] {
   cursor: text !important;
 }
 
-/* Keep table cells as non-selectable for drag scrolling, except selectable ones */
-.table-container td:not(.text-selectable),
+/* Allow text selection in table cells */
+.table-container td {
+  user-select: text;
+  cursor: text;
+  pointer-events: auto;
+}
 .table-container th {
-  user-select: none;
-  cursor: grab;
+  user-select: text;
+  cursor: pointer;
   pointer-events: auto;
 }
 
@@ -329,6 +333,23 @@ button span {
 .table-container.dragging * {
   cursor: grabbing !important;
   user-select: none !important;
+}
+
+/* Add empty space detection for drag scrolling */
+.table-container td:empty,
+.table-container th:empty {
+  cursor: grab;
+  user-select: none;
+}
+
+/* Override for empty cells - allow drag scrolling */
+.table-container td:empty:before,
+.table-container th:empty:before {
+  content: '';
+  display: block;
+  width: 100%;
+  height: 100%;
+  cursor: grab;
 }
 
 /* Beautiful Blue WebKit scrollbar for all tables */

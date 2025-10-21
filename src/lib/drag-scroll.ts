@@ -30,6 +30,20 @@ export function enableDragScroll(element: HTMLElement) {
       return;
     }
 
+    // Check if clicking on text content or table cell with text
+    const isTextContent = target.tagName === 'SPAN' || 
+                         target.tagName === 'DIV' || 
+                         target.tagName === 'P' ||
+                         target.nodeType === Node.TEXT_NODE ||
+                         (target.tagName === 'TD' && target.textContent && target.textContent.trim() !== '');
+    
+    // If clicking on text content, allow text selection instead of drag scrolling
+    if (isTextContent) {
+      // Don't prevent default - allow text selection
+      return;
+    }
+
+    // Only start drag scrolling for empty areas
     isDown = true;
     element.classList.add('dragging');
     startX = e.pageX;
