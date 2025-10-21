@@ -137,12 +137,13 @@ export async function GET(request: NextRequest) {
         { $project: { _id: 0, month: { $concat: [ { $toString: '$_id.y' }, '-', { $toString: { $cond: [ { $lt: ['$_id.m', 10] }, { $concat: ['0', { $toString: '$_id.m' }] }, { $toString: '$_id.m' } ] } } ] }, count: 1 } },
         { $sort: { month: 1 } }
       ]),
-      // monthlyRequests (นับเฉพาะที่อนุมัติแล้ว)
+      // monthlyRequests (นับจำนวน items ที่เบิก - เฉพาะที่อนุมัติแล้ว)
       RequestLog.aggregate([
         { $match: { 
           requestDate: { $gte: startDate, $lte: endDate },
           status: { $in: ['approved', 'completed'] } // เฉพาะที่อนุมัติแล้ว
         }},
+        { $unwind: '$items' }, // ✅ Unwind items เพื่อนับจำนวนรายการอุปกรณ์
         { $group: { _id: { y: { $year: '$requestDate' }, m: { $month: '$requestDate' } }, count: { $sum: 1 } } },
         { $project: { _id: 0, month: { $concat: [ { $toString: '$_id.y' }, '-', { $toString: { $cond: [ { $lt: ['$_id.m', 10] }, { $concat: ['0', { $toString: '$_id.m' }] }, { $toString: '$_id.m' } ] } } ] }, count: 1 } },
         { $sort: { month: 1 } }
