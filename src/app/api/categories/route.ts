@@ -8,14 +8,14 @@ export async function GET(request: NextRequest) {
     // Get all category configurations
     const categoryConfigs = await getAllCategoryConfigs();
     
-    // Convert to format expected by frontend
-    const categories = categoryConfigs.map(config => ({
-      id: config.id,
-      name: config.name,
-      isSpecial: config.isSpecial,
-      isSystemCategory: config.isSystemCategory,
-      order: config.order
-    }));
+  // Convert to format expected by frontend
+  const categories = categoryConfigs.map((config: any) => ({
+    id: config.id,
+    name: config.name,
+    isSpecial: config.isSpecial,
+    isSystemCategory: config.isSystemCategory,
+    order: config.order
+  }));
     
     // Sort by order
     categories.sort((a, b) => a.order - b.order);

@@ -699,12 +699,12 @@ export async function changeItemStatus(
 export async function changeNonSNItemStatusWithPriority(
   itemName: string,
   categoryId: string,
+  changedBy: string,
   newStatusId?: string,
   newConditionId?: string,
   currentStatusId?: string,
   currentConditionId?: string,
   quantity: number = 1,
-  changedBy: string,
   reason?: string
   ) {
     // สร้าง query สำหรับอุปกรณ์ที่ไม่มี SN
@@ -886,7 +886,7 @@ export async function handleMasterItemDeletion(deletedItemId: string) {
       // 🆕 Snapshot ก่อนลบ
       try {
         const { snapshotItemNameBeforeDelete } = await import('@/lib/equipment-snapshot-helpers');
-        await snapshotItemNameBeforeDelete(master._id.toString());
+        await snapshotItemNameBeforeDelete(String(master._id));
       } catch (error) {
         console.warn('Failed to snapshot before deleting InventoryMaster:', error);
       }
@@ -911,7 +911,7 @@ export async function handleMasterItemDeletion(deletedItemId: string) {
       // 🆕 Snapshot ก่อนลบ
       try {
         const { snapshotItemNameBeforeDelete } = await import('@/lib/equipment-snapshot-helpers');
-        await snapshotItemNameBeforeDelete(master._id.toString());
+        await snapshotItemNameBeforeDelete(String(master._id));
       } catch (error) {
         console.warn('Failed to snapshot before deleting InventoryMaster:', error);
       }

@@ -14,14 +14,15 @@ export async function PATCH(
     if (!status) {
       return NextResponse.json(
         { error: 'กรุณาระบุสถานะ' },
-        { status: 400 }
-      );
-    }
+    { status: 400 }
+  );
+}
 
-    await dbConnect();
+await dbConnect();
 
-    const issue = await IssueLog.findById(params.id);
-    if (!issue) {
+const { id } = await params;
+const issue = await IssueLog.findById(id);
+if (!issue) {
       return NextResponse.json(
         { error: 'ไม่พบรายการแจ้งงานนี้' },
         { status: 404 }
@@ -41,11 +42,11 @@ export async function PATCH(
       updateData.notes = notes;
     }
 
-    const updatedIssue = await IssueLog.findByIdAndUpdate(
-      params.id,
-      updateData,
-      { new: true }
-    );
+  const updatedIssue = await IssueLog.findByIdAndUpdate(
+    id,
+    updateData,
+    { new: true }
+  );
 
     // Send email notification when status changes to completed
     if (status === 'completed') {
@@ -79,7 +80,8 @@ export async function GET(
   try {
     await dbConnect();
 
-    const issue = await IssueLog.findById(params.id);
+    const { id } = await params;
+    const issue = await IssueLog.findById(id);
     if (!issue) {
       return NextResponse.json(
         { error: 'ไม่พบรายการแจ้งงานนี้' },

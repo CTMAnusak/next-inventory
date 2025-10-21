@@ -45,9 +45,9 @@ export async function PUT(request: NextRequest) {
     );
     
     return NextResponse.json({
+      ...result,
       success: true,
-      message: `อัปเดตชื่ออุปกรณ์เรียบร้อยแล้ว (${result.updatedCount} รายการ)`,
-      ...result
+      message: `อัปเดตชื่ออุปกรณ์เรียบร้อยแล้ว (${result.updatedCount} รายการ)`
     });
     
   } catch (error) {

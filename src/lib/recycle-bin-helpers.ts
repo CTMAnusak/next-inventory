@@ -61,7 +61,7 @@ export async function restoreFromRecycleBin(params: RestoreFromRecycleBinParams)
   if (recycleBinItem.deleteType === 'individual_item') {
     // กู้คืนอุปกรณ์รายชิ้น
     // 🔧 CRITICAL FIX: ป้องกัน duplicate key error สำหรับ serialNumber
-    const itemData = {
+    const itemData: any = {
       itemName: recycleBinItem.itemName,
       category: recycleBinItem.category,
       status: recycleBinItem.originalData.status, // กู้คืนสถานะเดิม
@@ -88,7 +88,7 @@ export async function restoreFromRecycleBin(params: RestoreFromRecycleBinParams)
       console.error(`❌ Error saving restored item:`, error);
       
       // ถ้าเป็น duplicate key error ให้แสดงข้อมูลเพิ่มเติม
-      if (error.code === 11000) {
+      if ((error as any).code === 11000) {
         console.error(`🔍 Duplicate key details:`, {
           itemName: itemData.itemName,
           category: itemData.category,
@@ -108,7 +108,7 @@ export async function restoreFromRecycleBin(params: RestoreFromRecycleBinParams)
     
     return { type: 'individual', item: restoredItem };
     
-  } else if (recycleBinItem.deleteType === 'category_bulk') {
+  } else if ((recycleBinItem as any).deleteType === 'category_bulk') {
     // กู้คืนหมวดหมู่ทั้งหมด
     const categoryItems = await RecycleBin.find({
       itemName: recycleBinItem.itemName,
@@ -122,7 +122,7 @@ export async function restoreFromRecycleBin(params: RestoreFromRecycleBinParams)
     for (const item of categoryItems) {
       try {
         // 🔧 CRITICAL FIX: ป้องกัน duplicate key error สำหรับ category bulk restore
-        const itemData = {
+        const itemData: any = {
           itemName: item.itemName,
           category: item.category,
           status: item.originalData.status, // กู้คืนสถานะเดิม
@@ -149,12 +149,12 @@ export async function restoreFromRecycleBin(params: RestoreFromRecycleBinParams)
         console.error(`❌ Error restoring item ${item.itemName}:`, error);
         
         // ถ้าเป็น duplicate key error ให้เก็บ error ไว้แต่ไม่หยุดการทำงาน
-        if (error.code === 11000) {
+        if ((error as any).code === 11000) {
           const errorMsg = `รายการ ${item.itemName} ${item.serialNumber ? `(SN: ${item.serialNumber})` : '(ไม่มี SN)'} มีอยู่ในระบบแล้ว`;
           errors.push(errorMsg);
           console.error(`🔍 Duplicate key: ${errorMsg}`);
         } else {
-          errors.push(`เกิดข้อผิดพลาดกับรายการ ${item.itemName}: ${error.message}`);
+          errors.push(`เกิดข้อผิดพลาดกับรายการ ${item.itemName}: ${(error as Error).message}`);
         }
       }
     }
@@ -265,7 +265,7 @@ export async function permanentDeleteExpiredItems() {
   await dbConnect();
   
   
-  const expiredItems = await RecycleBin.findExpiredItems();
+  const expiredItems = await (RecycleBin as any).findExpiredItems();
   
   if (expiredItems.length === 0) {
     return { deletedCount: 0, items: [] };
@@ -284,7 +284,7 @@ export async function permanentDeleteExpiredItems() {
   
   // ลบรายการทั้งหมดที่หมดอายุ
   const result = await RecycleBin.deleteMany({
-    _id: { $in: expiredItems.map(item => item._id) }
+    _id: { $in: expiredItems.map((item: any) => item._id) }
   });
   
   
@@ -301,7 +301,7 @@ export async function getRecycleBinItems(type: 'individual' | 'category' = 'indi
   await dbConnect();
   
   if (type === 'individual') {
-    const items = await RecycleBin.findDeletedItems(page, limit);
+    const items = await (RecycleBin as any).findDeletedItems(page, limit);
     const total = await RecycleBin.countDocuments({ 
       deleteType: 'individual_item'
     });

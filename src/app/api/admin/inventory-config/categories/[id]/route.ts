@@ -25,7 +25,7 @@ export async function GET(
       );
     }
     
-    const category = config.categoryConfigs?.find(cat => cat.id === id);
+    const category = config.categoryConfigs?.find((cat: any) => cat.id === id);
     
     if (!category) {
       return NextResponse.json(
@@ -87,7 +87,7 @@ export async function PUT(
       );
     }
     
-    const categoryIndex = config.categoryConfigs?.findIndex(cat => cat.id === id);
+    const categoryIndex = config.categoryConfigs?.findIndex((cat: any) => cat.id === id);
     
     if (categoryIndex === -1 || categoryIndex === undefined) {
       return NextResponse.json(
@@ -107,7 +107,7 @@ export async function PUT(
     }
     
     // ตรวจสอบชื่อซ้ำ (ยกเว้นตัวเอง)
-    const existingCategory = config.categoryConfigs?.find(cat => 
+    const existingCategory = config.categoryConfigs?.find((cat: any) =>
       cat.id !== id && cat.name.toLowerCase() === name.trim().toLowerCase()
     );
     
@@ -173,7 +173,7 @@ export async function DELETE(
       );
     }
     
-    const category = config.categoryConfigs?.find(cat => cat.id === id);
+    const category = config.categoryConfigs?.find((cat: any) => cat.id === id);
     
     if (!category) {
       return NextResponse.json(
@@ -215,7 +215,7 @@ export async function DELETE(
     await snapshotCategoryConfigBeforeChange(id);
     
     // ลบหมวดหมู่
-    config.categoryConfigs = config.categoryConfigs?.filter(cat => cat.id !== id);
+    config.categoryConfigs = config.categoryConfigs?.filter((cat: any) => cat.id !== id);
     await config.save();
     
     return NextResponse.json({

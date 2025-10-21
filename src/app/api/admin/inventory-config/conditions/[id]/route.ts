@@ -25,7 +25,7 @@ export async function GET(
       );
     }
     
-    const condition = config.conditionConfigs?.find(c => c.id === id);
+    const condition = config.conditionConfigs?.find((c: any) => c.id === id);
     
     if (!condition) {
       return NextResponse.json(
@@ -96,7 +96,7 @@ export async function PUT(
       );
     }
     
-    const conditionIndex = config.conditionConfigs?.findIndex(c => c.id === id);
+    const conditionIndex = config.conditionConfigs?.findIndex((c: any) => c.id === id);
     
     if (conditionIndex === -1 || conditionIndex === undefined) {
       return NextResponse.json(
@@ -118,7 +118,7 @@ export async function PUT(
       }
     } else {
       // ตรวจสอบชื่อซ้ำ (ยกเว้นตัวเอง)
-      const existingCondition = config.conditionConfigs?.find(c => 
+      const existingCondition = config.conditionConfigs?.find((c: any) => 
         c.id !== id && c.name.toLowerCase() === name.trim().toLowerCase()
       );
       
@@ -185,7 +185,7 @@ export async function DELETE(
       );
     }
     
-    const condition = config.conditionConfigs?.find(c => c.id === id);
+    const condition = config.conditionConfigs?.find((c: any) => c.id === id);
     
     if (!condition) {
       return NextResponse.json(
@@ -227,7 +227,7 @@ export async function DELETE(
     await snapshotConditionConfigBeforeChange(id);
     
     // ลบสถานะอุปกรณ์
-    config.conditionConfigs = config.conditionConfigs?.filter(c => c.id !== id);
+    config.conditionConfigs = config.conditionConfigs?.filter((c: any) => c.id !== id);
     await config.save();
     
     return NextResponse.json({

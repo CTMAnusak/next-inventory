@@ -74,14 +74,13 @@ export async function GET(request: NextRequest) {
       InventoryMaster.countDocuments(filter)
     ]);
 
-    // Don't enrich with category names - let frontend handle it
-    console.log('🔍 Raw items from database:', items.map(item => ({ 
-      _id: item._id, 
-      itemName: item.itemName, 
-      categoryId: item.categoryId,
-      category: item.category,
-      availableQuantity: item.availableQuantity
-    })));
+  // Don't enrich with category names - let frontend handle it
+  console.log('🔍 Raw items from database:', items.map(item => ({ 
+    _id: item._id, 
+    itemName: item.itemName, 
+    categoryId: item.categoryId,
+    availableQuantity: item.availableQuantity
+  })));
     
     console.log('🔍 Items count:', { 
       rawItems: items.length
@@ -100,13 +99,13 @@ export async function GET(request: NextRequest) {
         itemName: item.itemName,
         categoryId: item.categoryId, // ใช้ categoryId เป็นหลัก
         // ไม่ส่ง category name ใน API response - ให้ frontend ใช้ categoryId ในการ lookup
-        quantity: item.availableQuantity, // จำนวนที่เหลือให้เบิก
-        totalQuantity: item.totalQuantity,
-        serialNumbers: [], // Will be populated from InventoryItem if needed
-        status: 'active',
-        dateAdded: item.updatedAt,
-        hasSerialNumber: item.itemDetails?.withSerialNumber > 0,
-        userOwnedQuantity: item.userOwnedQuantity
+      quantity: item.availableQuantity, // จำนวนที่เหลือให้เบิก
+      totalQuantity: item.totalQuantity,
+      serialNumbers: [], // Will be populated from InventoryItem if needed
+      status: 'active',
+      dateAdded: item.updatedAt,
+      hasSerialNumber: (item.itemDetails?.withSerialNumber as any)?.count > 0 || false,
+      userOwnedQuantity: item.userOwnedQuantity
       };
     });
 

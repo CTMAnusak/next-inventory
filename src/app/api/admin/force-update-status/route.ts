@@ -51,7 +51,7 @@ export async function POST(request: NextRequest) {
     
     
     // ตรวจสอบหลัง update
-    const updatedConfig = await InventoryConfig.findOne().lean();
+    const updatedConfig = await InventoryConfig.findOne().lean() as any;
     
     return NextResponse.json({
       success: true,

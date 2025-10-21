@@ -42,7 +42,7 @@ export async function GET() {
       serialNumbers: [], // จะต้องดึงจาก InventoryItem ถ้าต้องการ
       dateAdded: item.lastUpdated,
       status: 'active', // Default status
-      hasSerialNumber: item.itemDetails.withSerialNumber > 0,
+      hasSerialNumber: (item.itemDetails.withSerialNumber as any)?.count > 0 || false,
       userOwnedQuantity: item.userOwnedQuantity
     }));
     
@@ -482,7 +482,7 @@ export async function DELETE(request: NextRequest) {
     for (const item of itemsToActuallyDelete) {
       try {
         const { updateSnapshotsBeforeDelete } = await import('@/lib/snapshot-helpers');
-        const snapshotResult = await updateSnapshotsBeforeDelete(item._id.toString());
+        const snapshotResult = await updateSnapshotsBeforeDelete(String(item._id));
         if (snapshotResult.success) {
           console.log(`   ✅ Updated ${snapshotResult.updatedRequestLogs} snapshot(s) for ${item.itemName} ${item.serialNumber ? `(SN: ${item.serialNumber})` : ''}`);
         }

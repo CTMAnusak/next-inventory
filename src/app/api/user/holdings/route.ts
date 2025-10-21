@@ -69,7 +69,7 @@ export async function GET(request: NextRequest) {
       for (const it of (log.items as any[]) || []) {
         const sn = it.serialNumber && String(it.serialNumber).trim() !== '-' ? String(it.serialNumber).trim() : '';
         // Include user info in the key to separate items by different users
-        const key: HoldingKey = `${it.itemId || it.itemName}||${sn}||${log.firstName || ''}||${log.lastName || ''}`;
+        const key: HoldingKey = `${it.itemId || it.itemName}||${sn}||${log.returnerFirstName || ''}||${log.returnerLastName || ''}`;
         const q = Number(it.quantity || 0);
         qtyByKey[key] = (qtyByKey[key] || 0) - (q > 0 ? q : 0);
       }
@@ -104,7 +104,7 @@ export async function GET(request: NextRequest) {
     const items = entries.map((e) => {
       // Find inventory item by ID
       const inventoryItem = invList.find((i: any) => String(i._id) === e.itemId);
-      const category = inventoryItem?.category || 'อื่นๆ';
+      const category = inventoryItem?.categoryId || 'อื่นๆ';
       const inventoryId = inventoryItem?._id ? String(inventoryItem._id) : undefined;
       
       // Find the most recent request log for this specific user and item to get complete user info

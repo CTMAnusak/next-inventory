@@ -10,7 +10,7 @@ export async function POST(
   try {
     await dbConnect();
     
-    const { issueId } = params;
+    const { issueId } = await params;
     const body = await request.json();
     const { notes } = body;
 

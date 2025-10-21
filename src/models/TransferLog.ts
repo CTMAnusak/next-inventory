@@ -222,7 +222,7 @@ TransferLogSchema.statics.getAdminActivity = function(adminId: string, limit: nu
 
 // Helper methods สำหรับสร้าง log entries
 TransferLogSchema.statics.logUserReport = function(itemData: any, userId: string) {
-  return this.logTransfer({
+  return (this as any).logTransfer({
     itemId: itemData._id,
     itemName: itemData.itemName,
     category: itemData.category,
@@ -240,7 +240,7 @@ TransferLogSchema.statics.logUserReport = function(itemData: any, userId: string
 };
 
 TransferLogSchema.statics.logAdminAdd = function(itemData: any, adminId: string) {
-  return this.logTransfer({
+  return (this as any).logTransfer({
     itemId: itemData._id,
     itemName: itemData.itemName,
     category: itemData.category,
@@ -264,7 +264,7 @@ TransferLogSchema.statics.logRequestApproval = function(
   adminId: string, 
   requestId: string
 ) {
-  return this.logTransfer({
+  return (this as any).logTransfer({
     itemId: itemData._id,
     itemName: itemData.itemName,
     category: itemData.category,
@@ -291,7 +291,7 @@ TransferLogSchema.statics.logReturn = function(
   adminId: string, 
   returnId: string
 ) {
-  return this.logTransfer({
+  return (this as any).logTransfer({
     itemId: itemData._id,
     itemName: itemData.itemName,
     category: itemData.category,

@@ -41,11 +41,11 @@ export async function GET(request: NextRequest) {
     if (grouped) {
       // 🆕 ใช้ grouped data จาก RecycleBin model
       const RecycleBin = (await import('@/models/RecycleBin')).default;
-      const groupedItems = await RecycleBin.findGroupedDeletedItems(page, limit);
+      const groupedItems = await (RecycleBin as any).findGroupedDeletedItems(page, limit);
       
       // แปลงชื่อหมวดหมู่สำหรับทุกรายการ
       const enrichedItems = await Promise.all(
-        groupedItems.map(async (item) => {
+        groupedItems.map(async (item: any) => {
           try {
             const categoryName = await getCategoryNameById(item.categoryId);
             return {

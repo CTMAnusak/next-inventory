@@ -17,7 +17,7 @@ export async function GET() {
       return NextResponse.json({ statuses: [] });
     }
     
-    const statuses = (config.statusConfigs || []).sort((a, b) => a.order - b.order);
+    const statuses = (config.statusConfigs || []).sort((a: any, b: any) => a.order - b.order);
     
     return NextResponse.json({ statuses });
     
@@ -66,7 +66,7 @@ export async function POST(request: NextRequest) {
     }
     
     // ตรวจสอบชื่อซ้ำ
-    const existingStatus = config.statusConfigs?.find(status => 
+    const existingStatus = config.statusConfigs?.find((status: any) => 
       status.name.toLowerCase() === name.trim().toLowerCase()
     );
     
@@ -78,7 +78,7 @@ export async function POST(request: NextRequest) {
     }
     
     // สร้างสภาพอุปกรณ์ใหม่
-    const newOrder = Math.max(...(config.statusConfigs || []).map(status => status.order), 0) + 1;
+    const newOrder = Math.max(...(config.statusConfigs || []).map((status: any) => status.order), 0) + 1;
     const newStatus = {
       id: generateStatusId(),
       name: name.trim(),
@@ -144,8 +144,8 @@ export async function PUT(request: NextRequest) {
     }
     
     // อัปเดตลำดับ
-    statuses.forEach((status, index) => {
-      const existingStatus = config.statusConfigs?.find(s => s.id === status.id);
+    statuses.forEach((status: any, index: number) => {
+      const existingStatus = config.statusConfigs?.find((s: any) => s.id === status.id);
       if (existingStatus) {
         existingStatus.order = index + 1;
         existingStatus.updatedAt = new Date();
@@ -156,7 +156,7 @@ export async function PUT(request: NextRequest) {
     
     return NextResponse.json({
       message: 'อัปเดตลำดับสภาพอุปกรณ์เรียบร้อยแล้ว',
-      statuses: config.statusConfigs?.sort((a, b) => a.order - b.order)
+      statuses: config.statusConfigs?.sort((a: any, b: any) => a.order - b.order)
     });
     
   } catch (error) {

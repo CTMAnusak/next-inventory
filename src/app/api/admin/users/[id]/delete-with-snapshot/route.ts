@@ -57,8 +57,9 @@ export async function DELETE(
       const snapshotResults = await snapshotUserBeforeDelete(id);
       
       console.log(`✅ Snapshot completed:`);
-      console.log(`   - Requester: ${snapshotResults.requester.modifiedCount} issues`);
-      console.log(`   - Admin: ${snapshotResults.admin.modifiedCount} issues`);
+      const results = snapshotResults as any;
+      console.log(`   - Requester: ${results.requester?.modifiedCount || results.issues?.requester?.modifiedCount || 0} issues`);
+      console.log(`   - Admin: ${results.admin?.modifiedCount || results.issues?.admin?.modifiedCount || 0} issues`);
     } else {
       console.log(`ℹ️ No related issues found, skipping snapshot`);
     }

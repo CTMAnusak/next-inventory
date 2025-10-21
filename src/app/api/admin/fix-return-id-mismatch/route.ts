@@ -50,7 +50,7 @@ export async function POST(request: NextRequest) {
             const correctItem = userInventoryItems[0];
 
             // Update the itemId in ReturnLog
-            returnLog.items[i].itemId = correctItem._id.toString();
+            returnLog.items[i].itemId = String(correctItem._id);
             returnLog.items[i].itemName = correctItem.itemName;
             
             returnLogModified = true;
@@ -59,7 +59,7 @@ export async function POST(request: NextRequest) {
               returnLogId: returnLog._id,
               itemIndex: i,
               oldItemId: item.itemId,
-              newItemId: correctItem._id.toString(),
+              newItemId: String(correctItem._id),
               itemName: correctItem.itemName,
               serialNumber: item.serialNumber,
               status: 'fixed'

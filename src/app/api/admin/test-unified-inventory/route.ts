@@ -41,9 +41,9 @@ export async function POST(request: NextRequest) {
          // Warehouse stock
        });
       await item.save();
-         } else {
-       item.quantity += 10;
-       item.totalQuantity += 10;
+        } else {
+      item.availableQuantity += 10;
+      item.totalQuantity += 10;
        // Warehouse stock
        await item.save();
      }
@@ -57,9 +57,10 @@ export async function POST(request: NextRequest) {
     if (existingItem) {
       existingItem.totalQuantity += 5; // User adds 5 more
       const dummyUserId = 'USER1234567890'; // Simulate different user
-      if (!existingItem.addedBy || !existingItem.addedBy.some(entry => entry.role === 'user' && entry.userId === dummyUserId)) {
-        existingItem.addedBy = existingItem.addedBy || [];
-        existingItem.addedBy.push({ 
+      const existingItemAny = existingItem as any;
+      if (!existingItemAny.addedBy || !existingItemAny.addedBy.some((entry: any) => entry.role === 'user' && entry.userId === dummyUserId)) {
+        existingItemAny.addedBy = existingItemAny.addedBy || [];
+        existingItemAny.addedBy.push({ 
           role: 'user', 
           userId: dummyUserId,
           quantity: 5,
@@ -81,15 +82,16 @@ export async function POST(request: NextRequest) {
 
     console.log(`   - ID: ${finalItem._id}`);
     console.log(`   - Name: ${finalItem.itemName}`);
-    console.log(`   - Category: ${finalItem.category}`);
-    console.log(`   - Available Quantity: ${finalItem.quantity}`);
+    console.log(`   - Category: ${finalItem.categoryId}`);
+    console.log(`   - Available Quantity: ${finalItem.availableQuantity}`);
     console.log(`   - Total Quantity: ${finalItem.totalQuantity}`);
-    console.log(`   - Added By: ${JSON.stringify(finalItem.addedBy)}`);
+    console.log(`   - Added By: ${JSON.stringify((finalItem as any).addedBy)}`);
 
     // Test successful if same ID is used and addedBy contains both roles
-    const hasAdmin = finalItem.addedBy?.some(entry => entry.role === 'admin') || false;
-    const hasUser = finalItem.addedBy?.some(entry => entry.role === 'user') || false;
-    const success = hasAdmin && hasUser && finalItem.totalQuantity === 15 && finalItem.quantity === 10;
+    const finalItemAny = finalItem as any;
+    const hasAdmin = finalItemAny.addedBy?.some((entry: any) => entry.role === 'admin') || false;
+    const hasUser = finalItemAny.addedBy?.some((entry: any) => entry.role === 'user') || false;
+    const success = hasAdmin && hasUser && finalItem.totalQuantity === 15 && finalItem.availableQuantity === 10;
 
     return NextResponse.json({
       success,
@@ -99,10 +101,10 @@ export async function POST(request: NextRequest) {
       testResults: {
         itemId: finalItem._id,
         itemName: finalItem.itemName,
-        category: finalItem.category,
-        availableQuantity: finalItem.quantity,
+        category: finalItem.categoryId,
+        availableQuantity: finalItem.availableQuantity,
         totalQuantity: finalItem.totalQuantity,
-        addedBy: finalItem.addedBy || [],
+        addedBy: (finalItem as any).addedBy || [],
         hasBothAdminAndUser: hasAdmin && hasUser
       }
     });

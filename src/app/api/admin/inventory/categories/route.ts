@@ -21,7 +21,7 @@ export async function GET() {
     }
     
     const categoryConfigs = config.categoryConfigs || [];
-    const sortedConfigs = categoryConfigs.sort((a, b) => a.order - b.order);
+    const sortedConfigs = categoryConfigs.sort((a: any, b: any) => a.order - b.order);
     
     return NextResponse.json({ categoryConfigs: sortedConfigs });
   } catch (error) {
@@ -47,13 +47,13 @@ export async function POST(request: NextRequest) {
     const config = await InventoryConfig.findOne({}) || new InventoryConfig({});
     
     // Check if category name already exists
-    const existingCategory = config.categoryConfigs?.find(cat => cat.name === name.trim());
+    const existingCategory = config.categoryConfigs?.find((cat: any) => cat.name === name.trim());
     if (existingCategory) {
       return NextResponse.json({ error: 'ชื่อหมวดหมู่นี้มีอยู่แล้ว' }, { status: 400 });
     }
     
     // Get next order number
-    const maxOrder = Math.max(0, ...(config.categoryConfigs?.map(cat => cat.order) || [0]));
+    const maxOrder = Math.max(0, ...(config.categoryConfigs?.map((cat: any) => cat.order) || [0]));
     const nextOrder = maxOrder + 1;
     
     // Create new category config

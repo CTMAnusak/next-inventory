@@ -16,7 +16,7 @@ export async function GET() {
       return NextResponse.json({ categories: [] });
     }
     
-    const categories = (config.categoryConfigs || []).sort((a, b) => a.order - b.order);
+    const categories = (config.categoryConfigs || []).sort((a: any, b: any) => a.order - b.order);
     
     return NextResponse.json({ categories });
     
@@ -65,7 +65,7 @@ export async function POST(request: NextRequest) {
     }
     
     // ตรวจสอบชื่อซ้ำ
-    const existingCategory = config.categoryConfigs?.find(cat => 
+    const existingCategory = config.categoryConfigs?.find((cat: any) => 
       cat.name.toLowerCase() === name.trim().toLowerCase()
     );
     
@@ -77,7 +77,7 @@ export async function POST(request: NextRequest) {
     }
     
     // สร้างหมวดหมู่ใหม่
-    const newOrder = Math.max(...(config.categoryConfigs || []).map(cat => cat.order), 0) + 1;
+    const newOrder = Math.max(...(config.categoryConfigs || []).map((cat: any) => cat.order), 0) + 1;
     const newCategory = {
       id: generateCategoryId(),
       name: name.trim(),
@@ -143,8 +143,8 @@ export async function PUT(request: NextRequest) {
     }
     
     // อัปเดตลำดับ
-    categories.forEach((cat, index) => {
-      const existingCat = config.categoryConfigs?.find(c => c.id === cat.id);
+    categories.forEach((cat: any, index: number) => {
+      const existingCat = config.categoryConfigs?.find((c: any) => c.id === cat.id);
       if (existingCat) {
         existingCat.order = index + 1;
         existingCat.updatedAt = new Date();
@@ -155,7 +155,7 @@ export async function PUT(request: NextRequest) {
     
     return NextResponse.json({
       message: 'อัปเดตลำดับหมวดหมู่เรียบร้อยแล้ว',
-      categories: config.categoryConfigs?.sort((a, b) => a.order - b.order)
+      categories: config.categoryConfigs?.sort((a: any, b: any) => a.order - b.order)
     });
     
   } catch (error) {

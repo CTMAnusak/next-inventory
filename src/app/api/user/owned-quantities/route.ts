@@ -50,7 +50,7 @@ export async function GET(request: NextRequest) {
           categoryId: item.categoryId,
           quantity: 0,
           serialNumbers: [],
-          status: item.status,
+          status: item.statusId,
           dateAdded: item.createdAt
         });
       }

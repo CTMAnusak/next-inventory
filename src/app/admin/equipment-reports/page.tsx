@@ -559,7 +559,7 @@ export default function AdminEquipmentReportsPage() {
       ? JSON.parse(JSON.stringify(requestLogs))
       : JSON.parse(JSON.stringify(returnLogs));
     
-    let filtered = data.filter(item => {
+    let filtered = data.filter((item: RequestLog | ReturnLog) => {
       // Search filter - ค้นหาเฉพาะ: ชื่อ, นามสกุล, ชื่อเล่น
       const matchesSearch = !searchTerm || 
         (item.firstName && item.firstName.toLowerCase().includes(searchTerm.toLowerCase())) ||
@@ -1148,18 +1148,11 @@ export default function AdminEquipmentReportsPage() {
                 excelRow.height = 80;
 
                 // ใส่รูปลงใน cell โดยจัดให้อยู่กึ่งกลาง
-                // คำนวณ offset เพื่อให้รูปอยู่กลาง cell
                 const imageWidth = 90;  // ขนาดรูป
                 const imageHeight = 90;
-                const cellWidth = 25 * 7; // ความกว้าง column (25) * 7 pixels per character width unit
-                const cellHeight = 80 * 0.75; // ความสูงแถว (80) * 0.75 (conversion factor)
-                
-                // คำนวณ offset เพื่อจัดกลาง (หน่วยเป็น pixels)
-                const colOffset = Math.max(0, (cellWidth - imageWidth) / 2);
-                const rowOffset = Math.max(0, (cellHeight - imageHeight) / 2);
 
                 worksheet.addImage(imageId, {
-                  tl: { col: 16, row: index + 1, colOff: colOffset, rowOff: rowOffset },
+                  tl: { col: 16, row: index + 1 },
                   ext: { width: imageWidth, height: imageHeight },
                   editAs: 'oneCell' // รูปจะย้ายตามแถว/คอลัมน์
                 });

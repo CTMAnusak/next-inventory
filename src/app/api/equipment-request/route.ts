@@ -80,16 +80,16 @@ export async function POST(request: NextRequest) {
     let availableStatusId = 'status_available';
     let workingConditionId = 'cond_working';
     
-    if (inventoryConfig) {
-      // Find the "มี" status config
-      const availableStatus = inventoryConfig.statusConfigs?.find(s => s.name === 'มี');
-      if (availableStatus) {
-        availableStatusId = availableStatus.id;
-      }
-      
-      // Find the "ใช้งานได้" condition config
-      const workingCondition = inventoryConfig.conditionConfigs?.find(c => c.name === 'ใช้งานได้');
-      if (workingCondition) {
+  if (inventoryConfig) {
+    // Find the "มี" status config
+    const availableStatus = inventoryConfig.statusConfigs?.find((s: any) => s.name === 'มี');
+    if (availableStatus) {
+      availableStatusId = availableStatus.id;
+    }
+    
+    // Find the "ใช้งานได้" condition config
+    const workingCondition = inventoryConfig.conditionConfigs?.find((c: any) => c.name === 'ใช้งานได้');
+    if (workingCondition) {
         workingConditionId = workingCondition.id;
       }
     }
@@ -158,10 +158,10 @@ export async function POST(request: NextRequest) {
           itemName: itemName,
           categoryId: categoryId,
           quantity: item.quantity,
-          // ✅ บันทึก serialNumbers และ requestedPhoneNumbers เป็น array (ตาม model)
-          serialNumbers: item.serialNumbers || (item.serialNumber ? [item.serialNumber] : undefined),
-          requestedPhoneNumbers: item.requestedPhoneNumbers || undefined,
-          availableItemIds: availableItems.map(it => it._id.toString()),
+        // ✅ บันทึก serialNumbers และ requestedPhoneNumbers เป็น array (ตาม model)
+        serialNumbers: item.serialNumbers || (item.serialNumber ? [item.serialNumber] : undefined),
+        requestedPhoneNumbers: item.requestedPhoneNumbers || undefined,
+        availableItemIds: availableItems.map(it => String(it._id)),
           itemNotes: item.itemNotes || undefined,
           // ✅ บันทึกสถานะและสภาพของอุปกรณ์ที่เบิก (เพราะอุปกรณ์ที่แสดงให้เบิกได้มีสถานะ "มี" และสภาพ "ใช้งานได้")
           statusOnRequest: availableStatusId, // มี

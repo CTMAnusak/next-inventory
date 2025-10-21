@@ -24,13 +24,13 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // Get status in Thai
-    const statusText = {
-      'pending': 'รอดำเนินการ',
-      'in_progress': 'กำลังดำเนินการ',
-      'completed': 'ดำเนินการแล้ว',
-      'closed': 'ปิดงาน'
-    }[issue.status] || issue.status;
+  // Get status in Thai
+  const statusText = ({
+    'pending': 'รอดำเนินการ',
+    'in_progress': 'กำลังดำเนินการ',
+    'completed': 'ดำเนินการแล้ว',
+    'closed': 'ปิดงาน'
+  } as any)[issue.status] || issue.status;
 
     return NextResponse.json({
       issue: {

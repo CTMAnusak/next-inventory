@@ -87,7 +87,7 @@ export async function POST(request: NextRequest) {
       for (const item of availableItems) {
         try {
           await transferInventoryItem({
-            itemId: item._id.toString(),
+            itemId: String(item._id),
             fromOwnerType: 'admin_stock',
             toOwnerType: 'user_owned',
             toUserId: requestLog.userId.toString(),
@@ -106,7 +106,7 @@ export async function POST(request: NextRequest) {
           });
           
           transferredItems.push({
-            itemId: item._id.toString(),
+            itemId: String(item._id),
             serialNumber: item.serialNumber,
             numberPhone: item.numberPhone
           });

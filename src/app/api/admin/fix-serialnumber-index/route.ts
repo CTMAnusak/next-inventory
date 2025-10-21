@@ -13,11 +13,11 @@ export async function POST(request: NextRequest) {
     const collection = db.collection('inventoryitems');
 
     const results = {
-      currentIndexes: [],
-      droppedIndexes: [],
-      newIndex: null,
+      currentIndexes: [] as any[],
+      droppedIndexes: [] as string[],
+      newIndex: null as any,
       cleanupCount: 0,
-      stats: {}
+      stats: {} as any
     };
 
     // 1. ดู indexes ที่มีอยู่

@@ -15,7 +15,7 @@ async function createSampleData() {
     // สร้าง Mouse ที่มี Serial Number
     const mouseWithSN = await createInventoryItem({
       itemName: 'Mouse',
-      category: 'อุปกรณ์คอมพิวเตอร์',
+      categoryId: 'อุปกรณ์คอมพิวเตอร์',
       serialNumber: 'Mouse001',
       addedBy: 'admin',
       initialOwnerType: 'admin_stock',
@@ -27,7 +27,7 @@ async function createSampleData() {
     for (let i = 1; i <= 5; i++) {
       const mouseWithoutSN = await createInventoryItem({
         itemName: 'Mouse',
-        category: 'อุปกรณ์คอมพิวเตอร์',
+        categoryId: 'อุปกรณ์คอมพิวเตอร์',
         addedBy: 'admin',
         initialOwnerType: 'admin_stock',
         notes: `Sample mouse without SN #${i}`
@@ -38,7 +38,7 @@ async function createSampleData() {
     // สร้าง Keyboard ที่มี Serial Number
     const keyboardWithSN = await createInventoryItem({
       itemName: 'Keyboard',
-      category: 'อุปกรณ์คอมพิวเตอร์',
+      categoryId: 'อุปกรณ์คอมพิวเตอร์',
       serialNumber: 'KB001',
       addedBy: 'admin',
       initialOwnerType: 'admin_stock',
@@ -49,7 +49,7 @@ async function createSampleData() {
     // สร้าง Monitor ที่มี Serial Number
     const monitorWithSN = await createInventoryItem({
       itemName: 'Monitor',
-      category: 'อุปกรณ์คอมพิวเตอร์',
+      categoryId: 'อุปกรณ์คอมพิวเตอร์',
       serialNumber: 'MON001',
       addedBy: 'admin',
       initialOwnerType: 'admin_stock',

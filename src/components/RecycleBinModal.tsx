@@ -171,7 +171,7 @@ export default function RecycleBinModal({ isOpen, onClose, onInventoryRefresh }:
             toast.dismiss(refreshToast);
           } catch (error) {
             console.warn('Failed to refresh main inventory after restore:', error);
-            toast.warning('ข้อมูล inventory อาจไม่เป็นปัจจุบัน กรุณารีเฟรชหน้า');
+            toast.error('ข้อมูล inventory อาจไม่เป็นปัจจุบัน กรุณารีเฟรชหน้า');
           }
         }
       } else {

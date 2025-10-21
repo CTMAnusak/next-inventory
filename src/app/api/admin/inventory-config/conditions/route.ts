@@ -17,7 +17,7 @@ export async function GET() {
       return NextResponse.json({ conditions: [] });
     }
     
-    const conditions = (config.conditionConfigs || []).sort((a, b) => a.order - b.order);
+    const conditions = (config.conditionConfigs || []).sort((a: any, b: any) => a.order - b.order);
     
     return NextResponse.json({ conditions });
     
@@ -66,7 +66,7 @@ export async function POST(request: NextRequest) {
     }
     
     // ตรวจสอบชื่อซ้ำ
-    const existingCondition = config.conditionConfigs?.find(condition => 
+    const existingCondition = config.conditionConfigs?.find((condition: any) => 
       condition.name.toLowerCase() === name.trim().toLowerCase()
     );
     
@@ -78,7 +78,7 @@ export async function POST(request: NextRequest) {
     }
     
     // สร้างสถานะอุปกรณ์ใหม่
-    const newOrder = Math.max(...(config.conditionConfigs || []).map(condition => condition.order), 0) + 1;
+    const newOrder = Math.max(...(config.conditionConfigs || []).map((condition: any) => condition.order), 0) + 1;
     const newCondition = {
       id: generateConditionId(),
       name: name.trim(),
@@ -144,8 +144,8 @@ export async function PUT(request: NextRequest) {
     }
     
     // อัปเดตลำดับ
-    conditions.forEach((condition, index) => {
-      const existingCondition = config.conditionConfigs?.find(c => c.id === condition.id);
+    conditions.forEach((condition: any, index: number) => {
+      const existingCondition = config.conditionConfigs?.find((c: any) => c.id === condition.id);
       if (existingCondition) {
         existingCondition.order = index + 1;
         existingCondition.updatedAt = new Date();
@@ -156,7 +156,7 @@ export async function PUT(request: NextRequest) {
     
     return NextResponse.json({
       message: 'อัปเดตลำดับสถานะอุปกรณ์เรียบร้อยแล้ว',
-      conditions: config.conditionConfigs?.sort((a, b) => a.order - b.order)
+      conditions: config.conditionConfigs?.sort((a: any, b: any) => a.order - b.order)
     });
     
   } catch (error) {

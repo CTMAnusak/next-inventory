@@ -52,27 +52,27 @@ export async function POST(request: NextRequest) {
         message: 'กู้คืนรายการเรียบร้อยแล้ว',
         type: 'individual',
         item: {
-          _id: result.item._id,
-          itemName: result.item.itemName,
-          category: result.item.category,
-          serialNumber: result.item.serialNumber,
-          numberPhone: result.item.numberPhone, // เพิ่มเบอร์โทรศัพท์
-          status: result.item.status
+          _id: result.item?._id,
+          itemName: result.item?.itemName,
+          category: result.item?.categoryId,
+          serialNumber: result.item?.serialNumber,
+          numberPhone: result.item?.numberPhone, // เพิ่มเบอร์โทรศัพท์
+          status: result.item?.statusId
         }
       });
     } else if (result.type === 'category') {
       return NextResponse.json({
         success: true,
-        message: `กู้คืนหมวดหมู่เรียบร้อยแล้ว (${result.items.length} รายการ)`,
+        message: `กู้คืนหมวดหมู่เรียบร้อยแล้ว (${result.items?.length || 0} รายการ)`,
         type: 'category',
-        restoredCount: result.items.length,
-        items: result.items.map(item => ({
+        restoredCount: result.items?.length || 0,
+        items: result.items?.map(item => ({
           _id: item._id,
           itemName: item.itemName,
-          category: item.category,
+          category: item.categoryId,
           serialNumber: item.serialNumber,
           numberPhone: item.numberPhone, // เพิ่มเบอร์โทรศัพท์
-          status: item.status
+          status: item.statusId
         }))
       });
     }

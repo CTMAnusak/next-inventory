@@ -72,7 +72,7 @@ export async function GET(request: NextRequest) {
     // (i.e., only filter if return was approved AFTER the current ownership started)
     // ✅ Also filter out items with pending returns (เฉพาะเมื่อ excludePendingReturns = true)
     const availableItems = ownedItems.filter(item => {
-      const itemKey = item.serialNumber ? `${item._id}-${item.serialNumber}` : item._id.toString();
+      const itemKey = item.serialNumber ? `${String(item._id)}-${item.serialNumber}` : String(item._id);
       
       // ❌ Filter out items with pending returns เฉพาะเมื่อ excludePendingReturns = true
       // (สำหรับหน้า equipment-return เท่านั้น, หน้า dashboard ยังแสดงได้)
@@ -155,12 +155,12 @@ export async function GET(request: NextRequest) {
     
     // ประกอบข้อมูลด้วยฟิลด์จาก InventoryItem โดยตรง + mapping จาก InventoryConfig
     const populatedItems = availableItems.map((item) => {
-      const statusConfig = statusConfigs.find(s => s.id === item.statusId);
-      const conditionConfig = conditionConfigs.find(c => c.id === item.conditionId);
-      const categoryConfig = categoryConfigs.find(c => c.id === (item as any).categoryId);
+      const statusConfig = statusConfigs.find((s: any) => s.id === item.statusId);
+      const conditionConfig = conditionConfigs.find((c: any) => c.id === item.conditionId);
+      const categoryConfig = categoryConfigs.find((c: any) => c.id === (item as any).categoryId);
 
       // Check if this item has pending return
-      const itemKey = item.serialNumber ? `${item._id}-${item.serialNumber}` : item._id.toString();
+      const itemKey = item.serialNumber ? `${String(item._id)}-${item.serialNumber}` : String(item._id);
       const hasPendingReturn = pendingReturnItems.has(itemKey);
       
       // Get delivery location from request log (if item came from request)
@@ -319,7 +319,7 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({
       message: `เพิ่มอุปกรณ์เรียบร้อยแล้ว ${quantity} ชิ้น`,
       createdItems: createdItems.length,
-      itemIds: createdItems.map(item => item._id.toString())
+      itemIds: createdItems.map(item => String(item._id))
     });
     
   } catch (error) {

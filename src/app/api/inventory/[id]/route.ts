@@ -117,50 +117,54 @@ export async function PUT(
       updatedAt: new Date()
     };
 
-    if (serialNumber !== undefined) updateFields.serialNumber = serialNumber;
-    if (numberPhone !== undefined) updateFields.numberPhone = numberPhone;
-    if (statusId !== undefined) updateFields.statusId = statusId;
-    if (conditionId !== undefined) updateFields.conditionId = conditionId;
-    if (notes !== undefined) {
-      if (!item.sourceInfo) item.sourceInfo = {};
-      item.sourceInfo.notes = notes;
-      updateFields.sourceInfo = item.sourceInfo;
-    }
+  if (serialNumber !== undefined) updateFields.serialNumber = serialNumber;
+  if (numberPhone !== undefined) updateFields.numberPhone = numberPhone;
+  if (statusId !== undefined) updateFields.statusId = statusId;
+  if (conditionId !== undefined) updateFields.conditionId = conditionId;
+  if (notes !== undefined) {
+    if (!item.sourceInfo) item.sourceInfo = {} as any;
+    item.sourceInfo.notes = notes;
+    updateFields.sourceInfo = item.sourceInfo;
+  }
 
-    // ✅ อัพเดทข้อมูลผู้ใช้สาขา (ถ้ามี)
-    if (firstName !== undefined || lastName !== undefined || nickname !== undefined || 
-        department !== undefined || phone !== undefined) {
-      if (!item.requesterInfo) item.requesterInfo = {};
-      
-      if (firstName !== undefined) item.requesterInfo.firstName = firstName;
-      if (lastName !== undefined) item.requesterInfo.lastName = lastName;
-      if (nickname !== undefined) item.requesterInfo.nickname = nickname;
-      if (department !== undefined) item.requesterInfo.department = department;
-      if (phone !== undefined) item.requesterInfo.phone = phone;
+  // ✅ อัพเดทข้อมูลผู้ใช้สาขา (ถ้ามี)
+  if (firstName !== undefined || lastName !== undefined || nickname !== undefined || 
+      department !== undefined || phone !== undefined) {
+    if (!item.requesterInfo) item.requesterInfo = {} as any;
+    
+    if (firstName !== undefined) item.requesterInfo!.firstName = firstName;
+    if (lastName !== undefined) item.requesterInfo!.lastName = lastName;
+    if (nickname !== undefined) item.requesterInfo!.nickname = nickname;
+    if (department !== undefined) item.requesterInfo!.department = department;
+    if (phone !== undefined) item.requesterInfo!.phone = phone;
       
       updateFields.requesterInfo = item.requesterInfo;
     }
 
-    const updatedItem = await InventoryItem.findByIdAndUpdate(
-      id,
-      updateFields,
-      { new: true }
-    );
+  const updatedItem = await InventoryItem.findByIdAndUpdate(
+    id,
+    updateFields,
+    { new: true }
+  );
 
-    return NextResponse.json({
-      message: 'แก้ไขข้อมูลอุปกรณ์เรียบร้อย',
-      item: {
-        _id: updatedItem._id,
-        itemName: updatedItem.itemName,
-        categoryId: updatedItem.categoryId,
-        serialNumber: updatedItem.serialNumber,
-        numberPhone: updatedItem.numberPhone,
-        statusId: updatedItem.statusId,
-        conditionId: updatedItem.conditionId,
-        notes: updatedItem.sourceInfo?.notes || '',
-        updatedAt: updatedItem.updatedAt
-      }
-    });
+  if (!updatedItem) {
+    return NextResponse.json({ error: 'ไม่พบรายการอุปกรณ์' }, { status: 404 });
+  }
+
+  return NextResponse.json({
+    message: 'แก้ไขข้อมูลอุปกรณ์เรียบร้อย',
+    item: {
+      _id: updatedItem._id,
+      itemName: updatedItem.itemName,
+      categoryId: updatedItem.categoryId,
+      serialNumber: updatedItem.serialNumber,
+      numberPhone: updatedItem.numberPhone,
+      statusId: updatedItem.statusId,
+      conditionId: updatedItem.conditionId,
+      notes: updatedItem.sourceInfo?.notes || '',
+      updatedAt: updatedItem.updatedAt
+    }
+  });
 
   } catch (error) {
     console.error('Error updating inventory item:', error);

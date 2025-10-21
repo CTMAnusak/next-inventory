@@ -116,7 +116,7 @@ export async function GET(request: NextRequest) {
       
       console.log('📊 Enhanced stock data prepared:', {
         itemName: enhancedStockData.itemName,
-        category: enhancedStockData.category,
+        category: enhancedStockData.categoryId,
         adminDefinedStock: enhancedStockData.stockManagement?.adminDefinedStock,
         userContributedCount: enhancedStockData.stockManagement?.userContributedCount,
         currentlyAllocated: enhancedStockData.stockManagement?.currentlyAllocated,
@@ -285,7 +285,7 @@ export async function POST(request: NextRequest) {
             { status: 400 }
           );
         }
-        updatedItem = await InventoryMaster.setAdminStock(itemName, category, value, reason, adminId, adminName);
+        updatedItem = await (InventoryMaster as any).setAdminStock(itemName, category, value, reason, adminId, adminName);
       } else if (operationType === 'adjust_stock') {
         // 🆕 FIXED: For UI "adjust_stock", the value is actually the NEW ABSOLUTE VALUE, not adjustment
         // We need to calculate the actual adjustment amount
@@ -365,7 +365,7 @@ export async function POST(request: NextRequest) {
         const targetAdminStock = targetNonSNCount + currentSNCount + currentNonAdjustableNonSNCount; // รวมทุกอย่างที่ควรมี
 
         console.log(`  Debug: targetNonSNCount = ${targetNonSNCount}, currentSNCount = ${currentSNCount}, currentNonAdjustableNonSNCount = ${currentNonAdjustableNonSNCount}`);
-        updatedItem = await InventoryMaster.adjustAdminStock(itemName, category, targetAdminStock - currentTotalAdminStock, reason, adminId, adminName);
+        updatedItem = await (InventoryMaster as any).adjustAdminStock(itemName, category, targetAdminStock - currentTotalAdminStock, reason, adminId, adminName);
         
         // 🆕 CRITICAL: Sync InventoryItems after adjusting InventoryMaster
         await syncAdminStockItems(
@@ -448,12 +448,12 @@ export async function POST(request: NextRequest) {
               const result = await changeNonSNItemStatusWithPriority(
                 updatedItem.itemName,
                 updatedItem.categoryId,
+                payload.userId,     // ผู้ทำการเปลี่ยน
                 undefined,          // ไม่เปลี่ยนสถานะ
                 newConditionId,     // เปลี่ยนสภาพ
                 undefined,          // ไม่ระบุสถานะปัจจุบัน
                 currentConditionId, // สภาพปัจจุบัน
                 conditionChangeQuantity,
-                payload.userId,
                 reason
               );
               updatedItemsCount += result.updatedCount;
@@ -532,7 +532,7 @@ export async function POST(request: NextRequest) {
               // 🆕 Snapshot ก่อนลบ duplicate InventoryMaster
               try {
                 const { snapshotItemNameBeforeDelete } = await import('@/lib/equipment-snapshot-helpers');
-                await snapshotItemNameBeforeDelete(master._id.toString());
+                await snapshotItemNameBeforeDelete(String(master._id));
               } catch (error) {
                 console.warn('Failed to snapshot before deleting duplicate InventoryMaster:', error);
               }
@@ -551,7 +551,7 @@ export async function POST(request: NextRequest) {
           for (const master of mastersToDeleteAll) {
             try {
               const { snapshotItemNameBeforeDelete } = await import('@/lib/equipment-snapshot-helpers');
-              await snapshotItemNameBeforeDelete(master._id.toString());
+              await snapshotItemNameBeforeDelete(String(master._id));
             } catch (error) {
               console.warn('Failed to snapshot before deleting InventoryMaster:', error);
             }

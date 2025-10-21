@@ -10,6 +10,10 @@ export async function GET(request: NextRequest) {
     
     const db = mongoose.connection.db;
     
+    if (!db) {
+      return NextResponse.json({ error: 'Database connection failed' }, { status: 500 });
+    }
+    
     // Check all collections
     const collections = await db.listCollections().toArray();
     console.log('Available collections:', collections.map(c => c.name));

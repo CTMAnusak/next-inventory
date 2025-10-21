@@ -284,7 +284,7 @@ export async function POST(request: NextRequest) {
       // 🆕 Update snapshot ก่อนลบ
       try {
         const { updateSnapshotsBeforeDelete } = await import('@/lib/snapshot-helpers');
-        const snapshotResult = await updateSnapshotsBeforeDelete(existingItem._id.toString());
+        const snapshotResult = await updateSnapshotsBeforeDelete(String(existingItem._id));
         console.log('📸 Snapshot update result:', snapshotResult);
       } catch (snapshotError) {
         console.error('❌ Failed to update snapshots before delete:', snapshotError);
@@ -314,8 +314,8 @@ export async function POST(request: NextRequest) {
           itemId: existingItem._id,
           serialNumber: existingItem.serialNumber,
           itemName: existingItem.itemName,
-          category: existingItem.category,
-          status: existingItem.status
+          category: existingItem.categoryId,
+          status: existingItem.statusId
         }
       });
 

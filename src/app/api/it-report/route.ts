@@ -69,11 +69,11 @@ export async function POST(request: NextRequest) {
       urgency: reportData.urgency,
       description: reportData.description,
       images: reportData.images || [],
-      status: 'pending',
-      reportDate: reportData.reportDate || new Date(),
-      closeLink: `/close-issue/${issueId}`,
-      userId: user?.userId || undefined // Keep for backward compatibility
-    });
+    status: 'pending',
+    reportDate: reportData.reportDate || new Date(),
+    closeLink: `/close-issue/${issueId}`,
+    userId: user?.user_id || undefined // Keep for backward compatibility
+  });
 
     console.log('💾 Saving IssueLog with data:');
     console.log('💾 - firstName:', newIssue.firstName);

@@ -34,7 +34,7 @@ export async function createAutoReturnForUser(
     }
 
     // สร้าง ReturnLog อัตโนมัติ
-    const returnItems = userEquipment.map(item => ({
+    const returnItems = userEquipment.map((item: any) => ({
       itemId: item._id.toString(),
       inventoryItemId: item._id.toString(),
       quantity: 1,
@@ -76,7 +76,7 @@ export async function createAutoReturnForUser(
           'transferInfo.transferredFrom': 'user_owned',
           'transferInfo.transferDate': new Date(),
           'transferInfo.approvedBy': adminUserId,
-          'transferInfo.returnId': returnLog._id.toString()
+          'transferInfo.returnId': String(returnLog._id)
         },
         $unset: {
           'currentOwnership.userId': 1,
@@ -91,7 +91,7 @@ export async function createAutoReturnForUser(
     return {
       success: true,
       equipmentCount: userEquipment.length,
-      returnLogId: returnLog._id.toString()
+      returnLogId: String(returnLog._id)
     };
 
   } catch (error) {

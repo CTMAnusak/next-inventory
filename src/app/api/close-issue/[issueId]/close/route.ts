@@ -10,7 +10,7 @@ export async function POST(
   try {
     await dbConnect();
     
-    const { issueId } = params;
+    const { issueId } = await params;
 
     // Find and update the issue
     const updatedIssue = await IssueLog.findOneAndUpdate(

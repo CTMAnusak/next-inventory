@@ -3,6 +3,7 @@ import dbConnect from '@/lib/mongodb';
 import InventoryMaster from '@/models/InventoryMaster';
 import InventoryItem from '@/models/InventoryItem';
 import { verifyTokenFromRequest } from '@/lib/auth';
+import { updateAllItemDetails } from '@/lib/inventory-helpers';
 
 /**
  * API Endpoint: Migration สำหรับอัปเดต itemDetails structure

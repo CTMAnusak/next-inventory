@@ -17,7 +17,7 @@ export async function GET(request: NextRequest) {
     console.error('Debug token error:', error);
     return NextResponse.json({
       success: false,
-      error: error.message
+      error: (error as Error).message
     });
   }
 }

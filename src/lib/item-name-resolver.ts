@@ -62,7 +62,7 @@ export async function getCategoryNameById(categoryId: string): Promise<string | 
     const config = await InventoryConfig.findOne({ 'categoryConfigs.id': categoryId });
     console.log('🔍 Category config found:', config ? 'YES' : 'NO');
     if (config) {
-      const categoryConfig = config.categoryConfigs.find(cat => cat.id === categoryId);
+      const categoryConfig = config.categoryConfigs.find((cat: any) => cat.id === categoryId);
       console.log('🔍 Category name resolved:', categoryConfig?.name);
       return categoryConfig?.name || null;
     }
@@ -83,7 +83,7 @@ export async function getStatusNameById(statusId: string): Promise<string | null
     
     const config = await InventoryConfig.findOne({ 'statusConfigs.id': statusId });
     if (config) {
-      const statusConfig = config.statusConfigs.find(status => status.id === statusId);
+      const statusConfig = config.statusConfigs.find((status: any) => status.id === statusId);
       return statusConfig?.name || null;
     }
     
@@ -103,7 +103,7 @@ export async function getConditionNameById(conditionId: string): Promise<string 
     
     const config = await InventoryConfig.findOne({ 'conditionConfigs.id': conditionId });
     if (config) {
-      const conditionConfig = config.conditionConfigs.find(condition => condition.id === conditionId);
+      const conditionConfig = config.conditionConfigs.find((condition: any) => condition.id === conditionId);
       return conditionConfig?.name || null;
     }
     

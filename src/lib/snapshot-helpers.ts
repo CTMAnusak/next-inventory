@@ -214,18 +214,18 @@ export async function snapshotUserBeforeDelete(userId: string) {
     const issueResults = await snapshotIssueLogsBeforeUserDelete(userId);
     
     const totalModified = 
-      equipmentResults.requestLogs.modifiedCount +
-      equipmentResults.returnLogs.modifiedCount +
-      equipmentResults.transferLogs.modifiedCount +
-      issueResults.requester.modifiedCount +
-      issueResults.admin.modifiedCount;
+      (equipmentResults.requestLogs?.modifiedCount || 0) +
+      (equipmentResults.returnLogs?.modifiedCount || 0) +
+      (equipmentResults.transferLogs?.modifiedCount || 0) +
+      (issueResults.requester?.modifiedCount || 0) +
+      (issueResults.admin?.modifiedCount || 0);
     
     console.log(`✅ Snapshot completed for user ${userId}:`);
-    console.log(`   - RequestLogs: ${equipmentResults.requestLogs.modifiedCount}`);
-    console.log(`   - ReturnLogs: ${equipmentResults.returnLogs.modifiedCount}`);
-    console.log(`   - TransferLogs: ${equipmentResults.transferLogs.modifiedCount}`);
-    console.log(`   - IssueLogs (Requester): ${issueResults.requester.modifiedCount}`);
-    console.log(`   - IssueLogs (Admin): ${issueResults.admin.modifiedCount}`);
+    console.log(`   - RequestLogs: ${equipmentResults.requestLogs?.modifiedCount || 0}`);
+    console.log(`   - ReturnLogs: ${equipmentResults.returnLogs?.modifiedCount || 0}`);
+    console.log(`   - TransferLogs: ${equipmentResults.transferLogs?.modifiedCount || 0}`);
+    console.log(`   - IssueLogs (Requester): ${issueResults.requester?.modifiedCount || 0}`);
+    console.log(`   - IssueLogs (Admin): ${issueResults.admin?.modifiedCount || 0}`);
     console.log(`   - Total: ${totalModified} records`);
     
     return {

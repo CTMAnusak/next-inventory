@@ -122,7 +122,7 @@ export async function POST(request: NextRequest) {
       const firstItem = groupItems[0];
       try {
         const InventoryMasterModel = (await import('@/models/InventoryMaster')).default;
-        await InventoryMasterModel.updateSummary(firstItem.itemName, firstItem.categoryId);
+        await (InventoryMasterModel as any).updateSummary(firstItem.itemName, firstItem.categoryId);
       } catch (error) {
         console.error('❌ Error updating InventoryMaster:', error);
       }
@@ -131,7 +131,7 @@ export async function POST(request: NextRequest) {
     // Clear caches
     clearAllCaches();
 
-    const response = {
+    const response: any = {
       success: true,
       message: `กู้คืนรายการเรียบร้อยแล้ว ${restoredItems.length} รายการ`,
       restoredItems,

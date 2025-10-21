@@ -32,15 +32,15 @@ export async function PUT(
       return NextResponse.json({ error: 'Insufficient permissions' }, { status: 403 });
     }
 
-    await dbConnect();
-    
-    const body = await request.json();
-    const { 
-      firstName, lastName, nickname, department, office, phone, email, password, userType, userRole,
-      // Fields สำหรับยกเลิก pending deletion
-      pendingDeletion, pendingDeletionReason, pendingDeletionRequestedBy, pendingDeletionRequestedAt
-    } = body;
-    const { id } = params;
+  await dbConnect();
+  
+  const body = await request.json();
+  const { 
+    firstName, lastName, nickname, department, office, phone, email, password, userType, userRole,
+    // Fields สำหรับยกเลิก pending deletion
+    pendingDeletion, pendingDeletionReason, pendingDeletionRequestedBy, pendingDeletionRequestedAt
+  } = body;
+  const { id } = await params;
 
     // ตรวจสอบว่าเป็นการยกเลิก pending deletion หรือไม่
     if (pendingDeletion !== undefined) {
@@ -67,18 +67,18 @@ export async function PUT(
       }
       
       // อัพเดตเฉพาะ pending deletion fields
-      const updateData = {
-        pendingDeletion,
-        pendingDeletionReason,
-        pendingDeletionRequestedBy,
-        pendingDeletionRequestedAt,
-        updatedAt: new Date()
-      };
+    const updateData: any = {
+      pendingDeletion,
+      pendingDeletionReason,
+      pendingDeletionRequestedBy,
+      pendingDeletionRequestedAt,
+      updatedAt: new Date()
+    };
 
-      // ถ้าเป็นการยกเลิกการลบ ให้ลบ jwtInvalidatedAt ด้วย
-      if (pendingDeletion === false) {
-        updateData.jwtInvalidatedAt = undefined;
-      }
+    // ถ้าเป็นการยกเลิกการลบ ให้ลบ jwtInvalidatedAt ด้วย
+    if (pendingDeletion === false) {
+      updateData.jwtInvalidatedAt = undefined;
+    }
 
       const updatedUser = await User.findByIdAndUpdate(
         id,

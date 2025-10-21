@@ -35,6 +35,15 @@ export interface IReturnLog extends Document {
   returnDate: Date; // วันที่คืน
   items: IReturnItem[]; // รายการอุปกรณ์ที่คืน (แต่ละรายการมี approvalStatus แยกกัน)
   notes?: string; // หมายเหตุรวมการคืน
+  status?: 'pending' | 'approved' | 'rejected'; // สถานะการคืนโดยรวม
+  approvedAt?: Date; // วันที่อนุมัติ
+  approvedBy?: string; // Admin userId ที่อนุมัติ
+  rejectedAt?: Date; // วันที่ปฏิเสธ
+  rejectedBy?: string; // Admin userId ที่ปฏิเสธ
+  rejectionReason?: string; // เหตุผลในการปฏิเสธ
+  processedItems?: any[]; // รายการที่ดำเนินการแล้ว
+  isAutoReturn?: boolean; // บอกว่าเป็น auto return จากการลบ user หรือไม่
+  autoReturnReason?: string; // เหตุผลของ auto return
   
   createdAt: Date;
   updatedAt: Date;
@@ -77,7 +86,16 @@ const ReturnLogSchema = new Schema<IReturnLog>({
   returnerOffice: { type: String }, // ออฟฟิศ/สาขาผู้คืนอุปกรณ์ (สำหรับผู้ใช้ประเภทสาขา)
   returnDate: { type: Date, required: true },
   items: [ReturnItemSchema],
-  notes: { type: String }
+  notes: { type: String },
+  status: { type: String, enum: ['pending', 'approved', 'rejected'] }, // สถานะการคืนโดยรวม
+  approvedAt: { type: Date }, // วันที่อนุมัติ
+  approvedBy: { type: String }, // Admin userId ที่อนุมัติ
+  rejectedAt: { type: Date }, // วันที่ปฏิเสธ
+  rejectedBy: { type: String }, // Admin userId ที่ปฏิเสธ
+  rejectionReason: { type: String }, // เหตุผลในการปฏิเสธ
+  processedItems: { type: Schema.Types.Mixed }, // รายการที่ดำเนินการแล้ว
+  isAutoReturn: { type: Boolean }, // บอกว่าเป็น auto return จากการลบ user หรือไม่
+  autoReturnReason: { type: String } // เหตุผลของ auto return
 }, {
   timestamps: true
 });

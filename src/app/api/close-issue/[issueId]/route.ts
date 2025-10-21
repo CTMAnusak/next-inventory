@@ -10,7 +10,7 @@ export async function GET(
   try {
     await dbConnect();
     
-    const { issueId } = params;
+    const { issueId } = await params;
 
     const issue = await IssueLog.findOne({ issueId });
     

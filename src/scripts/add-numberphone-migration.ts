@@ -3,7 +3,7 @@
  * This script adds the numberPhone field to existing InventoryItem documents
  */
 
-import { connectToDatabase } from '../lib/mongodb';
+import dbConnect from '../lib/mongodb';
 import { InventoryItem } from '../models/InventoryItem';
 
 interface MigrationResult {
@@ -22,7 +22,7 @@ async function addNumberPhoneMigration(): Promise<MigrationResult> {
   };
 
   try {
-    await connectToDatabase();
+    await dbConnect();
 
     // Find all inventory items
     const allItems = await InventoryItem.find({});
@@ -32,7 +32,7 @@ async function addNumberPhoneMigration(): Promise<MigrationResult> {
     for (const item of allItems) {
       try {
         // Check if item is in SIM card category
-        if (item.category === 'ซิมการ์ด') {
+        if (item.categoryId === 'ซิมการ์ด') {
           result.simCardItems++;
           
           // Add numberPhone field if not exists

@@ -25,13 +25,13 @@ export async function GET(request: NextRequest) {
       );
     }
 
-    // Find the "มี" status config (should be status_available)
-    const availableStatus = inventoryConfig.statusConfigs?.find(s => s.name === 'มี');
-    const availableStatusId = availableStatus?.id || 'status_available';
+  // Find the "มี" status config (should be status_available)
+  const availableStatus = inventoryConfig.statusConfigs?.find((s: any) => s.name === 'มี');
+  const availableStatusId = availableStatus?.id || 'status_available';
 
-    // Find the "ใช้งานได้" condition config (should be cond_working)
-    const workingCondition = inventoryConfig.conditionConfigs?.find(c => c.name === 'ใช้งานได้');
-    const workingConditionId = workingCondition?.id || 'cond_working';
+  // Find the "ใช้งานได้" condition config (should be cond_working)
+  const workingCondition = inventoryConfig.conditionConfigs?.find((c: any) => c.name === 'ใช้งานได้');
+  const workingConditionId = workingCondition?.id || 'cond_working';
 
     console.log('🔍 Equipment Request Filter:', {
       availableStatusId,
@@ -89,11 +89,11 @@ export async function GET(request: NextRequest) {
         deletedAt: { $exists: false }
       }).limit(3);
       
-      availableItems.push({
-        itemMasterId: inventoryMaster._id.toString(), // Legacy compatibility
-        itemName: inventoryMaster.itemName,
-        categoryId: inventoryMaster.categoryId,
-        hasSerialNumber: inventoryMaster.itemDetails.withSerialNumber > 0,
+    availableItems.push({
+      itemMasterId: String(inventoryMaster._id), // Legacy compatibility
+      itemName: inventoryMaster.itemName,
+      categoryId: inventoryMaster.categoryId,
+      hasSerialNumber: (inventoryMaster.itemDetails.withSerialNumber as any)?.count > 0 || false,
         availableQuantity: actualAvailableCount, // ✅ ใช้จำนวนที่นับจากอุปกรณ์ที่กรองแล้ว
         totalQuantity: inventoryMaster.totalQuantity,
         statusBreakdown: inventoryMaster.statusBreakdown,

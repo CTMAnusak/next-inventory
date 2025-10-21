@@ -190,13 +190,13 @@ export default function CategoryDeleteConfirmModal({
               onClick={handleFirstConfirm}
               disabled={isLoading}
               className={`px-6 py-2 text-white rounded-lg transition-all disabled:opacity-50 disabled:cursor-not-allowed font-medium ${
-                category.isSpecial
+                (category as any).isSpecial
                   ? 'bg-orange-600 hover:bg-orange-700'
                   : 'bg-red-600 hover:bg-red-700'
               }`}
             >
               {isLoading ? 'กำลังประมวลผล...' : 
-               category.isSpecial ? 'ดำเนินการต่อ' : 'ลบหมวดหมู่'}
+               (category as any).isSpecial ? 'ดำเนินการต่อ' : 'ลบหมวดหมู่'}
             </button>
           ) : (
             <button

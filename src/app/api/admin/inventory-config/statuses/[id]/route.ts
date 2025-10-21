@@ -25,7 +25,7 @@ export async function GET(
       );
     }
     
-    const status = config.statusConfigs?.find(s => s.id === id);
+    const status = config.statusConfigs?.find((s: any) => s.id === id);
     
     if (!status) {
       return NextResponse.json(
@@ -96,7 +96,7 @@ export async function PUT(
       );
     }
     
-    const statusIndex = config.statusConfigs?.findIndex(s => s.id === id);
+    const statusIndex = config.statusConfigs?.findIndex((s: any) => s.id === id);
     
     if (statusIndex === -1 || statusIndex === undefined) {
       return NextResponse.json(
@@ -118,7 +118,7 @@ export async function PUT(
       }
     } else {
       // ตรวจสอบชื่อซ้ำ (ยกเว้นตัวเอง)
-      const existingStatus = config.statusConfigs?.find(s => 
+      const existingStatus = config.statusConfigs?.find((s: any) => 
         s.id !== id && s.name.toLowerCase() === name.trim().toLowerCase()
       );
       
@@ -185,7 +185,7 @@ export async function DELETE(
       );
     }
     
-    const status = config.statusConfigs?.find(s => s.id === id);
+    const status = config.statusConfigs?.find((s: any) => s.id === id);
     
     if (!status) {
       return NextResponse.json(
@@ -227,7 +227,7 @@ export async function DELETE(
     await snapshotStatusConfigBeforeChange(id);
     
     // ลบสภาพอุปกรณ์
-    config.statusConfigs = config.statusConfigs?.filter(s => s.id !== id);
+    config.statusConfigs = config.statusConfigs?.filter((s: any) => s.id !== id);
     await config.save();
     
     return NextResponse.json({

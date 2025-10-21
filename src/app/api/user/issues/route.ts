@@ -39,12 +39,12 @@ export async function GET(request: NextRequest) {
 
     // Format the response
     const formattedIssues = populatedIssues.map(issue => {
-      const statusText = {
+      const statusText = ({
         'pending': 'รอดำเนินการ',
         'in_progress': 'กำลังดำเนินการ',
         'completed': 'รอตรวจสอบผลงาน',
         'closed': 'ปิดงานแล้ว'
-      }[issue.status] || issue.status;
+      } as any)[issue.status] || issue.status;
 
       return {
         _id: issue._id.toString(),

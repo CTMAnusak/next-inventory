@@ -54,7 +54,7 @@ export function verifyTokenFromRequest(request: any): any {
     let actualToken = null;
     
     if (cookieHeader) {
-      const cookies = cookieHeader.split(';').map(c => c.trim());
+      const cookies = cookieHeader.split(';').map((c: string) => c.trim());
       for (const cookie of cookies) {
         if (cookie.startsWith('auth-token=')) {
           actualToken = cookie.split('=')[1];
@@ -77,7 +77,7 @@ export function verifyTokenFromRequest(request: any): any {
     
     return jwt.verify(actualToken, JWT_SECRET);
   } catch (error) {
-    console.log('❌ Token verification error:', error.message);
+    console.log('❌ Token verification error:', (error as Error).message);
     return null;
   }
 }

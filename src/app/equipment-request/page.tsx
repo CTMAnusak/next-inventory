@@ -464,6 +464,7 @@ export default function EquipmentRequestPage() {
           nickname: '',
           department: '',
           phone: '',
+          email: '',
           office: '',
         });
         setRequestItem({ itemId: '', quantity: 1, serialNumber: '', itemNotes: '' });

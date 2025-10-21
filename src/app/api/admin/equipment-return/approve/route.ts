@@ -71,7 +71,7 @@ export async function POST(request: NextRequest) {
           newStatusId,
           newConditionId,
           payload.userId,
-          `คืนจาก ${returnLog.firstName} ${returnLog.lastName}`
+          `คืนจาก ${returnLog.returnerFirstName} ${returnLog.returnerLastName}`
         );
         
         // Transfer back to admin stock if condition is working

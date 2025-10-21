@@ -27,10 +27,10 @@ export async function POST(
       return NextResponse.json({ error: 'Insufficient permissions' }, { status: 403 });
     }
 
-    await dbConnect();
-    
-    const { id } = params;
-    const { userRole } = await request.json();
+  await dbConnect();
+  
+  const { id } = await params;
+  const { userRole } = await request.json();
 
     // Validate role
     if (!['user', 'admin', 'it_admin'].includes(userRole)) {
@@ -64,16 +64,16 @@ export async function POST(
       { new: true }
     ).select('-password');
 
-    const roleNames = {
-      'user': 'ทั่วไป',
-      'admin': 'Admin',
-      'it_admin': 'Admin ทีม IT'
-    };
+  const roleNames: any = {
+    'user': 'ทั่วไป',
+    'admin': 'Admin',
+    'it_admin': 'Admin ทีม IT'
+  };
 
-    return NextResponse.json({
-      message: `เปลี่ยนสถานะเป็น "${roleNames[userRole]}" เรียบร้อยแล้ว`,
-      user: updatedUser
-    });
+  return NextResponse.json({
+    message: `เปลี่ยนสถานะเป็น "${roleNames[userRole]}" เรียบร้อยแล้ว`,
+    user: updatedUser
+  });
 
   } catch (error) {
     console.error('Error updating user role:', error);

@@ -23,7 +23,7 @@ export async function GET(request: NextRequest, { params }: RouteParams) {
       return NextResponse.json({ error: 'ไม่พบการตั้งค่า' }, { status: 404 });
     }
     
-    const category = config.categoryConfigs?.find(cat => cat.id === categoryId);
+    const category = config.categoryConfigs?.find((cat: any) => cat.id === categoryId);
     if (!category) {
       return NextResponse.json({ error: 'ไม่พบหมวดหมู่' }, { status: 404 });
     }
@@ -56,7 +56,7 @@ export async function PUT(request: NextRequest, { params }: RouteParams) {
       return NextResponse.json({ error: 'ไม่พบการตั้งค่า' }, { status: 404 });
     }
     
-    const categoryIndex = config.categoryConfigs?.findIndex(cat => cat.id === categoryId);
+    const categoryIndex = config.categoryConfigs?.findIndex((cat: any) => cat.id === categoryId);
     if (categoryIndex === -1 || categoryIndex === undefined) {
       return NextResponse.json({ error: 'ไม่พบหมวดหมู่' }, { status: 404 });
     }
@@ -72,7 +72,7 @@ export async function PUT(request: NextRequest, { params }: RouteParams) {
     
     // Check for duplicate name
     if (name && name.trim() !== category.name) {
-      const existingCategory = config.categoryConfigs?.find(cat => 
+      const existingCategory = config.categoryConfigs?.find((cat: any) => 
         cat.name === name.trim() && cat.id !== categoryId
       );
       if (existingCategory) {
@@ -128,7 +128,7 @@ export async function DELETE(request: NextRequest, { params }: RouteParams) {
       return NextResponse.json({ error: 'ไม่พบการตั้งค่า' }, { status: 404 });
     }
     
-    const categoryIndex = config.categoryConfigs?.findIndex(cat => cat.id === categoryId);
+    const categoryIndex = config.categoryConfigs?.findIndex((cat: any) => cat.id === categoryId);
     if (categoryIndex === -1 || categoryIndex === undefined) {
       return NextResponse.json({ error: 'ไม่พบหมวดหมู่' }, { status: 404 });
     }
@@ -158,7 +158,7 @@ export async function DELETE(request: NextRequest, { params }: RouteParams) {
       }
       
       // Move items to "ไม่ระบุ" category
-      const unassignedCategory = config.categoryConfigs?.find(cat => cat.name === 'ไม่ระบุ');
+      const unassignedCategory = config.categoryConfigs?.find((cat: any) => cat.name === 'ไม่ระบุ');
       if (unassignedCategory) {
         await InventoryItem.updateMany(
           { category: category.name },
