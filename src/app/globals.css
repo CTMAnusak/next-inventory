@@ -203,10 +203,11 @@ input[type="tel"] {
 }
 
 /* Allow text selection only in table cell content, not the cells themselves */
-.table-container td *,
-.table-container th * {
-  user-select: text !important;
-  cursor: text !important;
+.table-container td *:not(button):not(a):not([role="button"]),
+.table-container th *:not(button):not(a):not([role="button"]) {
+  user-select: none;
+  cursor: inherit;
+  pointer-events: none;
 }
 
 /* Override cursor for interactive elements in table cells */
@@ -223,6 +224,7 @@ input[type="tel"] {
   -webkit-user-select: none !important;
   -moz-user-select: none !important;
   -ms-user-select: none !important;
+  pointer-events: auto !important;
 }
 
 /* Override cursor for text selectable elements */
@@ -240,8 +242,9 @@ input[type="tel"] {
 /* Keep table cells as non-selectable for drag scrolling, except selectable ones */
 .table-container td:not(.text-selectable),
 .table-container th {
-  user-select: text;
-  cursor: pointer;
+  user-select: none;
+  cursor: grab;
+  pointer-events: auto;
 }
 
 /* Override for selectable cells with higher specificity */
@@ -321,6 +324,11 @@ button span {
 .table-container.dragging {
   cursor: grabbing !important;
   box-shadow: inset 0 0 0 2px #3b82f6; /* Blue border when dragging */
+}
+
+.table-container.dragging * {
+  cursor: grabbing !important;
+  user-select: none !important;
 }
 
 /* Beautiful Blue WebKit scrollbar for all tables */

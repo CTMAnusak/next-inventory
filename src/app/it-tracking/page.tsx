@@ -1,11 +1,12 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef, useLayoutEffect } from 'react';
 import Layout from '@/components/Layout';
 import { toast } from 'react-hot-toast';
 import { Clock, CheckCircle, XCircle, AlertCircle, RefreshCw, Eye, X } from 'lucide-react';
 import { useAuth } from '@/contexts/AuthContext';
 import { handleAuthError } from '@/lib/auth-error-handler';
+import { enableDragScroll } from '@/lib/drag-scroll';
 import AuthGuard from '@/components/AuthGuard';
 
 interface IssueItem {
@@ -68,11 +69,47 @@ export default function ITTrackingPage() {
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [selectedImage, setSelectedImage] = useState<string | null>(null);
 
+  // Drag scroll ref
+  const tableContainerRef = useRef<HTMLDivElement>(null);
+
   useEffect(() => {
     if (user) {
       fetchUserIssues();
     }
   }, [user]);
+
+  // Initialize drag scrolling
+  useLayoutEffect(() => {
+    if (isLoading) {
+      return;
+    }
+
+    // Use MutationObserver to wait for the table to be rendered
+    const observer = new MutationObserver((mutations) => {
+      const element = tableContainerRef.current;
+      
+      if (element) {
+        const cleanup = enableDragScroll(element);
+        
+        // Disconnect observer after setup
+        observer.disconnect();
+        
+        // Return cleanup function
+        return cleanup;
+      }
+    });
+
+    // Start observing
+    observer.observe(document.body, {
+      childList: true,
+      subtree: true
+    });
+
+    // Cleanup function
+    return () => {
+      observer.disconnect();
+    };
+  }, [isLoading]);
 
   const fetchUserIssues = async () => {
     setIsLoading(true);
@@ -267,7 +304,7 @@ export default function ITTrackingPage() {
 
           {/* Table */}
           {!isLoading && paginatedIssues.length > 0 && (
-            <div className="table-container p-2" >
+            <div ref={tableContainerRef} className="table-container mx-2">
               <table className="w-full shadow-xl" style={{boxShadow: 'rgba(100, 100, 111, 0.2) 0px 7px 29px 0px'}}>
                 <thead className="bg-gradient-to-r from-blue-600 to-blue-700 border-b-2 border-blue-800">
                   <tr>

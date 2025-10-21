@@ -20,7 +20,8 @@ import {
   MapPin,
   Users,
   HelpCircle,
-  Clock
+  Clock,
+  Loader2
 } from 'lucide-react';
 
 interface MenuItem {
@@ -44,6 +45,7 @@ export default function Sidebar({ isOpen, onClose }: SidebarProps) {
   const { startTutorial } = useTutorial();
   const [adminOpen, setAdminOpen] = useState(false);
   const [itReportOpen, setItReportOpen] = useState(false);
+  const [loadingMenu, setLoadingMenu] = useState<string | null>(null);
 
   // ตรวจสอบว่าควรเปิด submenu หรือไม่ตาม pathname
   useEffect(() => {
@@ -86,6 +88,27 @@ export default function Sidebar({ isOpen, onClose }: SidebarProps) {
     } else if (menuName === 'it-report') {
       setItReportOpen(!itReportOpen);
       setAdminOpen(false); // ปิด submenu อื่น
+    }
+  };
+
+  const handleMenuNavigation = async (href: string, menuTitle: string) => {
+    setLoadingMenu(menuTitle);
+    
+    try {
+      // ใช้ router.push แทน Link เพื่อให้สามารถจัดการ loading state ได้
+      await router.push(href);
+      
+      // ปิด sidebar ในมือถือเท่านั้น
+      if (window.innerWidth < 1024) {
+        onClose();
+      }
+    } catch (error) {
+      console.error('Navigation error:', error);
+    } finally {
+      // หยุด loading หลังจาก 500ms เพื่อให้ผู้ใช้เห็นอนิเมชั่น
+      setTimeout(() => {
+        setLoadingMenu(null);
+      }, 500);
     }
   };
 
@@ -253,32 +276,29 @@ export default function Sidebar({ isOpen, onClose }: SidebarProps) {
                           else if (subItem.title === 'ติดตามสถานะ') dataTutorial = 'it-tracking';
                           
                           return (
-                            <Link
+                            <button
                               key={subIndex}
-                              href={subItem.href}
-                              className={`flex items-center px-4 py-2 text-sm rounded-lg transition-all duration-200 ml-6 ${
+                              onClick={(e) => {
+                                // หยุดการ propagate event เพื่อไม่ให้ปิด submenu
+                                e.stopPropagation();
+                                
+                                // ใช้ฟังก์ชัน handleMenuNavigation แทน
+                                handleMenuNavigation(subItem.href, subItem.title);
+                              }}
+                              className={`flex items-center px-4 py-2 text-sm rounded-lg transition-all duration-200 ml-5 w-full text-left ${
                                 pathname === subItem.href
                                   ? 'bg-white/20 text-white shadow-md'
                                   : 'text-white/70 hover:bg-white/10 hover:text-white hover:scale-105'
                               }`}
                               data-tutorial={dataTutorial || undefined}
-                              onClick={(e) => {
-                                // หยุดการ propagate event เพื่อไม่ให้ปิด submenu
-                                e.stopPropagation();
-                                e.preventDefault();
-                                
-                                // นำทางไปยังหน้าที่ต้องการ
-                                router.push(subItem.href);
-                                
-                                // ปิด sidebar ในมือถือเท่านั้น
-                                if (window.innerWidth < 1024) {
-                                  onClose();
-                                }
-                              }}
+                              disabled={loadingMenu === subItem.title}
                             >
                               <SubIcon className="w-4 h-4 mr-3" />
                               <span>{subItem.title}</span>
-                            </Link>
+                              {loadingMenu === subItem.title && (
+                                <Loader2 className="w-3 h-3 ml-2 animate-spin" />
+                              )}
+                            </button>
                           );
                         })}
                       </div>
@@ -292,15 +312,15 @@ export default function Sidebar({ isOpen, onClose }: SidebarProps) {
                       }
                       onClose();
                     }}
-                    className="w-full flex items-center px-4 py-3 rounded-xl transition-all duration-200 text-white/90 hover:bg-white/10 hover:text-white hover:scale-105 cursor-pointer"
+                    className="flex items-center px-4 py-3 rounded-xl transition-all duration-200 text-white/90 hover:bg-white/10 hover:text-white hover:scale-105 cursor-pointer w-full"
                   >
                     <item.icon className="w-5 h-5 mr-3" />
                     <span>{item.title}</span>
                   </button>
                 ) : (
-                  <Link
-                    href={item.href!}
-                    className={`flex items-center px-4 py-3 rounded-xl transition-all duration-200 ${
+                  <button
+                    onClick={() => handleMenuNavigation(item.href!, item.title)}
+                    className={`flex items-center px-4 py-3 rounded-xl transition-all duration-200 w-full ${
                       pathname === item.href
                         ? 'bg-white/20 text-white shadow-lg scale-105'
                         : 'text-white/90 hover:bg-white/10 hover:text-white hover:scale-105'
@@ -310,11 +330,14 @@ export default function Sidebar({ isOpen, onClose }: SidebarProps) {
                       item.href === '/dashboard' ? 'dashboard-menu' : 
                       undefined
                     }
-                    onClick={onClose}
+                    disabled={loadingMenu === item.title}
                   >
                     <item.icon className="w-5 h-5 mr-3" />
                     <span>{item.title}</span>
-                  </Link>
+                    {loadingMenu === item.title && (
+                      <Loader2 className="w-4 h-4 ml-2 animate-spin" />
+                    )}
+                  </button>
                 )}
               </div>
             ))}

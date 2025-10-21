@@ -22,28 +22,8 @@ export function enableDragScroll(element: HTMLElement) {
       return;
     }
 
-    // Check if the target is a text element or has text content
-    const isTextElement = target.nodeType === Node.TEXT_NODE || 
-                         target.tagName === 'SPAN' || 
-                         target.tagName === 'DIV' ||
-                         target.tagName === 'P' ||
-                         target.classList.contains('text-selectable') ||
-                         target.style.userSelect === 'text' ||
-                         getComputedStyle(target).userSelect === 'text';
-    
-    // Check if the target is inside a table cell but not the cell itself
-    const isInsideTableCell = target.closest('td, th');
-    const isTableCell = target.tagName === 'TD' || target.tagName === 'TH';
-    
-    // Check if the target is a selectable table cell (optimized)
-    const isSelectableCell = target.classList.contains('text-selectable') || 
-                            (target.tagName === 'TD' && target.classList.contains('text-selectable')) ||
-                            (target.tagName === 'TH' && target.classList.contains('text-selectable'));
-    
-    // If it's a text element inside a table cell (but not the cell itself), don't start drag scrolling
-    if (isTextElement && isInsideTableCell && !isTableCell) {
-      return;
-    }
+    // Check if the target is a selectable element
+    const isSelectableCell = target.classList.contains('text-selectable');
     
     // If it's a selectable cell, don't start drag scrolling
     if (isSelectableCell) {
@@ -52,11 +32,12 @@ export function enableDragScroll(element: HTMLElement) {
 
     isDown = true;
     element.classList.add('dragging');
-    startX = e.pageX - element.offsetLeft;
+    startX = e.pageX;
     scrollLeft = element.scrollLeft;
     
     // Prevent default to avoid text selection
     e.preventDefault();
+    e.stopPropagation();
   };
 
   const handleMouseLeave = () => {
@@ -73,8 +54,8 @@ export function enableDragScroll(element: HTMLElement) {
     if (!isDown) return;
     
     e.preventDefault();
-    const x = e.pageX - element.offsetLeft;
-    const walk = (x - startX) * 2; // Scroll speed multiplier
+    const x = e.pageX;
+    const walk = (x - startX) * 1.5; // Scroll speed multiplier
     element.scrollLeft = scrollLeft - walk;
   };
 

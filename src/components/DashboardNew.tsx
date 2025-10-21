@@ -157,11 +157,19 @@ export default function DashboardNew() {
   const fetchOwnedItems = async () => {
     setOwnedLoading(true);
     try {
-      const response = await fetch('/api/user/owned-equipment');
+      // เพิ่ม query parameters ที่จำเป็น
+      const params = new URLSearchParams();
+      if (user?.firstName) params.set('firstName', user.firstName);
+      if (user?.lastName) params.set('lastName', user.lastName);
+      if (user?.office) params.set('office', user.office);
+      if (user?.id) params.set('userId', String(user.id));
+      
+      const response = await fetch(`/api/user/owned-equipment?${params.toString()}`);
       if (response.ok) {
         const data = await response.json();
         setOwnedItems(data.items || []);
       } else {
+        console.error('Error response:', response.status, response.statusText);
         toast.error('เกิดข้อผิดพลาดในการโหลดข้อมูลอุปกรณ์');
       }
     } catch (error) {
