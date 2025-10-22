@@ -1,4 +1,4 @@
-MONGODB_URI=mongodb+srv://adminIT_db_user:H6inrMo5NS0In0Ae@cluster0.lt9rcg9.mongodb.net/?retryWrites=true&w=majority&appName=Cluster0
+MONGODB_URI=mongodb+srv://adminIT_db_user:H6inrMo5NS0In0Ae@cluster0.lt9rcg9.mongodb.net/VSQ_Inventory_System?retryWrites=true&w=majority&appName=Cluster0
 # =============================================================================
 # NEXT INVENTORY MANAGEMENT SYSTEM - ENVIRONMENT CONFIGURATION
 # =============================================================================
