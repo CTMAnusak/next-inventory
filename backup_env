@@ -1,10 +1,11 @@
+MONGODB_URI=mongodb+srv://adminIT_db_user:H6inrMo5NS0In0Ae@cluster0.lt9rcg9.mongodb.net/?retryWrites=true&w=majority&appName=Cluster0
 # =============================================================================
-# NEXT INVENTORY MANAGEMENT SYSTEM - ENVIRONMENT CONFIGURATION BACKUP
+# NEXT INVENTORY MANAGEMENT SYSTEM - ENVIRONMENT CONFIGURATION
 # =============================================================================
 
 # MongoDB Configuration
 # ใช้สำหรับเชื่อมต่อฐานข้อมูล MongoDB Atlas หรือ Local MongoDB
-MONGODB_URI=mongodb+srv://vsq-admin:vsqWedYykRQQjZtmHX9@cluster0.r3yibxs.mongodb.net/inventory-management?retryWrites=true&w=majority&appName=Cluster0
+
 
 # JWT Configuration  
 # ใช้สำหรับการสร้างและยืนยัน JWT Token สำหรับ Authentication
@@ -14,23 +15,20 @@ JWT_SECRET=my-super-secret-jwt-key-2025-vsq-clinic
 # ใช้สำหรับส่งอีเมลแจ้งเตือนต่างๆ เช่น การสมัครสมาชิกใหม่, IT Reports
 EMAIL_HOST=smtp.gmail.com
 EMAIL_PORT=587
-# EMAIL_USER=panuwat.sop.work@gmail.com
-# EMAIL_PASS=appiaukqlafmcixb
-# EMAIL_FROM=panuwat.sop.work@gmail.com
 
-EMAIL_USER=ampanusak@gmail.com
-EMAIL_PASS=rsdl tnxx ztsx kxlg
-EMAIL_FROM=ampanusak@gmail.com
+EMAIL_USER=vexclusive.it@gmail.com
+EMAIL_PASS=mzgw rjdd zuif ailx
+EMAIL_FROM=vexclusive.it@gmail.com
 
 # NextAuth Configuration
 # ใช้สำหรับ NextAuth.js สำหรับการ Authentication
 NEXTAUTH_URL=http://localhost:3000
-NEXTAUTH_SECRET=my-nextauth-secret-2024-vsq-clinic
+NEXTAUTH_SECRET=my-nextauth-secret-2025-vsq-clinic
 
 # Google OAuth Configuration (Current - อาร์ม)
 # ใช้สำหรับการ Login ผ่าน Google OAuth
-NEXT_PUBLIC_GOOGLE_CLIENT_ID=689507743564-msuhgr7sbljam4oegkc804oq0q38q6m0.apps.googleusercontent.com
-GOOGLE_CLIENT_SECRET=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
+NEXT_PUBLIC_GOOGLE_CLIENT_ID=228205515611-tpk8ohq428734lmk7e7mfn0icsfkqm8g.apps.googleusercontent.com
+GOOGLE_CLIENT_SECRET=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
 
 # Google OAuth Configuration (Legacy - เก่า)
 #NEXT_PUBLIC_GOOGLE_CLIENT_ID=407337870132-7gud56tvea46jpedokfd3ho8kujro3eo.apps.googleusercontent.com
@@ -58,11 +56,11 @@ GOOGLE_CLIENT_SECRET=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
 # 1. Copy ข้อมูลนี้ไปใส่ในไฟล์ .env.local
 # 2. เริ่มระบบ (npm run dev)
 # 3. เข้า /api/create-user เพื่อ Bootstrap ระบบ
-# 4. Login ด้วย admin@gmail.com / 2952B210
+# 4. Login ด้วย vexclusive.it@gmail.com / vsqit2952B210
 # 5. เปลี่ยนรหัสผ่านและสร้าง Admin คนอื่นๆ
 #
-SUPER_ADMIN_EMAIL=admin@gmail.com
-SUPER_ADMIN_PASSWORD=2952B210
+SUPER_ADMIN_EMAIL=vexclusive.it@gmail.com
+SUPER_ADMIN_PASSWORD=vsqit2952B210
 SUPER_ADMIN_FIRST_NAME=Super
 SUPER_ADMIN_LAST_NAME=Administrator
 SUPER_ADMIN_NICKNAME=SuperAdmin
