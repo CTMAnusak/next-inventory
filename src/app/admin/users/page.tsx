@@ -185,6 +185,17 @@ export default function AdminUsersPage() {
     
     // Validation for phone number
     if (name === 'phone') {
+      // Allow 000-000-0000 for Super Admin
+      const isSuperAdmin = formData.email === 'vexclusive.it@gmail.com';
+      if (value === '000-000-0000' && isSuperAdmin) {
+        setFormData(prev => ({
+          ...prev,
+          [name]: value
+        }));
+        return;
+      }
+      
+      // For other users, only allow numbers
       const numbersOnly = value.replace(/[^0-9]/g, '');
       if (numbersOnly.length <= 10) {
         setFormData(prev => ({
@@ -218,10 +229,19 @@ export default function AdminUsersPage() {
       }
     }
 
-    // Validate phone number
+    // Validate phone number (allow 000-000-0000 for Super Admin)
+    const isSuperAdmin = formData.email === 'vexclusive.it@gmail.com';
     if (formData.phone && formData.phone.length !== 10) {
       toast.error('เบอร์โทรศัพท์ต้องเป็นตัวเลข 10 หลักเท่านั้น');
       return false;
+    }
+    
+    // Allow 000-000-0000 for Super Admin, otherwise validate numeric format
+    if (formData.phone && formData.phone !== '000-000-0000' && !isSuperAdmin) {
+      if (!/^[0-9]{10}$/.test(formData.phone)) {
+        toast.error('เบอร์โทรศัพท์ต้องเป็นตัวเลข 10 หลักเท่านั้น');
+        return false;
+      }
     }
 
     // Validate email format
@@ -1135,18 +1155,18 @@ export default function AdminUsersPage() {
                     <label className="block text-sm font-medium text-gray-700 mb-1">
                       เบอร์โทร *
                     </label>
-                    <input
-                      type="tel"
-                      name="phone"
-                      value={formData.phone}
-                      onChange={handleInputChange}
-                      className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 text-gray-900"
-                      placeholder="0812345678"
-                      pattern="[0-9]{10}"
-                      maxLength={10}
-                      title="กรุณากรอกเบอร์โทรศัพท์ 10 หลัก"
-                      required
-                    />
+                     <input
+                       type="tel"
+                       name="phone"
+                       value={formData.phone}
+                       onChange={handleInputChange}
+                       className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 text-gray-900"
+                       placeholder={formData.email === 'vexclusive.it@gmail.com' ? '000-000-0000' : '0812345678'}
+                       pattern={formData.email === 'vexclusive.it@gmail.com' ? undefined : '[0-9]{10}'}
+                       maxLength={formData.email === 'vexclusive.it@gmail.com' ? 13 : 10}
+                       title={formData.email === 'vexclusive.it@gmail.com' ? 'Super Admin สามารถใช้ 000-000-0000 ได้' : 'กรุณากรอกเบอร์โทรศัพท์ 10 หลัก'}
+                       required
+                     />
                   </div>
                   
                   <div>
@@ -1336,18 +1356,18 @@ export default function AdminUsersPage() {
                     <label className="block text-sm font-medium text-gray-700 mb-1">
                       เบอร์โทร *
                     </label>
-                    <input
-                      type="tel"
-                      name="phone"
-                      value={formData.phone}
-                      onChange={handleInputChange}
-                      className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 text-gray-900"
-                      placeholder="0812345678"
-                      pattern="[0-9]{10}"
-                      maxLength={10}
-                      title="กรุณากรอกเบอร์โทรศัพท์ 10 หลัก"
-                      required
-                    />
+                     <input
+                       type="tel"
+                       name="phone"
+                       value={formData.phone}
+                       onChange={handleInputChange}
+                       className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 text-gray-900"
+                       placeholder={formData.email === 'vexclusive.it@gmail.com' ? '000-000-0000' : '0812345678'}
+                       pattern={formData.email === 'vexclusive.it@gmail.com' ? undefined : '[0-9]{10}'}
+                       maxLength={formData.email === 'vexclusive.it@gmail.com' ? 13 : 10}
+                       title={formData.email === 'vexclusive.it@gmail.com' ? 'Super Admin สามารถใช้ 000-000-0000 ได้' : 'กรุณากรอกเบอร์โทรศัพท์ 10 หลัก'}
+                       required
+                     />
                   </div>
                   
                   <div>

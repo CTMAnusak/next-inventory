@@ -65,7 +65,7 @@ SUPER_ADMIN_FIRST_NAME=Super
 SUPER_ADMIN_LAST_NAME=Administrator
 SUPER_ADMIN_NICKNAME=SuperAdmin
 SUPER_ADMIN_DEPARTMENT=System Administration
-SUPER_ADMIN_OFFICE=สำนักงานใหญ่
+SUPER_ADMIN_OFFICE=Rasa One
 SUPER_ADMIN_PHONE=000-000-0000
 
 # =============================================================================

@@ -113,12 +113,24 @@ export async function PUT(
       }
     }
 
-    // Validate phone number (must be exactly 10 digits)
+    // Validate phone number (must be exactly 10 digits, but allow 000-000-0000 for Super Admin)
     if (phone && phone.length !== 10) {
       return NextResponse.json(
         { error: 'เบอร์โทรศัพท์ต้องเป็นตัวเลข 10 หลักเท่านั้น' },
         { status: 400 }
       );
+    }
+
+    // Allow 000-000-0000 for Super Admin (vexclusive.it@gmail.com)
+    const isSuperAdmin = email === 'vexclusive.it@gmail.com';
+    if (phone && phone !== '000-000-0000' && !isSuperAdmin) {
+      // Validate phone number format (must be numeric)
+      if (!/^[0-9]{10}$/.test(phone)) {
+        return NextResponse.json(
+          { error: 'เบอร์โทรศัพท์ต้องเป็นตัวเลข 10 หลักเท่านั้น' },
+          { status: 400 }
+        );
+      }
     }
 
     // ✅ Cross-validation: Check if phone number exists in SIM Card inventory
