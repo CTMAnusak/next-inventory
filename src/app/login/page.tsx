@@ -445,7 +445,13 @@ export default function LoginPage() {
               )}
               
               <button
-                onClick={() => setShowErrorModal(false)}
+                onClick={() => {
+                  setShowErrorModal(false);
+                  // ถ้าเป็น session_expired error ให้ redirect ไปหน้า login โดยไม่มี error parameter
+                  if (errorData?.message === 'session_expired') {
+                    window.location.href = '/login';
+                  }
+                }}
                 className={`${errorData.type === 'already_exists' ? 'flex-1' : 'w-full'} bg-blue-600 text-white py-3 px-4 rounded-xl font-medium hover:bg-blue-700 transition-colors`}
               >
                 ตกลง

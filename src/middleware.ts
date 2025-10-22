@@ -22,7 +22,7 @@ export async function middleware(request: NextRequest) {
 
       // ตรวจสอบว่า user อยู่ในสถานะ pendingDeletion หรือไม่
       if (payload.pendingDeletion) {
-        const response = NextResponse.redirect(new URL('/login?error=account_pending_deletion', request.url));
+        const response = NextResponse.redirect(new URL('/login', request.url));
         // ลบ auth token cookie
         response.cookies.delete('auth-token');
         return response;
