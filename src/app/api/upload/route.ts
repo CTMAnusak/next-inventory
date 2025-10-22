@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { writeFile, mkdir } from 'fs/promises';
 import path from 'path';
+import sharp from 'sharp';
 
 export async function POST(request: NextRequest) {
   try {
@@ -36,11 +37,29 @@ export async function POST(request: NextRequest) {
     const bytes = await file.arrayBuffer();
     const buffer = Buffer.from(bytes);
 
-    // Generate unique filename
-    const fileExtension = file.name.split('.').pop();
+    // Resize image with sharp for space optimization
+    let processedBuffer: Buffer;
+    try {
+      processedBuffer = await sharp(buffer)
+        .resize(1280, 720, {
+          fit: 'inside',
+          withoutEnlargement: true
+        })
+        .jpeg({
+          quality: 75,
+          progressive: true
+        })
+        .toBuffer();
+    } catch (error) {
+      console.error('Image processing error:', error);
+      // If sharp fails, use original buffer
+      processedBuffer = buffer;
+    }
+
+    // Generate unique filename (always .jpg after processing)
     const timestamp = Date.now();
     const randomString = Math.random().toString(36).substring(2, 15);
-    const filename = `${timestamp}_${randomString}.${fileExtension}`;
+    const filename = `${timestamp}_${randomString}.jpg`;
 
     // Create upload directory
     const uploadDir = path.join(process.cwd(), 'public', 'assets', folder);
@@ -51,9 +70,9 @@ export async function POST(request: NextRequest) {
       // Directory might already exist
     }
 
-    // Save file
+    // Save processed file
     const filepath = path.join(uploadDir, filename);
-    await writeFile(filepath, buffer);
+    await writeFile(filepath, processedBuffer);
 
     return NextResponse.json({
       message: 'อัพโหลดไฟล์สำเร็จ',
