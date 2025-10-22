@@ -8,7 +8,7 @@ MONGODB_URI=mongodb+srv://vsq-admin:vsqWedYykRQQjZtmHX9@cluster0.r3yibxs.mongodb
 
 # JWT Configuration  
 # ใช้สำหรับการสร้างและยืนยัน JWT Token สำหรับ Authentication
-JWT_SECRET=my-super-secret-jwt-key-2024-vsq-clinic
+JWT_SECRET=my-super-secret-jwt-key-2025-vsq-clinic
 
 # Email Configuration (Nodemailer)
 # ใช้สำหรับส่งอีเมลแจ้งเตือนต่างๆ เช่น การสมัครสมาชิกใหม่, IT Reports
