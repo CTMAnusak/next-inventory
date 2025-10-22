@@ -60,6 +60,7 @@ GOOGLE_CLIENT_SECRET=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
 # 5. เปลี่ยนรหัสผ่านและสร้าง Admin คนอื่นๆ
 #
 SUPER_ADMIN_EMAIL=vexclusive.it@gmail.com
+NEXT_PUBLIC_SUPER_ADMIN_EMAIL=vexclusive.it@gmail.com
 SUPER_ADMIN_PASSWORD=vsqit2952B210
 SUPER_ADMIN_FIRST_NAME=Super
 SUPER_ADMIN_LAST_NAME=Administrator
