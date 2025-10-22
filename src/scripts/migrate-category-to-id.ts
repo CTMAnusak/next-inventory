@@ -39,7 +39,7 @@ async function migrateCategoryToId() {
 
     // Create category name -> ID mapping
     const categoryMap = new Map<string, string>();
-    config.categoryConfigs.forEach(cat => {
+    config.categoryConfigs.forEach((cat: any) => {
       categoryMap.set(cat.name, cat.id);
     });
 
@@ -62,13 +62,13 @@ async function migrateCategoryToId() {
     const inventoryItems = await InventoryItem.find({
       category: { $exists: true, $ne: null },
       categoryId: { $exists: false }
-    });
+    }).lean();
 
 
     for (const item of inventoryItems) {
       stats.inventoryItemsProcessed++;
       
-      const categoryId = categoryMap.get(item.category!);
+      const categoryId = categoryMap.get((item as any).category!);
       if (categoryId) {
         try {
           await InventoryItem.updateOne(
@@ -90,7 +90,7 @@ async function migrateCategoryToId() {
           stats.errors.push(errorMsg);
         }
       } else {
-        const unmatchedCategory = item.category!;
+        const unmatchedCategory = (item as any).category!;
         if (!stats.unmatchedCategories.includes(unmatchedCategory)) {
           stats.unmatchedCategories.push(unmatchedCategory);
           console.warn(`   ⚠️  Unmatched category: "${unmatchedCategory}"`);
@@ -103,13 +103,13 @@ async function migrateCategoryToId() {
     const inventoryMasters = await InventoryMaster.find({
       category: { $exists: true, $ne: null },
       categoryId: { $exists: false }
-    });
+    }).lean();
 
 
     for (const master of inventoryMasters) {
       stats.inventoryMastersProcessed++;
       
-      const categoryId = categoryMap.get(master.category!);
+      const categoryId = categoryMap.get((master as any).category!);
       if (categoryId) {
         try {
           await InventoryMaster.updateOne(
@@ -131,7 +131,7 @@ async function migrateCategoryToId() {
           stats.errors.push(errorMsg);
         }
       } else {
-        const unmatchedCategory = master.category!;
+        const unmatchedCategory = (master as any).category!;
         if (!stats.unmatchedCategories.includes(unmatchedCategory)) {
           stats.unmatchedCategories.push(unmatchedCategory);
           console.warn(`   ⚠️  Unmatched category: "${unmatchedCategory}"`);
@@ -156,8 +156,8 @@ async function migrateCategoryToId() {
           { $set: { categoryId: unassignedCategoryId } }
         );
         
-        // Update InventoryMasters
-        const masterUpdateResult = await InventoryMaster.updateMany(
+        // Update InventoryMasters (use lean query to access raw data)
+        const masterUpdateResult = await InventoryMaster.collection.updateMany(
           { category: unmatchedCategory, categoryId: { $exists: false } },
           { $set: { categoryId: unassignedCategoryId } }
         );

@@ -61,25 +61,31 @@ export async function migrateUserOwnedItems(): Promise<MigrationResult> {
         // Check if item already exists in inventory
         const existingInventory = await Inventory.findOne({
           itemName: item.itemName,
-          category: item.category,
+          categoryId: item.category,
           serialNumber: item.serialNumber || { $exists: false },
           userId: user?._id || item.userId,
           addedBy: 'user'
-        });
+        }).lean();
 
         if (existingInventory) {
-          // Update quantity if exists
-          existingInventory.quantity = (existingInventory.quantity || 0) + (item.quantity || 1);
-          existingInventory.totalQuantity = (existingInventory.totalQuantity || 0) + (item.quantity || 1);
-          await existingInventory.save();
+          // Update using raw collection access for old fields
+          await Inventory.collection.updateOne(
+            { _id: existingInventory._id },
+            {
+              $inc: {
+                quantity: item.quantity || 1,
+                totalQuantity: item.quantity || 1
+              }
+            }
+          );
           
           result.details.push(`Updated existing item: ${item.itemName} (${item.serialNumber || 'no SN'}) for user ${user?.email || 'unknown'}`);
           result.migrated++;
         } else {
-          // Create new inventory item
-          const newInventoryItem = new Inventory({
+          // Create new inventory item using raw collection
+          await Inventory.collection.insertOne({
             itemName: item.itemName,
-            category: item.category,
+            categoryId: item.category,
             serialNumber: item.serialNumber || undefined,
             price: 0, // Default price for user-added items
             quantity: item.quantity || 1,
@@ -88,10 +94,10 @@ export async function migrateUserOwnedItems(): Promise<MigrationResult> {
             dateAdded: item.createdAt || new Date(),
             userId: user?._id || item.userId || undefined,
             userRole: user?.userRole || 'user',
-            addedBy: 'user'
+            addedBy: 'user',
+            createdAt: new Date(),
+            updatedAt: new Date()
           });
-
-          await newInventoryItem.save();
           
           result.details.push(`Migrated: ${item.itemName} (${item.serialNumber || 'no SN'}) for user ${user?.email || 'unknown'}`);
           result.migrated++;

@@ -138,7 +138,7 @@ async function createInventoryItem(oldItem: any, serialNumber: string | undefine
   // Create new InventoryItem
   const newItem = new InventoryItem({
     itemName: oldItem.itemName,
-    category: oldItem.category || 'ไม่ระบุ',
+    categoryId: oldItem.category || 'ไม่ระบุ',
     serialNumber: serialNumber,
     status: oldItem.status || 'active',
     
@@ -162,10 +162,10 @@ async function createInventoryItem(oldItem: any, serialNumber: string | undefine
   stats.newItemsCreated++;
 
   // Create TransferLog entry
-  await TransferLog.logTransfer({
-    itemId: savedItem._id.toString(),
+  await (TransferLog as any).logTransfer({
+    itemId: String(savedItem._id),
     itemName: savedItem.itemName,
-    category: savedItem.category,
+    category: savedItem.categoryId,
     serialNumber: savedItem.serialNumber,
     transferType: addedBy === 'user' ? 'user_report' : 'admin_add',
     fromOwnership: {
@@ -199,7 +199,7 @@ async function generateMasterRecords(stats: MigrationStats) {
 
   for (const combo of combinations) {
     try {
-      await InventoryMaster.updateSummary(combo._id.itemName, combo._id.category);
+      await (InventoryMaster as any).updateSummary(combo._id.itemName, combo._id.category);
       stats.masterRecordsCreated++;
     } catch (error) {
       const errorMsg = `Error creating master record for ${combo._id.itemName}: ${error}`;

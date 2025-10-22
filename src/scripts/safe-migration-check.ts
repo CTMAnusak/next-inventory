@@ -29,7 +29,12 @@ async function checkDatabaseStatus() {
     await dbConnect();
 
     // ตรวจสอบ Collections ที่มีอยู่
-    const collections = await mongoose.connection.db.listCollections().toArray();
+    const db = mongoose.connection.db;
+    if (!db) {
+      throw new Error('Database connection not established');
+    }
+    
+    const collections = await db.listCollections().toArray();
     const collectionNames = collections.map(c => c.name);
     
     collectionNames.forEach(name => console.log(`  - ${name}`));
@@ -58,7 +63,7 @@ async function checkDatabaseStatus() {
     const newCollections = ['inventoryitems', 'inventorymasters', 'transferlogs'];
     for (const collName of newCollections) {
       if (collectionNames.includes(collName)) {
-        const count = await mongoose.connection.db.collection(collName).countDocuments();
+        const count = await db.collection(collName).countDocuments();
       } else {
         console.log(`⚪ ${collName}: ยังไม่มีข้อมูล`);
       }
@@ -66,7 +71,7 @@ async function checkDatabaseStatus() {
 
     
     if (collectionNames.includes('inventories')) {
-      const oldCount = await mongoose.connection.db.collection('inventories').countDocuments();
+      const oldCount = await db.collection('inventories').countDocuments();
       if (oldCount > 0) {
       }
     }

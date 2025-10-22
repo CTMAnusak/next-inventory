@@ -17,7 +17,7 @@ async function migrateAddedByToArray() {
     const itemGroups = new Map();
     
     for (const item of allItems) {
-      const key = `${item.itemName}||${item.category}`;
+      const key = `${item.itemName}||${item.categoryId}`;
       
       if (!itemGroups.has(key)) {
         itemGroups.set(key, []);
@@ -79,7 +79,7 @@ async function migrateAddedByToArray() {
         // Multiple items - merge them
         
         // Find the best item to keep (prefer admin-added, then newest)
-        const sortedItems = items.sort((a, b) => {
+        const sortedItems = items.sort((a: any, b: any) => {
           // Prefer admin-added items
           const aIsAdmin = (typeof a.addedBy === 'string' && a.addedBy === 'admin') || 
                           (Array.isArray(a.addedBy) && a.addedBy.includes('admin'));

@@ -29,7 +29,7 @@ interface CollectionResult {
   error?: string;
 }
 
-interface RenameOptions {
+export interface RenameOptions {
   dryRun?: boolean;
   createBackup?: boolean;
   batchSize?: number;
@@ -335,5 +335,3 @@ export async function rollbackRename(backupId: string): Promise<boolean> {
   }
 }
 
-// Export functions for use in API routes
-export { RenameResult, RenameOptions };

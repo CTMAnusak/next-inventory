@@ -8,15 +8,16 @@ async function migrateSerialNumbers() {
     await dbConnect();
 
     // Migrate Inventory items
-    const inventoryItems = await Inventory.find({});
+    const inventoryItems = await Inventory.find({}).lean();
     let inventoryUpdated = 0;
 
     for (const item of inventoryItems) {
-      if (item.serialNumber && item.serialNumber.trim() !== '') {
+      const itemData = item as any;
+      if (itemData.serialNumber && itemData.serialNumber.trim() !== '') {
         // Convert old serialNumber to serialNumbers array
         await Inventory.findByIdAndUpdate(item._id, {
           $set: {
-            serialNumbers: [item.serialNumber.trim()],
+            serialNumbers: [itemData.serialNumber.trim()],
             quantity: 1,
             totalQuantity: 1
           },
@@ -28,13 +29,14 @@ async function migrateSerialNumbers() {
 
 
     // Migrate RequestLog items
-    const requestLogs = await RequestLog.find({});
+    const requestLogs = await RequestLog.find({}).lean();
     let requestLogsUpdated = 0;
 
     for (const log of requestLogs) {
       let logUpdated = false;
+      const logData = log as any;
       
-      for (const item of log.items) {
+      for (const item of logData.items) {
         if (item.serialNumber && item.serialNumber.trim() !== '') {
           // Convert old serialNumber to serialNumbers array
           item.serialNumbers = [item.serialNumber.trim()];
@@ -44,7 +46,7 @@ async function migrateSerialNumbers() {
       }
       
       if (logUpdated) {
-        await RequestLog.findByIdAndUpdate(log._id, { items: log.items });
+        await RequestLog.findByIdAndUpdate(log._id, { items: logData.items });
         requestLogsUpdated++;
       }
     }

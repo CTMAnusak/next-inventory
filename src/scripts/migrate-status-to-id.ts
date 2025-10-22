@@ -99,8 +99,9 @@ class StatusMigrationTool {
 
       // วิเคราะห์จาก InventoryItem
       inventoryItems.forEach(item => {
-        if (item.status) {
-          statusUsage[item.status] = (statusUsage[item.status] || 0) + 1;
+        const itemData = item as any;
+        if (itemData.status) {
+          statusUsage[itemData.status] = (statusUsage[itemData.status] || 0) + 1;
         }
       });
 
@@ -243,10 +244,11 @@ class StatusMigrationTool {
       // Migration InventoryItem: เพิ่ม statusId field ขณะยังคง status เก่าไว้
       const inventoryItems = await InventoryItem.find({
         status: { $in: Object.keys(mapping) }
-      });
+      }).lean();
 
       for (const item of inventoryItems) {
-        const statusId = mapping[item.status];
+        const itemData = item as any;
+        const statusId = mapping[itemData.status];
         if (statusId) {
           // เพิ่ม statusId field ใหม่ ยังไม่ลบ status เก่า
           await InventoryItem.updateOne(
