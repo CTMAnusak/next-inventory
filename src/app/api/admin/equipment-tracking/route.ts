@@ -12,12 +12,14 @@ export async function GET(request: NextRequest) {
   try {
     await dbConnect();
     
-    // Get query parameters for filtering
+    // Get query parameters for filtering and pagination
     const { searchParams } = new URL(request.url);
     const userIdFilter = searchParams.get('userId');
     const itemIdFilter = searchParams.get('itemId');
     const department = searchParams.get('department');
     const office = searchParams.get('office');
+    const page = parseInt(searchParams.get('page') || '1');
+    const limit = parseInt(searchParams.get('limit') || '50');
     
     // Get configurations for display
     const config = await InventoryConfig.findOne({});
@@ -278,7 +280,23 @@ export async function GET(request: NextRequest) {
     
     console.log(`Returning ${trackingRecords.length} tracking records`);
     
-    return NextResponse.json(trackingRecords);
+    // Apply pagination
+    const skip = (page - 1) * limit;
+    const paginatedRecords = trackingRecords.slice(skip, skip + limit);
+    
+    const result = {
+      data: paginatedRecords,
+      pagination: {
+        currentPage: page,
+        totalPages: Math.ceil(trackingRecords.length / limit),
+        totalItems: trackingRecords.length,
+        itemsPerPage: limit,
+        hasNextPage: page < Math.ceil(trackingRecords.length / limit),
+        hasPrevPage: page > 1
+      }
+    };
+    
+    return NextResponse.json(result);
     
   } catch (error: any) {
     console.error('Error fetching equipment tracking data:', error);

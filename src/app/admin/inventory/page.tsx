@@ -455,16 +455,24 @@ export default function AdminInventoryPage() {
     }
   }, [stockInfo, stockOperation]);
 
-  const fetchInventory = async () => {
+  const fetchInventory = async (page: number = 1, search: string = '', category: string = '') => {
     setLoading(true);
     try {
-      // Clear cache by adding timestamp to prevent caching
-      const response = await fetch(`/api/admin/inventory?t=${Date.now()}`);
+      // Build query parameters
+      const params = new URLSearchParams({
+        page: page.toString(),
+        limit: '50',
+        ...(search && { search }),
+        ...(category && { category })
+      });
+      
+      const response = await fetch(`/api/admin/inventory?${params.toString()}`);
       const handledResponse = await handleApiResponse(response, 'ไม่สามารถโหลดข้อมูลคลังสินค้าได้ - เซสชันหมดอายุ');
       
       if (handledResponse && handledResponse.ok) {
         const data = await handledResponse.json();
-        setItems(data);
+        setItems(data.items || data); // Support both old and new format
+        // TODO: Handle pagination data if needed
       } else if (handledResponse) {
         toast.error('เกิดข้อผิดพลาด');
       }

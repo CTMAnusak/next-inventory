@@ -74,6 +74,8 @@ export default function AdminEquipmentTrackingPage() {
 
   // Pagination
   const [currentPage, setCurrentPage] = useState(1);
+  const [totalPages, setTotalPages] = useState(1);
+  const [totalItems, setTotalItems] = useState(0);
   const itemsPerPage = 20;
   
   // Drag scroll ref
@@ -81,7 +83,7 @@ export default function AdminEquipmentTrackingPage() {
 
 
   useEffect(() => {
-    fetchTrackingData();
+    fetchTrackingData(1);
   }, []);
 
   // Initialize drag scrolling
@@ -97,18 +99,33 @@ export default function AdminEquipmentTrackingPage() {
     applyFilters();
   }, [trackingData, searchTerm, itemFilter, categoryFilter, detailFilter, statusFilter, conditionFilter, departmentFilter, officeFilter, dateAddedFilter, sourceFilter, deliveryLocationFilter, quantityFilter]);
 
-  const fetchTrackingData = async () => {
+  const fetchTrackingData = async (page: number = 1) => {
     setLoading(true);
     try {
       // Build query parameters from filters
-      const params = new URLSearchParams();
+      const params = new URLSearchParams({
+        page: page.toString(),
+        limit: '50'
+      });
+      
       if (departmentFilter) params.append('department', departmentFilter);
       if (officeFilter) params.append('office', officeFilter);
       
       const response = await fetch(`/api/admin/equipment-tracking?${params.toString()}`);
       if (response.ok) {
         const data = await response.json();
-        setTrackingData(data);
+        setTrackingData(data.data || data); // Support both old and new format
+        setCurrentPage(page);
+        
+        // Handle pagination data if available
+        if (data.pagination) {
+          setTotalPages(data.pagination.totalPages);
+          setTotalItems(data.pagination.totalItems);
+        } else {
+          // Fallback for old format
+          setTotalPages(Math.ceil((data.data || data).length / itemsPerPage));
+          setTotalItems((data.data || data).length);
+        }
       } else {
         toast.error('เกิดข้อผิดพลาดในการโหลดข้อมูล');
       }
@@ -198,6 +215,8 @@ export default function AdminEquipmentTrackingPage() {
     setSourceFilter('');
     setDeliveryLocationFilter('');
     setQuantityFilter('');
+    setCurrentPage(1);
+    fetchTrackingData(1);
   };
 
   const handleExportExcel = () => {
@@ -350,7 +369,6 @@ export default function AdminEquipmentTrackingPage() {
   }, [trackingData]);
 
   // Pagination
-  const totalPages = Math.ceil(filteredData.length / itemsPerPage);
   const startIndex = (currentPage - 1) * itemsPerPage;
   const endIndex = startIndex + itemsPerPage;
   const currentItems = filteredData.slice(startIndex, endIndex);
@@ -376,7 +394,7 @@ export default function AdminEquipmentTrackingPage() {
                 <span>ฟิลเตอร์</span>
               </button>
               <button
-                onClick={fetchTrackingData}
+                onClick={() => fetchTrackingData(1)}
                 disabled={loading}
                 className="flex items-center space-x-2 px-4 py-2 bg-blue-100 text-blue-700 rounded-lg hover:bg-blue-200 transition-colors disabled:opacity-50"
               >
@@ -893,12 +911,16 @@ export default function AdminEquipmentTrackingPage() {
             <div className="flex items-center justify-between mt-6">
                               <div className="flex items-center text-sm text-gray-700">
                   <span>
-                    แสดง {startIndex + 1} ถึง {Math.min(endIndex, filteredData.length)} จาก {filteredData.length} รายการอุปกรณ์
+                    แสดง {startIndex + 1} ถึง {Math.min(endIndex, totalItems)} จาก {totalItems} รายการอุปกรณ์
                   </span>
                 </div>
               <div className="flex items-center space-x-2">
                 <button
-                  onClick={() => setCurrentPage(prev => Math.max(prev - 1, 1))}
+                  onClick={() => {
+                    const newPage = Math.max(currentPage - 1, 1);
+                    setCurrentPage(newPage);
+                    fetchTrackingData(newPage);
+                  }}
                   disabled={currentPage === 1}
                   className="px-3 py-1 border border-gray-300 rounded-md text-sm text-gray-700 hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed"
                 >
@@ -907,7 +929,10 @@ export default function AdminEquipmentTrackingPage() {
                 {Array.from({ length: totalPages }, (_, i) => i + 1).map((page) => (
                   <button
                     key={page}
-                    onClick={() => setCurrentPage(page)}
+                    onClick={() => {
+                      setCurrentPage(page);
+                      fetchTrackingData(page);
+                    }}
                     className={`px-3 py-1 border rounded-md text-sm ${
                       currentPage === page
                         ? 'bg-blue-600 text-white border-blue-600'
@@ -918,7 +943,11 @@ export default function AdminEquipmentTrackingPage() {
                   </button>
                 ))}
                 <button
-                  onClick={() => setCurrentPage(prev => Math.min(prev + 1, totalPages))}
+                  onClick={() => {
+                    const newPage = Math.min(currentPage + 1, totalPages);
+                    setCurrentPage(newPage);
+                    fetchTrackingData(newPage);
+                  }}
                   disabled={currentPage === totalPages}
                   className="px-3 py-1 border border-gray-300 rounded-md text-sm text-gray-700 hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed"
                 >

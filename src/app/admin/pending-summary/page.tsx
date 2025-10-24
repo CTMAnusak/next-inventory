@@ -113,24 +113,12 @@ export default function PendingSummaryPage() {
     }
     
     try {
-      // Fetch all data in parallel พร้อม cache-busting
+      // Fetch all data in parallel แต่ไม่ใช้ cache-busting ทุกครั้ง
       const [itResponse, requestResponse, returnResponse, userResponse] = await Promise.all([
-        fetch('/api/admin/it-reports', { 
-          cache: 'no-cache',
-          headers: { 'Cache-Control': 'no-cache' }
-        }),
-        fetch('/api/admin/equipment-reports/requests', { 
-          cache: 'no-cache',
-          headers: { 'Cache-Control': 'no-cache' }
-        }),
-        fetch('/api/admin/equipment-reports/returns', { 
-          cache: 'no-cache',
-          headers: { 'Cache-Control': 'no-cache' }
-        }),
-        fetch('/api/admin/users', { 
-          cache: 'no-cache',
-          headers: { 'Cache-Control': 'no-cache' }
-        })
+        fetch('/api/admin/it-reports'),
+        fetch('/api/admin/equipment-reports/requests'),
+        fetch('/api/admin/equipment-reports/returns'),
+        fetch('/api/admin/users')
       ]);
 
       // Process IT Issues (pending only)

@@ -6,31 +6,69 @@ import { createInventoryItem } from '@/lib/inventory-helpers';
 import User from '@/models/User';
 import { verifyToken } from '@/lib/auth';
 import { clearAllCaches } from '@/lib/cache-utils';
+import { getCachedData, setCachedData } from '@/lib/cache-utils';
 import TransferLog from '@/models/TransferLog';
 import { moveToRecycleBin } from '@/lib/recycle-bin-helpers';
 import RequestLog from '@/models/RequestLog';
 import ReturnLog from '@/models/ReturnLog';
 
 // GET - Fetch aggregated inventory items (grouped by itemName)
-export async function GET() {
+export async function GET(request: NextRequest) {
   try {
     await dbConnect();
     
-    // Clear caches to ensure fresh data
-    clearAllCaches();
+    const { searchParams } = new URL(request.url);
+    const page = parseInt(searchParams.get('page') || '1');
+    const limit = parseInt(searchParams.get('limit') || '50');
+    const search = searchParams.get('search') || '';
+    const category = searchParams.get('category') || '';
+    const forceRefresh = searchParams.get('forceRefresh') === 'true';
     
-    // Get all InventoryMaster items for summary view (only items with quantity > 0)
-    const allItems = await InventoryMaster.find({
+    // Cache key based on query params
+    const cacheKey = `inventory_${page}_${limit}_${search}_${category}`;
+    
+    // Only clear cache if forceRefresh is requested
+    if (forceRefresh) {
+      clearAllCaches();
+    }
+    
+    // Check cache first
+    const cached = getCachedData(cacheKey);
+    if (cached && !forceRefresh) {
+      return NextResponse.json(cached);
+    }
+    
+    // Build query filter
+    const queryFilter: any = {
       $or: [
         { totalQuantity: { $gt: 0 } },
         { availableQuantity: { $gt: 0 } },
         { userOwnedQuantity: { $gt: 0 } }
       ]
-    }).lean(); // Use lean() for better performance
+    };
     
-    // Debug: Log raw InventoryMaster data
-    allItems.forEach(item => {
-    });
+    // Add search filter
+    if (search) {
+      queryFilter.itemName = { $regex: search, $options: 'i' };
+    }
+    
+    // Add category filter
+    if (category) {
+      queryFilter.categoryId = category;
+    }
+    
+    // Calculate pagination
+    const skip = (page - 1) * limit;
+    
+    // Get total count for pagination
+    const totalCount = await InventoryMaster.countDocuments(queryFilter);
+    
+    // Get paginated InventoryMaster items
+    const allItems = await InventoryMaster.find(queryFilter)
+      .sort({ lastUpdated: -1 }) // Sort by newest first
+      .skip(skip)
+      .limit(limit)
+      .lean(); // Use lean() for better performance
     
     // Convert InventoryMaster to expected format
     const aggregatedItems = allItems.map(item => ({
@@ -46,20 +84,22 @@ export async function GET() {
       userOwnedQuantity: item.userOwnedQuantity
     }));
     
-    // Sort by date added (newest first)
-    aggregatedItems.sort((a, b) => new Date(b.dateAdded).getTime() - new Date(a.dateAdded).getTime());
+    const result = {
+      items: aggregatedItems,
+      pagination: {
+        currentPage: page,
+        totalPages: Math.ceil(totalCount / limit),
+        totalItems: totalCount,
+        itemsPerPage: limit,
+        hasNextPage: page < Math.ceil(totalCount / limit),
+        hasPrevPage: page > 1
+      }
+    };
     
-    // Debug: Log aggregation results
-    aggregatedItems.forEach(item => {
-    });
+    // Cache the result for 30 seconds
+    setCachedData(cacheKey, result);
     
-    // Add cache-busting header
-    const response = NextResponse.json(aggregatedItems);
-    response.headers.set('Cache-Control', 'no-cache, no-store, must-revalidate');
-    response.headers.set('Pragma', 'no-cache');
-    response.headers.set('Expires', '0');
-    
-    return response;
+    return NextResponse.json(result);
   } catch (error) {
     console.error('Error fetching inventory:', error);
     return NextResponse.json(

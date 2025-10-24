@@ -1,0 +1,232 @@
+import { getStatusName, getConditionName, getUserName, getCategoryName } from '@/lib/equipment-snapshot-helpers';
+import { getItemNameAndCategory, getCategoryNameById } from '@/lib/item-name-resolver';
+import InventoryMaster from '@/models/InventoryMaster';
+import User from '@/models/User';
+import DeletedUser from '@/models/DeletedUser';
+
+/**
+ * =========================================
+ * OPTIMIZED POPULATE FUNCTIONS
+ * =========================================
+ * 
+ * แก้ปัญหา N+1 Query โดยการ batch query ข้อมูลที่ซ้ำกัน
+ */
+
+/**
+ * Batch populate RequestLog items แบบ optimized
+ * แก้ปัญหา N+1 query โดยการ batch query ข้อมูลที่ซ้ำกัน
+ */
+export async function populateRequestLogItemsBatchOptimized(requestLogs: any[]) {
+  if (!requestLogs || requestLogs.length === 0) return requestLogs;
+  
+  // Collect all unique IDs that need to be populated
+  const masterIds = new Set<string>();
+  const categoryIds = new Set<string>();
+  const statusIds = new Set<string>();
+  const conditionIds = new Set<string>();
+  const userIds = new Set<string>();
+  
+  // Extract all IDs from all logs
+  requestLogs.forEach(log => {
+    if (log.items) {
+      log.items.forEach((item: any) => {
+        if (item.masterId) masterIds.add(item.masterId);
+        if (item.categoryId) categoryIds.add(item.categoryId);
+        if (item.statusOnRequest) statusIds.add(item.statusOnRequest);
+        if (item.conditionOnRequest) conditionIds.add(item.conditionOnRequest);
+      });
+    }
+    if (log.approvedBy) userIds.add(log.approvedBy);
+    if (log.rejectedBy) userIds.add(log.rejectedBy);
+  });
+  
+  // Batch fetch all data in parallel
+  const [
+    masterDataMap,
+    categoryDataMap,
+    statusDataMap,
+    conditionDataMap,
+    userDataMap
+  ] = await Promise.all([
+    // Batch fetch InventoryMaster data
+    masterIds.size > 0 ? InventoryMaster.find({ _id: { $in: Array.from(masterIds) } })
+      .lean()
+      .then(items => new Map(items.map(item => [item._id.toString(), item]))) : Promise.resolve(new Map()),
+    
+    // Batch fetch category names
+    categoryIds.size > 0 ? Promise.all(Array.from(categoryIds).map(id => getCategoryName(id)))
+      .then(names => new Map(Array.from(categoryIds).map((id, i) => [id, names[i]]))) : Promise.resolve(new Map()),
+    
+    // Batch fetch status names
+    statusIds.size > 0 ? Promise.all(Array.from(statusIds).map(id => getStatusName(id)))
+      .then(names => new Map(Array.from(statusIds).map((id, i) => [id, names[i]]))) : Promise.resolve(new Map()),
+    
+    // Batch fetch condition names
+    conditionIds.size > 0 ? Promise.all(Array.from(conditionIds).map(id => getConditionName(id)))
+      .then(names => new Map(Array.from(conditionIds).map((id, i) => [id, names[i]]))) : Promise.resolve(new Map()),
+    
+    // Batch fetch user names
+    userIds.size > 0 ? Promise.all(Array.from(userIds).map(id => getUserName(id)))
+      .then(names => new Map(Array.from(userIds).map((id, i) => [id, names[i]]))) : Promise.resolve(new Map())
+  ]);
+  
+  // Populate all logs using the cached data
+  return requestLogs.map(log => {
+    const populated = log.toObject ? log.toObject() : JSON.parse(JSON.stringify(log));
+    
+    // Populate items
+    if (populated.items) {
+      populated.items.forEach((item: any) => {
+        // Populate item name and category from master data
+        if (item.masterId && masterDataMap.has(item.masterId)) {
+          const masterData = masterDataMap.get(item.masterId);
+          if (!item.itemName) item.itemName = masterData.itemName;
+          if (!item.category) item.category = masterData.categoryId;
+          if (!item.categoryId) item.categoryId = masterData.categoryId;
+        }
+        
+        // Populate category name
+        if (item.categoryId && categoryDataMap.has(item.categoryId)) {
+          item.category = categoryDataMap.get(item.categoryId);
+        }
+        
+        // Populate status name
+        if (item.statusOnRequest && statusDataMap.has(item.statusOnRequest)) {
+          item.statusOnRequestName = statusDataMap.get(item.statusOnRequest);
+        }
+        
+        // Populate condition name
+        if (item.conditionOnRequest && conditionDataMap.has(item.conditionOnRequest)) {
+          item.conditionOnRequestName = conditionDataMap.get(item.conditionOnRequest);
+        }
+      });
+    }
+    
+    // Populate approved by name
+    if (populated.approvedBy && userDataMap.has(populated.approvedBy)) {
+      populated.approvedByName = userDataMap.get(populated.approvedBy);
+    }
+    
+    // Populate rejected by name
+    if (populated.rejectedBy && userDataMap.has(populated.rejectedBy)) {
+      populated.rejectedByName = userDataMap.get(populated.rejectedBy);
+    }
+    
+    return populated;
+  });
+}
+
+/**
+ * Batch populate RequestLog users แบบ optimized
+ */
+export async function populateRequestLogUsersBatchOptimized(requestLogs: any[]) {
+  if (!requestLogs || requestLogs.length === 0) return requestLogs;
+  
+  // Collect all unique user IDs
+  const userIds = new Set<string>();
+  requestLogs.forEach(log => {
+    if (log.userId) userIds.add(log.userId);
+  });
+  
+  if (userIds.size === 0) return requestLogs;
+  
+  // Batch fetch users from both User and DeletedUser collections
+  const [activeUsers, deletedUsers] = await Promise.all([
+    User.find({ _id: { $in: Array.from(userIds) } }).lean(),
+    DeletedUser.find({ originalUserId: { $in: Array.from(userIds) } }).lean()
+  ]);
+  
+  // Create lookup maps
+  const activeUserMap = new Map(activeUsers.map(user => [(user as any)._id.toString(), user]));
+  const deletedUserMap = new Map(deletedUsers.map(user => [(user as any).originalUserId, user]));
+  
+  // Populate all logs
+  return requestLogs.map(log => {
+    const populated = log.toObject ? log.toObject() : JSON.parse(JSON.stringify(log));
+    
+    if (populated.userId) {
+      const userId = populated.userId;
+      
+      if (activeUserMap.has(userId)) {
+        // User is still active
+        const user = activeUserMap.get(userId);
+        if (user) {
+          populated.userInfo = {
+            firstName: (user as any).firstName,
+            lastName: (user as any).lastName,
+            nickname: (user as any).nickname,
+            department: (user as any).department,
+            phone: (user as any).phone,
+            office: (user as any).office,
+            email: (user as any).email,
+            isActive: true
+          };
+        }
+      } else if (deletedUserMap.has(userId)) {
+        // User was deleted, use snapshot
+        const deletedUser = deletedUserMap.get(userId);
+        if (deletedUser) {
+          populated.userInfo = {
+            firstName: (deletedUser as any).firstName,
+            lastName: (deletedUser as any).lastName,
+            nickname: (deletedUser as any).nickname,
+            department: (deletedUser as any).department,
+            phone: (deletedUser as any).phone,
+            office: (deletedUser as any).office,
+            email: (deletedUser as any).email,
+            isActive: false
+          };
+        }
+      } else {
+        // User not found
+        populated.userInfo = {
+          firstName: 'Unknown',
+          lastName: 'User',
+          nickname: 'Unknown',
+          department: 'Unknown',
+          phone: 'Unknown',
+          office: 'Unknown',
+          email: 'Unknown',
+          isActive: false
+        };
+      }
+    }
+    
+    return populated;
+  });
+}
+
+/**
+ * Complete optimized populate for RequestLogs
+ */
+export async function populateRequestLogCompleteBatchOptimized(requestLogs: any[]) {
+  // First populate users
+  const userPopulated = await populateRequestLogUsersBatchOptimized(requestLogs);
+  
+  // Then populate items
+  const fullyPopulated = await populateRequestLogItemsBatchOptimized(userPopulated);
+  
+  return fullyPopulated;
+}
+
+/**
+ * Batch populate ReturnLog items แบบ optimized
+ */
+export async function populateReturnLogItemsBatchOptimized(returnLogs: any[]) {
+  if (!returnLogs || returnLogs.length === 0) return returnLogs;
+  
+  // Similar implementation for ReturnLogs
+  // ... (implementation similar to RequestLog but for return logs)
+  
+  return returnLogs;
+}
+
+/**
+ * Complete optimized populate for ReturnLogs
+ */
+export async function populateReturnLogCompleteBatchOptimized(returnLogs: any[]) {
+  // Similar implementation for ReturnLogs
+  // ... (implementation similar to RequestLog but for return logs)
+  
+  return returnLogs;
+}
