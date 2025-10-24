@@ -2,7 +2,7 @@
 
 import React, { useEffect } from 'react';
 import { EnhancedErrorBoundary, setupGlobalErrorHandling } from '@/components/EnhancedErrorBoundary';
-import { ErrorMonitoringDashboard } from '@/components/ErrorMonitoringDashboard';
+import ErrorMonitoringDashboard from '@/components/ErrorMonitoringDashboard';
 
 interface ErrorMonitoringProviderProps {
   children: React.ReactNode;
