@@ -31,7 +31,7 @@ export default function RecycleBinWarningModal({
               </div>
             </div>
             <div className="flex-1">
-              <h3 className="text-lg font-bold text-orange-800">
+              <h3 className="text-lg font-semibold text-orange-800">
                 Serial Number ซ้ำในถังขยะ
               </h3>
               <p className="text-sm text-orange-600 mt-1">

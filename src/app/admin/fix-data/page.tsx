@@ -183,7 +183,7 @@ export default function AdminFixDataPage() {
                   <div>
                     <h3 className="font-medium text-gray-900 mb-2">รายละเอียด</h3>
                     <div className="max-h-96 overflow-y-auto">
-                      <table className="min-w-full divide-y divide-gray-200">
+                      <table className="min-w-[140%] divide-y divide-gray-200">
                         <thead className="bg-gray-50">
                           <tr>
                             <th className="px-3 py-2 text-left text-xs font-medium text-gray-500 uppercase">

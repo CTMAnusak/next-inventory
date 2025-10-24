@@ -1347,7 +1347,7 @@ export default function AdminEquipmentReportsPage() {
         <div className="bg-white/90 backdrop-blur-sm rounded-2xl shadow-xl p-8 border border-white/50">
           {/* Header */}
           <div className="flex flex-col justify-between items-center mb-7 xl:flex-row">
-            <h1 className="text-2xl font-bold text-gray-900 pb-5 xl:pb-0">รายงานการเบิก/คืนอุปกรณ์</h1>
+            <h1 className="text-2xl font-semibold text-gray-900 pb-5 xl:pb-0">รายงานการเบิก/คืนอุปกรณ์</h1>
             <div className="flex flex-wrap justify-center gap-4 w-full xl:w-auto">
               <button
                 onClick={() => setShowFilters(!showFilters)}
@@ -1669,7 +1669,7 @@ export default function AdminEquipmentReportsPage() {
                   >
                     <Icon className="w-4 h-4" />
                     <span className="w-max">{tab.label}</span>
-                    <span className={`inline-flex items-center justify-center px-2 py-1 text-xs font-bold leading-none rounded-full ${
+                    <span className={`inline-flex items-center justify-center px-2 py-1 text-xs font-semibold leading-none rounded-full ${
                       activeTab === tab.key ? 'bg-blue-100 text-blue-600' : 'bg-gray-100 text-gray-600'
                     }`}>
                       {tab.count}
@@ -1683,7 +1683,7 @@ export default function AdminEquipmentReportsPage() {
           {/* Table */}
           <div ref={tableContainerRef} className="table-container">
             {activeTab === 'request' ? (
-              <table className="min-w-full divide-y divide-gray-200">
+              <table className="min-w-[200%] divide-y divide-gray-200">
                 <thead className="bg-blue-600">
                   <tr>
                     <th className="px-6 py-3 text-center text-xs font-medium text-white uppercase tracking-wider">
@@ -1965,7 +1965,7 @@ export default function AdminEquipmentReportsPage() {
                 </tbody>
               </table>
             ) : activeTab === 'return' ? (
-              <table className="min-w-full divide-y divide-gray-200">
+              <table className="min-w-[200%] divide-y divide-gray-200">
                 <thead className="bg-blue-600">
                   <tr>
                     <th className="px-6 py-3 text-center text-xs font-medium text-white uppercase tracking-wider">

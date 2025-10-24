@@ -761,7 +761,7 @@ export default function DashboardPage() {
       <Layout>
       <div className="max-w-full mx-auto">
         <div className="mb-8">
-          <h1 className="text-3xl font-bold text-gray-900 mb-2">
+          <h1 className="text-3xl font-semibold text-gray-900 mb-2">
             ยินดีต้อนรับสู่ระบบจัดการคลังสินค้า
           </h1>
           <p className="text-gray-600">
@@ -836,7 +836,7 @@ export default function DashboardPage() {
           </div>
 
           <div ref={tableContainerRef} className="table-container">
-            <table className="min-w-full divide-y divide-gray-200">
+            <table className="min-w-[140%] divide-y divide-gray-200">
               <thead>
                 <tr className="bg-blue-600">
                   <th className="px-3 py-2 text-center border-b text-white">วันที่เพิ่ม</th>
@@ -1332,7 +1332,7 @@ export default function DashboardPage() {
               {/* Header - Fixed */}
               <div className="bg-gradient-to-r from-blue-500 to-blue-600 text-white px-6 py-4">
                 <div className="flex items-center justify-between">
-                  <h3 className="text-xl font-bold">
+                  <h3 className="text-xl font-semibold">
                     {editItemId ? 'แก้ไขอุปกรณ์ที่มี' : 'เพิ่มอุปกรณ์ที่มี'}
                   </h3>
                   <button 
@@ -1670,7 +1670,7 @@ export default function DashboardPage() {
               {/* Header */}
               <div className="bg-gradient-to-r from-blue-500 to-blue-600 text-white px-6 py-4">
                 <div className="flex items-center justify-between">
-                  <h3 className="text-xl font-bold">
+                  <h3 className="text-xl font-semibold">
                     รายละเอียด {detailData.itemName}
                   </h3>
                   <button

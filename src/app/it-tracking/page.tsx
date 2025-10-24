@@ -254,10 +254,10 @@ export default function ITTrackingPage() {
     <AuthGuard>
       <Layout>
       <div className="max-w-[1600px] mx-auto px-4">
-        <div className="bg-white rounded-lg shadow-lg">
+        <div className="bg-white rounded-lg shadow-lg pb-4">
           {/* Header */}
           <div className="flex flex-col sm:flex-row items-center justify-between p-6 pb-4 gap-4 sm:gap-0">
-            <h1 className="text-2xl font-bold text-gray-900">รายการแจ้งปัญหา IT ของคุณ</h1>
+            <h1 className="text-2xl font-semibold text-gray-900">รายการแจ้งปัญหา IT ของคุณ</h1>
             <button
               onClick={handleRefresh}
               disabled={isLoading}
@@ -304,8 +304,9 @@ export default function ITTrackingPage() {
 
           {/* Table */}
           {!isLoading && paginatedIssues.length > 0 && (
-            <div ref={tableContainerRef} className="table-container mx-2">
-              <table className="w-full shadow-xl" style={{boxShadow: 'rgba(100, 100, 111, 0.2) 0px 7px 29px 0px'}}>
+            <>
+              <div ref={tableContainerRef} className="table-container mx-2">
+                <table className="w-full shadow-xl" style={{boxShadow: 'rgba(100, 100, 111, 0.2) 0px 7px 29px 0px'}}>
                 <thead className="bg-gradient-to-r from-blue-600 to-blue-700 border-b-2 border-blue-800">
                   <tr>
                     <th className="px-4 py-3 text-center text-xs font-semibold text-white uppercase tracking-wider whitespace-nowrap border-r border-blue-500">Issue ID</th>
@@ -426,6 +427,14 @@ export default function ITTrackingPage() {
                 </tbody>
               </table>
             </div>
+
+            {/* Total Count Display */}
+            <div className="mt-4">
+              <span className="text-sm text-gray-700">
+                แสดงทั้งหมด {filteredIssues.length} รายการ
+              </span>
+            </div>
+            </>
           )}
 
           {/* Pagination */}
@@ -510,7 +519,7 @@ export default function ITTrackingPage() {
                   {/* Header */}
                   <div className="flex items-center justify-between mb-6 pb-4 border-b border-gray-200">
                     <div>
-                      <h3 className="text-2xl font-bold text-gray-900 mb-3">
+                      <h3 className="text-2xl font-semibold text-gray-900 mb-3">
                         รายละเอียดงาน <br/><span className='text-blue-500 text-lg'>Issue ID: {selectedIssue.issueId}</span>
                       </h3>
                       <div className="flex items-center gap-3 mt-2">
@@ -518,7 +527,7 @@ export default function ITTrackingPage() {
                           {getStatusIcon(selectedIssue.status)}
                           <span className="ml-2">{selectedIssue.statusText}</span>
                         </span>
-                        <span className={`inline-flex px-3 py-1 text-sm font-bold rounded-full border-2 ${
+                        <span className={`inline-flex px-3 py-1 text-sm font-semibold rounded-full border-2 ${
                           selectedIssue.urgency === 'very_urgent' 
                             ? 'bg-red-50 text-red-700 border-red-300'
                             : 'bg-gray-50 text-gray-700 border-gray-300'
@@ -591,12 +600,12 @@ export default function ITTrackingPage() {
                       </h4>
                       {selectedIssue.assignedAdmin?.name ? (
                         <div className="bg-white p-4 rounded-lg">
-                          <p className="text-green-900 font-bold text-lg">{selectedIssue.assignedAdmin.name}</p>
+                          <p className="text-green-900 font-semibold text-lg">{selectedIssue.assignedAdmin.name}</p>
                           <p className="text-green-600 text-sm mt-1">{selectedIssue.assignedAdmin.email}</p>
                         </div>
                       ) : (
                         <div className="bg-white p-4 rounded-lg">
-                          <p className="text-yellow-900 font-bold">รอ Admin รับงาน</p>
+                          <p className="text-yellow-900 font-semibold">รอ Admin รับงาน</p>
                         </div>
                       )}
                     </div>
@@ -907,7 +916,7 @@ export default function ITTrackingPage() {
             <div className="fixed inset-0 bg-black/30 backdrop-blur-sm flex items-center justify-center z-50 p-4">
               <div className="bg-white/95 backdrop-blur-md rounded-2xl shadow-2xl max-w-md w-full border border-white/20">
                 <div className="flex justify-between items-center p-6 border-b border-gray-200">
-                  <h3 className="text-lg font-bold text-gray-900">
+                  <h3 className="text-lg font-semibold text-gray-900">
                     {approvalAction === 'approve' ? 'ยืนยันการอนุมัติ' : 'ส่งกลับให้แก้ไข'}
                   </h3>
                   <button 
@@ -935,7 +944,7 @@ export default function ITTrackingPage() {
                     </p>
                     
                     {approvalAction === 'reject' && (
-                      <div className="mt-4">
+                      <div className="mt-4 text-center">
                         <label className="block text-sm font-medium text-gray-700 mb-2">
                           เหตุผลที่ไม่อนุมัติ
                         </label>

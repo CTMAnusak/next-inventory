@@ -362,7 +362,7 @@ export default function AdminEquipmentTrackingPage() {
           {/* Header */}
           <div className="flex justify-between items-center mb-6  flex-col lg:flex-row ">
             <div className="text-center lg:text-left mb-5 lg:mb-0">
-              <h1 className="text-2xl font-bold text-gray-900">ติดตามอุปกรณ์</h1>
+              <h1 className="text-2xl font-semibold text-gray-900">ติดตามอุปกรณ์</h1>
               <p className="text-gray-600 mt-1">
                 ค้นหาและติดตามว่าใครเบิกอุปกรณ์อะไรไป
               </p>
@@ -621,7 +621,7 @@ export default function AdminEquipmentTrackingPage() {
             )}
             
             {!loading && (
-              <table className="min-w-full divide-y divide-gray-200">
+              <table className="min-w-[140%] divide-y divide-gray-200">
                 <thead className="bg-blue-600">
                   <tr>
                     <th className="px-6 py-3 text-center text-xs font-medium text-white uppercase tracking-wider">

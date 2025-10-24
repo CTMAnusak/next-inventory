@@ -41,7 +41,7 @@ export default function LogoutModal({ isOpen, onConfirm }: LogoutModalProps) {
           <div className="w-12 h-12 bg-red-100 rounded-full flex items-center justify-center mr-3">
             <span className="text-2xl">🔐</span>
           </div>
-          <h2 className="text-xl font-bold text-gray-900">
+          <h2 className="text-xl font-semibold text-gray-900">
             หมดเวลาการใช้งาน
           </h2>
         </div>
@@ -55,7 +55,7 @@ export default function LogoutModal({ isOpen, onConfirm }: LogoutModalProps) {
           </p>
           <div className="mt-4 p-3 bg-red-50 rounded-lg border border-red-200">
             <p className="text-red-700 font-semibold text-center">
-              เหลือเวลา: <span className="text-2xl font-bold">{countdown}</span> วินาที
+              เหลือเวลา: <span className="text-2xl font-semibold">{countdown}</span> วินาที
             </p>
           </div>
         </div>

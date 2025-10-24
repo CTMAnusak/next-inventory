@@ -59,7 +59,7 @@ export default function ConfirmationModal({
         <div className={`px-6 py-4 ${colors.background} ${colors.border} border-b`}>
           <div className="flex items-center space-x-3">
             <div className="text-2xl">{icon}</div>
-            <h3 className={`text-lg font-bold ${colors.text}`}>
+            <h3 className={`text-lg font-semibold ${colors.text}`}>
               {title}
             </h3>
           </div>

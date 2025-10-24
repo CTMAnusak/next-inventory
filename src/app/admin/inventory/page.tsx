@@ -2534,7 +2534,7 @@ export default function AdminInventoryPage() {
           {/* Header */}
           <div className="flex flex-col justify-between items-center mb-7 xl:flex-row">
             <div>
-              <h1 className="text-2xl font-bold text-gray-900 pb-2 xl:pb-0">จัดการคลังสินค้า</h1>
+              <h1 className="text-2xl font-semibold text-gray-900 pb-2 xl:pb-0">จัดการคลังสินค้า</h1>
             </div>
             <div className="flex flex-wrap justify-center gap-4 w-full xl:w-auto">
               <button
@@ -2915,7 +2915,7 @@ export default function AdminInventoryPage() {
               {/* Header - Fixed */}
               <div className="bg-gradient-to-r from-blue-500 to-blue-600 text-white px-6 py-4">
                 <div className="flex items-center justify-between">
-                  <h3 className="text-xl font-bold">เพิ่มรายการใหม่</h3>
+                  <h3 className="text-xl font-semibold">เพิ่มรายการใหม่</h3>
                   <button
                     onClick={() => { setShowAddModal(false); setAddFromSN(false); }}
                     className="text-white/80 hover:text-white hover:bg-white/20 p-2 rounded-lg transition-all duration-200"
@@ -3169,7 +3169,7 @@ export default function AdminInventoryPage() {
                   <span className="text-2xl">⚠️</span>
                 </div>
                 <div>
-                  <h3 className="text-lg font-bold text-red-800">ไม่สามารถลดจำนวนได้</h3>
+                  <h3 className="text-lg font-semibold text-red-800">ไม่สามารถลดจำนวนได้</h3>
                   <p className="text-sm text-red-600">มีข้อจำกัดเกี่ยวกับ Serial Number</p>
                 </div>
               </div>
@@ -3222,7 +3222,7 @@ export default function AdminInventoryPage() {
                         <hr className="border-amber-200 my-1" />
                         <div className="flex justify-between text-xs">
                           <span className="text-amber-600">ยังขาดอีก:</span>
-                          <span className="font-bold text-red-600">
+                          <span className="font-semibold text-red-600">
                             {stockReductionErrorData.details.itemsToRemove - stockReductionErrorData.details.itemsWithoutSN} รายการที่มี SN
                           </span>
                         </div>
@@ -3284,7 +3284,7 @@ export default function AdminInventoryPage() {
           <div className="fixed inset-0 bg-black/30 backdrop-blur-sm flex items-center justify-center z-50">
             <div className="bg-white/95 backdrop-blur-md p-8 rounded-2xl shadow-2xl max-w-md w-full mx-4 border border-white/20">
               <div className="flex justify-between items-center mb-6">
-                <h3 className="text-xl font-bold text-gray-900">แก้ไขรายการ</h3>
+                <h3 className="text-xl font-semibold text-gray-900">แก้ไขรายการ</h3>
                 <button
                   onClick={() => setShowEditModal(false)}
                   className="text-gray-400 hover:text-gray-600"
@@ -3436,7 +3436,7 @@ export default function AdminInventoryPage() {
                 <div className="flex justify-between items-start">
                   <div className="flex-1">
                     <div className="flex items-center gap-3 mb-2">
-                      <h3 className="text-xl font-bold text-gray-900">ตั้งค่าหมวดหมู่/สถานะ/สภาพอุปกรณ์</h3>
+                      <h3 className="text-xl font-semibold text-gray-900">ตั้งค่าหมวดหมู่/สถานะ/สภาพอุปกรณ์</h3>
                       {hasUnsavedChanges && (
                         <div className="flex items-center gap-2">
                           <div className="w-2 h-2 bg-orange-500 rounded-full animate-pulse"></div>
@@ -3655,7 +3655,7 @@ export default function AdminInventoryPage() {
             {/* Modal Header - Fixed */}
             <div className="flex justify-between items-center p-6 border-b border-gray-200 rounded-t-2xl bg-white/95">
               <div className="flex items-center space-x-4">
-                <h3 className="text-xl font-bold text-gray-900">
+                <h3 className="text-xl font-semibold text-gray-900">
                   📦 จัดการ Stock - {stockItem.itemName}
                 </h3>
                 <button
@@ -3895,7 +3895,7 @@ export default function AdminInventoryPage() {
                       <h6 className="font-medium text-gray-800 mb-2">สถานะอุปกรณ์</h6>
                       <div className="flex justify-between mb-1">
                         <span className="text-blue-700">มี:</span>
-                        <span className="font-bold text-green-700">{stockInfo.statusBreakdown?.['status_available'] || 0} ชิ้น</span>
+                        <span className="font-semibold text-green-700">{stockInfo.statusBreakdown?.['status_available'] || 0} ชิ้น</span>
                       </div>
                       <div className="text-xs text-gray-500 mb-1 flex justify-between">
                         <span>คงเหลือ | User ถือ</span>
@@ -3906,7 +3906,7 @@ export default function AdminInventoryPage() {
                       {stockInfo.statusBreakdown?.['status_missing'] !== undefined && stockInfo.statusBreakdown?.['status_missing'] > 0 && (
                         <div className="flex justify-between mb-1">
                           <span className="text-blue-700">หาย:</span>
-                          <span className="font-bold text-orange-700">{stockInfo.statusBreakdown?.['status_missing'] || 0} ชิ้น</span>
+                          <span className="font-semibold text-orange-700">{stockInfo.statusBreakdown?.['status_missing'] || 0} ชิ้น</span>
                         </div>
                       )}
                       {stockInfo.statusBreakdown?.['status_missing'] !== undefined && (
@@ -3922,7 +3922,7 @@ export default function AdminInventoryPage() {
                       <h6 className="font-medium text-gray-800 mb-2">สภาพอุปกรณ์</h6>
                       <div className="flex justify-between mb-1">
                         <span className="text-blue-700">ใช้งานได้:</span>
-                        <span className="font-bold text-green-700">{stockInfo.conditionBreakdown?.['cond_working'] || 0} ชิ้น</span>
+                        <span className="font-semibold text-green-700">{stockInfo.conditionBreakdown?.['cond_working'] || 0} ชิ้น</span>
                       </div>
                       <div className="text-xs text-gray-500 mb-1 flex justify-between">
                         <span>คงเหลือ | User ถือ</span>
@@ -3933,7 +3933,7 @@ export default function AdminInventoryPage() {
                       {stockInfo.conditionBreakdown?.['cond_damaged'] !== undefined && stockInfo.conditionBreakdown?.['cond_damaged'] > 0 && (
                         <div className="flex justify-between mb-1">
                           <span className="text-blue-700">ชำรุด:</span>
-                          <span className="font-bold text-red-700">{stockInfo.conditionBreakdown?.['cond_damaged'] || 0} ชิ้น</span>
+                          <span className="font-semibold text-red-700">{stockInfo.conditionBreakdown?.['cond_damaged'] || 0} ชิ้น</span>
                         </div>
                       )}
                       {stockInfo.conditionBreakdown?.['cond_damaged'] !== undefined && (
@@ -3949,7 +3949,7 @@ export default function AdminInventoryPage() {
                       <h6 className="font-medium text-gray-800 mb-2">ประเภทอุปกรณ์</h6>
                       <div className="flex justify-between mb-1">
                         <span className="text-blue-700">ไม่มี SN:</span>
-                        <span className="font-bold text-blue-900">{stockInfo.typeBreakdown?.withoutSN || 0} ชิ้น</span>
+                        <span className="font-semibold text-blue-900">{stockInfo.typeBreakdown?.withoutSN || 0} ชิ้น</span>
                       </div>
                       <div className="text-xs text-gray-500 mb-1 flex justify-between">
                         <span>คงเหลือ | User ถือ</span>
@@ -3959,7 +3959,7 @@ export default function AdminInventoryPage() {
                       </div>
                       <div className="flex justify-between mb-1">
                         <span className="text-blue-700">มี SN:</span>
-                        <span className="font-bold text-purple-700">{stockInfo.typeBreakdown?.withSN || 0} ชิ้น</span>
+                        <span className="font-semibold text-purple-700">{stockInfo.typeBreakdown?.withSN || 0} ชิ้น</span>
                       </div>
                       <div className="text-xs text-gray-500 mb-1 flex justify-between">
                         <span>คงเหลือ | User ถือ</span>
@@ -3969,7 +3969,7 @@ export default function AdminInventoryPage() {
                       </div>
                       <div className="flex justify-between">
                         <span className="text-blue-700">มีเบอร์:</span>
-                        <span className="font-bold text-teal-700">{stockInfo.typeBreakdown?.withPhone || 0} เบอร์</span>
+                        <span className="font-semibold text-teal-700">{stockInfo.typeBreakdown?.withPhone || 0} เบอร์</span>
                       </div>
                       <div className="text-xs text-gray-500 flex justify-between">
                         <span>คงเหลือ | User ถือ</span>
@@ -3982,15 +3982,15 @@ export default function AdminInventoryPage() {
                       <h6 className="font-medium text-gray-800 mb-2">สรุปรวม</h6>
                       <div className="flex justify-between mb-1">
                         <span className="text-blue-700">รวมทั้งหมด:</span>
-                        <span className="font-bold text-blue-900">{stockInfo.totalQuantity || stockInfo.currentStats?.totalQuantity || 0} ชิ้น</span>
+                        <span className="font-semibold text-blue-900">{stockInfo.totalQuantity || stockInfo.currentStats?.totalQuantity || 0} ชิ้น</span>
                       </div>
                       <div className="flex justify-between mb-1">
                         <span className="text-blue-700">คงเหลือ:</span>
-                        <span className="font-bold text-green-700">{stockInfo.currentStats?.availableQuantity || 0} ชิ้น</span>
+                        <span className="font-semibold text-green-700">{stockInfo.currentStats?.availableQuantity || 0} ชิ้น</span>
                       </div>
                       <div className="flex justify-between">
                         <span className="text-blue-700">User ถือ:</span>
-                        <span className="font-bold text-purple-700">{stockInfo.currentStats?.userOwnedQuantity || 0} ชิ้น</span>
+                        <span className="font-semibold text-purple-700">{stockInfo.currentStats?.userOwnedQuantity || 0} ชิ้น</span>
                       </div>
                     </div>
                   </div>
@@ -4288,7 +4288,7 @@ export default function AdminInventoryPage() {
                             type="button"
                             onClick={() => setStockValue(Math.max(0, stockValue - 1))}
                             disabled={stockValue <= 0}
-                            className={`w-10 h-10 rounded-full border-2 flex items-center justify-center text-lg font-bold transition-all ${
+                            className={`w-10 h-10 rounded-full border-2 flex items-center justify-center text-lg font-semibold transition-all ${
                               stockValue <= 0 
                                 ? 'border-gray-300 text-gray-300 cursor-not-allowed bg-gray-50' 
                                 : 'border-red-500 text-red-500 hover:bg-red-50 hover:border-red-600 hover:text-red-600 active:bg-red-100'
@@ -4309,7 +4309,7 @@ export default function AdminInventoryPage() {
                           <button
                             type="button"
                             onClick={() => setStockValue(stockValue + 1)}
-                            className="w-10 h-10 rounded-full border-2 border-green-500 text-green-500 hover:bg-green-50 hover:border-green-600 hover:text-green-600 active:bg-green-100 flex items-center justify-center text-lg font-bold transition-all"
+                            className="w-10 h-10 rounded-full border-2 border-green-500 text-green-500 hover:bg-green-50 hover:border-green-600 hover:text-green-600 active:bg-green-100 flex items-center justify-center text-lg font-semibold transition-all"
                             title="เพิ่มจำนวน 1 ชิ้น"
                           >
                             +
@@ -4814,7 +4814,7 @@ export default function AdminInventoryPage() {
         <div className="fixed inset-0 bg-black/40 backdrop-blur-sm flex items-center justify-center z-[60] p-4">
           <div className="bg-white/95 backdrop-blur-md p-6 rounded-2xl shadow-2xl max-w-md w-full max-h-[80vh] overflow-y-auto border border-white/20">
             <div className="flex justify-between items-center mb-4">
-              <h3 className="text-lg font-bold text-gray-900">
+              <h3 className="text-lg font-semibold text-gray-900">
                 {itemOperation === 'edit' ? '🔧 แก้ไขรายการ' : '🗑️ ลบรายการ'}
               </h3>
               <button 
@@ -5032,7 +5032,7 @@ export default function AdminInventoryPage() {
                   <Trash2 className="w-6 h-6 text-white" />
                 </div>
                 <div>
-                  <h3 className="text-xl font-bold">ลบรายการทั้งหมด</h3>
+                  <h3 className="text-xl font-semibold">ลบรายการทั้งหมด</h3>
                   <p className="text-red-100 text-sm">คุณแน่ใจหรือไม่ที่ต้องการลบ "{stockItem?.itemName}" ทั้งหมด?</p>
                 </div>
               </div>
@@ -5136,7 +5136,7 @@ export default function AdminInventoryPage() {
                   <AlertTriangle className="w-6 h-6" />
                 </div>
                 <div>
-                  <h3 className="text-xl font-bold">⚠️ ยืนยันการเปลี่ยนชื่อ</h3>
+                  <h3 className="text-xl font-semibold">⚠️ ยืนยันการเปลี่ยนชื่อ</h3>
                   <p className="text-orange-100 text-sm">กรุณาตรวจสอบข้อมูลให้แน่ใจ</p>
                 </div>
               </div>

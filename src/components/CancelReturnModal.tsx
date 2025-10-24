@@ -28,7 +28,7 @@ export default function CancelReturnModal({
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-3">
               <AlertTriangle className="h-6 w-6" />
-              <h3 className="text-lg font-bold">ยืนยันการยกเลิก</h3>
+              <h3 className="text-lg font-semibold">ยืนยันการยกเลิก</h3>
             </div>
             <button 
               onClick={onClose}

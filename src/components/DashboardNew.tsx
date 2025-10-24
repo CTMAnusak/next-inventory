@@ -304,7 +304,7 @@ export default function DashboardNew() {
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
         {/* Header */}
         <div className="mb-8">
-          <h1 className="text-3xl font-bold text-gray-900">Dashboard</h1>
+          <h1 className="text-3xl font-semibold text-gray-900">Dashboard</h1>
           <p className="mt-2 text-gray-600">จัดการอุปกรณ์ของคุณ</p>
         </div>
 
@@ -369,7 +369,7 @@ export default function DashboardNew() {
           </div>
           
           <div className="overflow-x-auto" ref={tableContainerRef}>
-            <table className="min-w-full divide-y divide-gray-200">
+            <table className="min-w-[140%] divide-y divide-gray-200">
               <thead className="bg-gray-50">
                 <tr>
                   <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">

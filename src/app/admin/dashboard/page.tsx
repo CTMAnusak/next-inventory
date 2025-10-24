@@ -459,7 +459,7 @@ export default function AdminDashboardPage() {
 
           {/* Stats Cards */}
           {stats && (
-            <div className="grid max-[768px]:grid-cols-1 max-[1120px]:grid-cols-2 max-[1400px]:grid-cols-3 grid-cols-5 gap-6">
+            <div className="grid max-[768px]:grid-cols-1 max-[1120px]:grid-cols-2 grid-cols-3 gap-6">
               <StatCard
                 title="แจ้งงาน IT ทั้งหมด"
                 value={stats.totalIssues}

@@ -217,7 +217,7 @@ export default function RenameItemModal({ isOpen, onClose, onSuccess }: RenameIt
             <div className="flex items-center space-x-3">
               <Edit3 className="w-6 h-6" />
               <div>
-                <h2 className="text-xl font-bold">เปลี่ยนชื่ออุปกรณ์</h2>
+                <h2 className="text-xl font-semibold">เปลี่ยนชื่ออุปกรณ์</h2>
                 <p className="text-blue-100 text-sm">เปลี่ยนชื่ออุปกรณ์ในระบบทั้งหมด รวมถึงข้อมูลย้อนหลัง</p>
               </div>
             </div>
@@ -423,12 +423,12 @@ export default function RenameItemModal({ isOpen, onClose, onSuccess }: RenameIt
             {currentStep === 'warning' && (
               <div className="space-y-6">
                 <div className="text-center">
-                  <h3 className="text-xl font-bold text-red-600 mb-4">⚠️ ยืนยันการเปลี่ยนชื่อ</h3>
+                  <h3 className="text-xl font-semibold text-red-600 mb-4">⚠️ ยืนยันการเปลี่ยนชื่อ</h3>
                   <div className="bg-red-50 border border-red-200 rounded-lg p-6">
                     <div className="text-lg mb-4">
                       <span className="text-red-600 line-through font-medium">"{oldName}"</span>
                       <span className="mx-3">→</span>
-                      <span className="text-green-600 font-bold">"{newName}"</span>
+                      <span className="text-green-600 font-semibold">"{newName}"</span>
                     </div>
                     <p className="text-red-700 font-medium">
                       การเปลี่ยนแปลงนี้จะมีผลกับข้อมูลทั้งหมดในระบบ

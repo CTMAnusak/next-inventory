@@ -47,7 +47,7 @@ export default function Layout({ children }: LayoutProps) {
       <Sidebar isOpen={sidebarOpen} onClose={() => setSidebarOpen(false)} />
       
       {/* Main Content with margin for sidebar */}
-      <div className="lg:ml-64 pb-3">
+      <div className="lg:ml-64">
         {/* Top Navigation */}
         <nav className="bg-white/80 backdrop-blur-md shadow-lg border-b border-blue-100">
           <div className="px-4 sm:px-6 lg:px-8">
@@ -86,8 +86,8 @@ export default function Layout({ children }: LayoutProps) {
         </nav>
 
         {/* Main Content */}
-        <main className="py-10 lg:py-12 overflow-y-auto">
-          <div className="px-4 sm:px-6 lg:px-8 h-dvh">
+        <main className="relative py-10 lg:py-12 overflow-hidden">
+          <div className="px-4 sm:px-6 lg:px-8 h-full">
             {children}
           </div>
         </main>

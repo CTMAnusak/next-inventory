@@ -489,7 +489,7 @@ export default function SerialNumberSelector({
                         <span className="text-sm font-mono text-blue-600 font-medium">
                           {item.serialNumber || item.numberPhone}
                         </span>
-                        <span className="text-xs text-red-600 font-bold">
+                        <span className="text-xs text-red-600 font-semibold">
                           TEST: สถานะ {getStatusName(item.statusId)} | สภาพ {getConditionName(item.conditionId)}
                         </span>
                       </div>
@@ -510,12 +510,12 @@ export default function SerialNumberSelector({
                       
                       <div className="flex items-center space-x-2">
                         {/* Status */}
-                        <span className="px-3 py-1 bg-green-200 text-green-900 rounded-full font-bold text-sm border border-green-300">
+                        <span className="px-3 py-1 bg-green-200 text-green-900 rounded-full font-semibold text-sm border border-green-300">
                           สถานะ: {getStatusName(item.statusId) || item.statusId || 'ไม่ระบุ'}
                         </span>
                         
                         {/* Condition */}
-                        <span className="px-3 py-1 bg-blue-200 text-blue-900 rounded-full font-bold text-sm border border-blue-300">
+                        <span className="px-3 py-1 bg-blue-200 text-blue-900 rounded-full font-semibold text-sm border border-blue-300">
                           สภาพ: {getConditionName(item.conditionId) || item.conditionId || 'ไม่ระบุ'}
                         </span>
                       </div>

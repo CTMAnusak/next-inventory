@@ -406,7 +406,7 @@ export default function PendingSummaryPage() {
           {/* Header */}
           <div className="flex flex-col justify-between items-center mb-7 xl:flex-row">
             <div>
-              <h1 className="text-2xl font-bold text-gray-900 pb-2 xl:pb-0">สรุปรายงานรอทำ</h1>
+              <h1 className="text-2xl font-semibold text-gray-900 pb-2 xl:pb-0">สรุปรายงานรอทำ</h1>
               <p className="text-sm text-gray-600">รวมรายการที่รอดำเนินการทั้งหมด</p>
             </div>
             <div className="flex flex-wrap justify-center gap-4 w-full xl:w-auto mt-5 xl:mt-0">
@@ -484,7 +484,7 @@ export default function PendingSummaryPage() {
             <div className="flex items-center justify-between flex-col sm:flex-row mb-4 gap-4 sm:gap-0">
               <div className="flex items-center space-x-2">
                 <AlertTriangle className="w-5 h-5 text-yellow-600" />
-                <h2 className="text-xl font-bold text-gray-900">รายงานแจ้งงาน IT - รอดำเนินการ</h2>
+                <h2 className="text-xl font-semibold text-gray-900">รายงานแจ้งงาน IT - รอดำเนินการ</h2>
                 <span className="px-2 py-1 bg-yellow-100 text-yellow-800 text-sm font-semibold rounded-full">
                   {pendingITIssues.length}
                 </span>
@@ -588,7 +588,7 @@ export default function PendingSummaryPage() {
             <div className="flex items-center justify-between flex-col sm:flex-row mb-4 gap-4 sm:gap-0">
               <div className="flex items-center space-x-2">
                 <Package className="w-5 h-5 text-blue-600" />
-                <h2 className="text-xl font-bold text-gray-900">ประวัติเบิก - รอยืนยัน</h2>
+                <h2 className="text-xl font-semibold text-gray-900">ประวัติเบิก - รอยืนยัน</h2>
                 <span className="px-2 py-1 bg-blue-100 text-blue-800 text-sm font-semibold rounded-full">
                   {pendingRequests.reduce((sum, req) => sum + req.items.length, 0)}
                 </span>
@@ -694,7 +694,7 @@ export default function PendingSummaryPage() {
             <div className="flex items-center justify-between flex-col sm:flex-row mb-4 gap-4 sm:gap-0">
               <div className="flex items-center space-x-2">
                 <PackageOpen className="w-5 h-5 text-purple-600" />
-                <h2 className="text-xl font-bold text-gray-900">ประวัติคืน - รอยืนยัน</h2>
+                <h2 className="text-xl font-semibold text-gray-900">ประวัติคืน - รอยืนยัน</h2>
                 <span className="px-2 py-1 bg-purple-100 text-purple-800 text-sm font-semibold rounded-full">
                   {pendingReturns.reduce((sum, ret) => sum + ret.items.filter(item => item.approvalStatus === 'pending' || !item.approvalStatus).length, 0)}
                 </span>
@@ -802,7 +802,7 @@ export default function PendingSummaryPage() {
             <div className="flex items-center justify-between flex-col sm:flex-row gap-2 sm:gap-0 mb-4">
               <div className="flex items-center space-x-2">
                 <Users className="w-5 h-5 text-green-600" />
-                <h2 className="text-xl font-bold text-gray-900">อนุมัติรายชื่อ - รออนุมัติ</h2>
+                <h2 className="text-xl font-semibold text-gray-900">อนุมัติรายชื่อ - รออนุมัติ</h2>
                 <span className="px-2 py-1 bg-green-100 text-green-800 text-sm font-semibold rounded-full">
                   {pendingUsers.length}
                 </span>

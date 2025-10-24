@@ -34,8 +34,8 @@ export default function ITManualPage() {
   return (
     <Layout>
       <div className="max-w-6xl mx-auto">
-        <div className="bg-white rounded-lg shadow-md px-6 py-8 sm:p-8">
-          <h1 className="text-2xl font-bold text-gray-900 mb-8 text-center">
+        <div className="bg-white rounded-lg shadow-md px-6 py-10 sm:p-10">
+          <h1 className="text-2xl font-semibold text-gray-900 mb-10 text-center">
             คู่มือการใช้งานระบบแจ้งงาน IT
           </h1>
 
@@ -92,15 +92,15 @@ export default function ITManualPage() {
             </h3>
             <div className="grid grid-cols-1 md:grid-cols-3 gap-4 text-blue-700">
               <div>
-                <strong>โทรศัพท์:</strong> 090-272-8102
+                <strong className="font-semibold">โทรศัพท์:</strong> 092-591-9889 (คุณเบลล์)
                 <br />
-                <span className="text-sm">(เวลาทำการ)</span>
+                <span className="text-sm">(โปรดติดต่อในเวลาทำการ หรือติดต่อผ่าน Line)</span>
               </div>
               <div>
-                <strong>Line Official:</strong> vsqitsupport
+                <strong className="font-semibold">Line Official:</strong> vsqitsupport
               </div>
               <div>
-                <strong>อีเมล:</strong> it@vsqclinic.com
+                <strong className="font-semibold">อีเมล:</strong> vexclusive.it@gmail.com
               </div>
             </div>
           </div>

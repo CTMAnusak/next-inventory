@@ -227,7 +227,7 @@ export default function Sidebar({ isOpen, onClose }: SidebarProps) {
                   <Package className="w-6 h-6 text-blue-600" />
                 </div>
                 <div>
-                  <h1 className="text-lg font-bold text-white">
+                  <h1 className="text-lg font-semibold text-white">
                     Inventory
                   </h1>
                   <p className="text-xs text-blue-200">

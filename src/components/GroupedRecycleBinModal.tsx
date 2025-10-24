@@ -300,7 +300,7 @@ export default function GroupedRecycleBinModal({ isOpen, onClose, onInventoryRef
                   <Package className="w-6 h-6 text-white" />
                 </div>
                 <div>
-                  <h2 className="text-2xl font-bold">🗑️ ถังขยะ</h2>
+                  <h2 className="text-2xl font-semibold">🗑️ ถังขยะ</h2>
                   <p className="text-red-100 text-sm">จัดการรายการอุปกรณ์ที่ถูกลบ (รอกู้คืนภายใน 30 วัน)</p>
                 </div>
               </div>

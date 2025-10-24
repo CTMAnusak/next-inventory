@@ -654,7 +654,7 @@ export default function AdminUsersPage() {
         <div className="bg-white/90 backdrop-blur-sm rounded-2xl shadow-xl p-8 border border-white/50">
           {/* Header */}
           <div className="flex justify-between items-center mb-6 flex-col md:flex-row ">
-            <h1 className="text-2xl font-bold text-gray-900  mb-5 md:mb-0">จัดการผู้ใช้งาน</h1>
+            <h1 className="text-2xl font-semibold text-gray-900  mb-5 md:mb-0">จัดการผู้ใช้งาน</h1>
             
             {/* Action Buttons */}
             <div className="flex max-[470px]:flex-col max-[470px]:gap-3 max-[470px]:w-4/5 space-x-4 max-[470px]:space-x-0">
@@ -789,7 +789,7 @@ export default function AdminUsersPage() {
 
           {/* Table */}
           <div ref={tableContainerRef} className="table-container">
-            <table className="min-w-full divide-y divide-gray-200">
+            <table className="min-w-[140%] divide-y divide-gray-200">
               <thead className="bg-blue-600">
                 <tr>
                   <th className="px-6 py-3 text-left text-xs font-medium text-white uppercase tracking-wider">
@@ -1228,7 +1228,7 @@ export default function AdminUsersPage() {
           <div className="fixed inset-0 bg-black/30 backdrop-blur-sm flex items-center justify-center z-50">
             <div className="bg-white/95 backdrop-blur-md p-8 rounded-2xl shadow-2xl max-w-2xl w-full mx-4 border border-white/20 max-h-[90vh] overflow-y-auto">
               <div className="flex justify-between items-center mb-6">
-                <h3 className="text-xl font-bold text-gray-900">แก้ไขผู้ใช้</h3>
+                <h3 className="text-xl font-semibold text-gray-900">แก้ไขผู้ใช้</h3>
                 <button
                   onClick={() => setShowEditModal(false)}
                   className="text-gray-400 hover:text-gray-600"
@@ -1429,7 +1429,7 @@ export default function AdminUsersPage() {
           <div className="fixed inset-0 bg-black/30 backdrop-blur-sm flex items-center justify-center z-50">
             <div className="bg-white/95 backdrop-blur-md p-8 rounded-2xl shadow-2xl max-w-md w-full mx-4 border border-white/20">
               <div className="flex justify-between items-center mb-6">
-                <h3 className="text-xl font-bold text-gray-900">อนุมัติสมาชิกใหม่</h3>
+                <h3 className="text-xl font-semibold text-gray-900">อนุมัติสมาชิกใหม่</h3>
                 <button
                   onClick={() => setShowApprovalModal(false)}
                   className="text-gray-400 hover:text-gray-600"
@@ -1504,7 +1504,7 @@ export default function AdminUsersPage() {
           <div className="fixed inset-0 bg-black/30 backdrop-blur-sm flex items-center justify-center z-50">
             <div className="bg-white/95 backdrop-blur-md p-8 rounded-2xl shadow-2xl max-w-2xl w-full mx-4 border border-white/20 max-h-[90vh] overflow-y-auto">
               <div className="flex justify-between items-center mb-6">
-                <h3 className="text-xl font-bold text-gray-900">รายละเอียดการลบผู้ใช้</h3>
+                <h3 className="text-xl font-semibold text-gray-900">รายละเอียดการลบผู้ใช้</h3>
                 <button
                   onClick={() => setShowPendingDeletionModal(false)}
                   className="text-gray-400 hover:text-gray-600"
