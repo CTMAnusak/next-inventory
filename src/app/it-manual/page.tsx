@@ -25,8 +25,8 @@ export default function ITManualPage() {
     },
     {
       icon: CheckCircle,
-      title: "เมื่อปัญหาได้รับการแก้ไข สามารถกดปิดงานได้เองผ่านอีเมล",
-      description: "หลังจากทีม IT แก้ไขปัญหาเสร็จ คุณจะได้รับอีเมลพร้อมลิงก์สำหรับปิดงาน",
+      title: "เมื่อปัญหาได้รับการแก้ไข เข้าไปในระบบติดตามสถานะเพื่อปิดงาน",
+      description: "หลังจากทีม IT แก้ไขปัญหาเสร็จ เข้าไปในเมนู 'ติดตามสถานะ' เพื่อตรวจสอบและปิดงานด้วยตนเอง",
       color: "bg-orange-500"
     }
   ];
@@ -64,11 +64,10 @@ export default function ITManualPage() {
                 สิ่งที่ควรระบุในการแจ้งปัญหา
               </h3>
               <ul className="space-y-2 text-yellow-700">
-                <li>• อาการของปัญหาที่เกิดขึ้น</li>
-                <li>• ขั้นตอนที่ทำก่อนเกิดปัญหา</li>
-                <li>• เวลาที่เกิดปัญหา</li>
-                <li>• รูปภาพหน้าจอ error (หากมี)</li>
-                <li>• อุปกรณ์ที่เกี่ยวข้อง</li>
+                <li>• หัวข้อปัญหา</li>
+                <li>• ระดับความเร่งด่วน</li>
+                <li>• รายละเอียดของปัญหาที่พบ <br /><span className="text-sm">(เช่น ขั้นตอนที่ทำก่อนเกิดปัญหา, อุปกรณ์/โปรแกรมที่เกี่ยวข้อง)</span> </li>
+                <li>• รูปภาพประกอบ (หากมี)</li>
               </ul>
             </div>
 
@@ -77,10 +76,10 @@ export default function ITManualPage() {
                 สถานะการดำเนินงาน
               </h3>
               <ul className="space-y-2 text-green-700">
-                <li>• <strong>รอดำเนินการ:</strong> งานอยู่ในคิวรอการจัดการ</li>
-                <li>• <strong>กำลังดำเนินการ:</strong> ทีม IT กำลังแก้ไขปัญหา</li>
-                <li>• <strong>ดำเนินการแล้ว:</strong> แก้ไขเสร็จ รอการยืนยัน</li>
-                <li>• <strong>ปิดงาน:</strong> งานเสร็จสิ้นสมบูรณ์</li>
+                <li>• <strong className="font-medium">รอดำเนินการ:</strong> งานอยู่ในคิวรอการจัดการ</li>
+                <li>• <strong className="font-medium">กำลังดำเนินการ:</strong> ทีม IT กำลังแก้ไขปัญหา</li>
+                <li>• <strong className="font-medium">ดำเนินการแล้ว:</strong> ทีม IT แก้ไขเสร็จแล้ว รอผู้แจ้งตรวจสอบและปิดงานในระบบ</li>
+                <li>• <strong className="font-medium">ปิดงาน:</strong> งานเสร็จสมบูรณ์</li>
               </ul>
             </div>
           </div>
@@ -92,15 +91,17 @@ export default function ITManualPage() {
             </h3>
             <div className="grid grid-cols-1 md:grid-cols-3 gap-4 text-blue-700">
               <div>
-                <strong className="font-semibold">โทรศัพท์:</strong> 092-591-9889 (คุณเบลล์)
+                <strong className="font-medium">โทรศัพท์:</strong> 092-591-9889 (คุณเบลล์)
                 <br />
-                <span className="text-sm">(โปรดติดต่อในเวลาทำการ หรือติดต่อผ่าน Line)</span>
+                <span className="text-sm text-blue-600">(โปรดติดต่อในเวลาทำการ หรือติดต่อผ่าน Line)</span>
               </div>
               <div>
-                <strong className="font-semibold">Line Official:</strong> vsqitsupport
+                <strong className="font-medium">Line Official:</strong> V Square it support
+                <br />
+                <span className="text-sm text-blue-600">(Line Id : vsqitsupport)</span>
               </div>
               <div>
-                <strong className="font-semibold">อีเมล:</strong> vexclusive.it@gmail.com
+                <strong className="font-medium">อีเมล:</strong> vexclusive.it@gmail.com
               </div>
             </div>
           </div>
@@ -113,8 +114,9 @@ export default function ITManualPage() {
             <ul className="space-y-2 text-gray-700">
               <li>• เก็บ Issue ID ไว้เพื่อการติดตามงาน</li>
               <li>• ตรวจสอบอีเมลเป็นประจำเพื่อรับการอัพเดตสถานะ</li>
+              <li>• เมื่อสถานะเป็น "ดำเนินการแล้ว" ให้เข้าไปในเมนู "ติดตามสถานะ" เพื่อปิดงาน</li>
               <li>• หากเป็นปัญหาเร่งด่วน ให้เลือก "ด่วนมาก" และโทรติดต่อเพิ่มเติม</li>
-              <li>• ถ่ายรูปหน้าจอ error เพื่อช่วยให้ทีม IT วินิจฉัยปัญหาได้รวดเร็วขึ้น</li>
+              <li>• แนบภาพหน้าจอหรือภาพประกอบ เพื่อช่วยให้ทีม IT ตรวจสอบและแก้ไขปัญหาได้รวดเร็วยิ่งขึ้น</li>
             </ul>
           </div>
         </div>
