@@ -912,7 +912,7 @@ export default function AdminITReportsPage() {
                     <td className="px-6 py-4 text-sm text-gray-500 text-center text-selectable">
                       {issue.issueCategory}
                     </td>
-                    <td className="px-6 py-4 whitespace-nowrap text-center">
+                    <td className="px-6 py-4 whitespace-nowrap text-center flex justify-center">
                       <button
                         onClick={() => handleViewDetails(issue)}
                         className="flex items-center space-x-2 text-blue-600 hover:text-blue-800 text-sm cursor-pointer"

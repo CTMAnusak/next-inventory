@@ -2141,7 +2141,7 @@ export default function AdminEquipmentReportsPage() {
                           {item.itemNotes || '-'}
                         </td>
                         {/* รูปภาพ */}
-                        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500 text-center">
+                        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500 text-center flex justify-center">
                           {item.image ? (
                             <button
                               onClick={() => handleViewImage(item.image!)}

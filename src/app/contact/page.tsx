@@ -22,7 +22,8 @@ export default function ContactPage() {
                 โทรศัพท์
               </h3>
               <p className="text-blue-600 font-medium text-lg">
-                090-272-8102
+                092-591-9889
+                <br />(คุณเบลล์)
               </p>
               <p className="text-sm text-gray-600 mt-1">
                 (เวลาทำการ)
@@ -38,7 +39,8 @@ export default function ContactPage() {
                 Line Official
               </h3>
               <p className="text-green-600 font-medium text-lg">
-                vsqitsupport
+                V Square it support
+                <br />(Line Id : vsqitsupport)
               </p>
               <p className="text-sm text-gray-600 mt-1">
                 สำหรับการสนทนาแบบทันที
@@ -54,7 +56,7 @@ export default function ContactPage() {
                 อีเมล
               </h3>
               <p className="text-purple-600 font-medium text-lg">
-                it@vsqclinic.com
+                vexclusive.it@gmail.com
               </p>
               <p className="text-sm text-gray-600 mt-1">
                 สำหรับการติดต่ออย่างเป็นทางการ
@@ -104,7 +106,7 @@ export default function ContactPage() {
                 </span>
                 <div>
                   <p className="font-medium">ปิดงาน</p>
-                  <p className="text-sm text-gray-600">เมื่อปัญหาได้รับการแก้ไข สามารถกดปิดงานได้เองผ่านอีเมล</p>
+                  <p className="text-sm text-gray-600">เมื่อปัญหาได้รับการแก้ไข สามารถกดปิดงานได้เองผ่านทางระบบ</p>
                 </div>
               </div>
             </div>
@@ -121,7 +123,7 @@ export default function ContactPage() {
                   กรณีเร่งด่วน
                 </h4>
                 <p className="text-sm text-red-700">
-                  หากเป็นปัญหาที่ส่งผลกระทบต่อการดำเนินงานอย่างร้ายแรง กรุณาโทรติดต่อโดยตรงที่ 090-272-8102
+                  หากเป็นปัญหาที่ส่งผลกระทบต่อการดำเนินงานอย่างร้ายแรง กรุณาโทรติดต่อโดยตรงที่ 092-591-9889 (คุณเบลล์)
                 </p>
               </div>
             </div>
