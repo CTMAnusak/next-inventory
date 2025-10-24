@@ -3,7 +3,7 @@
 import { useState, useEffect, useRef, useLayoutEffect } from 'react';
 import Layout from '@/components/Layout';
 import { toast } from 'react-hot-toast';
-import { Clock, CheckCircle, XCircle, AlertCircle, RefreshCw, Eye, X } from 'lucide-react';
+import { Clock, CheckCircle, XCircle, AlertCircle, RefreshCw, Eye, X, Search, Filter } from 'lucide-react';
 import { useAuth } from '@/contexts/AuthContext';
 import { handleAuthError } from '@/lib/auth-error-handler';
 import { enableDragScroll } from '@/lib/drag-scroll';
@@ -69,8 +69,44 @@ export default function ITTrackingPage() {
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [selectedImage, setSelectedImage] = useState<string | null>(null);
 
+  // Filter states
+  const [searchTerm, setSearchTerm] = useState('');
+  const [urgencyFilter, setUrgencyFilter] = useState('');
+  const [categoryFilter, setCategoryFilter] = useState('');
+  const [adminFilter, setAdminFilter] = useState('');
+  const [statusFilter, setStatusFilter] = useState('');
+  const [showFilters, setShowFilters] = useState(false);
+
   // Drag scroll ref
   const tableContainerRef = useRef<HTMLDivElement>(null);
+
+  // Categories for IT issues
+  const categories = [
+    'ปัญหา Internet',
+    'ปัญหา Notebook/Computer',
+    'ปัญหา ปริ้นเตอร์ และ อุปกรณ์',
+    'ปัญหา TV/VDO Conference',
+    'ปัญหา ตู้ฝากเงิน',
+    'ปัญหา อุปกรณ์ มือถือและแท็บเลต',
+    'ปัญหา เบอร์โทรศัพท์',
+    'ปัญหา Nas เข้าไม่ได้ ใช้งานไม่ได้',
+    'ขอ User Account Email ระบบงาน',
+    'อื่น ๆ (โปรดระบุ)'
+  ];
+
+  // Urgency options
+  const urgencyOptions = [
+    { value: 'normal', label: 'ปกติ' },
+    { value: 'very_urgent', label: 'ด่วนมาก' }
+  ];
+
+  // Status options
+  const statusOptions = [
+    { value: 'pending', label: 'รอดำเนินการ' },
+    { value: 'in_progress', label: 'กำลังดำเนินการ' },
+    { value: 'completed', label: 'รอตรวจสอบผลงาน' },
+    { value: 'closed', label: 'ปิดงานแล้ว' }
+  ];
 
   useEffect(() => {
     if (user) {
@@ -200,13 +236,55 @@ export default function ITTrackingPage() {
     fetchUserIssues();
   };
 
-  // Filter issues based on active tab
+  // Filter issues based on active tab and filters
   const filteredIssues = issues.filter(issue => {
+    // Filter by active tab
     if (activeTab === 'open') {
-      return issue.status !== 'closed';
+      if (issue.status === 'closed') return false;
     } else {
-      return issue.status === 'closed';
+      if (issue.status !== 'closed') return false;
     }
+
+    // Filter by search term (Issue ID, ชื่อ-นามสกุล, ชื่อเล่น, เบอร์, อีเมล)
+    if (searchTerm) {
+      const searchLower = searchTerm.toLowerCase();
+      const matchesSearch = 
+        issue.issueId.toLowerCase().includes(searchLower) ||
+        `${issue.firstName} ${issue.lastName}`.toLowerCase().includes(searchLower) ||
+        (issue.nickname && issue.nickname.toLowerCase().includes(searchLower)) ||
+        issue.phone.includes(searchTerm) ||
+        issue.email.toLowerCase().includes(searchLower);
+      
+      if (!matchesSearch) return false;
+    }
+
+    // Filter by urgency
+    if (urgencyFilter && issue.urgency !== urgencyFilter) {
+      return false;
+    }
+
+    // Filter by category
+    if (categoryFilter && issue.issueCategory !== categoryFilter) {
+      return false;
+    }
+
+    // Filter by admin
+    if (adminFilter) {
+      if (adminFilter === 'unassigned') {
+        if (issue.assignedAdmin?.name) return false;
+      } else {
+        if (!issue.assignedAdmin?.name || issue.assignedAdmin.name !== adminFilter) {
+          return false;
+        }
+      }
+    }
+
+    // Filter by status
+    if (statusFilter && issue.status !== statusFilter) {
+      return false;
+    }
+
+    return true;
   }).sort((a, b) => new Date(b.reportDate).getTime() - new Date(a.reportDate).getTime());
 
   // Pagination
@@ -215,10 +293,21 @@ export default function ITTrackingPage() {
   const endIndex = startIndex + itemsPerPage;
   const paginatedIssues = filteredIssues.slice(startIndex, endIndex);
 
-  // Reset to page 1 when changing tabs
+  // Reset to page 1 when changing tabs or filters
   useEffect(() => {
     setCurrentPage(1);
-  }, [activeTab]);
+  }, [activeTab, searchTerm, urgencyFilter, categoryFilter, adminFilter, statusFilter]);
+
+  // Get unique admins from issues
+  const getUniqueAdmins = () => {
+    const admins = new Set<string>();
+    issues.forEach(issue => {
+      if (issue.assignedAdmin?.name) {
+        admins.add(issue.assignedAdmin.name);
+      }
+    });
+    return Array.from(admins).sort();
+  };
 
   const getStatusIcon = (status: string) => {
     switch (status) {
@@ -258,15 +347,144 @@ export default function ITTrackingPage() {
           {/* Header */}
           <div className="flex flex-col sm:flex-row items-center justify-between p-6 pb-4 gap-4 sm:gap-0">
             <h1 className="text-2xl font-semibold text-gray-900">รายการแจ้งปัญหา IT ของคุณ</h1>
-            <button
-              onClick={handleRefresh}
-              disabled={isLoading}
-              className="inline-flex items-center px-4 py-2 border border-gray-300 rounded-md shadow-sm text-sm font-medium text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 disabled:opacity-50"
-            >
-              <RefreshCw className={`w-4 h-4 mr-2 ${isLoading ? 'animate-spin' : ''}`} />
-              รีเฟรช
-            </button>
+            <div className="flex gap-2">
+              <button
+                onClick={() => setShowFilters(!showFilters)}
+                className="inline-flex items-center px-4 py-2 border border-gray-300 rounded-md shadow-sm text-sm font-medium text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500"
+              >
+                <Filter className="w-4 h-4 mr-2" />
+                ฟิลเตอร์
+              </button>
+              <button
+                onClick={handleRefresh}
+                disabled={isLoading}
+                className="inline-flex items-center px-4 py-2 border border-gray-300 rounded-md shadow-sm text-sm font-medium text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 disabled:opacity-50"
+              >
+                <RefreshCw className={`w-4 h-4 mr-2 ${isLoading ? 'animate-spin' : ''}`} />
+                รีเฟรช
+              </button>
+            </div>
           </div>
+
+          {/* Filters */}
+          {showFilters && (
+            <div className="px-6 pb-4 border-b border-gray-200">
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 2xl:grid-cols-5 gap-4">
+                {/* Search Filter */}
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">
+                    ค้นหา (Issue ID, ชื่อ, เบอร์, อีเมล)
+                  </label>
+                  <div className="relative">
+                    <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-4 h-4" />
+                    <input
+                      type="text"
+                      value={searchTerm}
+                      onChange={(e) => setSearchTerm(e.target.value)}
+                      placeholder="พิมพ์เพื่อค้นหา..."
+                      className="w-full pl-10 pr-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 text-gray-900"
+                    />
+                  </div>
+                </div>
+
+                {/* Urgency Filter */}
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">
+                    ความเร่งด่วน
+                  </label>
+                  <select
+                    value={urgencyFilter}
+                    onChange={(e) => setUrgencyFilter(e.target.value)}
+                    className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 text-gray-900"
+                  >
+                    <option value="">ทั้งหมด</option>
+                    {urgencyOptions.map((urgency) => (
+                      <option key={urgency.value} value={urgency.value}>
+                        {urgency.label}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+
+                {/* Category Filter */}
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">
+                    หัวข้อปัญหา
+                  </label>
+                  <select
+                    value={categoryFilter}
+                    onChange={(e) => setCategoryFilter(e.target.value)}
+                    className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 text-gray-900"
+                  >
+                    <option value="">ทั้งหมด</option>
+                    {categories.map((category) => (
+                      <option key={category} value={category}>
+                        {category}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+
+                {/* Admin Filter */}
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">
+                    ผู้รับผิดชอบ
+                  </label>
+                  <select
+                    value={adminFilter}
+                    onChange={(e) => setAdminFilter(e.target.value)}
+                    className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 text-gray-900"
+                  >
+                    <option value="">ทั้งหมด</option>
+                    <option value="unassigned">รอ Admin รับงาน</option>
+                    {getUniqueAdmins().map((admin) => (
+                      <option key={admin} value={admin}>
+                        {admin}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+
+                {/* Status Filter */}
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">
+                    สถานะปัจจุบัน
+                  </label>
+                  <select
+                    value={statusFilter}
+                    onChange={(e) => setStatusFilter(e.target.value)}
+                    className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 text-gray-900"
+                  >
+                    <option value="">ทั้งหมด</option>
+                    {statusOptions.map((status) => (
+                      <option key={status.value} value={status.value}>
+                        {status.label}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+              </div>
+
+              {/* Clear Filters Button */}
+              {(searchTerm || urgencyFilter || categoryFilter || adminFilter || statusFilter) && (
+                <div className="mt-4 flex justify-end">
+                  <button
+                    onClick={() => {
+                      setSearchTerm('');
+                      setUrgencyFilter('');
+                      setCategoryFilter('');
+                      setAdminFilter('');
+                      setStatusFilter('');
+                    }}
+                    className="inline-flex items-center px-3 py-1.5 text-sm text-gray-600 hover:text-gray-800 border border-gray-300 rounded-md hover:bg-gray-50"
+                  >
+                    <X className="w-4 h-4 mr-1" />
+                    ล้างฟิลเตอร์ทั้งหมด
+                  </button>
+                </div>
+              )}
+            </div>
+          )}
 
           {/* Tabs */}
           <div className=" border-gray-200">
@@ -310,6 +528,7 @@ export default function ITTrackingPage() {
                 <thead className="bg-gradient-to-r from-blue-600 to-blue-700 border-b-2 border-blue-800">
                   <tr>
                     <th className="px-4 py-3 text-center text-xs font-semibold text-white uppercase tracking-wider whitespace-nowrap border-r border-blue-500">Issue ID</th>
+                    <th className="px-4 py-3 text-center text-xs font-semibold text-white uppercase tracking-wider whitespace-nowrap border-r border-blue-500">วันที่แจ้งงาน</th>
                     <th className="px-4 py-3 text-center text-xs font-semibold text-white uppercase tracking-wider whitespace-nowrap border-r border-blue-500">ความเร่งด่วน</th>
                     <th className="px-4 py-3 text-center text-xs font-semibold text-white uppercase tracking-wider whitespace-nowrap border-r border-blue-500">ชื่อ-นามสกุล</th>
                     <th className="px-4 py-3 text-center text-xs font-semibold text-white uppercase tracking-wider whitespace-nowrap border-r border-blue-500">เบอร์โทรศัพท์</th>
@@ -317,6 +536,7 @@ export default function ITTrackingPage() {
                     <th className="px-4 py-3 text-center text-xs font-semibold text-white uppercase tracking-wider whitespace-nowrap border-r border-blue-500">หัวข้อปัญหา</th>
                     <th className="px-4 py-3 text-center text-xs font-semibold text-white uppercase tracking-wider whitespace-nowrap border-r border-blue-500">ผู้รับผิดชอบ</th>
                     <th className="px-4 py-3 text-center text-xs font-semibold text-white uppercase tracking-wider whitespace-nowrap border-r border-blue-500">สถานะปัจจุบัน</th>
+                    <th className="px-4 py-3 text-center text-xs font-semibold text-white uppercase tracking-wider whitespace-nowrap border-r border-blue-500">วันที่<br /><span>(สถานะปัจจุบัน)</span></th>
                     <th className="px-4 py-3 text-center text-xs font-semibold text-white uppercase tracking-wider whitespace-nowrap">รายละเอียด</th>
                   </tr>
                 </thead>
@@ -326,6 +546,27 @@ export default function ITTrackingPage() {
                       {/* Issue ID */}
                       <td className="px-4 py-3 whitespace-nowrap text-sm font-semibold text-blue-700 text-center border-r border-gray-200">
                         {issue.issueId}
+                      </td>
+                      
+                      {/* วันที่แจ้งงาน */}
+                      <td className="px-4 py-3 whitespace-nowrap text-sm text-gray-900 text-center border-r border-gray-200">
+                        <div className="text-xs">
+                          <div className="font-medium">
+                            {new Date(issue.reportDate).toLocaleDateString('th-TH', {
+                              year: 'numeric',
+                              month: 'short',
+                              day: 'numeric',
+                              timeZone: 'Asia/Bangkok'
+                            })}
+                          </div>
+                          <div className="text-gray-500">
+                            {new Date(issue.reportDate).toLocaleTimeString('th-TH', { 
+                              hour: '2-digit',
+                              minute: '2-digit',
+                              timeZone: 'Asia/Bangkok' 
+                            })}
+                          </div>
+                        </div>
                       </td>
                       
                       {/* ความเร่งด่วน */}
@@ -382,6 +623,51 @@ export default function ITTrackingPage() {
                         </span>
                       </td>
                       
+                      {/* วันที่(สถานะปัจจุบัน) */}
+                      <td className="px-4 py-3 whitespace-nowrap text-sm text-gray-900 text-center border-r border-gray-200">
+                        <div className="text-xs">
+                          {(() => {
+                            let statusDate = '';
+                            switch (issue.status) {
+                              case 'pending':
+                                statusDate = issue.reportDate;
+                                break;
+                              case 'in_progress':
+                                statusDate = issue.acceptedDate || issue.reportDate;
+                                break;
+                              case 'completed':
+                                statusDate = issue.completedDate || issue.acceptedDate || issue.reportDate;
+                                break;
+                              case 'closed':
+                                statusDate = issue.closedDate || issue.completedDate || issue.acceptedDate || issue.reportDate;
+                                break;
+                              default:
+                                statusDate = issue.reportDate;
+                            }
+                            
+                            return (
+                              <>
+                                <div className="font-medium">
+                                  {new Date(statusDate).toLocaleDateString('th-TH', {
+                                    year: 'numeric',
+                                    month: 'short',
+                                    day: 'numeric',
+                                    timeZone: 'Asia/Bangkok'
+                                  })}
+                                </div>
+                                <div className="text-gray-500">
+                                  {new Date(statusDate).toLocaleTimeString('th-TH', { 
+                                    hour: '2-digit',
+                                    minute: '2-digit',
+                                    timeZone: 'Asia/Bangkok' 
+                                  })}
+                                </div>
+                              </>
+                            );
+                          })()}
+                        </div>
+                      </td>
+                      
                       {/* รายละเอียด (ปุ่ม) */}
                       <td className="px-4 py-3 text-center">
                         {issue.status === 'completed' ? (
@@ -429,7 +715,7 @@ export default function ITTrackingPage() {
             </div>
 
             {/* Total Count Display */}
-            <div className="mt-4">
+            <div className="mt-4 ml-4">
               <span className="text-sm text-gray-700">
                 แสดงทั้งหมด {filteredIssues.length} รายการ
               </span>
