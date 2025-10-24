@@ -154,6 +154,30 @@ export async function populateRequestLogUsersBatchOptimized(requestLogs: any[]) 
         // User is still active
         const user = activeUserMap.get(userId);
         if (user) {
+          const userType = (user as any).userType;
+          
+          if (userType === 'individual') {
+            // ✅ ผู้ใช้บุคคล: Populate ทุกข้อมูลจาก User collection (ข้อมูลล่าสุด)
+            populated.firstName = (user as any).firstName || '';
+            populated.lastName = (user as any).lastName || '';
+            populated.nickname = (user as any).nickname || '';
+            populated.department = (user as any).department || '';
+            populated.phone = (user as any).phone || '';
+            populated.office = (user as any).office || '';
+            populated.email = (user as any).email || '';
+          } else if (userType === 'branch') {
+            // ✅ ผู้ใช้สาขา: Populate เฉพาะข้อมูลสาขา + ใช้ข้อมูลส่วนตัวจาก snapshot ในฟอร์ม
+            populated.office = (user as any).office || '';
+            populated.email = (user as any).email || '';
+            // ข้อมูลส่วนตัวใช้จาก snapshot ในฟอร์ม (requesterFirstName, etc.)
+            populated.firstName = populated.requesterFirstName || '';
+            populated.lastName = populated.requesterLastName || '';
+            populated.nickname = populated.requesterNickname || '';
+            populated.department = populated.requesterDepartment || '';
+            populated.phone = populated.requesterPhone || '';
+          }
+          
+          // เก็บ userInfo สำหรับการ debug
           populated.userInfo = {
             firstName: (user as any).firstName,
             lastName: (user as any).lastName,
@@ -162,6 +186,7 @@ export async function populateRequestLogUsersBatchOptimized(requestLogs: any[]) 
             phone: (user as any).phone,
             office: (user as any).office,
             email: (user as any).email,
+            userType: userType,
             isActive: true
           };
         }
@@ -169,6 +194,30 @@ export async function populateRequestLogUsersBatchOptimized(requestLogs: any[]) 
         // User was deleted, use snapshot
         const deletedUser = deletedUserMap.get(userId);
         if (deletedUser) {
+          const userType = (deletedUser as any).userType;
+          
+          if (userType === 'individual') {
+            // ✅ ผู้ใช้บุคคล: ใช้ข้อมูลจาก snapshot (ข้อมูลล่าสุดก่อนลบ)
+            populated.firstName = (deletedUser as any).firstName || '';
+            populated.lastName = (deletedUser as any).lastName || '';
+            populated.nickname = (deletedUser as any).nickname || '';
+            populated.department = (deletedUser as any).department || '';
+            populated.phone = (deletedUser as any).phone || '';
+            populated.office = (deletedUser as any).office || '';
+            populated.email = (deletedUser as any).email || '';
+          } else if (userType === 'branch') {
+            // ✅ ผู้ใช้สาขา: ใช้ข้อมูลสาขาจาก snapshot + ข้อมูลส่วนตัวจากฟอร์ม
+            populated.office = (deletedUser as any).office || '';
+            populated.email = (deletedUser as any).email || '';
+            // ข้อมูลส่วนตัวใช้จาก snapshot ในฟอร์ม (requesterFirstName, etc.)
+            populated.firstName = populated.requesterFirstName || '';
+            populated.lastName = populated.requesterLastName || '';
+            populated.nickname = populated.requesterNickname || '';
+            populated.department = populated.requesterDepartment || '';
+            populated.phone = populated.requesterPhone || '';
+          }
+          
+          // เก็บ userInfo สำหรับการ debug
           populated.userInfo = {
             firstName: (deletedUser as any).firstName,
             lastName: (deletedUser as any).lastName,
@@ -177,11 +226,21 @@ export async function populateRequestLogUsersBatchOptimized(requestLogs: any[]) 
             phone: (deletedUser as any).phone,
             office: (deletedUser as any).office,
             email: (deletedUser as any).email,
+            userType: userType,
             isActive: false
           };
         }
       } else {
-        // User not found
+        // User not found - ใช้ข้อมูลจาก snapshot ใน RequestLog (ถ้ามี)
+        populated.firstName = populated.requesterFirstName || 'Unknown';
+        populated.lastName = populated.requesterLastName || 'User';
+        populated.nickname = populated.requesterNickname || '';
+        populated.department = populated.requesterDepartment || '';
+        populated.phone = populated.requesterPhone || '';
+        populated.office = populated.requesterOffice || '';
+        populated.email = populated.requesterEmail || '';
+        
+        // เก็บ userInfo สำหรับการ debug
         populated.userInfo = {
           firstName: 'Unknown',
           lastName: 'User',
@@ -190,6 +249,7 @@ export async function populateRequestLogUsersBatchOptimized(requestLogs: any[]) 
           phone: 'Unknown',
           office: 'Unknown',
           email: 'Unknown',
+          userType: 'unknown',
           isActive: false
         };
       }
