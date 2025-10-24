@@ -12,6 +12,7 @@ import { handleAuthError } from '@/lib/auth-error-handler';
 import SimpleErrorModal from '@/components/SimpleErrorModal';
 import CancelReturnModal from '@/components/CancelReturnModal';
 import AuthGuard from '@/components/AuthGuard';
+import { usePerformanceMonitoring, useUserActionTracking, PageViewTracker } from '@/providers/ErrorMonitoringProvider';
 
 interface ICategoryConfig {
   id: string;
@@ -26,6 +27,10 @@ interface ICategoryConfig {
 export default function DashboardPage() {
   const router = useRouter();
   const { user, loading, checkAuth } = useAuth();
+  
+  // Error monitoring hooks
+  usePerformanceMonitoring();
+  const { trackAction } = useUserActionTracking();
   const [showAddOwned, setShowAddOwned] = useState(false);
   const [editItemId, setEditItemId] = useState<string | null>(null);
   const [showDetailModal, setShowDetailModal] = useState(false);
@@ -135,9 +140,11 @@ export default function DashboardPage() {
       if (error instanceof Error && error.name === 'AbortError') {
         toast.error('การโหลดข้อมูลใช้เวลานานเกินไป กรุณาลองใหม่');
         console.error('❌ Dashboard - fetchOwned timeout');
+        trackAction('fetch_owned_timeout', 'Dashboard', { error: 'timeout' });
       } else {
         console.error('❌ Dashboard - fetchOwned error:', error);
         toast.error('เกิดข้อผิดพลาดในการโหลดข้อมูล');
+        trackAction('fetch_owned_error', 'Dashboard', { error: error instanceof Error ? error.message : String(error) });
       }
     } finally {
       setOwnedLoading(false);
@@ -759,7 +766,8 @@ export default function DashboardPage() {
   return (
     <AuthGuard>
       <Layout>
-      <div className="max-w-full mx-auto">
+        <PageViewTracker pageName="Dashboard" />
+        <div className="max-w-full mx-auto">
         <div className="mb-8">
           <h1 className="text-3xl font-semibold text-gray-900 mb-2">
             ยินดีต้อนรับสู่ระบบจัดการคลังสินค้า

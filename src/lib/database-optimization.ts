@@ -13,9 +13,91 @@ export async function createPerformanceIndexes() {
       throw new Error('Database connection not established');
     }
     
+    // Helper function to create indexes safely with conflict resolution
+    const createIndexesSafely = async (collectionName: string, indexes: any[]) => {
+      try {
+        if (!mongoose.connection.db) {
+          throw new Error('Database connection not established');
+        }
+        
+        const collection = mongoose.connection.db.collection(collectionName);
+        
+        // Verify collection exists
+        const collections = await mongoose.connection.db.listCollections({ name: collectionName }).toArray();
+        if (collections.length === 0) {
+          console.log(`⚠️ Collection ${collectionName} does not exist, skipping indexes`);
+          return;
+        }
+        
+        // Get existing indexes
+        const existingIndexes = await collection.listIndexes().toArray();
+        const existingIndexKeys = existingIndexes.map(idx => JSON.stringify(idx.key));
+        const existingIndexNames = existingIndexes.map(idx => idx.name);
+        
+        // Filter out indexes that already exist and handle conflicts
+        const newIndexes = [];
+        const conflictingIndexes = [];
+        
+        for (const index of indexes) {
+          const indexKey = JSON.stringify(index.key);
+          const existingIndex = existingIndexes.find(idx => JSON.stringify(idx.key) === indexKey);
+          
+          if (existingIndex) {
+            // Check if it's a naming conflict
+            if (existingIndex.name !== index.name) {
+              conflictingIndexes.push({
+                existing: existingIndex.name,
+                new: index.name,
+                key: index.key
+              });
+              console.log(`⚠️ Index conflict detected: ${existingIndex.name} vs ${index.name} for key ${indexKey}`);
+            } else {
+              console.log(`ℹ️ Index ${index.name} already exists`);
+            }
+          } else {
+            newIndexes.push(index);
+          }
+        }
+        
+        // Create new indexes
+        if (newIndexes.length > 0) {
+          console.log(`📊 Creating ${newIndexes.length} new indexes for ${collectionName}...`);
+          try {
+            await collection.createIndexes(newIndexes);
+            console.log(`✅ Successfully created ${newIndexes.length} indexes for ${collectionName}`);
+          } catch (createError) {
+            console.error(`❌ Error creating indexes for ${collectionName}:`, createError);
+            // Try creating indexes one by one
+            for (const index of newIndexes) {
+              try {
+                await collection.createIndex(index.key, { name: index.name, ...index });
+                console.log(`✅ Created index ${index.name}`);
+              } catch (singleError) {
+                console.error(`❌ Failed to create index ${index.name}:`, singleError);
+              }
+            }
+          }
+        } else {
+          console.log(`ℹ️ All indexes already exist for ${collectionName}`);
+        }
+        
+        // Log conflicts for manual review
+        if (conflictingIndexes.length > 0) {
+          console.log(`⚠️ Found ${conflictingIndexes.length} index conflicts in ${collectionName}:`);
+          conflictingIndexes.forEach(conflict => {
+            console.log(`   - Existing: ${conflict.existing}, New: ${conflict.new}`);
+          });
+        }
+        
+      } catch (error) {
+        console.error(`❌ Error processing indexes for ${collectionName}:`, error);
+        // Continue with other collections even if one fails
+      }
+    };
+    
     // InventoryMaster indexes
     console.log('📊 Creating InventoryMaster indexes...');
-    await mongoose.connection.db.collection('inventorymasters').createIndexes([
+    await createIndexesSafely('inventorymasters', [
       // Compound index for pagination and filtering
       { 
         key: { 
@@ -57,7 +139,7 @@ export async function createPerformanceIndexes() {
     
     // InventoryItem indexes
     console.log('📦 Creating InventoryItem indexes...');
-    await mongoose.connection.db.collection('inventoryitems').createIndexes([
+    await createIndexesSafely('inventoryitems', [
       // Compound index for user ownership queries
       { 
         key: { 
@@ -98,7 +180,7 @@ export async function createPerformanceIndexes() {
     
     // RequestLog indexes
     console.log('📋 Creating RequestLog indexes...');
-    await mongoose.connection.db.collection('requestlogs').createIndexes([
+    await createIndexesSafely('requestlogs', [
       // Compound index for sorting and filtering
       { 
         key: { 
@@ -142,7 +224,7 @@ export async function createPerformanceIndexes() {
     
     // ReturnLog indexes
     console.log('🔄 Creating ReturnLog indexes...');
-    await mongoose.connection.db.collection('returnlogs').createIndexes([
+    await createIndexesSafely('returnlogs', [
       // Compound index for sorting
       { 
         key: { 
@@ -165,7 +247,7 @@ export async function createPerformanceIndexes() {
     
     // IssueLog indexes
     console.log('🐛 Creating IssueLog indexes...');
-    await mongoose.connection.db.collection('issuelogs').createIndexes([
+    await createIndexesSafely('issuelogs', [
       // Status filter index
       { 
         key: { status: 1, createdAt: -1 },
@@ -199,7 +281,7 @@ export async function createPerformanceIndexes() {
     
     // User indexes
     console.log('👥 Creating User indexes...');
-    await mongoose.connection.db.collection('users').createIndexes([
+    await createIndexesSafely('users', [
       // User ID index
       { 
         key: { user_id: 1 },
@@ -246,7 +328,7 @@ export async function createPerformanceIndexes() {
     
     // DeletedUser indexes
     console.log('🗑️ Creating DeletedUser indexes...');
-    await mongoose.connection.db.collection('deletedusers').createIndexes([
+    await createIndexesSafely('deletedusers', [
       // Original user ID index
       { 
         key: { originalUserId: 1 },
@@ -261,7 +343,7 @@ export async function createPerformanceIndexes() {
     
     // TransferLog indexes
     console.log('🔄 Creating TransferLog indexes...');
-    await mongoose.connection.db.collection('transferlogs').createIndexes([
+    await createIndexesSafely('transferlogs', [
       // Date sorting index
       { 
         key: { transferDate: -1 },
@@ -310,16 +392,45 @@ export async function analyzeQueryPerformance() {
     ];
     
     for (const collectionName of collections) {
-      if (!mongoose.connection.db) {
-        throw new Error('Database connection not established');
+      try {
+        if (!mongoose.connection.db) {
+          throw new Error('Database connection not established');
+        }
+        const collection = mongoose.connection.db.collection(collectionName);
+        
+        // Use modern MongoDB driver methods
+        const count = await collection.estimatedDocumentCount();
+        const indexes = await collection.listIndexes().toArray();
+        
+        // Get collection stats using aggregation
+        const statsPipeline = [
+          { $collStats: { storageStats: {}, count: {}, indexDetails: {} } }
+        ];
+        
+        let stats = null;
+        try {
+          const statsResult = await collection.aggregate(statsPipeline).toArray();
+          stats = statsResult[0];
+        } catch (statsError) {
+          console.log(`⚠️ Could not get detailed stats for ${collectionName}, using basic info`);
+        }
+        
+        console.log(`📊 ${collectionName}:`);
+        console.log(`   - Documents: ${count}`);
+        console.log(`   - Indexes: ${indexes.length}`);
+        
+        if (stats) {
+          console.log(`   - Size: ${((stats.storageStats?.size || 0) / 1024 / 1024).toFixed(2)} MB`);
+          console.log(`   - Index Size: ${((stats.storageStats?.totalIndexSize || 0) / 1024 / 1024).toFixed(2)} MB`);
+          console.log(`   - Average Object Size: ${((stats.storageStats?.avgObjSize || 0) / 1024).toFixed(2)} KB`);
+        } else {
+          console.log(`   - Size: N/A (stats not available)`);
+          console.log(`   - Index Size: N/A (stats not available)`);
+        }
+      } catch (collectionError) {
+        console.error(`❌ Error analyzing collection ${collectionName}:`, collectionError);
+        // Continue with other collections
       }
-      const collection = mongoose.connection.db.collection(collectionName);
-      const stats = await (collection as any).stats();
-      console.log(`📊 ${collectionName}:`);
-      console.log(`   - Documents: ${stats.count}`);
-      console.log(`   - Size: ${(stats.size / 1024 / 1024).toFixed(2)} MB`);
-      console.log(`   - Indexes: ${stats.indexes}`);
-      console.log(`   - Index Size: ${(stats.totalIndexSize / 1024 / 1024).toFixed(2)} MB`);
     }
     
   } catch (error) {
@@ -343,22 +454,145 @@ export async function cleanupUnusedIndexes() {
       'requestlogs',
       'returnlogs',
       'issuelogs',
-      'users'
+      'users',
+      'deletedusers',
+      'transferlogs'
     ];
     
     for (const collectionName of collections) {
-      if (!mongoose.connection.db) {
-        throw new Error('Database connection not established');
+      try {
+        if (!mongoose.connection.db) {
+          throw new Error('Database connection not established');
+        }
+        
+        const collection = mongoose.connection.db.collection(collectionName);
+        
+        // Verify collection exists
+        const existingCollections = await mongoose.connection.db.listCollections({ name: collectionName }).toArray();
+        if (existingCollections.length === 0) {
+          console.log(`⚠️ Collection ${collectionName} does not exist, skipping cleanup`);
+          continue;
+        }
+        
+        const indexes = await collection.listIndexes().toArray();
+        console.log(`📋 ${collectionName} indexes:`);
+        indexes.forEach(index => {
+          console.log(`   - ${index.name}: ${JSON.stringify(index.key)}`);
+        });
+      } catch (collectionError) {
+        console.error(`❌ Error processing collection ${collectionName}:`, collectionError);
+        // Continue with other collections
       }
-      const indexes = await mongoose.connection.db.collection(collectionName).listIndexes().toArray();
-      console.log(`📋 ${collectionName} indexes:`);
-      indexes.forEach(index => {
-        console.log(`   - ${index.name}: ${JSON.stringify(index.key)}`);
-      });
     }
     
   } catch (error) {
     console.error('❌ Error cleaning up indexes:', error);
+    throw error;
+  }
+}
+
+/**
+ * Resolve index conflicts by dropping duplicate indexes
+ */
+export async function resolveIndexConflicts() {
+  try {
+    console.log('🔧 Resolving index conflicts...');
+    
+    if (!mongoose.connection.db) {
+      throw new Error('Database connection not established');
+    }
+    
+    const collections = [
+      'inventorymasters',
+      'inventoryitems', 
+      'requestlogs',
+      'returnlogs',
+      'issuelogs',
+      'users',
+      'deletedusers',
+      'transferlogs'
+    ];
+    
+    for (const collectionName of collections) {
+      try {
+        if (!mongoose.connection.db) {
+          throw new Error('Database connection not established');
+        }
+        
+        const collection = mongoose.connection.db.collection(collectionName);
+        
+        // Verify collection exists
+        const existingCollections = await mongoose.connection.db.listCollections({ name: collectionName }).toArray();
+        if (existingCollections.length === 0) {
+          console.log(`⚠️ Collection ${collectionName} does not exist, skipping conflict resolution`);
+          continue;
+        }
+        
+        const indexes = await collection.listIndexes().toArray();
+        
+        // Group indexes by their key structure
+        const indexGroups = new Map<string, any[]>();
+        
+        indexes.forEach((index: any) => {
+          const keyStr = JSON.stringify(index.key);
+          if (!indexGroups.has(keyStr)) {
+            indexGroups.set(keyStr, []);
+          }
+          indexGroups.get(keyStr)!.push(index);
+        });
+        
+        // Find and resolve conflicts
+        const dropPromises: Promise<void>[] = [];
+        let conflictsFound = 0;
+        
+        indexGroups.forEach((indexList: any[], keyStr: string) => {
+          if (indexList.length > 1) {
+            conflictsFound++;
+            console.log(`⚠️ Found ${indexList.length} indexes with same key in ${collectionName}:`);
+            indexList.forEach((index: any) => {
+              console.log(`   - ${index.name}`);
+            });
+            
+            // Keep the first index, drop the rest
+            const keepIndex = indexList[0];
+            const dropIndexes = indexList.slice(1);
+            
+            console.log(`   ✅ Keeping: ${keepIndex.name}`);
+            console.log(`   🗑️ Dropping: ${dropIndexes.map((idx: any) => idx.name).join(', ')}`);
+            
+            // Add drop operations to promises array
+            dropIndexes.forEach((dropIndex: any) => {
+              dropPromises.push(
+                collection.dropIndex(dropIndex.name)
+                  .then(() => {
+                    console.log(`🗑️ Successfully dropped duplicate index: ${dropIndex.name}`);
+                  })
+                  .catch((dropError: any) => {
+                    console.error(`❌ Failed to drop index ${dropIndex.name}:`, dropError);
+                  })
+              );
+            });
+          }
+        });
+        
+        // Wait for all drop operations to complete
+        if (dropPromises.length > 0) {
+          console.log(`🔄 Processing ${dropPromises.length} drop operations for ${collectionName}...`);
+          await Promise.all(dropPromises);
+          console.log(`✅ Completed ${conflictsFound} conflict resolutions for ${collectionName}`);
+        } else {
+          console.log(`✅ No conflicts found in ${collectionName}`);
+        }
+        
+      } catch (collectionError) {
+        console.error(`❌ Error processing collection ${collectionName}:`, collectionError);
+      }
+    }
+    
+    console.log('✅ Index conflicts resolved!');
+    
+  } catch (error) {
+    console.error('❌ Error resolving index conflicts:', error);
     throw error;
   }
 }

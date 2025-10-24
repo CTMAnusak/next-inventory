@@ -131,13 +131,16 @@ export async function populateRequestLogUsersBatchOptimized(requestLogs: any[]) 
   if (userIds.size === 0) return requestLogs;
   
   // Batch fetch users from both User and DeletedUser collections
+  // Convert userIds to proper format for MongoDB queries
+  const userIdArray = Array.from(userIds);
+  
   const [activeUsers, deletedUsers] = await Promise.all([
-    User.find({ _id: { $in: Array.from(userIds) } }).lean(),
-    DeletedUser.find({ originalUserId: { $in: Array.from(userIds) } }).lean()
+    User.find({ user_id: { $in: userIdArray } }).lean(), // Use user_id field instead of _id
+    DeletedUser.find({ originalUserId: { $in: userIdArray } }).lean()
   ]);
   
   // Create lookup maps
-  const activeUserMap = new Map(activeUsers.map(user => [(user as any)._id.toString(), user]));
+  const activeUserMap = new Map(activeUsers.map(user => [(user as any).user_id, user]));
   const deletedUserMap = new Map(deletedUsers.map(user => [(user as any).originalUserId, user]));
   
   // Populate all logs

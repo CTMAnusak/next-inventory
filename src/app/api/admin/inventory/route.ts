@@ -63,8 +63,9 @@ export async function GET(request: NextRequest) {
     // Get total count for pagination
     const totalCount = await InventoryMaster.countDocuments(queryFilter);
     
-    // Get paginated InventoryMaster items
+    // Get paginated InventoryMaster items with optimized query
     const allItems = await InventoryMaster.find(queryFilter)
+      .select('_id itemName categoryId totalQuantity availableQuantity userOwnedQuantity lastUpdated itemDetails') // Only select needed fields
       .sort({ lastUpdated: -1 }) // Sort by newest first
       .skip(skip)
       .limit(limit)

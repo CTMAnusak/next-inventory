@@ -3,6 +3,7 @@ import { Kanit } from "next/font/google";
 import "./globals.css";
 import { AuthProvider } from "@/contexts/AuthContext";
 import { TutorialProvider } from "@/contexts/TutorialContext";
+import { ErrorMonitoringProvider } from "@/providers/ErrorMonitoringProvider";
 import { Toaster } from "react-hot-toast";
 import ClientOnly from "@/components/ClientOnly";
 import TutorialOverlay from "@/components/TutorialOverlay";
@@ -28,11 +29,12 @@ export default function RootLayout({
     <html lang="th" className={kanit.variable}>
       <body suppressHydrationWarning={true}>
         <ClientOnly>
-          <AuthProvider>
-            <TutorialProvider>
-              {children}
-              <TutorialOverlay />
-            </TutorialProvider>
+          <ErrorMonitoringProvider enableDashboard={true} enableGlobalHandling={true}>
+            <AuthProvider>
+              <TutorialProvider>
+                {children}
+                <TutorialOverlay />
+              </TutorialProvider>
             <Toaster
               position="top-right"
               toastOptions={{
@@ -66,7 +68,8 @@ export default function RootLayout({
                 },
               }}
             />
-          </AuthProvider>
+            </AuthProvider>
+          </ErrorMonitoringProvider>
         </ClientOnly>
       </body>
     </html>

@@ -35,7 +35,7 @@ export async function GET(request: NextRequest) {
     const startDate = monthNumber ? new Date(year, monthNumber - 1, 1) : new Date(year, 0, 1);
     const endDate = monthNumber ? new Date(year, monthNumber, 0, 23, 59, 59) : new Date(year, 11, 31, 23, 59, 59);
 
-    // DB-side aggregations and counts
+    // DB-side aggregations and counts with optimized queries
     const [
       totalIssues,
       pendingIssues,
@@ -67,13 +67,13 @@ export async function GET(request: NextRequest) {
       issuesByCategory,
       requestsByUrgency
     ] = await Promise.all([
-      // การ์ดด้านบน: นับทั้งหมด (ไม่อิงเดือน/ปี)
+      // การ์ดด้านบน: นับทั้งหมด (ไม่อิงเดือน/ปี) - ใช้ estimatedDocumentCount สำหรับ performance
       IssueLog.estimatedDocumentCount(),
-      IssueLog.countDocuments({ status: 'pending' }),
-      IssueLog.countDocuments({ status: 'in_progress' }),
-      IssueLog.countDocuments({ status: 'completed' }),
-      IssueLog.countDocuments({ urgency: 'very_urgent' }),
-      IssueLog.countDocuments({ urgency: 'normal' }),
+      IssueLog.countDocuments({ status: 'pending' }).lean(),
+      IssueLog.countDocuments({ status: 'in_progress' }).lean(),
+      IssueLog.countDocuments({ status: 'completed' }).lean(),
+      IssueLog.countDocuments({ urgency: 'very_urgent' }).lean(),
+      IssueLog.countDocuments({ urgency: 'normal' }).lean(),
 
       // นับจำนวนรายการอุปกรณ์ทั้งหมดที่เบิก (นับ items ที่อนุมัติแล้วเท่านั้น)
       RequestLog.aggregate([
@@ -87,28 +87,28 @@ export async function GET(request: NextRequest) {
         { $match: { 'items.approvalStatus': 'approved' } }, // เฉพาะ items ที่อนุมัติแล้ว
         { $count: 'total' }
       ]).then(result => result[0]?.total || 0),
-      User.countDocuments({ pendingDeletion: { $ne: true } }),
+      User.countDocuments({ pendingDeletion: { $ne: true } }).lean(),
       InventoryItem.estimatedDocumentCount(),
-      // นับจำนวนอุปกรณ์ที่ User เพิ่มเอง (self_reported)
+      // นับจำนวนอุปกรณ์ที่ User เพิ่มเอง (self_reported) - ใช้ lean()
       InventoryItem.countDocuments({ 
         'sourceInfo.acquisitionMethod': 'self_reported',
         'currentOwnership.ownerType': 'user_owned',
         deletedAt: { $exists: false }
-      }),
+      }).lean(),
       // นับแถวสินค้าใกล้หมด (availableQuantity <= 2 และไม่มี serial number) - นับจำนวนแถว ไม่ใช่จำนวน items
       InventoryMaster.countDocuments({ 
         availableQuantity: { $lte: 2, $gte: 0 }, // มีจำนวนคงเหลือ 0-2 ชิ้น
         'itemDetails.withSerialNumber.count': 0, // ไม่มี Serial Number
         'itemDetails.withPhoneNumber.count': 0   // ไม่มีเบอร์โทรศัพท์
-      }),
+      }).lean(),
 
-      // กล่อง "สถานะแจ้งงาน IT" (อิงช่วงเวลา)
-      IssueLog.countDocuments({ status: 'pending', reportDate: { $gte: startDate, $lte: endDate } }),
-      IssueLog.countDocuments({ status: 'in_progress', reportDate: { $gte: startDate, $lte: endDate } }),
-      IssueLog.countDocuments({ status: 'completed', reportDate: { $gte: startDate, $lte: endDate } }),
-      IssueLog.countDocuments({ status: 'closed', reportDate: { $gte: startDate, $lte: endDate } }),
-      IssueLog.countDocuments({ urgency: 'very_urgent', reportDate: { $gte: startDate, $lte: endDate } }),
-      IssueLog.countDocuments({ urgency: 'normal', reportDate: { $gte: startDate, $lte: endDate } }),
+      // กล่อง "สถานะแจ้งงาน IT" (อิงช่วงเวลา) - ใช้ lean()
+      IssueLog.countDocuments({ status: 'pending', reportDate: { $gte: startDate, $lte: endDate } }).lean(),
+      IssueLog.countDocuments({ status: 'in_progress', reportDate: { $gte: startDate, $lte: endDate } }).lean(),
+      IssueLog.countDocuments({ status: 'completed', reportDate: { $gte: startDate, $lte: endDate } }).lean(),
+      IssueLog.countDocuments({ status: 'closed', reportDate: { $gte: startDate, $lte: endDate } }).lean(),
+      IssueLog.countDocuments({ urgency: 'very_urgent', reportDate: { $gte: startDate, $lte: endDate } }).lean(),
+      IssueLog.countDocuments({ urgency: 'normal', reportDate: { $gte: startDate, $lte: endDate } }).lean(),
 
       // กล่อง "สถานะคลังสินค้า" (อิงช่วงเวลา - สำหรับรายการที่เพิ่มในช่วงเวลานั้น)
       InventoryItem.countDocuments({ 
