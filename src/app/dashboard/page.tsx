@@ -299,14 +299,8 @@ export default function DashboardPage() {
         const itemNames = data.availableItems?.map((item: any) => item.itemName) || [];
         setAvailableItems(itemNames);
         
-        // ✅ ถ้ามีข้อมูลตัวอย่างอุปกรณ์ ให้ตั้งค่า statusId และ conditionId เริ่มต้นในฟอร์ม
-        if (data.filters) {
-          setForm(prev => ({
-            ...prev,
-            status: prev.status || data.filters.statusId,
-            condition: prev.condition || data.filters.conditionId
-          }));
-        }
+        // ✅ ไม่ตั้งค่า status และ condition อัตโนมัติ ให้ผู้ใช้เลือกเอง
+        // เพื่อให้ผู้ใช้สามารถเลือกสถานะและสภาพที่ตรงกับอุปกรณ์จริงของตัวเอง
         
         console.log(`✅ Dashboard - Loaded ${itemNames.length} available items from stock (status: ${data.filters?.statusName}, condition: ${data.filters?.conditionName})`);
       }
@@ -1562,16 +1556,13 @@ export default function DashboardPage() {
                     
                     <div>
                       <label className="block text-sm font-medium text-gray-700 mb-1">
-                        สถานะ * {!showNewItemInput && form.itemName && !editItemId && '(จากคลังอุปกรณ์)'}
+                        สถานะ *
                       </label>
                       <select
                         value={form.status}
                         onChange={(e) => setForm({ ...form, status: e.target.value })}
-                        className={`w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 ${
-                          !showNewItemInput && form.itemName && !editItemId ? 'bg-blue-50 cursor-default' : ''
-                        }`}
+                        className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
                         required
-                        disabled={!showNewItemInput && form.itemName !== 'new' && !!form.itemName && !editItemId}
                       >
                         <option value="">เลือกสถานะ</option>
                         {statusConfigs.map((config) => (
@@ -1580,25 +1571,17 @@ export default function DashboardPage() {
                           </option>
                         ))}
                       </select>
-                      {!showNewItemInput && form.itemName && form.status && !editItemId && (
-                        <p className="text-xs text-blue-600 mt-1">
-                          ✅ อุปกรณ์จากคลังมีสถานะ: {getStatusName(form.status)}
-                        </p>
-                      )}
                     </div>
                     
                     <div>
                       <label className="block text-sm font-medium text-gray-700 mb-1">
-                        สภาพอุปกรณ์ * {!showNewItemInput && form.itemName && !editItemId && '(จากคลังอุปกรณ์)'}
+                        สภาพอุปกรณ์ *
                       </label>
                       <select
                         value={form.condition}
                         onChange={(e) => setForm({ ...form, condition: e.target.value })}
-                        className={`w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 ${
-                          !showNewItemInput && form.itemName && !editItemId ? 'bg-blue-50 cursor-default' : ''
-                        }`}
+                        className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
                         required
-                        disabled={!showNewItemInput && form.itemName !== 'new' && !!form.itemName && !editItemId}
                       >
                         <option value="">เลือกสภาพอุปกรณ์</option>
                         {conditionConfigs.map((config) => (
@@ -1607,11 +1590,6 @@ export default function DashboardPage() {
                           </option>
                         ))}
                       </select>
-                      {!showNewItemInput && form.itemName && form.condition && !editItemId && (
-                        <p className="text-xs text-blue-600 mt-1">
-                          ✅ อุปกรณ์จากคลังมีสภาพ: {getConditionName(form.condition)}
-                        </p>
-                      )}
                     </div>
                     
                     <div>

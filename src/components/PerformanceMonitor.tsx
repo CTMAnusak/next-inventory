@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef, useCallback } from 'react';
 
 interface PerformanceMetrics {
   renderTime: number;
@@ -106,7 +106,7 @@ export function useApiPerformanceMonitor() {
     success: boolean;
   }>>({});
 
-  const measureApiCall = useCallback(async <T>(
+  const measureApiCall = useCallback(async <T,>(
     apiCall: () => Promise<T>,
     endpoint: string
   ): Promise<T> => {

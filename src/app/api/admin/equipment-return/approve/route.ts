@@ -62,8 +62,8 @@ export async function POST(request: NextRequest) {
         const itemUpdate = itemUpdates?.find((update: any) => update.itemId === item.itemId);
         
         // Determine new status and condition
-        const newStatusId = itemUpdate?.statusId || 'status_available'; // Default: มี
-        const newConditionId = itemUpdate?.conditionId || item.conditionOnReturn || 'cond_working'; // Default: ใช้งานได้
+        const newStatusId = itemUpdate?.statusId || item.statusOnReturn || 'status_available'; // Use user's reported status first
+        const newConditionId = itemUpdate?.conditionId || item.conditionOnReturn || 'cond_working'; // Use user's reported condition first
         
         // Change item status and condition
         await changeItemStatus(
@@ -85,7 +85,7 @@ export async function POST(request: NextRequest) {
           transferType: 'return_completed',
           processedBy: payload.userId,
           returnId: returnId,
-          reason: `Equipment returned with condition: ${newConditionId === 'cond_working' ? 'usable' : 'damaged'}`
+          reason: `Equipment returned with status: ${newStatusId}, condition: ${newConditionId}`
         });
         
         processedItems.push({

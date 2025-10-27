@@ -104,8 +104,8 @@ export async function POST(
       }
       
       // Determine new status and condition
-      const newStatusId = 'status_available'; // Default: มี
-      const newConditionId = item.conditionOnReturn || 'cond_working'; // Default: ใช้งานได้
+      const newStatusId = item.statusOnReturn || 'status_available'; // Use user's reported status first
+      const newConditionId = item.conditionOnReturn || 'cond_working'; // Use user's reported condition first
       
       // Change item status and condition
       await changeItemStatus(
@@ -125,7 +125,7 @@ export async function POST(
         transferType: 'return_completed',
         processedBy: payload.userId,
         returnId: id,
-        reason: `Equipment returned with condition: ${newConditionId === 'cond_working' ? 'usable' : 'damaged'}`
+        reason: `Equipment returned with status: ${newStatusId}, condition: ${newConditionId}`
       });
       
       // Update the specific item approval status
