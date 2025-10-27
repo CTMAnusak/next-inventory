@@ -792,37 +792,37 @@ export default function AdminUsersPage() {
             <table className="min-w-[140%] divide-y divide-gray-200">
               <thead className="bg-blue-600">
                 <tr>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-white uppercase tracking-wider">
+                  <th className="px-6 py-3 text-center text-xs font-medium text-white uppercase tracking-wider">
                     ประเภท
                   </th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-white uppercase tracking-wider">
+                  <th className="px-6 py-3 text-center text-xs font-medium text-white uppercase tracking-wider">
                     User ID
                   </th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-white uppercase tracking-wider">
+                  <th className="px-6 py-3 text-center text-xs font-medium text-white uppercase tracking-wider">
                     ชื่อ-นามสกุล
                   </th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-white uppercase tracking-wider">
+                  <th className="px-6 py-3 text-center text-xs font-medium text-white uppercase tracking-wider">
                     ชื่อเล่น
                   </th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-white uppercase tracking-wider">
+                  <th className="px-6 py-3 text-center text-xs font-medium text-white uppercase tracking-wider">
                     แผนก
                   </th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-white uppercase tracking-wider">
+                  <th className="px-6 py-3 text-center text-xs font-medium text-white uppercase tracking-wider">
                     สาขา
                   </th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-white uppercase tracking-wider">
+                  <th className="px-6 py-3 text-center text-xs font-medium text-white uppercase tracking-wider">
                     เบอร์โทร
                   </th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-white uppercase tracking-wider">
+                  <th className="px-6 py-3 text-center text-xs font-medium text-white uppercase tracking-wider">
                     อีเมล
                   </th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-white uppercase tracking-wider">
+                  <th className="px-6 py-3 text-center text-xs font-medium text-white uppercase tracking-wider">
                     สถานะ
                   </th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-white uppercase tracking-wider">
+                  <th className="px-6 py-3 text-center text-xs font-medium text-white uppercase tracking-wider">
                     วันที่สร้าง
                   </th>
-                  <th className="px-6 py-3 text-right text-xs font-medium text-white uppercase tracking-wider">
+                  <th className="px-6 py-3 text-center text-xs font-medium text-white uppercase tracking-wider">
                     จัดการ
                   </th>
                 </tr>

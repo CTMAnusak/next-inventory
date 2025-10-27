@@ -116,18 +116,17 @@ export async function POST(
         `คืนจาก ${(returnLog as any).requesterName || 'ผู้ใช้'}`
       );
       
-      // Transfer back to admin stock if condition is working
-      if (newConditionId === 'cond_working') {
-        await transferInventoryItem({
-          itemId: item.itemId,
-          fromOwnerType: 'user_owned',
-          fromUserId: returnLog.userId.toString(),
-          toOwnerType: 'admin_stock',
-          transferType: 'return_completed',
-          processedBy: payload.userId,
-          returnId: id
-        });
-      }
+      // Transfer back to admin stock regardless of condition (both working and damaged items go back to admin stock)
+      await transferInventoryItem({
+        itemId: item.itemId,
+        fromOwnerType: 'user_owned',
+        fromUserId: returnLog.userId.toString(),
+        toOwnerType: 'admin_stock',
+        transferType: 'return_completed',
+        processedBy: payload.userId,
+        returnId: id,
+        reason: `Equipment returned with condition: ${newConditionId === 'cond_working' ? 'usable' : 'damaged'}`
+      });
       
       // Update the specific item approval status
       returnLog.items[itemIndex].approvalStatus = 'approved';

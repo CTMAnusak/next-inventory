@@ -2714,10 +2714,10 @@ export default function AdminInventoryPage() {
                   <th className="px-6 py-3 text-center text-xs font-medium text-white uppercase tracking-wider">
                     หมวดหมู่
                   </th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-white uppercase tracking-wider">
-                    จำนวนคงเหลือ
+                  <th className="px-6 py-3 text-center text-xs font-medium text-white uppercase tracking-wider">
+                    จำนวนที่เบิกได้
                   </th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-white uppercase tracking-wider">
+                  <th className="px-6 py-3 text-center text-xs font-medium text-white uppercase tracking-wider">
                     จำนวนทั้งหมด
                   </th>
                   <th className="px-6 py-3 text-center text-xs font-medium text-white uppercase tracking-wider">

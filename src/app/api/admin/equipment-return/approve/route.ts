@@ -74,27 +74,26 @@ export async function POST(request: NextRequest) {
           `คืนจาก ${returnLog.returnerFirstName} ${returnLog.returnerLastName}`
         );
         
-        // Transfer back to admin stock if condition is working
-        if (newConditionId === 'cond_working') {
-          const { transferInventoryItem } = await import('@/lib/inventory-helpers');
-          
-          await transferInventoryItem({
-            itemId: item.itemId,
-            fromOwnerType: 'user_owned',
-            fromUserId: returnLog.userId.toString(),
-            toOwnerType: 'admin_stock',
-            transferType: 'return_completed',
-            processedBy: payload.userId,
-            returnId: returnId
-          });
-        }
+        // Transfer back to admin stock regardless of condition (both working and damaged items go back to admin stock)
+        const { transferInventoryItem } = await import('@/lib/inventory-helpers');
+        
+        await transferInventoryItem({
+          itemId: item.itemId,
+          fromOwnerType: 'user_owned',
+          fromUserId: returnLog.userId.toString(),
+          toOwnerType: 'admin_stock',
+          transferType: 'return_completed',
+          processedBy: payload.userId,
+          returnId: returnId,
+          reason: `Equipment returned with condition: ${newConditionId === 'cond_working' ? 'usable' : 'damaged'}`
+        });
         
         processedItems.push({
           itemId: item.itemId,
           serialNumber: item.serialNumber,
           newStatusId,
           newConditionId,
-          transferredToAdmin: newConditionId === 'cond_working'
+          transferredToAdmin: true // Always transfer back to admin stock when returning equipment
         });
         
       } catch (itemError) {

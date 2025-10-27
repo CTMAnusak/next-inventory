@@ -808,12 +808,12 @@ export default function PendingSummaryPage() {
               <table className="min-w-full divide-y divide-gray-200">
                 <thead className="bg-green-600">
                   <tr>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-white uppercase tracking-wider">User ID</th>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-white uppercase tracking-wider">ชื่อ-นามสกุล</th>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-white uppercase tracking-wider">ชื่อเล่น</th>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-white uppercase tracking-wider">อีเมล</th>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-white uppercase tracking-wider">สาขา</th>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-white uppercase tracking-wider">วันที่สร้าง</th>
+                    <th className="px-6 py-3 text-center text-xs font-medium text-white uppercase tracking-wider">User ID</th>
+                    <th className="px-6 py-3 text-center text-xs font-medium text-white uppercase tracking-wider">ชื่อ-นามสกุล</th>
+                    <th className="px-6 py-3 text-center text-xs font-medium text-white uppercase tracking-wider">ชื่อเล่น</th>
+                    <th className="px-6 py-3 text-center text-xs font-medium text-white uppercase tracking-wider">อีเมล</th>
+                    <th className="px-6 py-3 text-center text-xs font-medium text-white uppercase tracking-wider">สาขา</th>
+                    <th className="px-6 py-3 text-center text-xs font-medium text-white uppercase tracking-wider">วันที่สร้าง</th>
                     <th className="px-6 py-3 text-center text-xs font-medium text-white uppercase tracking-wider">วันที่ค้าง</th>
                   </tr>
                 </thead>

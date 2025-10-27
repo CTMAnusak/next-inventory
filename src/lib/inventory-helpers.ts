@@ -467,10 +467,14 @@ export async function updateInventoryMaster(itemName: string, categoryId: string
     const adminStockItems = allItems.filter(item => item.currentOwnership.ownerType === 'admin_stock');
     const userOwnedItems = allItems.filter(item => item.currentOwnership.ownerType === 'user_owned');
     
+    // ⚠️ CRITICAL FIX: availableQuantity = อุปกรณ์ที่พร้อมเบิกได้จริง (ต้องมี: สภาพ "มี" + "ใช้งานได้")
+    // ตรงกับ findAvailableItems() เพื่อให้จำนวนที่แสดงตรงกับจำนวนที่เบิกได้จริง
+    const availableToBorrow = adminStockItems.filter(item => 
+      item.statusId === 'status_available' && item.conditionId === 'cond_working'
+    );
+    
     updatedMaster.totalQuantity = allItems.length;
-    // 🆕 FIXED: availableQuantity ควรหมายถึงอุปกรณ์ทั้งหมดที่ยังอยู่ในระบบ (ไม่ได้ถูกเบิกไป)
-    // รวมทุกสถานะของ admin_stock เพราะยังคงเป็น "คงเหลือ" ในระบบ
-    updatedMaster.availableQuantity = adminStockItems.length;
+    updatedMaster.availableQuantity = availableToBorrow.length;
     updatedMaster.userOwnedQuantity = userOwnedItems.length;
     
     // 🔧 Fix: อัปเดต relatedItemIds ให้ตรงกับ InventoryItems ที่มีอยู่จริง
