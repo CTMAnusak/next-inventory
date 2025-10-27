@@ -34,8 +34,12 @@ export async function POST(request: NextRequest) {
     if (!user) {
       console.log('❌ User not found for email:', email);
       return NextResponse.json(
-        { error: 'อีเมลหรือรหัสผ่านไม่ถูกต้อง' },
-        { status: 401 }
+        { 
+          error: 'ไม่พบผู้ใช้ในระบบ',
+          errorType: 'user_not_found',
+          details: 'กรุณาสมัครสมาชิก หรือติดต่อทีม IT (เบอร์ : 092-591-9889 (คุณเบลล์) , Line ID : vsqitsupport)'
+        },
+        { status: 404 }
       );
     }
 
@@ -45,7 +49,10 @@ export async function POST(request: NextRequest) {
     if (!isValid) {
       console.log('❌ Invalid password for email:', email);
       return NextResponse.json(
-        { error: 'อีเมลหรือรหัสผ่านไม่ถูกต้อง' },
+        { 
+          error: 'รหัสผ่านไม่ถูกต้อง',
+          errorType: 'invalid_password'
+        },
         { status: 401 }
       );
     }

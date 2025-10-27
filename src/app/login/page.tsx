@@ -16,7 +16,7 @@ export default function LoginPage() {
     title: string;
     message: string;
     details: string;
-    type: 'pending_approval' | 'already_exists' | 'email_taken' | 'error';
+    type: 'pending_approval' | 'already_exists' | 'email_taken' | 'user_not_found' | 'invalid_password' | 'error';
   } | null>(null);
   const [checkingAuth, setCheckingAuth] = useState(true);
   const router = useRouter();
@@ -109,7 +109,17 @@ export default function LoginPage() {
           window.location.href = '/dashboard';
         }, 1000);
       } else {
-        toast.error(data.error || 'เกิดข้อผิดพลาด', { duration: 4000 });
+        // ตรวจสอบ error type
+        if (data.errorType === 'user_not_found' || data.errorType === 'no_account') {
+          // ใช้ getErrorInfo เพื่อ format ข้อมูลให้สอดคล้องกัน
+          const errorInfo = getErrorInfo(data);
+          setErrorData(errorInfo);
+          setShowErrorModal(true);
+        } else if (data.errorType === 'invalid_password') {
+          toast.error(data.error || 'รหัสผ่านไม่ถูกต้อง', { duration: 4000 });
+        } else {
+          toast.error(data.error || 'เกิดข้อผิดพลาด', { duration: 4000 });
+        }
       }
     } catch (error) {
       toast.error('เกิดข้อผิดพลาดในการเชื่อมต่อ', { duration: 4000 });
@@ -216,11 +226,18 @@ export default function LoginPage() {
           details: details || 'กรุณาใช้วิธีเข้าสู่ระบบปกติ หรือใช้อีเมล Google อื่น',
           type: 'email_taken' as const
         };
+      case 'user_not_found':
+        return {
+          title: '❌ ไม่พบผู้ใช้ในระบบ',
+          message: 'อีเมลที่กรอกไม่พบในระบบ',
+          details: details || 'กรุณาสมัครสมาชิก หรือติดต่อทีม IT (เบอร์ : 092-591-9889 (คุณเบลล์) , Line ID : vsqitsupport)',
+          type: 'user_not_found' as const
+        };
       case 'no_account':
         return {
           title: '❌ ไม่พบบัญชีผู้ใช้',
-          message: error,
-          details: details || 'กรุณาสมัครสมาชิกด้วย Google หรือติดต่อผู้ดูแลระบบหากปัญหายังคงมีอยู่',
+          message: 'บัญชีนี้ไม่พบในระบบ',
+          details: details || 'กรุณาสมัครสมาชิก หรือติดต่อทีม IT (เบอร์ : 092-591-9889 (คุณเบลล์) , Line ID : vsqitsupport)',
           type: 'error' as const
         };
       default:
@@ -410,7 +427,7 @@ export default function LoginPage() {
                   <Mail className="w-8 h-8 text-blue-600" />
                 </div>
               )}
-              {errorData.type === 'error' && (
+              {(errorData.type === 'user_not_found' || errorData.type === 'error') && (
                 <div className="w-16 h-16 bg-red-100 rounded-full flex items-center justify-center">
                   <AlertCircle className="w-8 h-8 text-red-600" />
                 </div>

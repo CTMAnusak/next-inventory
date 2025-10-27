@@ -817,7 +817,7 @@ export default function DashboardPage() {
         <div className="bg-white/80 backdrop-blur-sm rounded-2xl shadow-lg py-8 px-6 border border-white/50">
           {/* Desktop Layout (768px and above) */}
           <div className="flex flex-col md:flex-row text-center md:text-left justify-between mb-7 gap-4">
-            <div className="text-2xl font-semibold text-blue-600">{
+            <div className="text-2xl font-font-medium text-blue-600">{
               (user?.userType === 'branch'
                 ? `ทรัพย์สินที่มี ของ สาขา ${user?.office || ''}`
                 : `ทรัพย์สินที่มี ของ ${[user?.firstName, user?.lastName].filter(Boolean).join(' ')}`
