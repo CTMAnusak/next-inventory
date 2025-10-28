@@ -153,27 +153,61 @@ const StatusCell: React.FC<StatusCellProps> = ({
               <div className="loading">กำลังโหลดข้อมูล...</div>
             ) : breakdown ? (
               <>
-                <h4>สถานะอุปกรณ์:</h4>
-                {breakdown.statusBreakdown && Object.entries(breakdown.statusBreakdown)
-                  .map(([statusId, count]) => {
-                    return (
+                <div className="breakdown-note" style={{ 
+                  backgroundColor: '#E3F2FD', 
+                  padding: '8px', 
+                  borderRadius: '4px', 
+                  marginBottom: '12px',
+                  fontSize: '12px',
+                  color: '#1565C0'
+                }}>
+                  💡 <strong>จำนวนที่เบิกได้</strong> = อุปกรณ์ที่อยู่ใน Admin Stock + สถานะ "มี" + สภาพ "ใช้งานได้"
+                </div>
+                <h4>สถานะอุปกรณ์ (Admin Stock):</h4>
+                {breakdown.adminStatusBreakdown && Object.keys(breakdown.adminStatusBreakdown).length > 0 ? (
+                  Object.entries(breakdown.adminStatusBreakdown).map(([statusId, count]) => (
+                    <div key={statusId} className="breakdown-item">
+                      • {getStatusName(statusId)}: {count} ชิ้น
+                    </div>
+                  ))
+                ) : (
+                  <div className="breakdown-item text-gray-500">• ไม่มีอุปกรณ์ในคลัง</div>
+                )}
+                
+                <h4>สภาพอุปกรณ์ (Admin Stock):</h4>
+                {breakdown.adminConditionBreakdown && Object.keys(breakdown.adminConditionBreakdown).length > 0 ? (
+                  Object.entries(breakdown.adminConditionBreakdown).map(([conditionId, count]) => (
+                    <div key={conditionId} className="breakdown-item">
+                      • {getConditionName(conditionId)}: {count} ชิ้น
+                    </div>
+                  ))
+                ) : (
+                  <div className="breakdown-item text-gray-500">• ไม่มีอุปกรณ์ในคลัง</div>
+                )}
+
+                {breakdown.userStatusBreakdown && Object.keys(breakdown.userStatusBreakdown).length > 0 && (
+                  <>
+                    <h4 className="mt-2">สถานะอุปกรณ์ (User Owned):</h4>
+                    {Object.entries(breakdown.userStatusBreakdown).map(([statusId, count]) => (
                       <div key={statusId} className="breakdown-item">
                         • {getStatusName(statusId)}: {count} ชิ้น
                       </div>
-                    );
-                  })}
-                
-                <h4>สภาพอุปกรณ์:</h4>
-                {breakdown.conditionBreakdown && Object.entries(breakdown.conditionBreakdown)
-                  .map(([conditionId, count]) => {
-                    return (
+                    ))}
+                  </>
+                )}
+
+                {breakdown.userConditionBreakdown && Object.keys(breakdown.userConditionBreakdown).length > 0 && (
+                  <>
+                    <h4 className="mt-2">สภาพอุปกรณ์ (User Owned):</h4>
+                    {Object.entries(breakdown.userConditionBreakdown).map(([conditionId, count]) => (
                       <div key={conditionId} className="breakdown-item">
                         • {getConditionName(conditionId)}: {count} ชิ้น
                       </div>
-                    );
-                  })}
+                    ))}
+                  </>
+                )}
                 
-                <h4>ประเภทอุปกรณ์:</h4>
+                <h4 className="mt-2">ประเภทอุปกรณ์:</h4>
                 {breakdown.typeBreakdown && (
                   <>
                     {breakdown.typeBreakdown.withoutSN > 0 && (

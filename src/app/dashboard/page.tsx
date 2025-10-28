@@ -860,13 +860,13 @@ export default function DashboardPage() {
               <tbody>
                 {ownedLoading ? (
                   <tr>
-                    <td colSpan={14} className="px-3 py-6 text-center text-gray-500">
+                    <td colSpan={14} className="px-3 py-6 text-left text-gray-500">
                       <RefreshCw className="inline-block w-4 h-4 mr-2 animate-spin text-gray-400" /> กำลังโหลดข้อมูล
                     </td>
                   </tr>
                 ) : ownedItems.length === 0 ? (
                   <tr>
-                    <td colSpan={14} className="px-3 py-6 text-center text-gray-500">
+                    <td colSpan={14} className="px-3 py-6 text-left text-gray-500">
                       ยังไม่มีอุปกรณ์ในความครอบครอง
                     </td>
                   </tr>

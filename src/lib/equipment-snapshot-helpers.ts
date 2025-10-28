@@ -101,9 +101,8 @@ export async function snapshotRequestLogsBeforeUserDelete(userId: string) {
         // ผู้ใช้สาขา: Snapshot เฉพาะข้อมูลสาขา (ห้ามแตะข้อมูลส่วนตัว)
         updateFields = {
           requesterOffice: user.office || '',
-          requesterPhone: user.phone || '',
           requesterEmail: user.email || ''
-          // ❌ ไม่แตะ: firstName, lastName, nickname, department
+          // ❌ ไม่แตะ: firstName, lastName, nickname, department, phone
           // เพราะข้อมูลเหล่านี้มาจากฟอร์มที่กรอกแต่ละครั้ง
         };
       }
@@ -184,9 +183,8 @@ export async function snapshotReturnLogsBeforeUserDelete(userId: string) {
         // ผู้ใช้สาขา: Snapshot เฉพาะข้อมูลสาขา (ห้ามแตะข้อมูลส่วนตัว)
         updateFields = {
           returnerOffice: user.office || '',
-          returnerPhone: user.phone || '',
           returnerEmail: user.email || ''
-          // ❌ ไม่แตะ: firstName, lastName, nickname, department
+          // ❌ ไม่แตะ: firstName, lastName, nickname, department, phone
           // เพราะข้อมูลเหล่านี้มาจากฟอร์มที่กรอกแต่ละครั้ง
         };
       }

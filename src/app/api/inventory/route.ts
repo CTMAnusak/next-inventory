@@ -99,8 +99,9 @@ export async function GET(request: NextRequest) {
         itemName: item.itemName,
         categoryId: item.categoryId, // ใช้ categoryId เป็นหลัก
         // ไม่ส่ง category name ใน API response - ให้ frontend ใช้ categoryId ในการ lookup
-      quantity: item.availableQuantity, // จำนวนที่เหลือให้เบิก
-      totalQuantity: item.totalQuantity,
+      quantity: item.availableQuantity, // จำนวนที่เหลือให้เบิก (สำหรับ user - เบิกได้เฉพาะที่ available + working)
+      availableQuantity: item.availableQuantity, // จำนวนที่พร้อมเบิก (available + working)
+      totalQuantity: item.totalQuantity, // จำนวนทั้งหมด
       serialNumbers: [], // Will be populated from InventoryItem if needed
       status: 'active',
       dateAdded: item.updatedAt,

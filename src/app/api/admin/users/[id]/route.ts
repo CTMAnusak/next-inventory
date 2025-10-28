@@ -342,8 +342,8 @@ export async function DELETE(
           ...(userToDelete.userType === 'branch' ? {
             // เฉพาะข้อมูลสาขา
             office: userToDelete.office,
-            phone: userToDelete.phone,
             email: userToDelete.email,
+            // ❌ ไม่ snapshot phone เพราะมาจากฟอร์มที่กรอกแต่ละครั้ง
           } : {
             // ผู้ใช้บุคคล snapshot ข้อมูลทั้งหมด
             firstName: userToDelete.firstName,

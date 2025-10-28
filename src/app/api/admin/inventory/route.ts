@@ -39,12 +39,10 @@ export async function GET(request: NextRequest) {
     }
     
     // Build query filter
+    // 🔧 CRITICAL FIX: แสดงทุกรายการที่มี relatedItemIds (ไม่กรองออกแม้จะมีจำนวน 0)
+    // เพื่อป้องกันการหายของอุปกรณ์เมื่อ totalQuantity = 0
     const queryFilter: any = {
-      $or: [
-        { totalQuantity: { $gt: 0 } },
-        { availableQuantity: { $gt: 0 } },
-        { userOwnedQuantity: { $gt: 0 } }
-      ]
+      relatedItemIds: { $exists: true, $ne: [] }
     };
     
     // Add search filter
@@ -77,7 +75,8 @@ export async function GET(request: NextRequest) {
       itemName: item.itemName,
       categoryId: item.categoryId,
       totalQuantity: item.totalQuantity,
-      quantity: item.availableQuantity, // จำนวนที่เหลือให้เบิก
+      quantity: item.totalQuantity, // 🔧 CRITICAL FIX: แสดงจำนวนทั้งหมด ไม่ใช่เฉพาะที่เบิกได้
+      availableQuantity: item.availableQuantity, // จำนวนที่พร้อมเบิก (available + working)
       serialNumbers: [], // จะต้องดึงจาก InventoryItem ถ้าต้องการ
       dateAdded: item.lastUpdated,
       status: 'active', // Default status

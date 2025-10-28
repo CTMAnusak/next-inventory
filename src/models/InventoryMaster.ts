@@ -230,19 +230,22 @@ InventoryMasterSchema.index({ itemName: 1, categoryId: 1 }, { unique: true });
 
 // Pre-save validation
 InventoryMasterSchema.pre('save', function(next) {
-  // ตรวจสอบว่า totalQuantity = availableQuantity + userOwnedQuantity
-  const calculatedTotal = this.availableQuantity + this.userOwnedQuantity;
-  if (Math.abs(this.totalQuantity - calculatedTotal) > 0.01) {
-    console.warn(`Total quantity mismatch for ${this.itemName}: ${this.totalQuantity} !== ${calculatedTotal}`);
-    // Auto-correct
-    this.totalQuantity = calculatedTotal;
-  }
+  // 🔧 CRITICAL FIX: ลบ validation ที่บังคับให้ totalQuantity = availableQuantity + userOwnedQuantity
+  // เพราะ totalQuantity ควรนับอุปกรณ์ทั้งหมด (รวมชำรุด/สูญหาย)
+  // แต่ availableQuantity นับเฉพาะที่พร้อมเบิก (available + working)
   
-  // ตรวจสอบว่า statusBreakdown รวมกันต้องเท่ากับ totalQuantity
-  const statusTotal = this.statusBreakdown.active + this.statusBreakdown.maintenance + 
-                     this.statusBreakdown.damaged + this.statusBreakdown.retired;
-  if (Math.abs(statusTotal - this.totalQuantity) > 0.01) {
-    console.warn(`Status breakdown mismatch for ${this.itemName}: ${statusTotal} !== ${this.totalQuantity}`);
+  // ✅ NEW: Validation ที่ถูกต้อง - ตรวจสอบว่าค่าไม่ติดลบ
+  if (this.totalQuantity < 0) {
+    console.warn(`Invalid totalQuantity for ${this.itemName}: ${this.totalQuantity}`);
+    this.totalQuantity = 0;
+  }
+  if (this.availableQuantity < 0) {
+    console.warn(`Invalid availableQuantity for ${this.itemName}: ${this.availableQuantity}`);
+    this.availableQuantity = 0;
+  }
+  if (this.userOwnedQuantity < 0) {
+    console.warn(`Invalid userOwnedQuantity for ${this.itemName}: ${this.userOwnedQuantity}`);
+    this.userOwnedQuantity = 0;
   }
   
   // Stock Management Auto-correction: realAvailable = adminDefinedStock - currentlyAllocated

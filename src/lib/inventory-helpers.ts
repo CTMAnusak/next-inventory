@@ -353,6 +353,18 @@ export async function transferInventoryItem(params: TransferItemParams) {
   if (fromOwnerType === 'admin_stock' && toOwnerType === 'user_owned') {
     item.sourceInfo.acquisitionMethod = 'transferred';
   }
+  
+  // ✅ เมื่อ user คืนอุปกรณ์ที่เพิ่มเอง ให้เปลี่ยนเป็น admin equipment
+  if (fromOwnerType === 'user_owned' && toOwnerType === 'admin_stock' && item.sourceInfo.addedBy === 'user') {
+    item.sourceInfo.addedBy = 'admin';
+    item.sourceInfo.acquisitionMethod = 'transferred';
+    // เก็บข้อมูลผู้เพิ่มเดิมไว้ใน notes
+    if (!item.sourceInfo.notes) {
+      item.sourceInfo.notes = `Originally added by user: ${item.sourceInfo.addedByUserId}`;
+    }
+    // ลบ addedByUserId เพราะตอนนี้เป็น admin equipment แล้ว
+    item.sourceInfo.addedByUserId = undefined;
+  }
 
   // ✅ คัดลอกข้อมูลผู้ใช้สาขา (เมื่อโอนให้ user_owned)
   if (toOwnerType === 'user_owned' && requesterInfo) {
@@ -464,6 +476,13 @@ export async function updateInventoryMaster(itemName: string, categoryId: string
       deletedAt: { $exists: false }
     });
     
+    console.log(`📊 updateInventoryMaster for ${itemName}:`, {
+      allItemsCount: allItems.length,
+      allItemsIds: allItems.map(i => i._id),
+      itemNames: allItems.map(i => (i as any).itemName),
+      categoryIds: allItems.map(i => (i as any).categoryId)
+    });
+    
     const adminStockItems = allItems.filter(item => item.currentOwnership.ownerType === 'admin_stock');
     const userOwnedItems = allItems.filter(item => item.currentOwnership.ownerType === 'user_owned');
     
@@ -473,9 +492,44 @@ export async function updateInventoryMaster(itemName: string, categoryId: string
       item.statusId === 'status_available' && item.conditionId === 'cond_working'
     );
     
+    // 🔍 Debug logging for troubleshooting
+    if (availableToBorrow.length === 0 && adminStockItems.length > 0) {
+      const statusCounts: Record<string, number> = {};
+      const conditionCounts: Record<string, number> = {};
+      const missingCondition: any[] = [];
+      
+      adminStockItems.forEach(item => {
+        const statusId = item.statusId || 'undefined';
+        const conditionId = item.conditionId || 'undefined';
+        statusCounts[statusId] = (statusCounts[statusId] || 0) + 1;
+        conditionCounts[conditionId] = (conditionCounts[conditionId] || 0) + 1;
+        
+        if (!item.conditionId) {
+          missingCondition.push({
+            _id: item._id,
+            statusId: item.statusId,
+            conditionId: item.conditionId
+          });
+        }
+      });
+      
+      console.log(`⚠️  ${itemName}: availableQuantity=0 but adminStock=${adminStockItems.length}`);
+      console.log(`   Status breakdown:`, statusCounts);
+      console.log(`   Condition breakdown:`, conditionCounts);
+      if (missingCondition.length > 0) {
+        console.log(`   ⚠️  ${missingCondition.length} items have null/undefined conditionId:`, missingCondition);
+      }
+    }
+    
     updatedMaster.totalQuantity = allItems.length;
     updatedMaster.availableQuantity = availableToBorrow.length;
     updatedMaster.userOwnedQuantity = userOwnedItems.length;
+    
+    console.log(`📊 Calculated quantities:`, {
+      totalQuantity: updatedMaster.totalQuantity,
+      availableQuantity: updatedMaster.availableQuantity,
+      userOwnedQuantity: updatedMaster.userOwnedQuantity
+    });
     
     // 🔧 Fix: อัปเดต relatedItemIds ให้ตรงกับ InventoryItems ที่มีอยู่จริง
     const currentRelatedIds = allItems.map(item => (item._id as any).toString());
@@ -577,9 +631,17 @@ export async function updateInventoryMaster(itemName: string, categoryId: string
     updatedMaster.stockManagement.adminDefinedStock = updatedMaster.availableQuantity;
     updatedMaster.stockManagement.realAvailable = updatedMaster.availableQuantity;
     
-    await updatedMaster.save();
+    const savedMaster = await updatedMaster.save();
     
-    return updatedMaster;
+    console.log(`✅ Saved InventoryMaster:`, {
+      _id: savedMaster._id,
+      itemName: savedMaster.itemName,
+      totalQuantity: savedMaster.totalQuantity,
+      availableQuantity: savedMaster.availableQuantity,
+      userOwnedQuantity: savedMaster.userOwnedQuantity
+    });
+    
+    return savedMaster;
   } catch (error) {
     console.error('❌ updateInventoryMaster failed:', error);
     throw error;

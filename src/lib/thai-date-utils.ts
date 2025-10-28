@@ -141,15 +141,3 @@ export {
   formatEquipmentTrackingDate
 };
 
-// CommonJS exports for testing
-if (typeof module !== 'undefined' && module.exports) {
-  module.exports = {
-    getThaiDate,
-    createThaiDate,
-    formatThaiDate,
-    formatThaiTime,
-    isSameThaiDay,
-    createDatabaseDate,
-    formatEquipmentTrackingDate
-  };
-}

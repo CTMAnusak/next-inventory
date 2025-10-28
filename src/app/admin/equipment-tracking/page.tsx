@@ -632,7 +632,7 @@ export default function AdminEquipmentTrackingPage() {
           {/* Equipment Tracking Table */}
           <div ref={tableContainerRef} className="table-container">
             {loading && (
-              <div className="text-center py-8 text-gray-500">
+              <div className="text-left py-8 text-gray-500">
                 <RefreshCw className="inline-block w-4 h-4 mr-2 animate-spin text-gray-400" />
                 กำลังโหลดข้อมูล
               </div>

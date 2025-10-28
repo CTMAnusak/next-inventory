@@ -167,8 +167,9 @@ export async function POST(request: NextRequest) {
         image: item.image || undefined,
         statusOnReturn: item.statusOnReturn || 'status_available',
         conditionOnReturn: item.conditionOnReturn || 'cond_working',
-        statusOnReturnName: snapshot?.statusName,
-        conditionOnReturnName: snapshot?.conditionName,
+        // 🔧 CRITICAL FIX: ใช้ค่าจาก item ที่ frontend ส่งมา ไม่ใช่จาก snapshot
+        statusOnReturnName: item.statusOnReturnName || snapshot?.statusName,
+        conditionOnReturnName: item.conditionOnReturnName || snapshot?.conditionName,
         itemNotes: item.itemNotes || undefined
       };
     });

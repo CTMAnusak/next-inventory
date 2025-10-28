@@ -856,6 +856,19 @@ export default function EquipmentReturnPage() {
           // For SIM cards, prefer numberPhone over serialNumber
           const finalPhone = selectedOption?.numberPhone || ri.numberPhone || '';
           
+          // 🔧 FIX: Get status and condition names from configs
+          const statusConfig = statusConfigs.find(s => s.id === ri.statusOnReturn);
+          const conditionConfig = conditionConfigs.find(c => c.id === ri.conditionOnReturn);
+          
+          // 🔍 DEBUG: Log config lookup
+          console.log('🔍 Config Lookup for item:', ri.itemName);
+          console.log('  statusOnReturn:', ri.statusOnReturn);
+          console.log('  statusConfig found:', statusConfig);
+          console.log('  conditionOnReturn:', ri.conditionOnReturn);
+          console.log('  conditionConfig found:', conditionConfig);
+          console.log('  All statusConfigs:', statusConfigs);
+          console.log('  All conditionConfigs:', conditionConfigs);
+          
           return {
             itemId: finalId,
             quantity: ri.quantity,
@@ -866,7 +879,9 @@ export default function EquipmentReturnPage() {
             masterItemId: (ri as any).masterItemId,
             itemNotes: ri.itemNotes || '',
             statusOnReturn: ri.statusOnReturn || 'status_available',
-            conditionOnReturn: ri.conditionOnReturn || 'cond_working'
+            conditionOnReturn: ri.conditionOnReturn || 'cond_working',
+            statusOnReturnName: statusConfig?.name || 'มี', // 🆕 เพิ่มชื่อสถานะ
+            conditionOnReturnName: conditionConfig?.name || 'ใช้งานได้' // 🆕 เพิ่มชื่อสภาพ
           };
         })
       );

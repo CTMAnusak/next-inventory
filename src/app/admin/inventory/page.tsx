@@ -61,13 +61,16 @@ interface InventoryItem {
   _id: string;
   itemName: string;
   categoryId: string; // Use categoryId as primary field
-  quantity: number;
+  quantity: number; // totalQuantity (จำนวนทั้งหมด)
   totalQuantity?: number;
+  availableQuantity?: number; // จำนวนที่พร้อมเบิก (available + working)
+  userOwnedQuantity: number; // จำนวนที่ user ถือ
   serialNumbers?: string[]; // แก้ไขจาก serialNumber เป็น serialNumbers
   status: string; // Deprecated - will be removed
   statusId?: string; // New field for status reference
   condition?: string; // New field for condition reference
   dateAdded: string;
+  hasSerialNumber?: boolean; // มี serial number หรือไม่
 }
 
 interface ICategoryConfig {
@@ -297,6 +300,21 @@ export default function AdminInventoryPage() {
   // Search and filter for edit items
   const [itemSearchTerm, setItemSearchTerm] = useState('');
   const [itemFilterBy, setItemFilterBy] = useState<'all' | 'admin' | 'user'>('all');
+  
+  // 🆕 NEW: State for inline table editing of status+condition combinations
+  const [editingCombinationKey, setEditingCombinationKey] = useState<string | null>(null);
+  const [editingCombinationData, setEditingCombinationData] = useState<{
+    newStatusId: string;
+    newConditionId: string;
+    quantity: number;
+  } | null>(null);
+  const [combinationsData, setCombinationsData] = useState<Array<{
+    statusId: string;
+    conditionId: string;
+    quantity: number;
+    key: string;
+  }>>([]);
+  const [combinationsLoading, setCombinationsLoading] = useState(false);
 
   // Derived state สำหรับ backward compatibility
   // Remove categories variable - use categoryConfigs directly
@@ -458,20 +476,30 @@ export default function AdminInventoryPage() {
   const fetchInventory = async (page: number = 1, search: string = '', category: string = '') => {
     setLoading(true);
     try {
-      // Build query parameters
+      // Build query parameters - add timestamp to prevent caching
       const params = new URLSearchParams({
         page: page.toString(),
         limit: '50',
+        forceRefresh: 'true',
+        t: Date.now().toString(),
         ...(search && { search }),
         ...(category && { category })
       });
       
-      const response = await fetch(`/api/admin/inventory?${params.toString()}`);
+      const response = await fetch(`/api/admin/inventory?${params.toString()}`, {
+        cache: 'no-store',
+        headers: {
+          'Cache-Control': 'no-cache'
+        }
+      });
       const handledResponse = await handleApiResponse(response, 'ไม่สามารถโหลดข้อมูลคลังสินค้าได้ - เซสชันหมดอายุ');
       
       if (handledResponse && handledResponse.ok) {
         const data = await handledResponse.json();
-        setItems(data.items || data); // Support both old and new format
+        // 🔧 FIX: Force new array reference to trigger re-render
+        const freshItems = Array.isArray(data.items) ? [...data.items] : (Array.isArray(data) ? [...data] : []);
+        console.log('📦 Fetched items:', freshItems.length, 'items');
+        setItems(freshItems);
         // TODO: Handle pagination data if needed
       } else if (handledResponse) {
         toast.error('เกิดข้อผิดพลาด');
@@ -640,6 +668,8 @@ export default function AdminInventoryPage() {
           categoryId: it.categoryId,
           quantity: 0,
           totalQuantity: 0,
+          availableQuantity: it.availableQuantity ?? 0, // 🔧 FIX: เพิ่ม availableQuantity จาก API
+          userOwnedQuantity: it.userOwnedQuantity ?? 0, // 🔧 FIX: เพิ่ม userOwnedQuantity จาก API
           serialNumbers: [] as string[],
           status: it.status,
           dateAdded: it.dateAdded,
@@ -686,7 +716,7 @@ export default function AdminInventoryPage() {
     // Apply low stock filter AFTER grouping (exclude groups that have serial numbers)
     if (stockDisplayMode === 'low_stock') {
       grouped = grouped.filter(
-        (g) => g.quantity <= lowStockThreshold && (!g.serialNumbers || g.serialNumbers.length === 0)
+        (g) => (g.availableQuantity ?? 0) <= lowStockThreshold && (!g.serialNumbers || g.serialNumbers.length === 0)
       );
     }
     // If stockDisplayMode is 'all', we don't filter by stock level
@@ -694,8 +724,9 @@ export default function AdminInventoryPage() {
     // Sort by low stock items first (non-serial groups only), then by date added
     grouped.sort((a, b) => {
       const threshold = lowStockThreshold;
-      const aIsLowStock = a.quantity <= threshold && (!a.serialNumbers || a.serialNumbers.length === 0);
-      const bIsLowStock = b.quantity <= threshold && (!b.serialNumbers || b.serialNumbers.length === 0);
+      // 🔧 FIX: ใช้ availableQuantity สำหรับ low stock sorting
+      const aIsLowStock = (a.availableQuantity ?? 0) <= threshold && (!a.serialNumbers || a.serialNumbers.length === 0);
+      const bIsLowStock = (b.availableQuantity ?? 0) <= threshold && (!b.serialNumbers || b.serialNumbers.length === 0);
       if (aIsLowStock && !bIsLowStock) return -1;
       if (!aIsLowStock && bIsLowStock) return 1;
       return new Date(b.dateAdded).getTime() - new Date(a.dateAdded).getTime();
@@ -835,6 +866,75 @@ export default function AdminInventoryPage() {
   };
 
   // Stock Modal functions
+  // 🆕 NEW: Fetch combinations data for table view
+  const fetchCombinationsData = async (itemName: string, categoryId: string) => {
+    try {
+      setCombinationsLoading(true);
+      const response = await fetch(
+        `/api/admin/inventory/combinations?itemName=${encodeURIComponent(itemName)}&categoryId=${encodeURIComponent(categoryId)}&t=${Date.now()}`,
+        { cache: 'no-store' }
+      );
+      
+      if (response.ok) {
+        const data = await response.json();
+        console.log('🔍 Combinations API Response:', data);
+        console.log('🔍 Number of combinations:', data.combinations?.length || 0);
+        console.log('🔍 Combinations detail:', data.combinations);
+        setCombinationsData(data.combinations || []);
+      } else {
+        console.error('Failed to fetch combinations');
+        setCombinationsData([]);
+      }
+    } catch (error) {
+      console.error('Error fetching combinations:', error);
+      setCombinationsData([]);
+    } finally {
+      setCombinationsLoading(false);
+    }
+  };
+
+  // 🆕 NEW: Handle save combination edit
+  const handleSaveCombination = async (combo: any) => {
+    if (!editingCombinationData || !stockItem) return;
+
+    try {
+      const response = await fetch('/api/admin/inventory/update-combination', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          itemName: stockItem.itemName,
+          categoryId: stockItem.categoryId,
+          currentStatusId: combo.statusId,
+          currentConditionId: combo.conditionId,
+          newStatusId: editingCombinationData.newStatusId,
+          newConditionId: editingCombinationData.newConditionId,
+          quantity: editingCombinationData.quantity
+        })
+      });
+
+      if (response.ok) {
+        toast.success('อัปเดตสำเร็จ');
+        
+        // Reset editing state
+        setEditingCombinationKey(null);
+        setEditingCombinationData(null);
+        
+        // Close modal
+        setShowStockModal(false);
+        
+        // Refresh main table
+        await fetchInventory();
+        
+      } else {
+        const error = await response.json();
+        toast.error(error.error || 'เกิดข้อผิดพลาด');
+      }
+    } catch (error) {
+      console.error('Error saving combination:', error);
+      toast.error('เกิดข้อผิดพลาดในการบันทึก');
+    }
+  };
+
   const openStockModal = async (item: any) => {
     // เริ่มแสดง loading animation สำหรับปุ่มนี้
     setStockButtonLoading(item._id);
@@ -861,6 +961,11 @@ export default function AdminInventoryPage() {
     setTargetStatusId('');
     setTargetConditionId('');
     
+    // 🆕 Reset combinations state
+    setCombinationsData([]);
+    setEditingCombinationKey(null);
+    setEditingCombinationData(null);
+    
     try {
       
       // Fetch current stock info (includes auto-detection)
@@ -885,6 +990,8 @@ export default function AdminInventoryPage() {
         const adminStock = data.stockManagement?.adminDefinedStock || 0;
         setStockValue(adminStock);
         
+        // 🆕 NEW: Fetch combinations data for table view
+        await fetchCombinationsData(item.itemName, item.categoryId);
         
         // Set default values for new UI - keep as empty for user selection
         // Don't auto-select any status or condition, let user choose
@@ -1872,7 +1979,8 @@ export default function AdminInventoryPage() {
         // Fetch existing item names in this category
         const response = await fetch('/api/admin/inventory');
         if (response.ok) {
-          const allItems = await response.json();
+          const responseData = await response.json();
+          const allItems = responseData.items || []; // Handle API response structure
           const itemsInCategory = allItems
             .filter((item: any) => item.categoryId === categoryId)
             .map((item: any) => item.itemName)
@@ -2748,7 +2856,8 @@ export default function AdminInventoryPage() {
                 {currentItems.map((item, index) => {
                   const hasSerials = Array.isArray(item.serialNumbers) && item.serialNumbers.length > 0;
                   const threshold = lowStockThreshold;
-                  const isLowStock = item.quantity <= threshold && !hasSerials;
+                  // 🔧 FIX: ใช้ availableQuantity สำหรับ low stock warning (อุปกรณ์ที่พร้อมเบิก)
+                  const isLowStock = (item.availableQuantity ?? 0) <= threshold && !hasSerials;
                   return (
                     <tr 
                       key={item._id} 
@@ -2774,22 +2883,12 @@ export default function AdminInventoryPage() {
                         isLowStock ? 'text-red-600' : 'text-gray-900'
                       } text-center text-selectable`}>
                         <div className="flex flex-col items-center">
-                          <span>{item.quantity}</span>
-                          {item.userOwnedQuantity > 0 && (
-                            <span className="text-xs text-blue-600 mt-1">
-                              👤 User: {item.userOwnedQuantity}
-                            </span>
-                          )}
+                          <span>{item.availableQuantity ?? 0}</span>
                         </div>
                       </td>
                       <td className="px-6 py-4 text-sm text-gray-900 text-center text-selectable">
                         <div className="flex flex-col items-center">
-                          <span>{item.totalQuantity ?? item.quantity}</span>
-                          {item.quantity === 0 && item.userOwnedQuantity > 0 && (
-                            <span className="px-2 py-1 text-xs bg-yellow-100 text-yellow-800 rounded-full mt-1">
-                              ⏳ รอคืนอุปกรณ์
-                            </span>
-                          )}
+                          <span className="font-semibold">{item.totalQuantity ?? item.quantity}</span>
                         </div>
                       </td>
                       <td className="px-6 py-4 whitespace-nowrap text-center">
@@ -2827,21 +2926,13 @@ export default function AdminInventoryPage() {
                             className={`px-3 py-1 rounded-md text-sm font-medium cursor-pointer flex items-center justify-center min-w-[120px] ${
                               stockButtonLoading === item._id
                                 ? 'bg-gray-100 text-gray-500 cursor-not-allowed'
-                                : item.quantity === 0 && item.userOwnedQuantity > 0
-                                  ? 'bg-yellow-100 hover:bg-yellow-200 text-yellow-800'
-                                  : item.quantity > 0 && item.userOwnedQuantity > 0
-                                    ? 'bg-orange-100 hover:bg-orange-200 text-orange-700'
-                                    : 'bg-purple-100 hover:bg-purple-200 text-purple-700'
+                                : 'bg-purple-100 hover:bg-purple-200 text-purple-700'
                             }`}
                             aria-label="จัดการ Stock"
                             title={
                               stockButtonLoading === item._id
                                 ? 'กำลังโหลด...'
-                                : item.quantity === 0 && item.userOwnedQuantity > 0
-                                  ? `ลบไม่ได้ - User ครอบครอง ${item.userOwnedQuantity} ชิ้น`
-                                  : item.quantity > 0 && item.userOwnedQuantity > 0
-                                    ? `ลบได้บางส่วน - Admin: ${item.quantity}, User: ${item.userOwnedQuantity}`
-                                    : `ลบได้ทั้งหมด - ${item.quantity} ชิ้น`
+                                : `จัดการ Stock - จำนวนคงเหลือ: ${item.quantity} ชิ้น`
                             }
                           >
                             {stockButtonLoading === item._id ? (
@@ -2850,11 +2941,7 @@ export default function AdminInventoryPage() {
                                 <span>โหลด...</span>
                               </div>
                             ) : (
-                              item.quantity === 0 && item.userOwnedQuantity > 0
-                                ? '🚫 ลบไม่ได้'
-                                : item.quantity > 0 && item.userOwnedQuantity > 0
-                                  ? '⚠️ ลบบางส่วน'
-                                  : '🗑️ จัดการ Stock'
+                              '🗑️ จัดการ Stock'
                             )}
                           </button>
                         </div>
@@ -4023,256 +4110,177 @@ export default function AdminInventoryPage() {
                 </div>
               )}
 
-              {/* Change Status/Condition Interface - New Design */}
+              {/* Change Status/Condition Interface - New Table Design */}
               {stockOperation === 'change_status_condition' && (
-                <div className="space-y-6">
-                  {/* Current Data Display - Only show when not loading */}
+                <div className="space-y-4">
+                  {/* Info Banner */}
                   {!stockLoading && (
-                    <div className="bg-blue-50 p-4 rounded-lg">
-                      <h4 className="text-sm font-medium text-blue-800 mb-2">📊 ข้อมูลปัจจุบัน</h4>
-                      <div className="text-sm text-blue-700">
-                      {(() => {
-                        const totalNonSN = stockInfo?.typeBreakdown?.withoutSN || 0;
-                        
-                        if (totalNonSN === 0) {
-                          return (
-                            <div className="text-amber-700">
-                              <div className="mb-1">⚠️ ไม่พบอุปกรณ์ที่ไม่มี SN เนื่องจากมีจำนวน 0 ชิ้น</div>
-                              <div>สถานะ: -</div>
-                              <div>สภาพ: -</div>
-                            </div>
-                          );
-                        } else {
-                          return (
-                            <>
-                              <div className="mb-2">
-                                <span className="font-medium text-blue-800">📦 อุปกรณ์ที่ไม่มี SN ทั้งหมด: {totalNonSN} ชิ้น</span>
-                              </div>
-                              <div className="mb-1">
-                                <span className="font-medium">สถานะ (เฉพาะไม่มี SN):</span>
-                                {stockInfo?.nonSNStatusBreakdown && Object.keys(stockInfo.nonSNStatusBreakdown).length > 0 ? 
-                                  Object.entries(stockInfo.nonSNStatusBreakdown).map(([statusId, count]) => {
-                                    const statusName = getStatusText(statusId);
-                                    const isPositive = statusName === 'มี';
-                                    const countNum = Number(count) || 0;
-                                    return (
-                                      <span key={statusId} className={`ml-2 ${isPositive ? 'text-green-600' : 'text-red-600'}`}>
-                                        {isPositive ? '🟢' : '🔴'} {statusName} {countNum} ชิ้น
-                                      </span>
-                                    );
-                                  }) : <span className="ml-2 text-gray-500">ไม่มีข้อมูล</span>
-                                }
-                              </div>
-                              <div>
-                                <span className="font-medium">สภาพ (เฉพาะไม่มี SN):</span>
-                                {stockInfo?.nonSNConditionBreakdown && Object.keys(stockInfo.nonSNConditionBreakdown).length > 0 ? 
-                                  Object.entries(stockInfo.nonSNConditionBreakdown).map(([conditionId, count]) => {
-                                    const conditionName = getConditionText(conditionId);
-                                    const isUsable = conditionName === 'ใช้งานได้';
-                                    const countNum = Number(count) || 0;
-                                    return (
-                                      <span key={conditionId} className={`ml-2 ${isUsable ? 'text-green-600' : 'text-red-600'}`}>
-                                        {isUsable ? '🟢' : '🔴'} {conditionName} {countNum} ชิ้น
-                                      </span>
-                                    );
-                                  }) : <span className="ml-2 text-gray-500">ไม่มีข้อมูล</span>
-                                }
-                              </div>
-                            </>
-                          );
-                        }
-                      })()}
-                      </div>
-                    </div>
-                  )}
-
-                  {/* Status Change Section - Only show if there are items without SN */}
-                  {stockInfo?.withoutSerialNumber?.count > 0 && (
-                    <div className="border border-gray-200 rounded-lg p-4">
-                    <h4 className="text-sm font-medium text-gray-800 mb-3">🔄 การเปลี่ยนสถานะ</h4>
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                      <div>
-                        <label className="block text-sm font-medium text-gray-700 mb-1">
-                          สถานะปัจจุบัน
-                        </label>
-                        <select
-                          value={currentStatusId}
-                          onChange={(e) => {
-                            setCurrentStatusId(e.target.value);
-                            setStatusChangeQuantity(0);
-                            setTargetStatusId('');
-                          }}
-                          className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
-                        >
-                          <option value="">-- เลือกสถานะปัจจุบัน --</option>
-                          {stockInfo?.nonSNStatusBreakdown && Object.entries(stockInfo.nonSNStatusBreakdown)
-                            .filter(([statusId, count]) => (Number(count) || 0) > 0)
-                            .map(([statusId, count]) => (
-                              <option key={statusId} value={statusId}>
-                                {getStatusText(statusId)} ({Number(count) || 0} ชิ้น)
-                              </option>
-                            ))}
-                        </select>
-                      </div>
-                      <div>
-                        <label className="block text-sm font-medium text-gray-700 mb-1">
-                          จำนวน
-                        </label>
-                        <input
-                          type="number"
-                          value={statusChangeQuantity}
-                          onChange={(e) => {
-                            const value = parseInt(e.target.value) || 0;
-                            const maxQuantity = currentStatusId ? (stockInfo?.nonSNStatusBreakdown?.[currentStatusId] || 0) : 0;
-                            const limitedValue = Math.min(value, maxQuantity);
-                            setStatusChangeQuantity(limitedValue);
-                          }}
-                          className={`w-full px-3 py-2 border rounded-md focus:outline-none focus:ring-2 ${
-                            statusChangeQuantity > (currentStatusId ? (stockInfo?.nonSNStatusBreakdown?.[currentStatusId] || 0) : 0)
-                              ? 'border-red-300 focus:ring-red-500 bg-red-50'
-                              : 'border-gray-300 focus:ring-blue-500'
-                          }`}
-                          min="0"
-                          max={currentStatusId ? (stockInfo?.nonSNStatusBreakdown?.[currentStatusId] || 0) : 0}
-                        />
-                        {currentStatusId && (
-                          <p className="text-xs text-gray-500 mt-1">
-                            สูงสุด: {stockInfo?.nonSNStatusBreakdown?.[currentStatusId] || 0} ชิ้น (จากอุปกรณ์ที่ไม่มี SN ทั้งหมด {stockInfo?.typeBreakdown?.withoutSN || 0} ชิ้น)
-                          </p>
-                        )}
-                      </div>
-                    </div>
-                    <div className="mt-3">
-                      <label className="block text-sm font-medium text-gray-700 mb-1">
-                        เปลี่ยนเป็น
-                      </label>
-                      <select
-                        value={targetStatusId}
-                        onChange={(e) => setTargetStatusId(e.target.value)}
-                        className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
-                      >
-                        <option value="">-- เลือกสถานะใหม่ --</option>
-                        {statuses
-                          .filter((st: any) => st !== currentStatusId)
-                          .map((st: any) => (
-                            <option key={st} value={st}>{getStatusText(st)}</option>
-                          ))}
-                      </select>
-                    </div>
-                    
-                    {/* Status Change Summary */}
-                    {currentStatusId && targetStatusId && statusChangeQuantity > 0 && (
-                      <div className="mt-3 p-3 bg-blue-50 rounded-lg">
-                        <h5 className="text-sm font-medium text-blue-800 mb-2">📋 สรุปการเปลี่ยนแปลงสถานะ:</h5>
+                    <div className="bg-blue-50 p-3 rounded-lg border border-blue-200">
+                      <div className="flex items-start space-x-2">
+                        <div className="text-blue-600 mt-0.5">ℹ️</div>
                         <div className="text-sm text-blue-700">
-                          <div>• สถานะ "{getStatusText(currentStatusId)}" จะลดลง {statusChangeQuantity} ชิ้น (เหลือไม่เปลี่ยน {Math.max(0, (stockInfo?.statusBreakdown?.[currentStatusId] || 0) - statusChangeQuantity)} ชิ้น)</div>
-                          <div>• สถานะ "{getStatusText(targetStatusId)}" จะเพิ่มขึ้น {statusChangeQuantity} ชิ้น</div>
+                          <div className="font-medium mb-1">รายการอุปกรณ์ที่ไม่มี Serial Number</div>
+                          <div>แสดงเฉพาะรายการที่มีจำนวน &gt; 0 • คลิก "แก้ไข" เพื่อเปลี่ยนสถานะ/สภาพ</div>
                         </div>
                       </div>
-                    )}
                     </div>
                   )}
 
-                  {/* Condition Change Section - Only show if there are items without SN */}
-                  {stockInfo?.withoutSerialNumber?.count > 0 && (
-                    <div className="border border-gray-200 rounded-lg p-4">
-                    <h4 className="text-sm font-medium text-gray-800 mb-3">🔧 การเปลี่ยนสภาพ</h4>
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                      <div>
-                        <label className="block text-sm font-medium text-gray-700 mb-1">
-                          สภาพปัจจุบัน
-                        </label>
-                        <select
-                          value={currentConditionId}
-                          onChange={(e) => {
-                            setCurrentConditionId(e.target.value);
-                            setConditionChangeQuantity(0);
-                            setTargetConditionId('');
-                          }}
-                          className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
-                        >
-                          <option value="">-- เลือกสภาพปัจจุบัน --</option>
-                          {stockInfo?.nonSNConditionBreakdown && Object.entries(stockInfo.nonSNConditionBreakdown)
-                            .filter(([conditionId, count]) => (Number(count) || 0) > 0)
-                            .map(([conditionId, count]) => (
-                              <option key={conditionId} value={conditionId}>
-                                {getConditionText(conditionId)} ({Number(count) || 0} ชิ้น)
-                              </option>
-                            ))}
-                        </select>
-                      </div>
-                      <div>
-                        <label className="block text-sm font-medium text-gray-700 mb-1">
-                          จำนวน
-                        </label>
-                        <input
-                          type="number"
-                          value={conditionChangeQuantity}
-                          onChange={(e) => {
-                            const value = parseInt(e.target.value) || 0;
-                            const maxQuantity = currentConditionId ? (stockInfo?.nonSNConditionBreakdown?.[currentConditionId] || 0) : 0;
-                            const limitedValue = Math.min(value, maxQuantity);
-                            setConditionChangeQuantity(limitedValue);
-                          }}
-                          className={`w-full px-3 py-2 border rounded-md focus:outline-none focus:ring-2 ${
-                            conditionChangeQuantity > (currentConditionId ? (stockInfo?.nonSNConditionBreakdown?.[currentConditionId] || 0) : 0)
-                              ? 'border-red-300 focus:ring-red-500 bg-red-50'
-                              : 'border-gray-300 focus:ring-blue-500'
-                          }`}
-                          min="0"
-                          max={currentConditionId ? (stockInfo?.nonSNConditionBreakdown?.[currentConditionId] || 0) : 0}
-                        />
-                        {currentConditionId && (
-                          <p className="text-xs text-gray-500 mt-1">
-                            สูงสุด: {stockInfo?.nonSNConditionBreakdown?.[currentConditionId] || 0} ชิ้น (จากอุปกรณ์ที่ไม่มี SN ทั้งหมด {stockInfo?.typeBreakdown?.withoutSN || 0} ชิ้น)
-                          </p>
-                        )}
+                  {/* New Table View for Status+Condition Combinations */}
+                  {combinationsLoading ? (
+                    <div className="border border-gray-200 rounded-lg p-8 text-center">
+                      <RefreshCw className="w-6 h-6 animate-spin text-blue-500 mx-auto mb-2" />
+                      <div className="text-gray-600">กำลังโหลดข้อมูล...</div>
+                    </div>
+                  ) : combinationsData.length === 0 ? (
+                    <div className="bg-amber-50 border border-amber-200 p-4 rounded-lg text-center">
+                      <div className="text-amber-700">
+                        ⚠️ ไม่พบอุปกรณ์ที่ไม่มี Serial Number
                       </div>
                     </div>
-                    <div className="mt-3">
-                      <label className="block text-sm font-medium text-gray-700 mb-1">
-                        เปลี่ยนเป็น
-                      </label>
-                      <select
-                        value={targetConditionId}
-                        onChange={(e) => setTargetConditionId(e.target.value)}
-                        className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
-                      >
-                        <option value="">-- เลือกสภาพใหม่ --</option>
-                        {conditionConfigs
-                          .filter((config) => config.id !== currentConditionId)
-                          .map((config) => (
-                            <option key={config.id} value={config.id}>{config.name}</option>
-                          ))}
-                      </select>
-                    </div>
-                    
-                    {/* Condition Change Summary */}
-                    {currentConditionId && targetConditionId && conditionChangeQuantity > 0 && (
-                      <div className="mt-3 p-3 bg-green-50 rounded-lg">
-                        <h5 className="text-sm font-medium text-green-800 mb-2">📋 สรุปการเปลี่ยนแปลงสภาพ:</h5>
-                        <div className="text-sm text-green-700">
-                          <div>• สภาพ "{getConditionText(currentConditionId)}" จะลดลง {conditionChangeQuantity} ชิ้น (เหลือไม่เปลี่ยน {Math.max(0, (stockInfo?.conditionBreakdown?.[currentConditionId] || 0) - conditionChangeQuantity)} ชิ้น)</div>
-                          <div>• สภาพ "{getConditionText(targetConditionId)}" จะเพิ่มขึ้น {conditionChangeQuantity} ชิ้น</div>
-                        </div>
-                      </div>
-                    )}
-                    </div>
-                  )}
+                  ) : (
+                    <div className="border border-gray-200 rounded-lg overflow-hidden">
+                      <table className="min-w-full divide-y divide-gray-200">
+                        <thead className="bg-gray-50">
+                          <tr>
+                            <th className="px-4 py-3 text-left text-xs font-medium text-gray-700 uppercase tracking-wider">
+                              สถานะ
+                            </th>
+                            <th className="px-4 py-3 text-left text-xs font-medium text-gray-700 uppercase tracking-wider">
+                              สภาพ
+                            </th>
+                            <th className="px-4 py-3 text-center text-xs font-medium text-gray-700 uppercase tracking-wider">
+                              จำนวน
+                            </th>
+                            <th className="px-4 py-3 text-center text-xs font-medium text-gray-700 uppercase tracking-wider">
+                              การดำเนินการ
+                            </th>
+                          </tr>
+                        </thead>
+                        <tbody className="bg-white divide-y divide-gray-200">
+                          {combinationsData.map((combo) => {
+                            const isEditing = editingCombinationKey === combo.key;
+                            
+                            return (
+                              <tr key={combo.key} className={isEditing ? 'bg-blue-50' : 'hover:bg-gray-50'}>
+                                {/* สถานะ Column */}
+                                <td className="px-4 py-3 text-sm">
+                                  {isEditing ? (
+                                    <select
+                                      value={editingCombinationData?.newStatusId || combo.statusId}
+                                      onChange={(e) => setEditingCombinationData(prev => ({
+                                        ...prev!,
+                                        newStatusId: e.target.value
+                                      }))}
+                                      className="w-full px-2 py-1 border border-blue-300 rounded focus:outline-none focus:ring-2 focus:ring-blue-500"
+                                    >
+                                      {statusConfigs.map(status => (
+                                        <option key={status.id} value={status.id}>
+                                          {status.name}
+                                        </option>
+                                      ))}
+                                    </select>
+                                  ) : (
+                                    <span className="font-medium text-gray-900">{getStatusText(combo.statusId)}</span>
+                                  )}
+                                </td>
 
-                  {/* หมายเหตุ - Only show if there are items without SN */}
-                  {stockInfo?.withoutSerialNumber?.count > 0 && (
-                    <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">
-                      หมายเหตุ (เหตุผลในการเปลี่ยน)
-                    </label>
-                    <textarea
-                      value={stockReason}
-                      onChange={(e) => setStockReason(e.target.value)}
-                      className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
-                      rows={3}
-                      placeholder="ระบุเหตุผลในการเปลี่ยนสถานะ/สภาพ"
-                    />
+                                {/* สภาพ Column */}
+                                <td className="px-4 py-3 text-sm">
+                                  {isEditing ? (
+                                    <select
+                                      value={editingCombinationData?.newConditionId || combo.conditionId}
+                                      onChange={(e) => setEditingCombinationData(prev => ({
+                                        ...prev!,
+                                        newConditionId: e.target.value
+                                      }))}
+                                      className="w-full px-2 py-1 border border-blue-300 rounded focus:outline-none focus:ring-2 focus:ring-blue-500"
+                                    >
+                                      {conditionConfigs.map(condition => (
+                                        <option key={condition.id} value={condition.id}>
+                                          {condition.name}
+                                        </option>
+                                      ))}
+                                    </select>
+                                  ) : (
+                                    <span className="font-medium text-gray-900">{getConditionText(combo.conditionId)}</span>
+                                  )}
+                                </td>
+
+                                {/* จำนวน Column */}
+                                <td className="px-4 py-3 text-center text-sm">
+                                  {isEditing ? (
+                                    <div className="flex items-center justify-center space-x-2">
+                                      <input
+                                        type="number"
+                                        value={editingCombinationData?.quantity || 1}
+                                        onChange={(e) => {
+                                          const value = parseInt(e.target.value) || 1;
+                                          const limited = Math.max(1, Math.min(value, combo.quantity));
+                                          setEditingCombinationData(prev => ({
+                                            ...prev!,
+                                            quantity: limited
+                                          }));
+                                        }}
+                                        min={1}
+                                        max={combo.quantity}
+                                        className={`w-20 px-2 py-1 text-center border rounded focus:outline-none focus:ring-2 ${
+                                          (editingCombinationData?.quantity || 0) > combo.quantity
+                                            ? 'border-red-300 focus:ring-red-500 bg-red-50'
+                                            : 'border-blue-300 focus:ring-blue-500'
+                                        }`}
+                                      />
+                                      <span className="text-gray-500 text-xs">/ {combo.quantity}</span>
+                                    </div>
+                                  ) : (
+                                    <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-blue-100 text-blue-800">
+                                      {combo.quantity} ชิ้น
+                                    </span>
+                                  )}
+                                </td>
+
+                                {/* การดำเนินการ Column */}
+                                <td className="px-4 py-3 text-center">
+                                  {isEditing ? (
+                                    <div className="flex items-center justify-center space-x-2">
+                                      <button
+                                        onClick={() => handleSaveCombination(combo)}
+                                        disabled={!editingCombinationData?.quantity || editingCombinationData.quantity < 1 || editingCombinationData.quantity > combo.quantity}
+                                        className="px-3 py-1 bg-green-600 text-white text-xs rounded hover:bg-green-700 disabled:opacity-50 disabled:cursor-not-allowed"
+                                      >
+                                        บันทึก
+                                      </button>
+                                      <button
+                                        onClick={() => {
+                                          setEditingCombinationKey(null);
+                                          setEditingCombinationData(null);
+                                        }}
+                                        className="px-3 py-1 bg-gray-300 text-gray-700 text-xs rounded hover:bg-gray-400"
+                                      >
+                                        ยกเลิก
+                                      </button>
+                                    </div>
+                                  ) : (
+                                    <button
+                                      onClick={() => {
+                                        setEditingCombinationKey(combo.key);
+                                        setEditingCombinationData({
+                                          newStatusId: combo.statusId,
+                                          newConditionId: combo.conditionId,
+                                          quantity: combo.quantity
+                                        });
+                                      }}
+                                      className="px-3 py-1 bg-blue-600 text-white text-xs rounded hover:bg-blue-700"
+                                    >
+                                      แก้ไข
+                                    </button>
+                                  )}
+                                </td>
+                              </tr>
+                            );
+                          })}
+                        </tbody>
+                      </table>
                     </div>
                   )}
                 </div>

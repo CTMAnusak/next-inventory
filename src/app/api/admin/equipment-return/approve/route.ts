@@ -102,6 +102,24 @@ export async function POST(request: NextRequest) {
       }
     }
     
+    // Update InventoryMaster for all affected items
+    const updatedItems = new Set<string>();
+    for (const item of processedItems) {
+      const inventoryItem = await InventoryItem.findById(item.itemId);
+      if (inventoryItem) {
+        const itemKey = `${inventoryItem.itemName}_${inventoryItem.categoryId}`;
+        if (!updatedItems.has(itemKey)) {
+          try {
+            await updateInventoryMaster(inventoryItem.itemName, inventoryItem.categoryId);
+            updatedItems.add(itemKey);
+            console.log(`✅ Updated InventoryMaster for ${inventoryItem.itemName}`);
+          } catch (updateError) {
+            console.error(`❌ Failed to update InventoryMaster for ${inventoryItem.itemName}:`, updateError);
+          }
+        }
+      }
+    }
+
     // Update return log status
     returnLog.status = 'approved';
     returnLog.approvedAt = new Date();
