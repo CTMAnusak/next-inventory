@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import dbConnect from '@/lib/mongodb';
-import InventoryItem from '@/models/InventoryItem';
+import { InventoryItem } from '@/models/InventoryItemNew';
+import InventoryMaster from '@/models/InventoryMaster';
 
 /**
  * GET /api/admin/inventory/combinations
@@ -21,10 +22,23 @@ export async function GET(request: NextRequest) {
       );
     }
 
-    // ดึงอุปกรณ์ที่ไม่มี SN, เป็น admin_stock, และไม่ถูกลบ
-    const items = await InventoryItem.find({
+    // หา InventoryMaster ที่ตรงกับ itemName และ categoryId
+    const inventoryMaster = await InventoryMaster.findOne({
       itemName,
-      categoryId,
+      categoryId
+    });
+
+    if (!inventoryMaster) {
+      return NextResponse.json(
+        { error: 'ไม่พบอุปกรณ์ที่ระบุ' },
+        { status: 404 }
+      );
+    }
+
+    // ดึงอุปกรณ์ที่ไม่มี SN, เป็น admin_stock, และไม่ถูกลบ
+    // และอยู่ใน masterItemId ที่ตรงกัน
+    const items = await InventoryItem.find({
+      itemMasterId: (inventoryMaster._id as any).toString(),
       serialNumber: { $in: [null, ''] },
       numberPhone: { $in: [null, ''] },
       'currentOwnership.ownerType': 'admin_stock',
@@ -58,7 +72,7 @@ export async function GET(request: NextRequest) {
 
       const combo = combinationsMap.get(key)!;
       combo.quantity += 1;
-      combo.itemIds.push(item._id.toString());
+      combo.itemIds.push((item._id as any).toString());
     });
 
     console.log(`📊 Combinations found:`, Array.from(combinationsMap.entries()).map(([key, data]) => ({

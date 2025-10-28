@@ -13,6 +13,10 @@ interface StatusCellProps {
   breakdown?: {
     statusBreakdown?: Record<string, number>;
     conditionBreakdown?: Record<string, number>;
+    adminStatusBreakdown?: Record<string, number>;
+    adminConditionBreakdown?: Record<string, number>;
+    userStatusBreakdown?: Record<string, number>;
+    userConditionBreakdown?: Record<string, number>;
     typeBreakdown?: {
       withoutSN: number;
       withSN: number;

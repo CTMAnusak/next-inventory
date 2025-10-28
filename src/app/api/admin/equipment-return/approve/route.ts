@@ -4,6 +4,7 @@ import ReturnLog from '@/models/ReturnLog';
 import { InventoryItem } from '@/models/InventoryItemNew';
 import { changeItemStatus, updateInventoryMaster } from '@/lib/inventory-helpers';
 import { verifyToken } from '@/lib/auth';
+import { getItemNameAndCategory } from '@/lib/item-name-resolver';
 
 // POST - อนุมัติการคืนอุปกรณ์
 export async function POST(request: NextRequest) {
@@ -107,14 +108,18 @@ export async function POST(request: NextRequest) {
     for (const item of processedItems) {
       const inventoryItem = await InventoryItem.findById(item.itemId);
       if (inventoryItem) {
-        const itemKey = `${inventoryItem.itemName}_${inventoryItem.categoryId}`;
-        if (!updatedItems.has(itemKey)) {
-          try {
-            await updateInventoryMaster(inventoryItem.itemName, inventoryItem.categoryId);
-            updatedItems.add(itemKey);
-            console.log(`✅ Updated InventoryMaster for ${inventoryItem.itemName}`);
-          } catch (updateError) {
-            console.error(`❌ Failed to update InventoryMaster for ${inventoryItem.itemName}:`, updateError);
+        // Get item name and category using the resolver
+        const itemInfo = await getItemNameAndCategory(inventoryItem.itemMasterId, item.itemId);
+        if (itemInfo) {
+          const itemKey = `${itemInfo.itemName}_${itemInfo.categoryId}`;
+          if (!updatedItems.has(itemKey)) {
+            try {
+              await updateInventoryMaster(itemInfo.itemName, itemInfo.categoryId);
+              updatedItems.add(itemKey);
+              console.log(`✅ Updated InventoryMaster for ${itemInfo.itemName}`);
+            } catch (updateError) {
+              console.error(`❌ Failed to update InventoryMaster for ${itemInfo.itemName}:`, updateError);
+            }
           }
         }
       }
