@@ -2,6 +2,7 @@
 
 import React, { useState, useEffect } from 'react';
 import { useErrorMonitoring } from '@/hooks/useErrorMonitoring';
+import { useAuth } from '@/contexts/AuthContext';
 
 interface ErrorLog {
   id: string;
@@ -25,8 +26,10 @@ interface PerformanceData {
 /**
  * Comprehensive Error Monitoring Dashboard
  * แสดงข้อมูล error และ performance metrics แบบ real-time
+ * แสดงเฉพาะสำหรับ it_admin และ admin เท่านั้น
  */
 export default function ErrorMonitoringDashboard() {
+  const { user } = useAuth();
   const { errors, performanceMetrics, clearErrors, getErrorSummary } = useErrorMonitoring();
   const [errorLogs, setErrorLogs] = useState<ErrorLog[]>([]);
   const [performanceHistory, setPerformanceHistory] = useState<PerformanceData[]>([]);
@@ -76,17 +79,30 @@ export default function ErrorMonitoringDashboard() {
 
   const summary = getErrorSummary();
 
+  // ตรวจสอบสิทธิ์การแสดง Error Monitor
+  const canViewErrorMonitor = user?.userRole === 'it_admin' || user?.userRole === 'admin';
+  
+  // Debug: แสดงข้อมูลผู้ใช้ปัจจุบัน
+  console.log('ErrorMonitoringDashboard - Current user:', user);
+  console.log('ErrorMonitoringDashboard - User role:', user?.userRole);
+  console.log('ErrorMonitoringDashboard - Can view:', canViewErrorMonitor);
+  
+  // ไม่แสดง Error Monitor หากไม่มีสิทธิ์
+  if (!canViewErrorMonitor) {
+    return null;
+  }
+
   if (!isExpanded) {
     return (
-      <div className="fixed bottom-4 right-4 z-50">
+      <div className="fixed bottom-4 left-4 z-50">
         <button
           onClick={() => setIsExpanded(true)}
-          className="bg-red-500 hover:bg-red-600 text-white p-3 rounded-full shadow-lg transition-colors"
+          className="bg-red-500 hover:bg-red-600 text-white p-2 rounded-full shadow-lg transition-colors"
           title="Open Error Monitor"
         >
-          <div className="flex items-center space-x-2">
-            <span className="text-lg">🚨</span>
-            <span className="font-bold">{summary.totalErrors}</span>
+          <div className="flex items-center space-x-1">
+            <span className="text-sm">🚨</span>
+            <span className="text-xs font-bold">{summary.totalErrors}</span>
           </div>
         </button>
       </div>
@@ -94,7 +110,7 @@ export default function ErrorMonitoringDashboard() {
   }
 
   return (
-    <div className="fixed bottom-4 right-4 w-96 max-h-96 bg-white border border-gray-300 rounded-lg shadow-xl z-50 overflow-hidden">
+    <div className="fixed bottom-4 left-4 w-96 max-h-96 bg-white border border-gray-300 rounded-lg shadow-xl z-50 overflow-hidden">
       {/* Header */}
       <div className="bg-gray-50 px-4 py-3 border-b border-gray-200 flex justify-between items-center">
         <h3 className="font-bold text-sm text-gray-900">Error Monitor</h3>

@@ -29,7 +29,7 @@ export default function RootLayout({
     <html lang="th" className={kanit.variable}>
       <body suppressHydrationWarning={true}>
         <ClientOnly>
-          <ErrorMonitoringProvider enableDashboard={true} enableGlobalHandling={true}>
+          <ErrorMonitoringProvider enableDashboard={false} enableGlobalHandling={true}>
             <AuthProvider>
               <TutorialProvider>
                 {children}

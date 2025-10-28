@@ -3,6 +3,7 @@
 import { createContext, useContext, useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { handleAuthError } from '@/lib/auth-error-handler';
+import ErrorMonitoringDashboard from '@/components/ErrorMonitoringDashboard';
 
 interface User {
   id: string;
@@ -154,6 +155,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   return (
     <AuthContext.Provider value={{ user, loading, login, logout, checkAuth }}>
       {children}
+      <ErrorMonitoringDashboard />
     </AuthContext.Provider>
   );
 }
