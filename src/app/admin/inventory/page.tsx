@@ -919,6 +919,18 @@ export default function AdminInventoryPage() {
         setEditingCombinationKey(null);
         setEditingCombinationData(null);
         
+        // 🆕 Clear all caches
+        try {
+          await fetch('/api/admin/clear-all-caches', { method: 'POST' });
+          console.log('✅ Cleared all caches');
+        } catch (cacheError) {
+          console.log('⚠️ Cache clear failed, continuing...');
+        }
+        
+        // Clear breakdown cache
+        setBreakdownData({});
+        console.log('🧹 Cleared breakdownData cache');
+        
         // Close modal
         setShowStockModal(false);
         
@@ -4120,7 +4132,7 @@ export default function AdminInventoryPage() {
                         <div className="text-blue-600 mt-0.5">ℹ️</div>
                         <div className="text-sm text-blue-700">
                           <div className="font-medium mb-1">รายการอุปกรณ์ที่ไม่มี Serial Number</div>
-                          <div>แสดงเฉพาะรายการที่มีจำนวน &gt; 0 • คลิก "แก้ไข" เพื่อเปลี่ยนสถานะ/สภาพ</div>
+                          <div>แสดงเฉพาะรายการที่มีจำนวน &gt; 0 • คลิก "แก้ไข" เพื่อเปลี่ยนสถานะ/สภาพ พร้อมกรอกเลขจำนวนที่ต้องการเปลี่ยนแปลง</div>
                         </div>
                       </div>
                     </div>
@@ -4777,10 +4789,10 @@ export default function AdminInventoryPage() {
             </div>
 
             {/* Modal Footer - Only show when there are action buttons */}
-            {(stockOperation === 'adjust_stock' || stockOperation === 'change_status_condition' || stockOperation === 'delete_item') && (
+            {(stockOperation === 'adjust_stock' || stockOperation === 'delete_item') && (
               <div className="p-6">
-                {/* Action Buttons - Show only for operations that need them */}
-                {(stockOperation === 'adjust_stock' || stockOperation === 'change_status_condition') && (
+                {/* Action Buttons - Show only for adjust_stock operation */}
+                {stockOperation === 'adjust_stock' && (
                   <div className="flex justify-end space-x-3">
                     <button
                       onClick={closeStockModal}
@@ -4794,7 +4806,7 @@ export default function AdminInventoryPage() {
                       disabled={stockLoading || !stockReason.trim()}
                       className="px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed"
                     >
-                      {stockLoading ? 'กำลังดำเนินการ...' : (stockOperation === 'change_status_condition' ? 'เปลี่ยนสถานะ/สภาพ' : 'บันทึก')}
+                      {stockLoading ? 'กำลังดำเนินการ...' : 'บันทึก'}
                     </button>
                   </div>
                 )}
