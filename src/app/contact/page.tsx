@@ -18,16 +18,18 @@ export default function ContactPage() {
               <div className="inline-flex items-center justify-center w-16 h-16 bg-blue-500 text-white rounded-full mb-4">
                 <Phone className="w-8 h-8" />
               </div>
-              <h3 className="text-lg font-semibold text-gray-900 mb-2">
+              <h3 className="text-lg font-semibold text-gray-900">
                 โทรศัพท์
               </h3>
-              <p className="text-blue-600 font-medium text-lg">
-                092-591-9889
-                <br />(คุณเบลล์)
-              </p>
               <p className="text-sm text-gray-600 mt-1">
-                (เวลาทำการ)
-              </p>
+                <a 
+                  href="tel:0925919889" 
+                  className="text-blue-600 font-medium text-lg hover:text-blue-800 underline cursor-pointer block"
+                >
+                  092-591-9889
+                </a> <span className="text-blue-600 font-medium text-lg">(คุณเบลล์)</span>
+                </p>
+                <p className="text-sm text-gray-600 mt-1">(เวลาทำการ 08:00 - 17:00)</p>
             </div>
 
             {/* Line */}
@@ -38,10 +40,15 @@ export default function ContactPage() {
               <h3 className="text-lg font-semibold text-gray-900 mb-2">
                 Line Official
               </h3>
-              <p className="text-green-600 font-medium text-lg">
+              <a 
+                href="https://line.me/ti/p/~vsqitsupport" 
+                target="_blank" 
+                rel="noopener noreferrer"
+                className="text-green-600 font-medium text-lg hover:text-green-800 underline cursor-pointer block"
+              >
                 V Square it support
-                <br />(Line Id : vsqitsupport)
-              </p>
+              </a>
+              <p className="text-green-600 font-medium text-lg hover:text-green-800">(Line Id : vsqitsupport)</p>
               <p className="text-sm text-gray-600 mt-1">
                 สำหรับการสนทนาแบบทันที
               </p>
@@ -55,9 +62,12 @@ export default function ContactPage() {
               <h3 className="text-lg font-semibold text-gray-900 mb-2">
                 อีเมล
               </h3>
-              <p className="text-purple-600 font-medium text-lg">
+              <a 
+                href="mailto:vexclusive.it@gmail.com" 
+                className="text-purple-600 font-medium text-lg hover:text-purple-800 underline cursor-pointer block"
+              >
                 vexclusive.it@gmail.com
-              </p>
+              </a>
               <p className="text-sm text-gray-600 mt-1">
                 สำหรับการติดต่ออย่างเป็นทางการ
               </p>
@@ -123,7 +133,13 @@ export default function ContactPage() {
                   กรณีเร่งด่วน
                 </h4>
                 <p className="text-sm text-red-700">
-                  หากเป็นปัญหาที่ส่งผลกระทบต่อการดำเนินงานอย่างร้ายแรง กรุณาโทรติดต่อโดยตรงที่ 092-591-9889 (คุณเบลล์)
+                  หากเป็นปัญหาที่ส่งผลกระทบต่อการดำเนินงานอย่างร้ายแรง กรุณาโทรติดต่อโดยตรงที่{' '}
+                  <a 
+                    href="tel:0925919889" 
+                    className="text-red-800 font-medium hover:text-red-900 underline cursor-pointer"
+                  >
+                    092-591-9889
+                  </a> (คุณเบลล์)
                 </p>
               </div>
             </div>

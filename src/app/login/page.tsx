@@ -72,14 +72,14 @@ export default function LoginPage() {
         setErrorData({
           title: '❌ ไม่พบบัญชีผู้ใช้',
           message: 'บัญชีผู้ใช้ไม่พบในระบบ',
-          details: 'กรุณาสมัครสมาชิกด้วย Google หรือติดต่อผู้ดูแลระบบหากปัญหายังคงมีอยู่',
+          details: 'กรุณาสมัครสมาชิกด้วย Google หรือติดต่อทีม IT',
           type: 'error'
         });
       } else {
         setErrorData({
           title: '❌ เกิดข้อผิดพลาด',
           message: decodedError,
-          details: 'กรุณาลองใหม่อีกครั้ง หรือติดต่อผู้ดูแลระบบหากปัญหายังคงมีอยู่',
+          details: 'กรุณาลองใหม่อีกครั้ง หรือติดต่อทีม IT',
           type: 'error'
         });
       }
@@ -201,6 +201,79 @@ export default function LoginPage() {
     }
   };
 
+  // Function to render details with clickable phone and Line links
+  const renderDetailsWithLinks = (details: string) => {
+    // Split text and preserve separators
+    const parts: (string | React.ReactElement)[] = [];
+    
+    // Match phone number pattern: 092-591-9889
+    const phoneRegex = /(\d{3}-\d{3}-\d{4})/g;
+    let phoneMatch;
+    
+    // Match Line ID pattern: Line ID : vsqitsupport
+    const lineRegex = /(Line ID\s*:\s*(\w+))/gi;
+    let lineMatch;
+    
+    // Find all matches
+    const matches: Array<{ type: 'phone' | 'line'; match: RegExpMatchArray; index: number }> = [];
+    
+    while ((phoneMatch = phoneRegex.exec(details)) !== null) {
+      matches.push({ type: 'phone', match: phoneMatch, index: phoneMatch.index });
+    }
+    
+    while ((lineMatch = lineRegex.exec(details)) !== null) {
+      matches.push({ type: 'line', match: lineMatch, index: lineMatch.index });
+    }
+    
+    // Sort by index
+    matches.sort((a, b) => a.index - b.index);
+    
+    // Build parts array
+    let currentIndex = 0;
+    matches.forEach(({ type, match, index }) => {
+      // Add text before match
+      if (index > currentIndex) {
+        parts.push(details.substring(currentIndex, index));
+      }
+      
+      // Add clickable element
+      if (type === 'phone') {
+        const phoneNumber = match[0].replace(/-/g, '');
+        parts.push(
+          <a
+            key={`phone-${index}`}
+            href={`tel:${phoneNumber}`}
+            className="text-blue-600 hover:text-blue-800 underline font-medium"
+          >
+            {match[0]}
+          </a>
+        );
+      } else if (type === 'line') {
+        const lineId = match[2] || match[1].split(':')[1]?.trim();
+        parts.push(
+          <a
+            key={`line-${index}`}
+            href={`https://line.me/ti/p/~${lineId}`}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="text-green-600 hover:text-green-800 underline font-medium"
+          >
+            {match[0]}
+          </a>
+        );
+      }
+      
+      currentIndex = index + match[0].length;
+    });
+    
+    // Add remaining text
+    if (currentIndex < details.length) {
+      parts.push(details.substring(currentIndex));
+    }
+    
+    return <span>{parts.length > 0 ? parts : details}</span>;
+  };
+
   const getErrorInfo = (data: any) => {
     const { error, errorType, details } = data;
     
@@ -230,14 +303,14 @@ export default function LoginPage() {
         return {
           title: '❌ ไม่พบผู้ใช้ในระบบ',
           message: 'อีเมลที่กรอกไม่พบในระบบ',
-          details: details || 'กรุณาสมัครสมาชิก หรือติดต่อทีม IT (เบอร์ : 092-591-9889 (คุณเบลล์) , Line ID : vsqitsupport)',
+          details: details || 'กรุณาสมัครสมาชิก หรือติดต่อทีม IT',
           type: 'user_not_found' as const
         };
       case 'no_account':
         return {
           title: '❌ ไม่พบบัญชีผู้ใช้',
           message: 'บัญชีนี้ไม่พบในระบบ',
-          details: details || 'กรุณาสมัครสมาชิก หรือติดต่อทีม IT (เบอร์ : 092-591-9889 (คุณเบลล์) , Line ID : vsqitsupport)',
+          details: details || 'กรุณาสมัครสมาชิก หรือติดต่อทีม IT',
           type: 'error' as const
         };
       default:
@@ -442,9 +515,12 @@ export default function LoginPage() {
               <p className="text-gray-700 mb-3">
                 {errorData.message}
               </p>
-              <p className="text-sm text-gray-500 mb-6">
-                {errorData.details}
-              </p>
+              <div className="text-sm text-gray-500 mb-6">
+                {errorData.details && (errorData.details.includes('092-591-9889') || errorData.details.includes('Line ID'))
+                  ? renderDetailsWithLinks(errorData.details)
+                  : errorData.details
+                }
+              </div>
             </div>
 
             {/* Action Buttons */}
