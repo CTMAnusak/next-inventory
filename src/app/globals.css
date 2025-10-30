@@ -109,10 +109,8 @@ body {
 }
 
 .tooltip-content h4 {
-  margin: 0 0 8px 0;
   font-size: 14px;
-  font-weight: 600;
-  color: #333;
+  font-weight: 500;
 }
 
 .tooltip-content {

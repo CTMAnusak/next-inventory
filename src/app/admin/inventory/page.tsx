@@ -315,6 +315,8 @@ export default function AdminInventoryPage() {
     key: string;
   }>>([]);
   const [combinationsLoading, setCombinationsLoading] = useState(false);
+  // Loading indicator for row actions in combinations table
+  const [rowActionLoading, setRowActionLoading] = useState<{ edit: string | null; save: string | null; cancel: string | null }>({ edit: null, save: null, cancel: null });
 
   // Derived state สำหรับ backward compatibility
   // Remove categories variable - use categoryConfigs directly
@@ -4167,10 +4169,11 @@ export default function AdminInventoryPage() {
                   {!stockLoading && (
                     <div className="bg-blue-50 p-3 rounded-lg border border-blue-200">
                       <div className="flex items-start space-x-2">
-                        <div className="text-blue-600 mt-0.5">ℹ️</div>
+                        <div className="text-blue-600">ℹ️</div>
                         <div className="text-sm text-blue-700">
                           <div className="font-medium mb-1">รายการอุปกรณ์ที่ไม่มี Serial Number</div>
-                          <div>แสดงเฉพาะรายการที่มีจำนวน &gt; 0 • คลิก "แก้ไข" เพื่อเปลี่ยนสถานะ/สภาพ พร้อมกรอกเลขจำนวนที่ต้องการเปลี่ยนแปลง</div>
+                          <ul className="list-disc pl-5"><li>แสดงเฉพาะรายการที่มีจำนวน &gt; 0 </li>
+                            <li>คลิก "แก้ไข" เพื่อเปลี่ยนสถานะ/สภาพ พร้อมกรอกเลขจำนวนที่ต้องการเปลี่ยนแปลง</li></ul>
                         </div>
                       </div>
                     </div>
@@ -4193,6 +4196,9 @@ export default function AdminInventoryPage() {
                       <table className="min-w-full divide-y divide-gray-200">
                         <thead className="bg-gray-50">
                           <tr>
+                            <th className="px-4 py-3 text-center text-xs font-medium text-gray-700 uppercase tracking-wider w-16">
+                              ลำดับ
+                            </th>
                             <th className="px-4 py-3 text-left text-xs font-medium text-gray-700 uppercase tracking-wider">
                               สถานะ
                             </th>
@@ -4208,11 +4214,15 @@ export default function AdminInventoryPage() {
                           </tr>
                         </thead>
                         <tbody className="bg-white divide-y divide-gray-200">
-                          {combinationsData.map((combo) => {
+                          {combinationsData.map((combo, idx) => {
                             const isEditing = editingCombinationKey === combo.key;
                             
                             return (
                               <tr key={combo.key} className={isEditing ? 'bg-blue-50' : 'hover:bg-gray-50'}>
+                                {/* ลำดับ Column */}
+                                <td className="px-4 py-3 text-center text-sm text-gray-700">
+                                  {idx + 1}
+                                </td>
                                 {/* สถานะ Column */}
                                 <td className="px-4 py-3 text-sm">
                                   {isEditing ? (
@@ -4294,35 +4304,55 @@ export default function AdminInventoryPage() {
                                   {isEditing ? (
                                     <div className="flex items-center justify-center space-x-2">
                                       <button
-                                        onClick={() => handleSaveCombination(combo)}
+                                        onClick={async () => {
+                                          setRowActionLoading(prev => ({ ...prev, save: combo.key }));
+                                          try {
+                                            await handleSaveCombination(combo);
+                                          } finally {
+                                            setRowActionLoading(prev => ({ ...prev, save: null }));
+                                          }
+                                        }}
                                         disabled={!editingCombinationData?.quantity || editingCombinationData.quantity < 1 || editingCombinationData.quantity > combo.quantity}
-                                        className="px-3 py-1 bg-green-600 text-white text-xs rounded hover:bg-green-700 disabled:opacity-50 disabled:cursor-not-allowed"
+                                        className="px-3 py-1 bg-green-600 text-white text-xs rounded hover:bg-green-700 disabled:opacity-50 disabled:cursor-not-allowed flex items-center"
                                       >
                                         บันทึก
+                                        {rowActionLoading.save === combo.key && (
+                                          <RefreshCw className="w-3 h-3 ml-1 animate-spin" />
+                                        )}
                                       </button>
                                       <button
                                         onClick={() => {
+                                          setRowActionLoading(prev => ({ ...prev, cancel: combo.key }));
                                           setEditingCombinationKey(null);
                                           setEditingCombinationData(null);
+                                          setTimeout(() => setRowActionLoading(prev => ({ ...prev, cancel: null })), 150);
                                         }}
-                                        className="px-3 py-1 bg-gray-300 text-gray-700 text-xs rounded hover:bg-gray-400"
+                                        className="px-3 py-1 bg-gray-300 text-gray-700 text-xs rounded hover:bg-gray-400 flex items-center"
                                       >
                                         ยกเลิก
+                                        {rowActionLoading.cancel === combo.key && (
+                                          <RefreshCw className="w-3 h-3 ml-1 animate-spin" />
+                                        )}
                                       </button>
                                     </div>
                                   ) : (
                                     <button
                                       onClick={() => {
+                                        setRowActionLoading(prev => ({ ...prev, edit: combo.key }));
                                         setEditingCombinationKey(combo.key);
                                         setEditingCombinationData({
                                           newStatusId: combo.statusId,
                                           newConditionId: combo.conditionId,
                                           quantity: combo.quantity
                                         });
+                                        setTimeout(() => setRowActionLoading(prev => ({ ...prev, edit: null })), 150);
                                       }}
-                                      className="px-3 py-1 bg-blue-600 text-white text-xs rounded hover:bg-blue-700"
+                                      className="px-3 py-1 bg-blue-600 text-white text-xs rounded hover:bg-blue-700 flex items-center mx-auto"
                                     >
                                       แก้ไข
+                                      {rowActionLoading.edit === combo.key && (
+                                        <RefreshCw className="w-3 h-3 ml-1 animate-spin" />
+                                      )}
                                     </button>
                                   )}
                                 </td>

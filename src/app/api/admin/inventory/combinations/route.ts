@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import dbConnect from '@/lib/mongodb';
-import { InventoryItem } from '@/models/InventoryItemNew';
+import InventoryItem from '@/models/InventoryItem';
 import InventoryMaster from '@/models/InventoryMaster';
 
 /**
@@ -36,14 +36,30 @@ export async function GET(request: NextRequest) {
     }
 
     // ดึงอุปกรณ์ที่ไม่มี SN, เป็น admin_stock, และไม่ถูกลบ
-    // และอยู่ใน masterItemId ที่ตรงกัน
-    const items = await InventoryItem.find({
-      itemMasterId: (inventoryMaster._id as any).toString(),
-      serialNumber: { $in: [null, ''] },
-      numberPhone: { $in: [null, ''] },
-      'currentOwnership.ownerType': 'admin_stock',
-      deletedAt: { $exists: false }
-    }).select('statusId conditionId _id');
+    // ใช้เกณฑ์เดียวกับ endpoint อื่น ๆ: กรองด้วย itemName + categoryId ที่แท้จริง
+    const actualCategoryId = inventoryMaster.categoryId;
+
+    // ถ้ามีรายการ itemIds ของกลุ่ม "อื่น ๆ" ใน master ให้ใช้เป็นแหล่งอ้างอิงหลัก (คือ non-SN)
+    const nonSNItemIds: string[] = (inventoryMaster as any)?.itemDetails?.other?.itemIds || [];
+
+    let items;
+    if (Array.isArray(nonSNItemIds) && nonSNItemIds.length > 0) {
+      items = await InventoryItem.find({
+        _id: { $in: nonSNItemIds },
+        'currentOwnership.ownerType': 'admin_stock',
+        deletedAt: { $exists: false }
+      }).select('statusId conditionId _id');
+    } else {
+      // fallback กรณี master ยังไม่มีการ sync itemIds
+      items = await InventoryItem.find({
+        itemName,
+        categoryId: actualCategoryId,
+        serialNumber: { $in: [null, ''] },
+        numberPhone: { $in: [null, ''] },
+        'currentOwnership.ownerType': 'admin_stock',
+        deletedAt: { $exists: false }
+      }).select('statusId conditionId _id');
+    }
 
     console.log(`📊 Found ${items.length} non-SN items for ${itemName}`);
 

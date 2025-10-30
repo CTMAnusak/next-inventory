@@ -266,7 +266,7 @@ const StatusCell: React.FC<StatusCellProps> = ({
                 }}>
                   💡 <strong>จำนวนที่เบิกได้</strong> = อุปกรณ์ที่อยู่ใน Admin Stock + สถานะ "มี" + สภาพ "ใช้งานได้"
                 </div>
-                <h4>สถานะอุปกรณ์ (Admin Stock):</h4>
+                <h4 className="text-green-600 mb-1">สถานะอุปกรณ์ (Admin Stock):</h4>
                 {breakdown.adminStatusBreakdown && Object.keys(breakdown.adminStatusBreakdown).length > 0 ? (
                   Object.entries(breakdown.adminStatusBreakdown).map(([statusId, count]) => (
                     <div key={statusId} className="breakdown-item">
@@ -277,7 +277,7 @@ const StatusCell: React.FC<StatusCellProps> = ({
                   <div className="breakdown-item text-gray-500">• ไม่มีอุปกรณ์ในคลัง</div>
                 )}
                 
-                <h4>สภาพอุปกรณ์ (Admin Stock):</h4>
+                <h4 className="text-green-600 mb-1">สภาพอุปกรณ์ (Admin Stock):</h4>
                 {breakdown.adminConditionBreakdown && Object.keys(breakdown.adminConditionBreakdown).length > 0 ? (
                   Object.entries(breakdown.adminConditionBreakdown).map(([conditionId, count]) => (
                     <div key={conditionId} className="breakdown-item">
@@ -290,7 +290,7 @@ const StatusCell: React.FC<StatusCellProps> = ({
 
                 {breakdown.userStatusBreakdown && Object.keys(breakdown.userStatusBreakdown).length > 0 && (
                   <>
-                    <h4 className="mt-2">สถานะอุปกรณ์ (User Owned):</h4>
+                    <h4 className="text-orange-500 mt-2 mb-1">สถานะอุปกรณ์ (User Owned):</h4>
                     {Object.entries(breakdown.userStatusBreakdown).map(([statusId, count]) => (
                       <div key={statusId} className="breakdown-item">
                         • {getStatusName(statusId)}: {count} ชิ้น
@@ -301,7 +301,7 @@ const StatusCell: React.FC<StatusCellProps> = ({
 
                 {breakdown.userConditionBreakdown && Object.keys(breakdown.userConditionBreakdown).length > 0 && (
                   <>
-                    <h4 className="mt-2">สภาพอุปกรณ์ (User Owned):</h4>
+                    <h4 className="text-orange-500 mt-2 mb-1">สภาพอุปกรณ์ (User Owned):</h4>
                     {Object.entries(breakdown.userConditionBreakdown).map(([conditionId, count]) => (
                       <div key={conditionId} className="breakdown-item">
                         • {getConditionName(conditionId)}: {count} ชิ้น
@@ -310,7 +310,7 @@ const StatusCell: React.FC<StatusCellProps> = ({
                   </>
                 )}
                 
-                <h4 className="mt-2">ประเภทอุปกรณ์:</h4>
+                <h4 className="text-blue-500 mt-2 mb-1">ประเภทอุปกรณ์:</h4>
                 {breakdown.typeBreakdown && (
                   <>
                     {breakdown.typeBreakdown.withoutSN > 0 && (
