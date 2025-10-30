@@ -210,8 +210,10 @@ export default function LoginPage() {
     const phoneRegex = /(\d{3}-\d{3}-\d{4})/g;
     let phoneMatch;
     
-    // Match Line ID pattern: Line ID : vsqitsupport
-    const lineRegex = /(Line ID\s*:\s*(\w+))/gi;
+    // Match Line ID pattern: Line ID : {any text} (supports various formats)
+    // รองรับหลายรูปแบบ: Line ID : vsqitsupport, Line ID : @VsqTLR, Line ID : vsqclp
+    // ไม่รวม ), ], }, > เพื่อไม่ให้ติดเครื่องหมายปิดวงเล็บมาด้วย
+    const lineRegex = /(Line ID\s*:\s*([^)\]\}\>\s\n]+))/gi;
     let lineMatch;
     
     // Find all matches
@@ -231,7 +233,7 @@ export default function LoginPage() {
     // Build parts array
     let currentIndex = 0;
     matches.forEach(({ type, match, index }) => {
-      // Add text before match
+      // Add text before match (เช่น "Line ID : ")
       if (index > currentIndex) {
         parts.push(details.substring(currentIndex, index));
       }
@@ -249,17 +251,41 @@ export default function LoginPage() {
           </a>
         );
       } else if (type === 'line') {
-        const lineId = match[2] || match[1].split(':')[1]?.trim();
+        // Extract the Line ID part (text after "Line ID :")
+        const fullMatch = match[0]; // "Line ID : vsqitsupport"
+        const lineIdWithPrefix = match[2]; // "vsqitsupport" (everything after ":")
+        
+        // Determine the href based on different formats
+        let href = '';
+        
+        if (lineIdWithPrefix.startsWith('@')) {
+          // Format: Line ID : @VsqTLR
+          // URL: https://line.me/R/ti/p/@VsqTLR (or full URL with params)
+          href = `https://line.me/R/ti/p/${encodeURIComponent(lineIdWithPrefix)}`;
+        } else if (lineIdWithPrefix.includes('http')) {
+          // Already a full URL
+          href = lineIdWithPrefix;
+        } else {
+          // Format: Line ID : vsqitsupport (classic format)
+          href = `https://line.me/ti/p/~${lineIdWithPrefix}`;
+        }
+        
+        // Get the prefix text (e.g., "Line ID : ")
+        const prefixText = fullMatch.substring(0, fullMatch.indexOf(lineIdWithPrefix));
+        const idText = lineIdWithPrefix; // Text to link
+        
         parts.push(
-          <a
-            key={`line-${index}`}
-            href={`https://line.me/ti/p/~${lineId}`}
-            target="_blank"
-            rel="noopener noreferrer"
-            className="text-green-600 hover:text-green-800 underline font-medium"
-          >
-            {match[0]}
-          </a>
+          <span key={`line-${index}`}>
+            {prefixText}
+            <a
+              href={href}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="text-green-600 hover:text-green-800 underline font-medium"
+            >
+              {idText}
+            </a>
+          </span>
         );
       }
       

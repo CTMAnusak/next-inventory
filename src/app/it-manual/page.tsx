@@ -91,17 +91,36 @@ export default function ITManualPage() {
             </h3>
             <div className="grid grid-cols-1 md:grid-cols-3 gap-4 text-blue-700">
               <div>
-                <strong className="font-medium">โทรศัพท์:</strong> 092-591-9889 (คุณเบลล์)
+                <strong className="font-medium">โทรศัพท์: </strong>
+                <a 
+                    href="tel:0925919889" 
+                    className="underline cursor-pointer"
+                  >092-591-9889
+                </a> (คุณเบลล์)
                 <br />
-                <span className="text-sm text-blue-600">(โปรดติดต่อในเวลาทำการ หรือติดต่อผ่าน Line)</span>
+                <span className="text-sm text-gray-500">(โปรดติดต่อในเวลาทำการ หรือติดต่อผ่าน Line)</span>
               </div>
               <div>
-                <strong className="font-medium">Line Official:</strong> V Square it support
+                <strong className="font-medium">Line Id : </strong>
+                <a 
+                href="https://line.me/ti/p/~vsqitsupport" 
+                target="_blank" 
+                rel="noopener noreferrer"
+                className="underline cursor-pointer"
+              >
+                V Square it support
+              </a>
                 <br />
-                <span className="text-sm text-blue-600">(Line Id : vsqitsupport)</span>
+                <span className="text-sm text-gray-500">(Line Id : vsqitsupport)</span>
               </div>
               <div>
-                <strong className="font-medium">อีเมล:</strong> vexclusive.it@gmail.com
+                <strong className="font-medium">อีเมล: </strong>
+                <a 
+                href="mailto:vexclusive.it@gmail.com" 
+                className="underline cursor-pointer"
+              >
+                vexclusive.it@gmail.com
+              </a>
               </div>
             </div>
           </div>
