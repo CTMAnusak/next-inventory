@@ -4,7 +4,7 @@ import { useState, useEffect } from 'react';
 import { useAuth } from '@/contexts/AuthContext';
 import Layout from '@/components/Layout';
 import { toast } from 'react-hot-toast';
-import { Search, RefreshCw } from 'lucide-react';
+import { Search, RefreshCw, ChevronDown } from 'lucide-react';
 import RequesterInfoForm from '@/components/RequesterInfoForm';
 import DatePicker from '@/components/DatePicker';
 import { handleAuthError } from '@/lib/auth-error-handler';
@@ -78,6 +78,9 @@ export default function EquipmentRequestPage() {
   const [selectedCategoryId, setSelectedCategoryId] = useState<string>('');
   const [itemsByCategory, setItemsByCategory] = useState<{[key: string]: string[]}>({});
   const [showCategorySelector, setShowCategorySelector] = useState<boolean>(false);
+  const [showItemSelector, setShowItemSelector] = useState<boolean>(false);
+  const [categorySearchTerm, setCategorySearchTerm] = useState<string>('');
+  const [itemSearchTerm, setItemSearchTerm] = useState<string>('');
 
   useEffect(() => {
     fetchInventoryItems();
@@ -589,20 +592,37 @@ export default function EquipmentRequestPage() {
                   <div className="relative">
                     <button
                       type="button"
-                      onClick={() => setShowCategorySelector(!showCategorySelector)}
-                      className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 text-left flex items-center justify-between"
+                      onClick={() => {
+                        setShowCategorySelector(!showCategorySelector);
+                        if (!showCategorySelector) setShowItemSelector(false);
+                      }}
+                      className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 text-left flex items-center justify-between cursor-pointer"
                     >
                       <span className={selectedCategoryId ? 'text-gray-900' : 'text-gray-500'}>
                         {selectedCategoryId ? categoryConfigs.find(c => c.id === selectedCategoryId)?.name || 'กรุณาเลือกหมวดหมู่' : 'กรุณาเลือกหมวดหมู่'}
                       </span>
-                      <span className="text-gray-400">▼</span>
+                      <ChevronDown className="h-4 w-4 text-gray-400" />
                     </button>
                     
                     {/* Category Dropdown */}
                     {showCategorySelector && (
-                      <div className="absolute z-10 w-full mt-1 bg-white border border-gray-300 rounded-md shadow-lg max-h-60 overflow-auto">
+                      <div className="absolute z-50 w-full mt-1 bg-white border border-gray-300 rounded-md shadow-lg max-h-60 overflow-auto">
+                        {/* Search in categories */}
+                        <div className="sticky top-0 bg-white border-b border-gray-200 p-2">
+                          <div className="relative">
+                            <Search className="absolute left-2 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-400" />
+                            <input
+                              type="text"
+                              placeholder="ค้นหาหมวดหมู่..."
+                              value={categorySearchTerm}
+                              onChange={(e) => setCategorySearchTerm(e.target.value)}
+                              className="w-full pl-8 pr-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm"
+                            />
+                          </div>
+                        </div>
                         {categoryConfigs
                           .filter(config => !config.isSystemCategory || config.id !== 'cat_unassigned') // ไม่แสดง "ไม่ระบุ"
+                          .filter(config => (config.name || '').toLowerCase().includes(categorySearchTerm.toLowerCase()))
                           .sort((a, b) => {
                             // ใช้การเรียงลำดับแบบเดียวกับ CategoryConfigList
                             // หมวดหมู่ปกติมาก่อน ซิมการ์ดมาหลัง
@@ -618,7 +638,12 @@ export default function EquipmentRequestPage() {
                             return (
                               <div
                                 key={config.id}
-                                onClick={() => handleCategorySelect(config.id)}
+                                onClick={() => {
+                                  handleCategorySelect(config.id);
+                                  setShowCategorySelector(false);
+                                  setShowItemSelector(false);
+                                  setCategorySearchTerm('');
+                                }}
                                 className={`px-3 py-2 hover:bg-blue-50 cursor-pointer border-b border-gray-100 text-gray-900 ${
                                   !hasItems ? 'opacity-50' : ''
                                 }`}
@@ -639,53 +664,90 @@ export default function EquipmentRequestPage() {
                       อุปกรณ์ *
                     </label>
                     {(() => {
-                      return null;
-                    })()}
-                    {(() => {
-                      // ใช้ categoryId เท่านั้น - ไม่ใช้ category name
-                      const selectedCategory = categoryConfigs.find(c => c.id === selectedCategoryId);
                       const availableItems = itemsByCategory[selectedCategoryId];
-                      
-                      
                       if (availableItems && availableItems.length > 0) {
+                        const filtered = availableItems
+                          .filter((itemName) => {
+                            const firstMatch = inventoryItems.find(i => i.itemName === itemName);
+                            if (!firstMatch) return true;
+                            return !requestItems.some(it => it.itemId === String(firstMatch._id));
+                          })
+                          .filter(name => name.toLowerCase().includes(itemSearchTerm.toLowerCase()));
+
                         return (
-                          <select
-                            value={getItemDisplayName(requestItem.itemId)}
-                            onChange={(e) => {
-                              const selectedItem = inventoryItems.find(i => i.itemName === e.target.value);
-                              if (selectedItem) {
-                                handleItemSelect(String(selectedItem._id));
-                              }
-                            }}
-                            className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 text-gray-900"
-                            required
-                          >
-                            <option value="">-- กรุณาเลือกอุปกรณ์ --</option>
-                            {availableItems
-                              .filter((itemName) => {
-                                const firstMatch = inventoryItems.find(i => i.itemName === itemName);
-                                if (!firstMatch) return true;
-                                return !requestItems.some(it => it.itemId === String(firstMatch._id));
-                              })
-                              .map((itemName) => {
-                              const availableQty = inventoryItems
-                                .filter(i => i.itemName === itemName && i.quantity > 0)
-                                .reduce((sum, i) => sum + i.quantity, 0);
-                              return (
-                                <option key={itemName} value={itemName}>
-                                  {itemName} (คงเหลือ: {availableQty > 0 ? availableQty : 0} ชิ้น)
-                                </option>
-                              );
-                            })}
-                          </select>
-                        );
-                      } else {
-                        return (
-                          <div className="w-full px-3 py-2 border border-gray-300 rounded-md bg-gray-50 text-gray-500 text-sm">
-                            ตอนนี้ยังไม่มีอุปกรณ์ในหมวดหมู่นี้ โปรดติดต่อทีม IT
+                          <div className="relative">
+                            <button
+                              type="button"
+                              onClick={() => {
+                                const next = !showItemSelector;
+                                setShowItemSelector(next);
+                                if (next) setShowCategorySelector(false);
+                              }}
+                              className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 text-left flex items-center justify-between cursor-pointer"
+                            >
+                              <span className={requestItem.itemId ? 'text-gray-900' : 'text-gray-500'}>
+                                {getItemDisplayName(requestItem.itemId) || 'กรุณาเลือกอุปกรณ์'}
+                              </span>
+                              <ChevronDown className="h-4 w-4 text-gray-400" />
+                            </button>
+
+                            {showItemSelector && (
+                              <div className="absolute z-50 w-full mt-1 bg-white border border-gray-300 rounded-md shadow-lg max-h-60 overflow-auto">
+                                {/* Search */}
+                                <div className="sticky top-0 bg-white border-b border-gray-200 p-2">
+                                  <div className="relative">
+                                    <Search className="absolute left-2 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-400" />
+                                    <input
+                                      type="text"
+                                      placeholder="ค้นหาอุปกรณ์..."
+                                      value={itemSearchTerm}
+                                      onChange={(e) => setItemSearchTerm(e.target.value)}
+                                      className="w-full pl-8 pr-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm"
+                                    />
+                                  </div>
+                                </div>
+
+                                <div className="max-h-48 overflow-auto">
+                                  {filtered.length > 0 ? (
+                                    filtered.map((itemName) => {
+                                      const availableQty = inventoryItems
+                                        .filter(i => i.itemName === itemName && i.quantity > 0)
+                                        .reduce((sum, i) => sum + i.quantity, 0);
+                                      const label = `${itemName} (คงเหลือ: ${availableQty > 0 ? availableQty : 0} ชิ้น)`;
+                                      const selectedItem = inventoryItems.find(i => i.itemName === itemName);
+                                      const itemId = selectedItem ? String(selectedItem._id) : '';
+                                      return (
+                                        <div
+                                          key={itemName}
+                                          onClick={async () => {
+                                            if (itemId) {
+                                              await handleItemSelect(itemId);
+                                              setShowItemSelector(false);
+                                              setItemSearchTerm('');
+                                            }
+                                          }}
+                                          className="px-3 py-2 hover:bg-blue-50 cursor-pointer border-b border-gray-100 text-gray-900"
+                                        >
+                                          {label}
+                                        </div>
+                                      );
+                                    })
+                                  ) : (
+                                    <div className="px-3 py-4 text-center text-gray-500">
+                                      {itemSearchTerm ? 'ไม่พบอุปกรณ์ที่ค้นหา' : 'ไม่มีอุปกรณ์ให้เลือก'}
+                                    </div>
+                                  )}
+                                </div>
+                              </div>
+                            )}
                           </div>
                         );
                       }
+                      return (
+                        <div className="w-full px-3 py-2 border border-gray-300 rounded-md bg-gray-50 text-gray-500 text-sm">
+                          ตอนนี้ยังไม่มีอุปกรณ์ในหมวดหมู่นี้ โปรดติดต่อทีม IT
+                        </div>
+                      );
                     })()}
                   </div>
                 )}
