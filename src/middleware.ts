@@ -6,6 +6,27 @@ export async function middleware(request: NextRequest) {
   const { pathname } = request.nextUrl;
   
   
+  // กรณีผู้ใช้เข้าหน้า /login แต่มีการล็อกอินอยู่แล้ว → รีไดเรกต์ไป /dashboard
+  if (pathname.startsWith('/login')) {
+    try {
+      const payload = verifyTokenFromRequestEdge(request);
+
+      if (payload) {
+        // ถ้าบัญชีกำลังจะถูกลบ ให้ลบคุกกี้และอยู่ที่หน้า login ต่อไป
+        if (payload.pendingDeletion) {
+          const response = NextResponse.next();
+          response.cookies.delete('auth-token');
+          return response;
+        }
+
+        // ผู้ใช้ล็อกอินอยู่แล้ว → รีไดเรกต์ไปหน้าหลักของระบบ
+        return NextResponse.redirect(new URL('/dashboard', request.url));
+      }
+    } catch (error) {
+      // ถ้ามีปัญหาในการตรวจสอบ token ให้ปล่อยผ่านไปที่หน้า login
+    }
+  }
+
   // ตรวจสอบ authentication สำหรับทุกหน้าที่ต้องการการ login
   const isProtectedRoute = !pathname.startsWith('/login') && 
                            !pathname.startsWith('/register') &&
@@ -80,6 +101,6 @@ export const config = {
      * - assets (public assets)
      * - api (most API routes handle their own auth)
      */
-    '/((?!api|_next/static|_next/image|favicon.ico|assets|login).*)',
+    '/((?!api|_next/static|_next/image|favicon.ico|assets).*)',
   ],
 };

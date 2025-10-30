@@ -1394,7 +1394,7 @@ export default function AdminEquipmentReportsPage() {
               </div>
               
               {/* แถวที่ 1: ค้นหา, Serial Number, Phone Number, อุปกรณ์, หมวดหมู่, สถานะ, สภาพ */}
-              <div className="grid max-[768px]:grid-cols-1 max-[1120px]:grid-cols-2 max-[1440px]:grid-cols-4 grid-cols-7 gap-4">
+              <div className="grid max-[768px]:grid-cols-1 max-[1120px]:grid-cols-2 max-[1440px]:grid-cols-4 grid-cols-4 gap-4">
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-1">
                     ค้นหา
@@ -1535,7 +1535,7 @@ export default function AdminEquipmentReportsPage() {
               </div>
 
               {/* แถวที่ 2: แผนก, สาขา, สถานที่จัดส่ง, ความเร่งด่วน, วันที่ */}
-              <div className="grid max-[768px]:grid-cols-1 max-[1120px]:grid-cols-2 max-[1440px]:grid-cols-4 grid-cols-7 gap-4">
+              <div className="grid max-[768px]:grid-cols-1 max-[1120px]:grid-cols-2 max-[1440px]:grid-cols-4 grid-cols-4 gap-4">
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-1">
                     แผนก
