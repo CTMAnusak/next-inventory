@@ -102,8 +102,10 @@ body {
   box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
   padding: 16px;
   min-width: 300px;
-  max-width: 400px;
-  pointer-events: none;
+  max-width: 640px;
+  max-height: 70vh;
+  overflow: auto;
+  pointer-events: auto;
 }
 
 .tooltip-content h4 {
@@ -111,6 +113,11 @@ body {
   font-size: 14px;
   font-weight: 600;
   color: #333;
+}
+
+.tooltip-content {
+  white-space: pre-line;
+  word-break: break-word;
 }
 
 .tooltip-content .breakdown-item {

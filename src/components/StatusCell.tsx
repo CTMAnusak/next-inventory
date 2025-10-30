@@ -36,9 +36,53 @@ const StatusCell: React.FC<StatusCellProps> = ({
   conditionConfigs = []
 }) => {
   const [showTooltip, setShowTooltip] = useState(false);
+  const [isPinned, setIsPinned] = useState(false); // โหมดค้างเมื่อคลิก
   const [isLoading, setIsLoading] = useState(false);
   const infoButtonRef = useRef<HTMLButtonElement | null>(null);
-  const [tooltipPosition, setTooltipPosition] = useState<{ top: number; left: number } | null>(null);
+  const [tooltipPosition, setTooltipPosition] = useState<{ top: number; left: number; transform?: string } | null>(null);
+  const tooltipRef = useRef<HTMLDivElement | null>(null);
+
+  // Helper: reposition tooltip to stay within viewport and flip if needed
+  const repositionTooltip = () => {
+    const target = infoButtonRef.current;
+    const el = tooltipRef.current;
+    if (!target || !el) return;
+
+    const anchor = target.getBoundingClientRect();
+    const tooltipRect = el.getBoundingClientRect();
+    const viewportW = window.innerWidth;
+    const viewportH = window.innerHeight;
+
+    let top = Math.round(anchor.bottom + 8);
+    let left = Math.round(anchor.left + anchor.width / 2);
+    let transform: string | undefined = 'translateX(-50%)';
+
+    // Prefer top if bottom space insufficient
+    if (tooltipRect.height + 8 > viewportH - anchor.bottom) {
+      top = Math.round(anchor.top - tooltipRect.height - 8);
+    }
+    // If still out of top boundary, push down to fit
+    if (top < 8) {
+      top = Math.max(8, Math.round(anchor.bottom + 8));
+    }
+    if (top + tooltipRect.height > viewportH - 8) {
+      top = Math.max(8, viewportH - 8 - tooltipRect.height);
+    }
+
+    // Clamp horizontally
+    const halfWidth = Math.round(tooltipRect.width / 2);
+    const minLeft = 8 + halfWidth;
+    const maxLeft = viewportW - 8 - halfWidth;
+    if (left < minLeft) {
+      left = 8;
+      transform = undefined;
+    } else if (left > maxLeft) {
+      left = viewportW - 8 - tooltipRect.width;
+      transform = undefined;
+    }
+
+    setTooltipPosition({ top, left, transform });
+  };
   // Auto-fetch breakdown whenever it's missing and we're not already loading
   useEffect(() => {
     if (!breakdown && onFetchBreakdown && !isLoading) {
@@ -53,15 +97,23 @@ const StatusCell: React.FC<StatusCellProps> = ({
 
   // Fetch breakdown data when tooltip is shown
   const handleMouseEnter = async (event: React.MouseEvent) => {
+    if (isPinned) return; // ถ้าคลิกค้างอยู่ ไม่ต้องตอบสนอง hover
     setShowTooltip(true);
     // Position tooltip relative to the info button, but render via portal (body)
     const target = (event.currentTarget as HTMLElement) || infoButtonRef.current;
     if (target) {
       const rect = target.getBoundingClientRect();
-      // Place tooltip below the icon and center horizontally
+      // Initial placement: bottom-center
       setTooltipPosition({
         top: Math.round(rect.bottom + 8),
-        left: Math.round(rect.left + rect.width / 2)
+        left: Math.round(rect.left + rect.width / 2),
+        transform: 'translateX(-50%)'
+      });
+
+      // After paint, correct position. Do 2 frames to catch size changes.
+      requestAnimationFrame(() => {
+        repositionTooltip();
+        requestAnimationFrame(repositionTooltip);
       });
     }
     
@@ -78,8 +130,52 @@ const StatusCell: React.FC<StatusCellProps> = ({
   };
 
   const handleMouseLeave = () => {
+    if (isPinned) return; // โหมดค้าง: ไม่ปิดเมื่อออกจาก hover
     setShowTooltip(false);
   };
+
+  // Toggle ด้วยการคลิกไอคอน
+  const handleIconClick = (event: React.MouseEvent) => {
+    event.stopPropagation();
+    if (isPinned) {
+      setIsPinned(false);
+      setShowTooltip(false);
+      return;
+    }
+    setIsPinned(true);
+    // เปิดและจัดตำแหน่งเหมือน hover
+    void handleMouseEnter(event);
+  };
+
+  // Reposition on resize/scroll while visible
+  useEffect(() => {
+    if (!showTooltip) return;
+    const onResize = () => repositionTooltip();
+    const onScroll = () => repositionTooltip();
+    window.addEventListener('resize', onResize);
+    window.addEventListener('scroll', onScroll, true);
+    // Re-run shortly after to adapt async content changes
+    const t1 = setTimeout(repositionTooltip, 50);
+    const t2 = setTimeout(repositionTooltip, 150);
+    // Close on outside click when pinned
+    const onDocumentMouseDown = (e: MouseEvent) => {
+      if (!isPinned) return;
+      const tooltipEl = tooltipRef.current;
+      const btnEl = infoButtonRef.current;
+      const target = e.target as Node;
+      if (tooltipEl?.contains(target) || btnEl?.contains(target)) return;
+      setIsPinned(false);
+      setShowTooltip(false);
+    };
+    document.addEventListener('mousedown', onDocumentMouseDown, true);
+    return () => {
+      window.removeEventListener('resize', onResize);
+      window.removeEventListener('scroll', onScroll, true);
+      document.removeEventListener('mousedown', onDocumentMouseDown, true);
+      clearTimeout(t1);
+      clearTimeout(t2);
+    };
+  }, [showTooltip, isPinned]);
 
   // Get status names from database configs
   const getStatusName = (statusId: string) => {
@@ -142,6 +238,8 @@ const StatusCell: React.FC<StatusCellProps> = ({
         ref={infoButtonRef}
         onMouseEnter={handleMouseEnter}
         onMouseLeave={handleMouseLeave}
+        onClick={handleIconClick}
+        aria-expanded={showTooltip}
         title="ดูข้อมูลเพิ่มเติม"
       >
         ℹ️
@@ -150,7 +248,8 @@ const StatusCell: React.FC<StatusCellProps> = ({
       {showTooltip && tooltipPosition && typeof document !== 'undefined' && createPortal(
         <div
           className="tooltip"
-          style={{ top: tooltipPosition.top, left: tooltipPosition.left, transform: 'translateX(-50%)' }}
+          ref={tooltipRef}
+          style={{ top: tooltipPosition.top, left: tooltipPosition.left, transform: tooltipPosition.transform }}
         >
           <div className="tooltip-content">
             {isLoading ? (
