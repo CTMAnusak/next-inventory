@@ -77,8 +77,8 @@ export default function ITManualPage() {
               </h3>
               <ul className="space-y-2 text-green-700">
                 <li>• <strong className="font-medium">รอดำเนินการ:</strong> งานอยู่ในคิวรอการจัดการ</li>
-                <li>• <strong className="font-medium">กำลังดำเนินการ:</strong> ทีม IT กำลังแก้ไขปัญหา</li>
-                <li>• <strong className="font-medium">ดำเนินการแล้ว:</strong> ทีม IT แก้ไขเสร็จแล้ว รอผู้แจ้งตรวจสอบและปิดงานในระบบ</li>
+                <li>• <strong className="font-medium">กำลังดำเนินการ:</strong> ทีม IT Support กำลังแก้ไขปัญหา</li>
+                <li>• <strong className="font-medium">ดำเนินการแล้ว:</strong> ทีม IT Support แก้ไขเสร็จแล้ว รอผู้แจ้งตรวจสอบและปิดงานในระบบ</li>
                 <li>• <strong className="font-medium">ปิดงาน:</strong> งานเสร็จสมบูรณ์</li>
               </ul>
             </div>
@@ -87,7 +87,7 @@ export default function ITManualPage() {
           {/* Contact Information */}
           <div className="mt-8 bg-blue-50 border border-blue-200 rounded-lg p-6">
             <h3 className="text-lg font-semibold text-blue-800 mb-3">
-              ช่องทางติดต่อทีม IT
+              ช่องทางติดต่อทีม IT Support
             </h3>
             <div className="grid grid-cols-1 md:grid-cols-3 gap-4 text-blue-700">
               <div>
@@ -135,7 +135,7 @@ export default function ITManualPage() {
               <li>• ตรวจสอบอีเมลเป็นประจำเพื่อรับการอัพเดตสถานะ</li>
               <li>• เมื่อสถานะเป็น "ดำเนินการแล้ว" ให้เข้าไปในเมนู "ติดตามสถานะ" เพื่อปิดงาน</li>
               <li>• หากเป็นปัญหาเร่งด่วน ให้เลือก "ด่วนมาก" และโทรติดต่อเพิ่มเติม</li>
-              <li>• แนบภาพหน้าจอหรือภาพประกอบ เพื่อช่วยให้ทีม IT ตรวจสอบและแก้ไขปัญหาได้รวดเร็วยิ่งขึ้น</li>
+              <li>• แนบภาพหน้าจอหรือภาพประกอบ เพื่อช่วยให้ทีม IT Support ตรวจสอบและแก้ไขปัญหาได้รวดเร็วยิ่งขึ้น</li>
             </ul>
           </div>
         </div>

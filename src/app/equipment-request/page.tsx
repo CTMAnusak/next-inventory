@@ -745,7 +745,7 @@ export default function EquipmentRequestPage() {
                       }
                       return (
                         <div className="w-full px-3 py-2 border border-gray-300 rounded-md bg-gray-50 text-gray-500 text-sm">
-                          ตอนนี้ยังไม่มีอุปกรณ์ในหมวดหมู่นี้ โปรดติดต่อทีม IT
+                          ตอนนี้ยังไม่มีอุปกรณ์ในหมวดหมู่นี้ โปรดติดต่อทีม IT Support
                         </div>
                       );
                     })()}

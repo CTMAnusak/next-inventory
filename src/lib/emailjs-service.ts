@@ -28,7 +28,7 @@ export interface EmailData {
 
 /**
  * ส่งอีเมลแจ้งปัญหา IT ผ่าน EmailJS
- * จะส่งจากอีเมลผู้แจ้งไปยังทีม IT ทั้งหมดโดยอัตโนมัติ
+ * จะส่งจากอีเมลผู้แจ้งไปยังทีม IT Support ทั้งหมดโดยอัตโนมัติ
  */
 export async function sendITReportEmail(data: EmailData): Promise<boolean> {
   try {
@@ -67,7 +67,7 @@ export async function sendITReportEmail(data: EmailData): Promise<boolean> {
           ? data.images.map(img => `${window.location.origin}/assets/IssueLog/${img}`).join('\n')
           : 'ไม่มี',
         
-        // ส่งถึงทีม IT
+        // ส่งถึงทีม IT Support
         to_email: adminEmail,
         
         // Subject

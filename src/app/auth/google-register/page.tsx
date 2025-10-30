@@ -156,7 +156,7 @@ export default function GoogleRegisterPage() {
       const data = await response.json();
 
       if (response.ok) {
-        toast.success('สมัครสมาชิกเรียบร้อยแล้ว รอการอนุมัติจากผู้ดูแลระบบ', { duration: 5000 });
+        toast.success('สมัครสมาชิกเรียบร้อยแล้ว รอการอนุมัติจากทีม IT Support', { duration: 5000 });
         setTimeout(() => {
           router.push('/login?message=registration_pending');
         }, 2000);
@@ -359,7 +359,7 @@ export default function GoogleRegisterPage() {
 
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-2">
-                ข้อความถึงผู้ดูแลระบบ (ไม่บังคับ)
+                ข้อความถึงทีม IT Support (ไม่บังคับ)
               </label>
               <textarea
                 name="requestMessage"
@@ -373,7 +373,7 @@ export default function GoogleRegisterPage() {
 
             <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
               <p className="text-sm text-blue-800">
-                <span className="font-medium">หมายเหตุ:</span> ข้อมูลของคุณจะถูกส่งไปยังผู้ดูแลระบบเพื่อพิจารณาอนุมัติ 
+                <span className="font-medium">หมายเหตุ:</span> ข้อมูลของคุณจะถูกส่งไปยังทีม IT Support เพื่อพิจารณาอนุมัติ 
                 คุณจะได้รับการแจ้งเตือนทางอีเมลเมื่อบัญชีของคุณได้รับการอนุมัติแล้ว
               </p>
             </div>

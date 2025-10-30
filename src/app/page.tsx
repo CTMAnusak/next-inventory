@@ -53,8 +53,8 @@ export default function Home() {
       color: 'bg-green-500',
     },
     {
-      title: 'ติดต่อทีม IT',
-      description: 'ข้อมูลการติดต่อทีม IT',
+      title: 'ติดต่อทีม IT Support',
+      description: 'ข้อมูลการติดต่อทีม IT Support',
       icon: Users,
       href: '/contact',
       color: 'bg-purple-500',
@@ -111,7 +111,7 @@ export default function Home() {
             </div>
             <div className="text-center">
               <div className="text-2xl font-bold text-purple-600">จัดการระบบ</div>
-              <div className="text-gray-600">สำหรับผู้ดูแลระบบ</div>
+              <div className="text-gray-600">สำหรับทีม IT Support</div>
             </div>
           </div>
         </div>

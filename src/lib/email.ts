@@ -272,7 +272,7 @@ export async function sendIssueConfirmationToReporter(issueData: any) {
           
           <div style="background-color: #e8f5e9; padding: 20px; margin: 20px 0; border-radius: 8px; border-left: 5px solid #4caf50; text-align: center;">
             <p style="margin: 0; font-size: 18px; color: #2e7d32;"><strong>ขอบคุณที่แจ้งปัญหา</strong></p>
-            <p style="margin: 10px 0 0 0; color: #666;">ทีม IT จะดำเนินการตรวจสอบและติดต่อกลับโดยเร็วที่สุด</p>
+            <p style="margin: 10px 0 0 0; color: #666;">ทีม IT Support จะดำเนินการตรวจสอบและติดต่อกลับโดยเร็วที่สุด</p>
           </div>
 
           <!-- Issue ID และวันที่แจ้ง -->
@@ -395,8 +395,8 @@ export async function sendIssueConfirmationToReporter(issueData: any) {
           <div style="background-color: #e3f2fd; padding: 15px; margin: 20px 0; border-radius: 8px;">
             <p style="margin: 0; color: #1976d2; font-size: 14px;"><strong>📌 หมายเหตุ:</strong></p>
             <ul style="margin: 10px 0; padding-left: 20px; color: #666;">
-              <li>ทีม IT จะติดต่อกลับหากต้องการข้อมูลเพิ่มเติม</li>
-              <li>คุณจะได้รับอีเมลแจ้งเตือนเมื่อทีม IT รับงานและส่งงาน</li>
+              <li>ทีม IT Support จะติดต่อกลับหากต้องการข้อมูลเพิ่มเติม</li>
+              <li>คุณจะได้รับอีเมลแจ้งเตือนเมื่อทีม IT Support รับงานและส่งงาน</li>
               <li>กรุณาเก็บ Issue ID ไว้เพื่อใช้ในการติดตามงาน</li>
             </ul>
           </div>
@@ -463,7 +463,7 @@ export async function sendJobAcceptedNotification(issueData: any) {
     html: `
       <div style="font-family: Arial, sans-serif; line-height: 1.6; color: #333; max-width: 800px; margin: 0 auto;">
         <div style="background: linear-gradient(135deg, #4caf50 0%, #2e7d32 100%); padding: 30px; border-radius: 10px 10px 0 0;">
-          <h1 style="color: white; margin: 0; font-size: 28px; text-align: center;">✅ ทีม IT รับงานเรียบร้อยแล้ว</h1>
+          <h1 style="color: white; margin: 0; font-size: 28px; text-align: center;">✅ ทีม IT Support รับงานเรียบร้อยแล้ว</h1>
         </div>
         
         <div style="background-color: #ffffff; padding: 30px; border: 1px solid #e0e0e0; border-top: none;">
@@ -595,7 +595,7 @@ export async function sendJobAcceptedNotification(issueData: any) {
           <!-- ปุ่มติดตามสถานะ -->
           <div style="background: linear-gradient(135deg, #2196f3 0%, #1976d2 100%); padding: 25px; margin: 30px 0; border-radius: 10px; text-align: center;">
             <p style="color: white; margin: 0 0 15px 0; font-size: 18px; font-weight: bold;">⏳ ขั้นตอนถัดไป</p>
-            <p style="color: #f0f0f0; margin: 0 0 20px 0; font-size: 14px;">ทีม IT กำลังดำเนินการแก้ไขปัญหา คุณสามารถติดตามสถานะได้ที่:</p>
+            <p style="color: #f0f0f0; margin: 0 0 20px 0; font-size: 14px;">ทีม IT Support กำลังดำเนินการแก้ไขปัญหา คุณสามารถติดตามสถานะได้ที่:</p>
             <a href="${process.env.NEXTAUTH_URL}/it-tracking" 
                style="display: inline-block; background-color: #ffc107; color: #000; padding: 15px 40px; text-decoration: none; border-radius: 25px; font-weight: bold; font-size: 16px; box-shadow: 0 4px 6px rgba(0,0,0,0.2);">
               📊 ติดตามสถานะ
@@ -676,7 +676,7 @@ export async function sendWorkCompletedNotification(issueData: any) {
         html: `
         <div style="font-family: Arial, sans-serif; line-height: 1.6; color: #333; max-width: 800px; margin: 0 auto;">
           <div style="background: linear-gradient(135deg, #ff9800 0%, #f57c00 100%); padding: 30px; border-radius: 10px 10px 0 0;">
-            <h1 style="color: white; margin: 0; font-size: 28px; text-align: center;">🎉 ทีม IT ส่งงานเรียบร้อยแล้ว</h1>
+            <h1 style="color: white; margin: 0; font-size: 28px; text-align: center;">🎉 ทีม IT Support ส่งงานเรียบร้อยแล้ว</h1>
           </div>
           
           <div style="background-color: #ffffff; padding: 30px; border: 1px solid #e0e0e0; border-top: none;">
@@ -1359,7 +1359,7 @@ export async function sendIssueUpdateNotification(issueData: any) {
         ` : `
         <div style="background-color: #e3f2fd; padding: 15px; margin: 20px 0; border-radius: 5px; border: 2px solid #2196f3;">
           <p><strong>⏳ ขั้นตอนถัดไป:</strong></p>
-          <p style="margin: 5px 0; color: #666; font-size: 0.9em;">ทีม IT กำลังดำเนินการแก้ไขปัญหา คุณสามารถติดตามสถานะได้ที่:</p>
+          <p style="margin: 5px 0; color: #666; font-size: 0.9em;">ทีม IT Support กำลังดำเนินการแก้ไขปัญหา คุณสามารถติดตามสถานะได้ที่:</p>
           <p style="margin: 10px 0;">
             <a href="${process.env.NEXTAUTH_URL}/it-tracking" 
                style="background-color: #1976d2; color: white; padding: 12px 24px; text-decoration: none; border-radius: 5px; display: inline-block; font-weight: bold;">

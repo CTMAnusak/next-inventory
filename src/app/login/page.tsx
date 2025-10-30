@@ -58,7 +58,7 @@ export default function LoginPage() {
     if (message === 'registration_pending') {
       setErrorData({
         title: '✅ สมัครสมาชิกเรียบร้อยแล้ว',
-        message: 'รอการอนุมัติจากผู้ดูแลระบบ',
+        message: 'รอการอนุมัติจากทีม IT Support',
         details: 'ทางทีมงานจะตรวจสอบและอนุมัติบัญชีของคุณโดยเร็วที่สุด กรุณารอการแจ้งเตือนทางอีเมล',
         type: 'pending_approval'
       });
@@ -72,14 +72,14 @@ export default function LoginPage() {
         setErrorData({
           title: '❌ ไม่พบบัญชีผู้ใช้',
           message: 'บัญชีผู้ใช้ไม่พบในระบบ',
-          details: 'กรุณาสมัครสมาชิกด้วย Google หรือติดต่อทีม IT',
+          details: 'กรุณาสมัครสมาชิกด้วย Google หรือติดต่อทีม IT Support',
           type: 'error'
         });
       } else {
         setErrorData({
           title: '❌ เกิดข้อผิดพลาด',
           message: decodedError,
-          details: 'กรุณาลองใหม่อีกครั้ง หรือติดต่อทีม IT',
+          details: 'กรุณาลองใหม่อีกครั้ง หรือติดต่อทีม IT Support',
           type: 'error'
         });
       }
@@ -308,7 +308,7 @@ export default function LoginPage() {
         return {
           title: '⏳ รอการอนุมัติ',
           message: error,
-          details: details || 'กรุณารอการอนุมัติจากผู้ดูแลระบบ',
+          details: details || 'กรุณารอการอนุมัติจากทีม IT Support',
           type: 'pending_approval' as const
         };
       case 'already_exists':
@@ -329,14 +329,14 @@ export default function LoginPage() {
         return {
           title: '❌ ไม่พบผู้ใช้ในระบบ',
           message: 'อีเมลที่กรอกไม่พบในระบบ',
-          details: details || 'กรุณาสมัครสมาชิก หรือติดต่อทีม IT',
+          details: details || 'กรุณาสมัครสมาชิก หรือติดต่อทีม IT Support',
           type: 'user_not_found' as const
         };
       case 'no_account':
         return {
           title: '❌ ไม่พบบัญชีผู้ใช้',
           message: 'บัญชีนี้ไม่พบในระบบ',
-          details: details || 'กรุณาสมัครสมาชิก หรือติดต่อทีม IT',
+          details: details || 'กรุณาสมัครสมาชิก หรือติดต่อทีม IT Support',
           type: 'error' as const
         };
       default:
@@ -493,6 +493,27 @@ export default function LoginPage() {
                 </>
               )}
             </button>
+          </div>
+          {/* Contact IT Info */}
+          <div className="mt-7 text-center text-xs text-gray-500">
+            <div className="mb-2">ติดต่อ Support</div>
+            <div className="text-blue-600">เบอร์ :
+              {' '}
+              <a href="tel:0925919889" className="hover:text-blue-800 underline">092-591-9889</a>
+              {' '}
+              (คุณเบลล์)
+            </div>
+            <div className="mt-1 text-green-600 ">Line :
+              {' '}
+              <a
+                href="https://line.me/ti/p/~vsqitsupport"
+                target="_blank"
+                rel="noopener noreferrer"
+                className="hover:text-green-800 underline font-medium"
+              >
+                V Square it support         
+              </a><br /><span className="text-gray-500">(Line ID : vsqitsupport)</span>
+            </div>
           </div>
         </div>
       </div>

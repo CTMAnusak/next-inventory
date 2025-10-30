@@ -187,7 +187,7 @@ export class ErrorBoundary extends React.Component<
             </div>
             <div className="mt-2">
               <p className="text-sm text-gray-500">
-                เกิดข้อผิดพลาดที่ไม่คาดคิด กรุณารีเฟรชหน้าเว็บหรือติดต่อผู้ดูแลระบบ
+                เกิดข้อผิดพลาดที่ไม่คาดคิด กรุณารีเฟรชหน้าเว็บหรือติดต่อทีม IT Support
               </p>
             </div>
             <div className="mt-4">

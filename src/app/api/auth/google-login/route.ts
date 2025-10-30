@@ -46,9 +46,9 @@ export async function POST(request: NextRequest) {
         if (existingUser.registrationMethod === 'google' && !existingUser.isApproved) {
           return NextResponse.json(
             { 
-              error: '⏳ บัญชีของคุณรอการอนุมัติจากทีม IT',
+              error: '⏳ บัญชีของคุณรอการอนุมัติจากทีม IT Support',
               errorType: 'pending_approval',
-              details: 'กรุณารอการอนุมัติจากทีม IT หรือติดต่อทีม IT เพื่อเร่งการอนุมัติ'
+              details: 'กรุณารอการอนุมัติจากทีม IT Support หรือติดต่อทีม IT Support เพื่อเร่งการอนุมัติ'
             },
             { status: 400 }
           );
@@ -85,7 +85,7 @@ export async function POST(request: NextRequest) {
           { 
             error: '❌ ไม่พบบัญชีผู้ใช้',
             errorType: 'no_account',
-            details: 'กรุณาสมัครสมาชิกด้วย Google หรือติดต่อทีม IT'
+            details: 'กรุณาสมัครสมาชิกด้วย Google หรือติดต่อทีม IT Support'
           },
           { status: 400 }
         );
@@ -100,7 +100,7 @@ export async function POST(request: NextRequest) {
 
       if (!existingUser.isApproved) {
         return NextResponse.json(
-          { error: 'บัญชีของคุณรอการอนุมัติจากผู้ดูแลระบบ' },
+          { error: 'บัญชีของคุณรอการอนุมัติจากทีม IT Support' },
           { status: 400 }
         );
       }

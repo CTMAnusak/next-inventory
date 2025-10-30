@@ -205,7 +205,7 @@ function ErrorFallback({
         </div>
 
         <div className="mt-4 text-xs text-gray-500 text-center">
-          หากปัญหายังคงเกิดขึ้น กรุณาติดต่อผู้ดูแลระบบ
+          หากปัญหายังคงเกิดขึ้น กรุณาติดต่อทีม IT Support
         </div>
       </div>
     </div>

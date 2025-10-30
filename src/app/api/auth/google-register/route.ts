@@ -75,7 +75,7 @@ export async function POST(request: NextRequest) {
       // Only email duplicate (existing Google user)
       if (existingGoogleUserStatus === 'pending') {
         return NextResponse.json(
-          { error: 'บัญชีของคุณรอการอนุมัติจากผู้ดูแลระบบ' },
+          { error: 'บัญชีของคุณรอการอนุมัติจากทีม IT Support' },
           { status: 400 }
         );
       } else {
@@ -197,7 +197,7 @@ export async function POST(request: NextRequest) {
 
     return NextResponse.json({
       success: true,
-      message: 'สมัครสมาชิกเรียบร้อยแล้ว รอการอนุมัติจากผู้ดูแลระบบ',
+      message: 'สมัครสมาชิกเรียบร้อยแล้ว รอการอนุมัติจากทีม IT Support',
       userId: newUser.user_id
     });
 

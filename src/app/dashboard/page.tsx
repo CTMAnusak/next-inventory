@@ -738,8 +738,8 @@ export default function DashboardPage() {
       color: 'bg-green-500',
     },
     {
-      title: 'ติดต่อทีม IT',
-      description: 'ข้อมูลการติดต่อทีม IT',
+      title: 'ติดต่อทีม IT Support',
+      description: 'ข้อมูลการติดต่อทีม IT Support',
       icon: Users,
       href: '/contact',
       color: 'bg-purple-500',
@@ -780,7 +780,7 @@ export default function DashboardPage() {
             else if (action.title === 'คืนอุปกรณ์') dataTutorial = 'equipment-return-card';
             else if (action.title === 'แจ้งปัญหา IT') dataTutorial = 'it-report-card';
             else if (action.title === 'ติดตามสถานะ') dataTutorial = 'it-tracking-card';
-            else if (action.title === 'ติดต่อทีม IT') dataTutorial = 'contact-it-card';
+            else if (action.title === 'ติดต่อทีม IT Support') dataTutorial = 'contact-it-card';
             
             return (
               <div

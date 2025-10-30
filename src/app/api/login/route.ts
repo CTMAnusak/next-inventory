@@ -37,7 +37,7 @@ export async function POST(request: NextRequest) {
         { 
           error: 'ไม่พบผู้ใช้ในระบบ',
           errorType: 'user_not_found',
-          details: 'กรุณาสมัครสมาชิก หรือติดต่อทีม IT (เบอร์ : 092-591-9889 (คุณเบลล์) , Line ID : vsqitsupport)'
+          details: 'กรุณาสมัครสมาชิก หรือติดต่อทีม IT Support (เบอร์ : 092-591-9889 (คุณเบลล์) , Line ID : vsqitsupport)'
         },
         { status: 404 }
       );

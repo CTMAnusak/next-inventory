@@ -9,7 +9,7 @@ export default function ContactPage() {
       <div className="max-w-4xl mx-auto">
         <div className="bg-white rounded-lg shadow-md p-8">
           <h1 className="text-2xl font-semibold text-gray-900 mb-6 text-center">
-            ติดต่อทีม IT
+            ติดต่อทีม IT Support
           </h1>
 
           <div className="grid grid-cols-1 md:grid-cols-3 gap-8">

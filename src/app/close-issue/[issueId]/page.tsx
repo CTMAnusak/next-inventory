@@ -154,7 +154,7 @@ export default function CloseIssuePage() {
       <div className="min-h-screen bg-gradient-to-br from-blue-50 via-indigo-50 to-cyan-50 flex items-center justify-center">
         <div className="text-center">
           <CheckCircle className="w-16 h-16 text-green-500 mx-auto mb-4" />
-          <h1 className="text-2xl font-semibold text-gray-900 mb-2">ขอบคุณที่ไว้ใจให้ทีม IT ดูแล</h1>
+          <h1 className="text-2xl font-semibold text-gray-900 mb-2">ขอบคุณที่ไว้ใจให้ทีม IT Support ดูแล</h1>
           <p className="text-gray-600">กรุณาคลิกปิดหน้าเว็บ</p>
         </div>
       </div>
@@ -213,7 +213,7 @@ export default function CloseIssuePage() {
             <div className="space-y-6">
               <div className="text-center">
                 <h3 className="text-lg font-semibold text-gray-900 mb-4">
-                  ทีม IT ได้ดำเนินการแก้ไขปัญหาของคุณแล้ว
+                  ทีม IT Support ได้ดำเนินการแก้ไขปัญหาของคุณแล้ว
                 </h3>
                 <p className="text-gray-600 mb-6">
                   กรุณาเลือกการดำเนินการต่อไป

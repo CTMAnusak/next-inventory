@@ -82,7 +82,7 @@ export default function ITReportPage() {
     const error = urlParams.get('error');
 
     if (success === 'email_sent') {
-      toast.success('ส่งอีเมลแจ้งทีม IT เรียบร้อยแล้ว');
+      toast.success('ส่งอีเมลแจ้งทีม IT Support เรียบร้อยแล้ว');
       setSavedIssueId(null);
       // Clear URL parameters
       window.history.replaceState({}, document.title, window.location.pathname);
