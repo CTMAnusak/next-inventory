@@ -276,29 +276,25 @@ export default function Sidebar({ isOpen, onClose }: SidebarProps) {
                           else if (subItem.title === 'ติดตามสถานะ') dataTutorial = 'it-tracking';
                           
                           return (
-                            <button
+                            <Link
                               key={subIndex}
-                              onClick={(e) => {
-                                // หยุดการ propagate event เพื่อไม่ให้ปิด submenu
-                                e.stopPropagation();
-                                
-                                // ใช้ฟังก์ชัน handleMenuNavigation แทน
-                                handleMenuNavigation(subItem.href, subItem.title);
-                              }}
-                              className={`flex items-center px-4 py-2 text-sm rounded-lg transition-all duration-200 ml-5 w-full text-left ${
+                              href={subItem.href}
+                              className={`flex items-center px-4 py-2 text-sm rounded-lg transition-all duration-200 ml-5 w-full ${
                                 pathname === subItem.href
                                   ? 'bg-white/20 text-white shadow-md'
                                   : 'text-white/70 hover:bg-white/10 hover:text-white hover:scale-105'
                               }`}
+                              onClick={() => {
+                                if (window.innerWidth < 1024) {
+                                  onClose();
+                                }
+                              }}
                               data-tutorial={dataTutorial || undefined}
-                              disabled={loadingMenu === subItem.title}
+                              aria-current={pathname === subItem.href ? 'page' : undefined}
                             >
                               <SubIcon className="w-4 h-4 mr-3" />
                               <span>{subItem.title}</span>
-                              {loadingMenu === subItem.title && (
-                                <Loader2 className="w-3 h-3 ml-2 animate-spin" />
-                              )}
-                            </button>
+                            </Link>
                           );
                         })}
                       </div>
@@ -318,26 +314,28 @@ export default function Sidebar({ isOpen, onClose }: SidebarProps) {
                     <span>{item.title}</span>
                   </button>
                 ) : (
-                  <button
-                    onClick={() => handleMenuNavigation(item.href!, item.title)}
+                  <Link
+                    href={item.href!}
                     className={`flex items-center px-4 py-3 rounded-xl transition-all duration-200 w-full ${
                       pathname === item.href
                         ? 'bg-white/20 text-white shadow-lg scale-105'
                         : 'text-white/90 hover:bg-white/10 hover:text-white hover:scale-105'
                     }`}
+                    onClick={() => {
+                      if (window.innerWidth < 1024) {
+                        onClose();
+                      }
+                    }}
                     data-tutorial={
                       item.href === '/contact' ? 'contact' : 
                       item.href === '/dashboard' ? 'dashboard-menu' : 
                       undefined
                     }
-                    disabled={loadingMenu === item.title}
+                    aria-current={pathname === item.href ? 'page' : undefined}
                   >
                     <item.icon className="w-5 h-5 mr-3" />
                     <span>{item.title}</span>
-                    {loadingMenu === item.title && (
-                      <Loader2 className="w-4 h-4 ml-2 animate-spin" />
-                    )}
-                  </button>
+                  </Link>
                 )}
               </div>
             ))}

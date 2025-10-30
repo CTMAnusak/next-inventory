@@ -63,8 +63,8 @@ export async function GET(request: NextRequest) {
     
     // Get paginated InventoryMaster items with optimized query
     const allItems = await InventoryMaster.find(queryFilter)
-      .select('_id itemName categoryId totalQuantity availableQuantity userOwnedQuantity lastUpdated itemDetails') // Only select needed fields
-      .sort({ lastUpdated: -1 }) // Sort by newest first
+      .select('_id itemName categoryId totalQuantity availableQuantity userOwnedQuantity lastUpdated createdAt itemDetails') // Only select needed fields
+      .sort({ createdAt: -1 }) // Sort by earliest creation (newest first)
       .skip(skip)
       .limit(limit)
       .lean(); // Use lean() for better performance
@@ -78,7 +78,7 @@ export async function GET(request: NextRequest) {
       quantity: item.totalQuantity, // 🔧 CRITICAL FIX: แสดงจำนวนทั้งหมด ไม่ใช่เฉพาะที่เบิกได้
       availableQuantity: item.availableQuantity, // จำนวนที่พร้อมเบิก (available + working)
       serialNumbers: [], // จะต้องดึงจาก InventoryItem ถ้าต้องการ
-      dateAdded: item.lastUpdated,
+      dateAdded: item.createdAt,
       status: 'active', // Default status
       hasSerialNumber: (item.itemDetails.withSerialNumber as any)?.count > 0 || false,
       userOwnedQuantity: item.userOwnedQuantity

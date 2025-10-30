@@ -96,10 +96,9 @@ export async function GET(request: NextRequest) {
         deletedAt: { $exists: false }
       }).lean(),
       // นับแถวสินค้าใกล้หมด (availableQuantity <= 2 และไม่มี serial number) - นับจำนวนแถว ไม่ใช่จำนวน items
+      // นับจำนวนชื่ออุปกรณ์ที่มีจำนวนเบิกได้ปัจจุบัน ≤ 2 (รวม 0) ไม่ตัด SN/เบอร์ออก เพื่อให้ตรงกับหน้า Inventory
       InventoryMaster.countDocuments({ 
-        availableQuantity: { $lte: 2, $gte: 0 }, // มีจำนวนคงเหลือ 0-2 ชิ้น
-        'itemDetails.withSerialNumber.count': 0, // ไม่มี Serial Number
-        'itemDetails.withPhoneNumber.count': 0   // ไม่มีเบอร์โทรศัพท์
+        availableQuantity: { $lte: 2, $gte: 0 }
       }).lean(),
 
       // กล่อง "สถานะแจ้งงาน IT" (อิงช่วงเวลา) - ใช้ lean()
@@ -110,17 +109,59 @@ export async function GET(request: NextRequest) {
       IssueLog.countDocuments({ urgency: 'very_urgent', reportDate: { $gte: startDate, $lte: endDate } }).lean(),
       IssueLog.countDocuments({ urgency: 'normal', reportDate: { $gte: startDate, $lte: endDate } }).lean(),
 
-      // กล่อง "สถานะคลังสินค้า" (อิงช่วงเวลา - สำหรับรายการที่เพิ่มในช่วงเวลานั้น)
+      // กล่อง "สถานะคลังสินค้า" (อิงช่วงเวลา) – จำนวนทั้งหมดของ items ที่เข้าสต็อกแอดมินในช่วงเวลา (แอดมินเพิ่ม หรือผู้ใช้คืน)
       InventoryItem.countDocuments({ 
-        'sourceInfo.dateAdded': { $gte: startDate, $lte: endDate },
-        deletedAt: { $exists: false }
+        deletedAt: { $exists: false },
+        'currentOwnership.ownerType': 'admin_stock',
+        $or: [
+          { 'sourceInfo.initialOwnerType': 'admin_stock', 'sourceInfo.dateAdded': { $gte: startDate, $lte: endDate } },
+          { 'transferInfo.transferredFrom': 'user_owned', 'transferInfo.transferDate': { $gte: startDate, $lte: endDate } }
+        ]
       }),
-      InventoryMaster.countDocuments({ 
-        availableQuantity: { $lte: 2, $gte: 0 }, // มีจำนวนคงเหลือ 0-2 ชิ้น
-        'itemDetails.withSerialNumber.count': 0, // ไม่มี Serial Number
-        'itemDetails.withPhoneNumber.count': 0,   // ไม่มีเบอร์โทรศัพท์
-        createdAt: { $gte: startDate, $lte: endDate } // อิงตามช่วงเวลาที่เพิ่มอุปกรณ์เข้ามาครั้งแรก
-      }),
+      // คำนวณ "ใกล้หมด (≤ 2) ตามช่วงเวลา" ให้สอดคล้องกับหน้า Inventory:
+      // เลือกเฉพาะชื่ออุปกรณ์ที่ปัจจุบัน availableQuantity ≤ 2 และมี "เหตุการณ์เข้าสต็อกแอดมิน" ในช่วงเวลาที่เลือก (เพิ่มใหม่/คืนของ)
+      InventoryMaster.aggregate([
+        {
+          $match: {
+            availableQuantity: { $lte: 2, $gte: 0 }
+          }
+        },
+        {
+          $lookup: {
+            from: 'inventoryitems',
+            let: { itemName: '$itemName', categoryId: '$categoryId' },
+            pipeline: [
+              {
+                $match: {
+                  $expr: {
+                    $and: [
+                      { $eq: ['$itemName', '$$itemName'] },
+                      { $eq: ['$categoryId', '$$categoryId'] },
+                      { $eq: ['$currentOwnership.ownerType', 'admin_stock'] },
+                      { $or: [
+                        { $and: [
+                          { $eq: ['$sourceInfo.initialOwnerType', 'admin_stock'] },
+                          { $gte: ['$sourceInfo.dateAdded', startDate] },
+                          { $lte: ['$sourceInfo.dateAdded', endDate] }
+                        ]},
+                        { $and: [
+                          { $eq: ['$transferInfo.transferredFrom', 'user_owned'] },
+                          { $gte: ['$transferInfo.transferDate', startDate] },
+                          { $lte: ['$transferInfo.transferDate', endDate] }
+                        ]}
+                      ] }
+                    ]
+                  }
+                }
+              },
+              { $limit: 1 }
+            ],
+            as: 'enteredInPeriod'
+          }
+        },
+        { $match: { enteredInPeriod: { $ne: [] } } },
+        { $count: 'lowStockNames' }
+      ]).then(x => x?.[0]?.lowStockNames || 0),
       
       // สำหรับกล่อง "สรุป" - User เพิ่มเองในช่วงเวลา
       InventoryItem.countDocuments({ 

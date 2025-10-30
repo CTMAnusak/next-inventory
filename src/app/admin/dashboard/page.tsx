@@ -551,8 +551,8 @@ export default function AdminDashboardPage() {
                   <span className="font-semibold text-blue-600">{stats.totalInventoryItemsInPeriod || 0}</span>
                 </div>
                 <div className="flex justify-between items-center">
-                  <span className="text-sm text-red-600 font-medium">รายการทั่วไป (ไม่รวม SN/เบอร์) ใกล้หมด (≤ 2)</span>
-                  <span className="font-semibold text-red-600">{stats.lowStockItemsInPeriod || 0}</span>
+                  <span className="text-sm text-red-600 font-medium">รายการอุปกรณ์ที่ใกล้หมด (≤ 2)</span>
+คุ                  <span className="font-semibold text-red-600">{stats.lowStockItemsInPeriod || 0}</span>
                 </div>
               </div>
             </div>

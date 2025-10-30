@@ -721,14 +721,52 @@ export default function AdminInventoryPage() {
     }
     // If stockDisplayMode is 'all', we don't filter by stock level
 
-    // Sort by low stock items first (non-serial groups only), then by date added
+    // Sort by: low stock groups first, then item name with custom ordering rules
+    // Custom name ordering: A-Z (Latin) -> ก-ฮ (Thai) -> 0-9 (digits) -> others
     grouped.sort((a, b) => {
       const threshold = lowStockThreshold;
-      // 🔧 FIX: ใช้ availableQuantity สำหรับ low stock sorting
+      // 1) Low stock precedence (non-serial groups only)
       const aIsLowStock = (a.availableQuantity ?? 0) <= threshold && (!a.serialNumbers || a.serialNumbers.length === 0);
       const bIsLowStock = (b.availableQuantity ?? 0) <= threshold && (!b.serialNumbers || b.serialNumbers.length === 0);
       if (aIsLowStock && !bIsLowStock) return -1;
       if (!aIsLowStock && bIsLowStock) return 1;
+
+      // 2) Within same group, compare names by custom locale/type rules
+      const getTypeOrderAndKey = (name: string) => {
+        const trimmed = (name || '').trim();
+        // Find first significant char (Latin/Thai/digit) to determine type
+        const match = trimmed.match(/[A-Za-zก-๙0-9]/);
+        const first = match ? match[0] : '';
+        let typeOrder = 4; // others by default
+        if (/[A-Za-z]/.test(first)) typeOrder = 1; // Latin first
+        else if (/[ก-๙]/.test(first)) typeOrder = 2; // Thai second
+        else if (/[0-9]/.test(first)) typeOrder = 3; // Digits third
+        return { typeOrder, key: trimmed };
+      };
+
+      const aMeta = getTypeOrderAndKey(a.itemName);
+      const bMeta = getTypeOrderAndKey(b.itemName);
+      if (aMeta.typeOrder !== bMeta.typeOrder) return aMeta.typeOrder - bMeta.typeOrder;
+
+      // Same type: locale-aware comparison
+      if (aMeta.typeOrder === 1) {
+        const cmp = aMeta.key.localeCompare(bMeta.key, 'en', { sensitivity: 'base' });
+        if (cmp !== 0) return cmp;
+      } else if (aMeta.typeOrder === 2) {
+        const cmp = aMeta.key.localeCompare(bMeta.key, 'th', { sensitivity: 'base' });
+        if (cmp !== 0) return cmp;
+      } else if (aMeta.typeOrder === 3) {
+        // Compare leading numeric values, then fallback lexical
+        const aNum = parseInt(aMeta.key.match(/\d+/)?.[0] || '0', 10);
+        const bNum = parseInt(bMeta.key.match(/\d+/)?.[0] || '0', 10);
+        if (aNum !== bNum) return aNum - bNum;
+      }
+
+      // Final fallback: case-insensitive compare
+      const finalCmp = aMeta.key.localeCompare(bMeta.key, undefined, { sensitivity: 'base' });
+      if (finalCmp !== 0) return finalCmp;
+
+      // If names are effectively equal, keep newest created first for stability
       return new Date(b.dateAdded).getTime() - new Date(a.dateAdded).getTime();
     });
 

@@ -3,7 +3,7 @@
 import { useState, useEffect, useRef, useLayoutEffect } from 'react';
 import Layout from '@/components/Layout';
 import { toast } from 'react-hot-toast';
-import { Clock, CheckCircle, XCircle, AlertCircle, RefreshCw, Eye, X, Search, Filter } from 'lucide-react';
+import { Clock, CheckCircle, XCircle, AlertCircle, RefreshCw, X, Search, Filter } from 'lucide-react';
 import { useAuth } from '@/contexts/AuthContext';
 import { handleAuthError } from '@/lib/auth-error-handler';
 import { enableDragScroll } from '@/lib/drag-scroll';
@@ -669,32 +669,30 @@ export default function ITTrackingPage() {
                       </td>
                       
                       {/* รายละเอียด (ปุ่ม) */}
-                      <td className="px-4 py-3 text-center">
+                      <td className="px-1 py-1 text-center">
                         {issue.status === 'completed' ? (
                           <div className="flex flex-col gap-2 items-center">
                             {/* แถวที่ 1: ปุ่มปิดงาน และ ไม่ปิดงาน */}
-                            <div className="flex gap-2">
+                            <div className="flex flex-col gap-2">
                               <button
                                 onClick={() => handleApprovalAction('approve', issue)}
-                                className="inline-flex items-center gap-1.5 px-3 py-1.5 border border-green-300 text-xs font-medium rounded-lg text-green-700 bg-green-50 hover:bg-green-100 transition-colors"
+                                className="inline-flex items-center justify-center gap-2 px-2 py-1 border border-green-300 text-xs font-medium rounded-lg text-green-700 bg-green-50 hover:bg-green-100 transition-colors"
                               >
-                                <CheckCircle className="w-3.5 h-3.5" />
                                 ปิดงาน
                               </button>
                               <button
                                 onClick={() => handleApprovalAction('reject', issue)}
-                                className="inline-flex items-center gap-1.5 px-3 py-1.5 border border-red-300 text-xs font-medium rounded-lg text-red-700 bg-red-50 hover:bg-red-100 transition-colors"
+                                className="inline-flex items-center justify-center gap-2 px-2 py-1 border border-red-300 text-xs font-medium rounded-lg text-red-700 bg-red-50 hover:bg-red-100 transition-colors"
                               >
-                                <XCircle className="w-3.5 h-3.5" />
                                 ไม่ปิดงาน
                               </button>
                             </div>
+                            <hr className="w-full border-gray-200" />
                             {/* แถวที่ 2: ปุ่มดูรายละเอียด */}
                             <button
                               onClick={() => handleViewDetails(issue)}
-                              className="inline-flex items-center gap-1.5 px-3 py-1.5 border border-blue-300 text-xs font-medium rounded-lg text-blue-700 bg-blue-50 hover:bg-blue-100 transition-colors"
+                              className="inline-flex items-center justify-center gap-2 px-2 py-1 border border-blue-300 text-xs font-medium rounded-lg text-blue-700 bg-blue-50 hover:bg-blue-100 transition-colors"
                             >
-                              <Eye className="w-3.5 h-3.5" />
                               ดูรายละเอียด
                             </button>
                           </div>
@@ -703,7 +701,6 @@ export default function ITTrackingPage() {
                             onClick={() => handleViewDetails(issue)}
                             className="inline-flex items-center gap-1.5 px-3 py-1.5 border border-blue-300 text-xs font-medium rounded-lg text-blue-700 bg-blue-50 hover:bg-blue-100 transition-colors"
                           >
-                            <Eye className="w-3.5 h-3.5" />
                             ดูรายละเอียด
                           </button>
                         )}

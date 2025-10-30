@@ -860,7 +860,7 @@ export default function AdminITReportsPage() {
               <tbody className="bg-white divide-y divide-gray-200">
                 {loading && (
                   <tr>
-                    <td colSpan={getNoDataColSpan()} className="px-6 py-8 text-left text-gray-500">
+                    <td colSpan={getNoDataColSpan()} className="px-6 py-8 text-center text-gray-500">
                       <RefreshCw className="inline-block w-4 h-4 mr-2 animate-spin text-gray-400" />
                       กำลังโหลดข้อมูล
                     </td>
@@ -912,10 +912,10 @@ export default function AdminITReportsPage() {
                     <td className="px-6 py-4 text-sm text-gray-500 text-center text-selectable">
                       {issue.issueCategory}
                     </td>
-                    <td className="px-6 py-4 whitespace-nowrap text-center flex justify-center">
+                    <td className="px-6 py-4 whitespace-nowrap text-center">
                       <button
                         onClick={() => handleViewDetails(issue)}
-                        className="flex items-center space-x-2 text-blue-600 hover:text-blue-800 text-sm cursor-pointer"
+                        className="flex items-center space-x-2 text-blue-600 hover:text-blue-800 text-sm cursor-pointer mx-auto"
                       >
                         <Eye className="w-4 h-4" />
                         <span>ดูรายละเอียด</span>
@@ -935,7 +935,7 @@ export default function AdminITReportsPage() {
                       <td className="px-6 py-4 whitespace-nowrap text-center">
                         <button
                           onClick={() => handleStatusChange(issue._id, 'pending')}
-                          className="flex items-center space-x-2 px-3 py-1 bg-blue-600 text-white rounded-md hover:bg-blue-700 transition-colors text-sm cursor-pointer"
+                          className="flex items-center space-x-2 px-3 py-1 bg-blue-600 text-white rounded-md hover:bg-blue-700 transition-colors text-sm cursor-pointer mx-auto"
                         >
                           <Clock className="w-4 h-4" />
                           <span>รับงาน</span>
@@ -946,7 +946,7 @@ export default function AdminITReportsPage() {
                       <td className="px-6 py-4 whitespace-nowrap text-center">
                         <button
                           onClick={() => handleStatusChange(issue._id, 'in_progress')}
-                          className="flex items-center space-x-2 px-3 py-1 bg-green-600 text-white rounded-md hover:bg-green-700 transition-colors text-sm cursor-pointer"
+                          className="flex items-center space-x-2 px-3 py-1 bg-green-600 text-white rounded-md hover:bg-green-700 transition-colors text-sm cursor-pointer mx-auto"
                         >
                           <Send className="w-4 h-4" />
                           <span>ส่งงาน</span>
