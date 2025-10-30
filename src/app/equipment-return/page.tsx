@@ -170,6 +170,16 @@ export default function EquipmentReturnPage() {
         department: department || prev.department,
         phone: phone || prev.phone,
       }));
+
+      // 🆕 เติมข้อมูลผู้คืนของรายการที่กำลังกรอกด้วย เมื่อมีพารามิเตอร์มา
+      setReturnItem(prev => ({
+        ...prev,
+        returnerFirstName: firstName || prev.returnerFirstName,
+        returnerLastName: lastName || prev.returnerLastName,
+        returnerNickname: nickname || prev.returnerNickname,
+        returnerDepartment: department || prev.returnerDepartment,
+        returnerPhone: phone || prev.returnerPhone,
+      }));
     }
   }, [searchParams]);
 
@@ -182,6 +192,12 @@ export default function EquipmentReturnPage() {
     // ✅ ดึง serialNumber และ numberPhone จาก URL
     const urlSerialNumber = searchParams.get('serialNumber');
     const urlNumberPhone = searchParams.get('numberPhone');
+    // 🆕 ดึงข้อมูลผู้คืนจาก URL (สำหรับผู้ใช้สาขา)
+    const urlFirstName = searchParams.get('firstName');
+    const urlLastName = searchParams.get('lastName');
+    const urlNickname = searchParams.get('nickname');
+    const urlDepartment = searchParams.get('department');
+    const urlPhone = searchParams.get('phone');
 
     if ((category || itemName || itemId || id) && ownedEquipment.length > 0) {
       
@@ -225,6 +241,14 @@ export default function EquipmentReturnPage() {
           handleItemChange('selectedOption', '');
           handleItemChange('statusOnReturn', (foundItem as any).statusId || 'status_available');
           handleItemChange('conditionOnReturn', (foundItem as any).conditionId || 'cond_working');
+
+          // 🆕 เติมข้อมูลผู้คืนของรายการนี้จาก URL หากมี ไม่งั้นใช้จากอุปกรณ์ที่เลือก
+          handleItemChange('returnerFirstName', urlFirstName || foundItem.firstName || '');
+          handleItemChange('returnerLastName', urlLastName || foundItem.lastName || '');
+          handleItemChange('returnerNickname', urlNickname || foundItem.nickname || '');
+          handleItemChange('returnerDepartment', urlDepartment || foundItem.department || '');
+          handleItemChange('returnerPhone', urlPhone || foundItem.phone || '');
+          handleItemChange('returnerOffice', foundItem.office || '');
         } else {
           // กรณีที่ 3: เข้ามาจากเมนู (ไม่มีการส่ง SN/เบอร์มา)
           // ใช้ logic เดิม - แสดง dropdown ตามปกติ
@@ -640,6 +664,10 @@ export default function EquipmentReturnPage() {
     if (user?.userType === 'branch') {
       if (!returnItem.returnerFirstName || !returnItem.returnerLastName || !returnItem.returnerPhone) {
         toast.error('กรุณากรอกข้อมูลผู้คืน (ชื่อ, นามสกุล, เบอร์โทร)');
+        return;
+      }
+      if ((returnItem.returnerPhone || '').length !== 10) {
+        toast.error('เบอร์โทรศัพท์ผู้คืนต้องเป็นตัวเลข 10 หลัก');
         return;
       }
     }
@@ -1484,9 +1512,16 @@ export default function EquipmentReturnPage() {
                               <input
                                 type="tel"
                                 value={returnItem.returnerPhone || ''}
-                                onChange={(e) => handleItemChange('returnerPhone', e.target.value)}
+                                onChange={(e) => {
+                                  const numbersOnly = e.target.value.replace(/[^0-9]/g, '');
+                                  const limited = numbersOnly.slice(0, 10);
+                                  handleItemChange('returnerPhone', limited);
+                                }}
                                 className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 text-gray-900"
                                 placeholder="0812345678"
+                                maxLength={10}
+                                inputMode="numeric"
+                                pattern="[0-9]{10}"
                                 required
                               />
                             </div>

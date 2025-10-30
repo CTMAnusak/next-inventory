@@ -2141,11 +2141,11 @@ export default function AdminEquipmentReportsPage() {
                           {item.itemNotes || '-'}
                         </td>
                         {/* รูปภาพ */}
-                        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500 text-center flex justify-center">
+                        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500 text-center">
                           {item.image ? (
                             <button
                               onClick={() => handleViewImage(item.image!)}
-                              className="flex items-center space-x-2 text-blue-600 hover:text-blue-800 transition-colors justify-center cursor-pointer"
+                              className="flex  mx-auto items-center space-x-2 text-blue-600 hover:text-blue-800 transition-colors justify-center cursor-pointer"
                             >
                               <Eye className="w-4 h-4" />
                               <span>คลิกเพื่อดูรูป</span>
