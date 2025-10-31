@@ -570,14 +570,14 @@ export default function AdminEquipmentReportsPage() {
       const matchesItemName = !itemNameFilter || 
         item.items.some(equip => {
           const currentItemName = getCurrentItemName(equip);
-          return currentItemName.includes(itemNameFilter);
+          return currentItemName.toLowerCase().includes(itemNameFilter.toLowerCase());
         });
 
       // Category filter
       const matchesCategory = !categoryFilter || 
         item.items.some(equip => {
           const category = (equip as any).category || '';
-          return category.includes(categoryFilter);
+          return category.toLowerCase().includes(categoryFilter.toLowerCase());
         });
 
       // Status filter
@@ -586,7 +586,7 @@ export default function AdminEquipmentReportsPage() {
           const status = activeTab === 'request' 
             ? (equip as any).statusOnRequest 
             : (equip as any).statusOnReturn;
-          return status && status.includes(statusFilter);
+          return status && status.toLowerCase().includes(statusFilter.toLowerCase());
         });
 
       // Condition filter
@@ -595,14 +595,14 @@ export default function AdminEquipmentReportsPage() {
           const condition = activeTab === 'request' 
             ? (equip as any).conditionOnRequest 
             : (equip as any).conditionOnReturn;
-          return condition && condition.includes(conditionFilter);
+          return condition && condition.toLowerCase().includes(conditionFilter.toLowerCase());
         });
 
       // Department filter
-      const matchesDepartment = !departmentFilter || (item.department && item.department.includes(departmentFilter));
+      const matchesDepartment = !departmentFilter || (item.department && item.department.toLowerCase().includes(departmentFilter.toLowerCase()));
 
       // Office filter
-      const matchesOffice = !officeFilter || (item.office && item.office.includes(officeFilter));
+      const matchesOffice = !officeFilter || (item.office && item.office.toLowerCase().includes(officeFilter.toLowerCase()));
 
       // Serial Number filter - กรองตามค่า Serial Number ที่แสดงในตาราง (ใช้ logic เดียวกับตาราง)
       const matchesSerialNumber = !serialNumberFilter || 
@@ -757,7 +757,7 @@ export default function AdminEquipmentReportsPage() {
 
       // Delivery Location filter (only for request tab)
       const matchesDeliveryLocation = !deliveryLocationFilter || 
-        (activeTab === 'request' && (item as RequestLog).deliveryLocation?.includes(deliveryLocationFilter));
+        (activeTab === 'request' && (item as RequestLog).deliveryLocation?.toLowerCase().includes(deliveryLocationFilter.toLowerCase()));
 
       // Email filter
       const matchesEmail = !emailFilter || (item.email && item.email.toLowerCase().includes(emailFilter.toLowerCase()));
@@ -1300,8 +1300,26 @@ export default function AdminEquipmentReportsPage() {
     ).filter(cat => cat !== '')
   )].sort((a, b) => a.localeCompare(b, 'th'));
 
-  // Get unique statuses from all items (sorted alphabetically)
-  const statuses = [...new Set(
+  // Helper function to convert status ID to name
+  const getStatusName = (statusId: string): string => {
+    if (!statusId || !statusConfigs || statusConfigs.length === 0) {
+      return statusId;
+    }
+    const found = statusConfigs.find((s: any) => s.id === statusId);
+    return found?.name || statusId;
+  };
+
+  // Helper function to convert condition ID to name
+  const getConditionName = (conditionId: string): string => {
+    if (!conditionId || !conditionConfigs || conditionConfigs.length === 0) {
+      return conditionId;
+    }
+    const found = conditionConfigs.find((c: any) => c.id === conditionId);
+    return found?.name || conditionId;
+  };
+
+  // Get unique statuses from all items (sorted by name alphabetically)
+  const statusIds = [...new Set(
     [
       ...requestLogs.flatMap(log => 
         log.items.map(item => (item as any).statusOnRequest).filter(Boolean)
@@ -1310,10 +1328,15 @@ export default function AdminEquipmentReportsPage() {
         log.items.map(item => (item as any).statusOnReturn).filter(Boolean)
       )
     ]
-  )].sort((a, b) => a.localeCompare(b, 'th'));
+  )];
+  
+  const statuses = statusIds.map(id => ({
+    id,
+    name: getStatusName(id)
+  })).sort((a, b) => a.name.localeCompare(b.name, 'th'));
 
-  // Get unique conditions from all items (sorted alphabetically)
-  const conditions = [...new Set(
+  // Get unique conditions from all items (sorted by name alphabetically)
+  const conditionIds = [...new Set(
     [
       ...requestLogs.flatMap(log => 
         log.items.map(item => (item as any).conditionOnRequest).filter(Boolean)
@@ -1322,7 +1345,12 @@ export default function AdminEquipmentReportsPage() {
         log.items.map(item => (item as any).conditionOnReturn).filter(Boolean)
       )
     ]
-  )].sort((a, b) => a.localeCompare(b, 'th'));
+  )];
+  
+  const conditions = conditionIds.map(id => ({
+    id,
+    name: getConditionName(id)
+  })).sort((a, b) => a.name.localeCompare(b.name, 'th'));
 
   // Get unique departments (sorted alphabetically)
   const departments = [...new Set(allLogs.map(item => item.department))].sort((a, b) => a.localeCompare(b, 'th'));
@@ -1508,8 +1536,8 @@ export default function AdminEquipmentReportsPage() {
                   >
                     <option value="">ทั้งหมด</option>
                     {statuses.map((status) => (
-                      <option key={status} value={status}>
-                        {status}
+                      <option key={status.id} value={status.id}>
+                        {status.name}
                       </option>
                     ))}
                   </select>
@@ -1526,8 +1554,8 @@ export default function AdminEquipmentReportsPage() {
                   >
                     <option value="">ทั้งหมด</option>
                     {conditions.map((condition) => (
-                      <option key={condition} value={condition}>
-                        {condition}
+                      <option key={condition.id} value={condition.id}>
+                        {condition.name}
                       </option>
                     ))}
                   </select>
@@ -1574,39 +1602,43 @@ export default function AdminEquipmentReportsPage() {
                   </datalist>
                 </div>
                 
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">
-                    สถานที่จัดส่ง
-                  </label>
-                  <input
-                    list="deliveryLocations-list"
-                    value={deliveryLocationFilter}
-                    onChange={(e) => setDeliveryLocationFilter(e.target.value)}
-                    className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 text-gray-900"
-                    placeholder="พิมพ์หรือเลือก"
-                  />
-                  <datalist id="deliveryLocations-list">
-                    <option value="">ทั้งหมด</option>
-                    {deliveryLocations.map((location) => (
-                      <option key={location} value={location} />
-                    ))}
-                  </datalist>
-                </div>
-                
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">
-                    ความเร่งด่วน
-                  </label>
-                  <select
-                    value={urgencyFilter}
-                    onChange={(e) => setUrgencyFilter(e.target.value)}
-                    className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 text-gray-900"
-                  >
-                    <option value="">ทั้งหมด</option>
-                    <option value="normal">ปกติ</option>
-                    <option value="very_urgent">ด่วนมาก</option>
-                  </select>
-                </div>
+                {activeTab === 'request' && (
+                  <>
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-1">
+                        สถานที่จัดส่ง
+                      </label>
+                      <input
+                        list="deliveryLocations-list"
+                        value={deliveryLocationFilter}
+                        onChange={(e) => setDeliveryLocationFilter(e.target.value)}
+                        className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 text-gray-900"
+                        placeholder="พิมพ์หรือเลือก"
+                      />
+                      <datalist id="deliveryLocations-list">
+                        <option value="">ทั้งหมด</option>
+                        {deliveryLocations.map((location) => (
+                          <option key={location} value={location} />
+                        ))}
+                      </datalist>
+                    </div>
+                    
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-1">
+                        ความเร่งด่วน
+                      </label>
+                      <select
+                        value={urgencyFilter}
+                        onChange={(e) => setUrgencyFilter(e.target.value)}
+                        className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 text-gray-900"
+                      >
+                        <option value="">ทั้งหมด</option>
+                        <option value="normal">ปกติ</option>
+                        <option value="very_urgent">ด่วนมาก</option>
+                      </select>
+                    </div>
+                  </>
+                )}
                 
                 {activeTab === 'request' ? (
                   <div>
