@@ -4,6 +4,26 @@ import InventorySnapshot from '@/models/InventorySnapshot';
 import { createSnapshotForMonth } from '@/lib/snapshot-helpers';
 import { verifyTokenFromRequest } from '@/lib/auth';
 
+// Type for lean result
+type InventorySnapshotLean = {
+  year: number;
+  month: number;
+  snapshotDate: Date;
+  totalInventoryItems: number;
+  totalInventoryCount: number;
+  lowStockItems: number;
+  updatedAt: Date;
+  createdAt?: Date;
+  itemDetails?: Array<{
+    itemName: string;
+    categoryId: string;
+    totalQuantity: number;
+    availableQuantity: number;
+    userOwnedQuantity: number;
+    isLowStock: boolean;
+  }>;
+};
+
 /**
  * POST /api/admin/inventory-snapshot/create
  * สร้าง snapshot สำหรับเดือน/ปีที่ระบุ
@@ -110,7 +130,7 @@ export async function GET(request: NextRequest) {
     const snapshot = await InventorySnapshot.findOne({
       year: thaiYear,
       month
-    }).lean();
+    }).lean() as InventorySnapshotLean | null;
 
     if (!snapshot) {
       return NextResponse.json(

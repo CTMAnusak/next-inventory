@@ -3,6 +3,26 @@ import dbConnect from '@/lib/mongodb';
 import InventorySnapshot from '@/models/InventorySnapshot';
 import { createSnapshotForMonth } from '@/lib/snapshot-helpers';
 
+// Type for lean result
+type InventorySnapshotLean = {
+  year: number;
+  month: number;
+  snapshotDate: Date;
+  totalInventoryItems: number;
+  totalInventoryCount: number;
+  lowStockItems: number;
+  updatedAt: Date;
+  createdAt?: Date;
+  itemDetails?: Array<{
+    itemName: string;
+    categoryId: string;
+    totalQuantity: number;
+    availableQuantity: number;
+    userOwnedQuantity: number;
+    isLowStock: boolean;
+  }>;
+};
+
 /**
  * POST /api/admin/inventory-snapshot/auto-create
  * Auto-create snapshot สำหรับเดือนก่อนหน้า (รันทุกสิ้นเดือน)
@@ -123,7 +143,7 @@ export async function GET(request: NextRequest) {
       const snapshot = await InventorySnapshot.findOne({
         year: targetYear,
         month: targetMonth
-      }).lean();
+      }).lean() as InventorySnapshotLean | null;
 
       return NextResponse.json({
         success: true,
@@ -147,7 +167,7 @@ export async function GET(request: NextRequest) {
     const snapshot = await InventorySnapshot.findOne({
       year: targetYear,
       month: targetMonth
-    }).lean();
+    }).lean() as InventorySnapshotLean | null;
 
     if (!snapshot) {
       return NextResponse.json(
