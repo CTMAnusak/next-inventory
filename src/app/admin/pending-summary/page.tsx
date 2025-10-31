@@ -536,7 +536,7 @@ export default function PendingSummaryPage() {
                         <td className="px-6 py-4 text-sm font-medium text-blue-600 text-center">
                           {issue.issueId}
                         </td>
-                        <td className="px-6 py-4 text-sm text-gray-900 text-center">
+                        <td className="px-6 py-4 text-sm text-gray-500 text-center">
                           {issue.firstName} {issue.lastName}
                         </td>
                         <td className="px-6 py-4 text-sm text-gray-500 text-center">
@@ -635,7 +635,7 @@ export default function PendingSummaryPage() {
                               <span>{new Date(request.requestDate).toLocaleDateString('th-TH', { timeZone: 'Asia/Bangkok' })}</span>
                             </div>
                           </td>
-                          <td className="px-6 py-4 text-sm text-gray-900 text-center">
+                          <td className="px-6 py-4 text-sm text-gray-500 text-center">
                             {request.firstName} {request.lastName}
                           </td>
                           <td className="px-6 py-4 text-sm text-gray-500 text-center">
@@ -647,7 +647,7 @@ export default function PendingSummaryPage() {
                           <td className="px-6 py-4 text-sm text-gray-500 text-center">
                             {request.phone}
                           </td>
-                          <td className="px-6 py-4 text-sm font-medium text-gray-900 text-center">
+                          <td className="px-6 py-4 text-sm font-medium text-gray-500 text-center">
                             {item.itemName}
                           </td>
                           <td className="px-6 py-4 text-sm text-gray-500 text-center">
@@ -743,7 +743,7 @@ export default function PendingSummaryPage() {
                                 <span>{new Date(returnLog.returnDate).toLocaleDateString('th-TH', { timeZone: 'Asia/Bangkok' })}</span>
                               </div>
                             </td>
-                            <td className="px-6 py-4 text-sm text-gray-900 text-center">
+                            <td className="px-6 py-4 text-sm text-gray-500 text-center">
                               {returnLog.firstName} {returnLog.lastName}
                             </td>
                             <td className="px-6 py-4 text-sm text-gray-500 text-center">
@@ -755,7 +755,7 @@ export default function PendingSummaryPage() {
                             <td className="px-6 py-4 text-sm text-gray-500 text-center">
                               {returnLog.phone || '-'}
                             </td>
-                            <td className="px-6 py-4 text-sm font-medium text-gray-900 text-center">
+                            <td className="px-6 py-4 text-sm font-medium text-gray-500 text-center">
                               {item.itemName}
                             </td>
                             <td className="px-6 py-4 text-sm text-gray-500 text-center">

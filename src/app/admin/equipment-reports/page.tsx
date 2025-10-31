@@ -1753,7 +1753,7 @@ export default function AdminEquipmentReportsPage() {
                   )}
                   {!loading && !isTabSwitching && currentItems.length === 0 && (
                     <tr>
-                      <td colSpan={18} className="px-6 py-8 text-center text-gray-500">ไม่พบข้อมูล</td>
+                      <td colSpan={18} className="px-6 py-8 text-left text-gray-500">ไม่พบข้อมูล</td>
                     </tr>
                   )}
                   {!isTabSwitching && currentItems.map((row, rowIndex) => {

@@ -860,6 +860,27 @@ export default function AdminInventoryPage() {
           await new Promise(resolve => setTimeout(resolve, 1000));
         }
         
+        // ล้าง cache ทั้งหมด
+        try {
+          console.log('🧹 Clearing all caches...');
+          // 1. ล้าง local breakdownData cache
+          setBreakdownData({});
+          console.log('✅ Cleared local breakdownData cache');
+          
+          // 2. ล้าง cache ในระบบ
+          const cacheResponse = await fetch('/api/admin/clear-all-caches', { 
+            method: 'POST' 
+          });
+          if (cacheResponse.ok) {
+            console.log('✅ Cleared system caches');
+          } else {
+            console.warn('⚠️ Failed to clear system caches');
+          }
+        } catch (cacheError) {
+          console.error('❌ Error clearing caches:', cacheError);
+          // ไม่บล็อกการทำงานต่อ แค่ log error
+        }
+        
         await fetchInventory();
         resetForm();
         setShowAddModal(false);

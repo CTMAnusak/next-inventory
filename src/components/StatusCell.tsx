@@ -22,6 +22,16 @@ interface StatusCellProps {
       withSN: number;
       withPhone: number;
     };
+    adminTypeBreakdown?: {
+      withoutSN: number;
+      withSN: number;
+      withPhone: number;
+    };
+    userTypeBreakdown?: {
+      withoutSN: number;
+      withSN: number;
+      withPhone: number;
+    };
   };
   onFetchBreakdown?: () => Promise<any> | void;
   statusConfigs?: Array<{ id: string; name: string; }>;
@@ -288,6 +298,34 @@ const StatusCell: React.FC<StatusCellProps> = ({
                   <div className="breakdown-item text-gray-500">• ไม่มีอุปกรณ์ในคลัง</div>
                 )}
 
+                <h4 className="text-green-600 mb-1 mt-2">ประเภทอุปกรณ์ (Admin Stock):</h4>
+                {breakdown.adminTypeBreakdown ? (
+                  <>
+                    {breakdown.adminTypeBreakdown.withoutSN > 0 && (
+                      <div className="breakdown-item">
+                        • ไม่มี SN: {breakdown.adminTypeBreakdown.withoutSN} ชิ้น
+                      </div>
+                    )}
+                    {breakdown.adminTypeBreakdown.withSN > 0 && (
+                      <div className="breakdown-item">
+                        • มี SN: {breakdown.adminTypeBreakdown.withSN} ชิ้น
+                      </div>
+                    )}
+                    {breakdown.adminTypeBreakdown.withPhone > 0 && (
+                      <div className="breakdown-item">
+                        • เบอร์: {breakdown.adminTypeBreakdown.withPhone} เบอร์
+                      </div>
+                    )}
+                    {breakdown.adminTypeBreakdown.withoutSN === 0 && 
+                     breakdown.adminTypeBreakdown.withSN === 0 && 
+                     breakdown.adminTypeBreakdown.withPhone === 0 && (
+                      <div className="breakdown-item text-gray-500">• ไม่มีอุปกรณ์ในคลัง</div>
+                    )}
+                  </>
+                ) : (
+                  <div className="breakdown-item text-gray-500">• ไม่มีอุปกรณ์ในคลัง</div>
+                )}
+
                 {breakdown.userStatusBreakdown && Object.keys(breakdown.userStatusBreakdown).length > 0 && (
                   <>
                     <h4 className="text-orange-500 mt-2 mb-1">สถานะอุปกรณ์ (User Owned):</h4>
@@ -309,24 +347,29 @@ const StatusCell: React.FC<StatusCellProps> = ({
                     ))}
                   </>
                 )}
-                
-                <h4 className="text-blue-500 mt-2 mb-1">ประเภทอุปกรณ์:</h4>
-                {breakdown.typeBreakdown && (
+
+                {breakdown.userTypeBreakdown && (
                   <>
-                    {breakdown.typeBreakdown.withoutSN > 0 && (
+                    <h4 className="text-orange-500 mt-2 mb-1">ประเภทอุปกรณ์ (User Owned):</h4>
+                    {breakdown.userTypeBreakdown.withoutSN > 0 && (
                       <div className="breakdown-item">
-                        • ไม่มี SN: {breakdown.typeBreakdown.withoutSN} ชิ้น
+                        • ไม่มี SN: {breakdown.userTypeBreakdown.withoutSN} ชิ้น
                       </div>
                     )}
-                    {breakdown.typeBreakdown.withSN > 0 && (
+                    {breakdown.userTypeBreakdown.withSN > 0 && (
                       <div className="breakdown-item">
-                        • มี SN: {breakdown.typeBreakdown.withSN} ชิ้น
+                        • มี SN: {breakdown.userTypeBreakdown.withSN} ชิ้น
                       </div>
                     )}
-                    {breakdown.typeBreakdown.withPhone > 0 && (
+                    {breakdown.userTypeBreakdown.withPhone > 0 && (
                       <div className="breakdown-item">
-                        • เบอร์: {breakdown.typeBreakdown.withPhone} เบอร์
+                        • เบอร์: {breakdown.userTypeBreakdown.withPhone} เบอร์
                       </div>
+                    )}
+                    {breakdown.userTypeBreakdown.withoutSN === 0 && 
+                     breakdown.userTypeBreakdown.withSN === 0 && 
+                     breakdown.userTypeBreakdown.withPhone === 0 && (
+                      <div className="breakdown-item text-gray-500">• ไม่มีอุปกรณ์</div>
                     )}
                   </>
                 )}
