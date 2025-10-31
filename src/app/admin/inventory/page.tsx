@@ -2708,6 +2708,11 @@ export default function AdminInventoryPage() {
   const endIndex = startIndex + itemsPerPage;
   const currentItems = filteredItems.slice(startIndex, endIndex);
 
+  // คำนวณผลรวมของจำนวนทั้งหมด
+  const totalQuantitySum = filteredItems.reduce((sum, item) => {
+    return sum + (item.totalQuantity ?? item.quantity ?? 0);
+  }, 0);
+
 
   const findNonSerialDocForGroup = (groupItem: any): InventoryItem | undefined => {
     return items.find(
@@ -3030,7 +3035,7 @@ export default function AdminInventoryPage() {
           {!loading && filteredItems.length > 0 && (
             <div className="mt-4 text-left">
               <p className="text-sm text-gray-600">
-                แสดงทั้งหมด {filteredItems.length} รายการ
+                แสดงทั้งหมด {filteredItems.length} รายการ | จำนวนทั้งหมดรวม: {totalQuantitySum} ชิ้น
               </p>
             </div>
           )}

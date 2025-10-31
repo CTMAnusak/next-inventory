@@ -24,6 +24,7 @@ interface DashboardStats {
   totalReturns: number;
   totalUsers: number;
   totalInventoryItems: number;
+  totalInventoryCount: number; // 🔧 NEW: จำนวนชิ้นทั้งหมด (sum of totalQuantity)
   userAddedItems: number;
   lowStockItems: number;
   // กล่อง "สถานะแจ้งงาน IT" (อิงช่วงเวลา)
@@ -110,6 +111,8 @@ export default function AdminDashboardPage() {
         ['เบิกอุปกรณ์ทั้งหมด', stats.totalRequests],
         ['คืนอุปกรณ์ทั้งหมด', stats.totalReturns],
         ['ผู้ใช้งานทั้งหมด', stats.totalUsers],
+        ['จำนวนคลังสินค้าทั้งหมด', stats.totalInventoryCount || stats.totalInventoryItems || 0],
+        ['รายการเบิกได้ที่ใกล้หมด (≤ 2) ทั้งหมด', selectedMonth === 'all' ? stats.lowStockItems : stats.lowStockItemsInPeriod || 0],
         [''],
         ['สถานะแจ้งงาน IT (ช่วงเวลาที่เลือก)'],
         ['สถานะ', 'จำนวน'],
@@ -121,11 +124,6 @@ export default function AdminDashboardPage() {
         ['ความเร่งด่วน'],
         ['ด่วนมาก', stats.urgentIssues || 0],
         ['ปกติ', stats.normalIssues || 0],
-        [''],
-        ['สถานะคลังสินค้า (ช่วงเวลาที่เลือก)'],
-        ['หัวข้อ', 'จำนวน'],
-        ['จำนวนทั้งหมด', stats.totalInventoryItemsInPeriod || 0],
-        ['รายการทั่วไป ใกล้หมด (≤ 2)', stats.lowStockItemsInPeriod || 0],
         [''],
         ['สรุป (ช่วงเวลาที่เลือก)'],
         ['หัวข้อ', 'จำนวน'],
@@ -401,7 +399,7 @@ export default function AdminDashboardPage() {
 
   return (
     <Layout>
-      <div className="max-w-7xl mx-auto space-y-6">
+      <div className="max-w-[94%] mx-auto space-y-6">
         {/* Header */}
         <div className="bg-white/90 backdrop-blur-sm rounded-2xl shadow-xl p-8 border border-white/50">
           <div className="flex flex-col lg:flex-row justify-between items-center mb-6">
@@ -459,7 +457,7 @@ export default function AdminDashboardPage() {
 
           {/* Stats Cards */}
           {stats && (
-            <div className="grid max-[768px]:grid-cols-1 max-[1120px]:grid-cols-2 grid-cols-3 gap-6">
+            <div className="grid max-[768px]:grid-cols-1 max-[1120px]:grid-cols-2 max-[1440px]:grid-cols-3 grid-cols-4 gap-6">
               <StatCard
                 title="แจ้งงาน IT ทั้งหมด"
                 value={stats.totalIssues}
@@ -489,6 +487,18 @@ export default function AdminDashboardPage() {
                 value={stats.totalUsers}
                 icon={Users}
                 color="bg-purple-500"
+              />
+              <StatCard
+                title="จำนวนคลังสินค้าทั้งหมด"
+                value={stats.totalInventoryCount || stats.totalInventoryItems || 0}
+                icon={Package}
+                color="bg-indigo-500"
+              />
+              <StatCard
+                title="รายการเบิกได้ที่ใกล้หมด (≤ 2) ทั้งหมด"
+                value={stats.lowStockItems || 0}
+                icon={AlertTriangle}
+                color="bg-rose-500"
               />
             </div>
           )}
@@ -552,7 +562,7 @@ export default function AdminDashboardPage() {
                 </div>
                 <div className="flex justify-between items-center">
                   <span className="text-sm text-red-600 font-medium">รายการอุปกรณ์ที่ใกล้หมด (≤ 2)</span>
-คุ                  <span className="font-semibold text-red-600">{stats.lowStockItemsInPeriod || 0}</span>
+                  <span className="font-semibold text-red-600">{stats.lowStockItemsInPeriod || 0}</span>
                 </div>
               </div>
             </div>

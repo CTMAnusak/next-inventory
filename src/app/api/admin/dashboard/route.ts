@@ -6,6 +6,7 @@ import ReturnLog from '@/models/ReturnLog';
 import User from '@/models/User';
 import InventoryItem from '@/models/InventoryItem';
 import InventoryMaster from '@/models/InventoryMaster';
+import InventorySnapshot from '@/models/InventorySnapshot';
 import { getCachedData, setCachedData, clearDashboardCache } from '@/lib/cache-utils';
 
 export async function GET(request: NextRequest) {
@@ -46,7 +47,7 @@ export async function GET(request: NextRequest) {
       totalRequests,
       totalReturns,
       totalUsers,
-      totalInventoryItems,
+      inventoryStatsResult,
       userAddedItems,
       lowStockItems,
       // สำหรับกล่อง "สถานะแจ้งงาน IT" (อิงช่วงเวลา)
@@ -88,7 +89,26 @@ export async function GET(request: NextRequest) {
         { $count: 'total' }
       ]).then(result => result[0]?.total || 0),
       User.countDocuments({ pendingDeletion: { $ne: true } }).lean(),
-      InventoryItem.estimatedDocumentCount(),
+      // 🔧 FIX: คำนวณ totalInventoryItems จาก sum ของ totalQuantity จาก InventoryMaster แทนการนับ InventoryItem
+      InventoryMaster.aggregate([
+        {
+          $match: {
+            relatedItemIds: { $exists: true, $ne: [] }
+          }
+        },
+        {
+          $group: {
+            _id: null,
+            totalInventoryItems: { $sum: 1 },  // จำนวนรายการทั้งหมด (จำนวนชื่ออุปกรณ์)
+            totalInventoryCount: { $sum: '$totalQuantity' }  // จำนวนชิ้นทั้งหมด
+          }
+        }
+      ]).then(result => {
+        if (result.length > 0) {
+          return { totalInventoryItems: result[0].totalInventoryItems, totalInventoryCount: result[0].totalInventoryCount };
+        }
+        return { totalInventoryItems: 0, totalInventoryCount: 0 };
+      }),
       // นับจำนวนอุปกรณ์ที่ User เพิ่มเอง (self_reported) - ใช้ lean()
       InventoryItem.countDocuments({ 
         'sourceInfo.acquisitionMethod': 'self_reported',
@@ -110,16 +130,37 @@ export async function GET(request: NextRequest) {
       IssueLog.countDocuments({ urgency: 'normal', reportDate: { $gte: startDate, $lte: endDate } }).lean(),
 
       // กล่อง "สถานะคลังสินค้า" (อิงช่วงเวลา) – จำนวนทั้งหมดของ items ที่เข้าสต็อกแอดมินในช่วงเวลา (แอดมินเพิ่ม หรือผู้ใช้คืน)
-      InventoryItem.countDocuments({ 
-        deletedAt: { $exists: false },
-        'currentOwnership.ownerType': 'admin_stock',
-        $or: [
-          { 'sourceInfo.initialOwnerType': 'admin_stock', 'sourceInfo.dateAdded': { $gte: startDate, $lte: endDate } },
-          { 'transferInfo.transferredFrom': 'user_owned', 'transferInfo.transferDate': { $gte: startDate, $lte: endDate } }
-        ]
-      }),
+      InventoryItem.aggregate([
+        {
+          $match: {
+            deletedAt: { $exists: false },
+            'currentOwnership.ownerType': 'admin_stock'
+          }
+        },
+        {
+          $addFields: {
+            entryDate: {
+              $ifNull: [
+                '$transferInfo.transferDate',
+                '$currentOwnership.ownedSince',
+                '$sourceInfo.dateAdded',
+                '$createdAt'
+              ]
+            }
+          }
+        },
+        {
+          $match: {
+            entryDate: { $gte: startDate, $lte: endDate }
+          }
+        },
+        { $count: 'total' }
+      ]).then(result => result[0]?.total || 0),
       // คำนวณ "ใกล้หมด (≤ 2) ตามช่วงเวลา" ให้สอดคล้องกับหน้า Inventory:
-      // เลือกเฉพาะชื่ออุปกรณ์ที่ปัจจุบัน availableQuantity ≤ 2 และมี "เหตุการณ์เข้าสต็อกแอดมิน" ในช่วงเวลาที่เลือก (เพิ่มใหม่/คืนของ)
+      // เลือกเฉพาะชื่ออุปกรณ์ที่ปัจจุบัน availableQuantity ≤ 2 และ:
+      // 1. InventoryMaster ถูกสร้างในช่วงเวลาที่เลือก (createdAt) หรือ
+      // 2. มี InventoryItem ที่เข้าสต็อกแอดมินในช่วงเวลาที่เลือก (เพิ่มใหม่/คืนของ)
+      // โดย InventoryItem ต้องมี: admin_stock + status_available + cond_working (ตรงกับ availableQuantity)
       InventoryMaster.aggregate([
         {
           $match: {
@@ -137,21 +178,29 @@ export async function GET(request: NextRequest) {
                     $and: [
                       { $eq: ['$itemName', '$$itemName'] },
                       { $eq: ['$categoryId', '$$categoryId'] },
+                      // ตรวจสอบว่าเป็น admin_stock และมี status + condition ที่ถูกต้อง (ตรงกับ availableQuantity)
                       { $eq: ['$currentOwnership.ownerType', 'admin_stock'] },
-                      { $or: [
-                        { $and: [
-                          { $eq: ['$sourceInfo.initialOwnerType', 'admin_stock'] },
-                          { $gte: ['$sourceInfo.dateAdded', startDate] },
-                          { $lte: ['$sourceInfo.dateAdded', endDate] }
-                        ]},
-                        { $and: [
-                          { $eq: ['$transferInfo.transferredFrom', 'user_owned'] },
-                          { $gte: ['$transferInfo.transferDate', startDate] },
-                          { $lte: ['$transferInfo.transferDate', endDate] }
-                        ]}
-                      ] }
+                      { $eq: ['$statusId', 'status_available'] },
+                      { $eq: ['$conditionId', 'cond_working'] }
                     ]
                   }
+                }
+              },
+              {
+                $addFields: {
+                  entryDate: {
+                    $ifNull: [
+                      '$transferInfo.transferDate',
+                      '$currentOwnership.ownedSince',
+                      '$sourceInfo.dateAdded',
+                      '$createdAt'
+                    ]
+                  }
+                }
+              },
+              {
+                $match: {
+                  entryDate: { $gte: startDate, $lte: endDate }
                 }
               },
               { $limit: 1 }
@@ -159,7 +208,16 @@ export async function GET(request: NextRequest) {
             as: 'enteredInPeriod'
           }
         },
-        { $match: { enteredInPeriod: { $ne: [] } } },
+        {
+          $match: {
+            $or: [
+              // ถ้า InventoryMaster ถูกสร้างในช่วงเวลาที่เลือก ให้นับ (รองรับกรณีอุปกรณ์ถูกเพิ่มในเดือนนั้น)
+              { createdAt: { $gte: startDate, $lte: endDate } },
+              // หรือมี InventoryItem ที่เข้าสต็อกแอดมินในช่วงเวลาที่เลือก (ต้องเป็น admin_stock + status_available + cond_working)
+              { enteredInPeriod: { $ne: [] } }
+            ]
+          }
+        },
         { $count: 'lowStockNames' }
       ]).then(x => x?.[0]?.lowStockNames || 0),
       
@@ -231,13 +289,60 @@ export async function GET(request: NextRequest) {
       .map((x: any) => ({ urgency: x.urgency, count: x.count, percentage: requestsTotalInRange > 0 ? (x.count / requestsTotalInRange) * 100 : 0 }))
       .filter((x: any) => x.count > 0);
 
+    // 🔧 FIX: แยกข้อมูล inventory stats
+    const inventoryStats = inventoryStatsResult || { totalInventoryItems: 0, totalInventoryCount: 0 };
+    const totalInventoryItems = inventoryStats.totalInventoryItems;
+    const totalInventoryCount = inventoryStats.totalInventoryCount;
+
+    // 🔧 NEW: ใช้ snapshot เมื่อเลือกช่วงเวลา (ไม่ใช่ "ทั้งหมด")
+    let snapshotData: any = null;
+    if (monthNumber) {
+      const thaiYear = year + 543;
+      snapshotData = await InventorySnapshot.findOne({ year: thaiYear, month: monthNumber }).lean();
+    }
+
+    // 🔧 FIX: คำนวณ totalInventoryItemsInPeriod และ lowStockItemsInPeriod จาก snapshot หรือคำนวณใหม่
+    let calculatedTotalInventoryItemsInPeriod = totalInventoryItemsInPeriod;
+    let calculatedLowStockItemsInPeriod = lowStockItemsInPeriod;
+
+    if (snapshotData && snapshotData.totalInventoryCount !== undefined) {
+      // ใช้ข้อมูลจาก snapshot
+      calculatedTotalInventoryItemsInPeriod = snapshotData.totalInventoryCount; // จำนวนชิ้นทั้งหมด
+      calculatedLowStockItemsInPeriod = snapshotData.lowStockItems || 0;
+    } else if (monthNumber) {
+      // ถ้าไม่มี snapshot แต่เลือกเดือน ให้คำนวณใหม่ (fallback)
+      // คำนวณจำนวนชิ้นทั้งหมดจาก InventoryMaster ที่มีในเดือนนั้น
+      const masterStats = await InventoryMaster.aggregate([
+        {
+          $match: {
+            relatedItemIds: { $exists: true, $ne: [] },
+            createdAt: { $gte: startDate, $lte: endDate }
+          }
+        },
+        {
+          $group: {
+            _id: null,
+            totalCount: { $sum: '$totalQuantity' }
+          }
+        }
+      ]);
+      if (masterStats.length > 0) {
+        calculatedTotalInventoryItemsInPeriod = masterStats[0].totalCount;
+      }
+    } else {
+      // เลือก "ทั้งหมด" ใช้ข้อมูลปัจจุบัน
+      calculatedTotalInventoryItemsInPeriod = totalInventoryCount;
+      calculatedLowStockItemsInPeriod = lowStockItems;
+    }
+
     const stats = {
       // การ์ดด้านบน (ทั้งหมด - ไม่อิงเดือน/ปี)
       totalIssues,
       totalRequests,
       totalReturns,
       totalUsers,
-      totalInventoryItems,
+      totalInventoryItems, // จำนวนรายการทั้งหมด (จำนวนชื่ออุปกรณ์)
+      totalInventoryCount, // จำนวนชิ้นทั้งหมด (sum of totalQuantity)
       userAddedItems,
       lowStockItems,
       // กล่อง "สถานะแจ้งงาน IT" (อิงช่วงเวลา)
@@ -248,8 +353,8 @@ export async function GET(request: NextRequest) {
       urgentIssues: urgentIssuesInPeriod,
       normalIssues: normalIssuesInPeriod,
       // กล่อง "สถานะคลังสินค้า" (อิงช่วงเวลา)
-      totalInventoryItemsInPeriod,
-      lowStockItemsInPeriod,
+      totalInventoryItemsInPeriod: calculatedTotalInventoryItemsInPeriod,
+      lowStockItemsInPeriod: calculatedLowStockItemsInPeriod,
       // กล่อง "สรุป" (อิงช่วงเวลา)
       userAddedItemsInPeriod,
       // Charts และ aggregations (อิงช่วงเวลา)
