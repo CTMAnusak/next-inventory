@@ -86,7 +86,7 @@ export default function Layout({ children }: LayoutProps) {
         </nav>
 
         {/* Main Content */}
-        <main className="relative py-10 lg:py-12 h-dvh overflow-hidden">
+        <main className="relative py-10 lg:py-12 h-full overflow-hidden">
           <div className="px-4 sm:px-6 lg:px-8 h-full">
             {children}
           </div>
