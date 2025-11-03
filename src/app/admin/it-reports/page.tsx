@@ -24,6 +24,7 @@ import {
   Building
 } from 'lucide-react';
 import DatePicker from '@/components/DatePicker';
+import SearchableSelect from '@/components/SearchableSelect';
 import { toast } from 'react-hot-toast';
 import ExcelJS from 'exceljs';
 
@@ -733,32 +734,26 @@ export default function AdminITReportsPage() {
                   <label className="block text-sm font-medium text-gray-700 mb-1">
                     ความเร่งด่วน
                   </label>
-                  <select
+                  <SearchableSelect
+                    options={[
+                      { value: 'very_urgent', label: 'ด่วนมาก' },
+                      { value: 'normal', label: 'ปกติ' }
+                    ]}
                     value={urgencyFilter}
-                    onChange={(e) => setUrgencyFilter(e.target.value)}
-                    className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 text-gray-900"
-                  >
-                    <option value="">ทั้งหมด</option>
-                    <option value="very_urgent">ด่วนมาก</option>
-                    <option value="normal">ปกติ</option>
-                  </select>
+                    onChange={setUrgencyFilter}
+                    placeholder="ทั้งหมด"
+                  />
                 </div>
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-1">
                     หมวดหมู่
                   </label>
-                  <select
+                  <SearchableSelect
+                    options={categories.map(category => ({ value: category, label: category }))}
                     value={categoryFilter}
-                    onChange={(e) => setCategoryFilter(e.target.value)}
-                    className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 text-gray-900"
-                  >
-                    <option value="">ทั้งหมด</option>
-                    {categories.map((category) => (
-                      <option key={category} value={category}>
-                        {category}
-                      </option>
-                    ))}
-                  </select>
+                    onChange={setCategoryFilter}
+                    placeholder="ทั้งหมด"
+                  />
                 </div>
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-1">

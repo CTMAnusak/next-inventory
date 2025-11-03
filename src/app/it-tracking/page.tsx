@@ -8,6 +8,7 @@ import { useAuth } from '@/contexts/AuthContext';
 import { handleAuthError } from '@/lib/auth-error-handler';
 import { enableDragScroll } from '@/lib/drag-scroll';
 import AuthGuard from '@/components/AuthGuard';
+import SearchableSelect from '@/components/SearchableSelect';
 
 interface IssueItem {
   _id: string;
@@ -392,18 +393,12 @@ export default function ITTrackingPage() {
                   <label className="block text-sm font-medium text-gray-700 mb-1">
                     ความเร่งด่วน
                   </label>
-                  <select
+                  <SearchableSelect
+                    options={urgencyOptions}
                     value={urgencyFilter}
-                    onChange={(e) => setUrgencyFilter(e.target.value)}
-                    className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 text-gray-900"
-                  >
-                    <option value="">ทั้งหมด</option>
-                    {urgencyOptions.map((urgency) => (
-                      <option key={urgency.value} value={urgency.value}>
-                        {urgency.label}
-                      </option>
-                    ))}
-                  </select>
+                    onChange={setUrgencyFilter}
+                    placeholder="ทั้งหมด"
+                  />
                 </div>
 
                 {/* Category Filter */}
@@ -411,18 +406,12 @@ export default function ITTrackingPage() {
                   <label className="block text-sm font-medium text-gray-700 mb-1">
                     หัวข้อปัญหา
                   </label>
-                  <select
+                  <SearchableSelect
+                    options={categories.map(category => ({ value: category, label: category }))}
                     value={categoryFilter}
-                    onChange={(e) => setCategoryFilter(e.target.value)}
-                    className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 text-gray-900"
-                  >
-                    <option value="">ทั้งหมด</option>
-                    {categories.map((category) => (
-                      <option key={category} value={category}>
-                        {category}
-                      </option>
-                    ))}
-                  </select>
+                    onChange={setCategoryFilter}
+                    placeholder="ทั้งหมด"
+                  />
                 </div>
 
                 {/* Admin Filter */}
@@ -430,19 +419,15 @@ export default function ITTrackingPage() {
                   <label className="block text-sm font-medium text-gray-700 mb-1">
                     ผู้รับผิดชอบ
                   </label>
-                  <select
+                  <SearchableSelect
+                    options={[
+                      { value: 'unassigned', label: 'รอ Admin รับงาน' },
+                      ...getUniqueAdmins().map(admin => ({ value: admin, label: admin }))
+                    ]}
                     value={adminFilter}
-                    onChange={(e) => setAdminFilter(e.target.value)}
-                    className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 text-gray-900"
-                  >
-                    <option value="">ทั้งหมด</option>
-                    <option value="unassigned">รอ Admin รับงาน</option>
-                    {getUniqueAdmins().map((admin) => (
-                      <option key={admin} value={admin}>
-                        {admin}
-                      </option>
-                    ))}
-                  </select>
+                    onChange={setAdminFilter}
+                    placeholder="ทั้งหมด"
+                  />
                 </div>
 
                 {/* Status Filter */}
@@ -450,18 +435,12 @@ export default function ITTrackingPage() {
                   <label className="block text-sm font-medium text-gray-700 mb-1">
                     สถานะปัจจุบัน
                   </label>
-                  <select
+                  <SearchableSelect
+                    options={statusOptions}
                     value={statusFilter}
-                    onChange={(e) => setStatusFilter(e.target.value)}
-                    className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 text-gray-900"
-                  >
-                    <option value="">ทั้งหมด</option>
-                    {statusOptions.map((status) => (
-                      <option key={status.value} value={status.value}>
-                        {status.label}
-                      </option>
-                    ))}
-                  </select>
+                    onChange={setStatusFilter}
+                    placeholder="ทั้งหมด"
+                  />
                 </div>
               </div>
 

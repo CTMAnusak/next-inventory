@@ -525,6 +525,16 @@ export async function updateInventoryMaster(itemName: string, categoryId: string
     updatedMaster.availableQuantity = availableToBorrow.length;
     updatedMaster.userOwnedQuantity = userOwnedItems.length;
     
+    // 🔧 VALIDATION: availableQuantity ต้องไม่เกิน totalQuantity
+    // availableQuantity = อุปกรณ์ที่พร้อมเบิก (admin_stock + status_available + cond_working)
+    // totalQuantity = จำนวนทั้งหมด (admin_stock + user_owned)
+    if (updatedMaster.availableQuantity > updatedMaster.totalQuantity) {
+      console.error(`❌ DATA INTEGRITY ERROR: ${itemName} availableQuantity (${updatedMaster.availableQuantity}) > totalQuantity (${updatedMaster.totalQuantity})`);
+      console.error(`   This should never happen. Fixing by setting availableQuantity = totalQuantity`);
+      // Force fix: availableQuantity cannot exceed totalQuantity
+      updatedMaster.availableQuantity = Math.min(updatedMaster.availableQuantity, updatedMaster.totalQuantity);
+    }
+    
     console.log(`📊 Calculated quantities:`, {
       totalQuantity: updatedMaster.totalQuantity,
       availableQuantity: updatedMaster.availableQuantity,

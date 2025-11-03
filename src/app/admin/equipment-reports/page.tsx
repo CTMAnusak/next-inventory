@@ -18,6 +18,7 @@ import {
   Settings
 } from 'lucide-react';
 import DatePicker from '@/components/DatePicker';
+import SearchableSelect from '@/components/SearchableSelect';
 import SerialNumberSelector from '@/components/SerialNumberSelector';
 import ExcelJS from 'exceljs';
 
@@ -79,6 +80,7 @@ interface ReturnLog {
   phone?: string; // ✅ แก้ไขจาก phoneNumber เป็น phone ให้ตรงกับ API
   email?: string;
   returnDate: string;
+  deliveryLocation?: string; // ✅ สถานที่จัดส่งจาก RequestLog ที่เกี่ยวข้อง
   items: Array<{
     itemId: string;        // Primary reference to inventory
     itemName: string;      // Current name from inventory
@@ -142,6 +144,7 @@ export default function AdminEquipmentReportsPage() {
   const [serialNumberFilter, setSerialNumberFilter] = useState('');
   const [phoneNumberFilter, setPhoneNumberFilter] = useState('');
   const [emailFilter, setEmailFilter] = useState('');
+  const [assetNumberFilter, setAssetNumberFilter] = useState('');
   const [deliveryLocationFilter, setDeliveryLocationFilter] = useState('');
   const [urgencyFilter, setUrgencyFilter] = useState('');
   const [dateFromFilter, setDateFromFilter] = useState('');
@@ -183,7 +186,7 @@ export default function AdminEquipmentReportsPage() {
 
   useEffect(() => {
     applyFilters();
-  }, [requestLogs, returnLogs, activeTab, searchTerm, itemNameFilter, categoryFilter, statusFilter, conditionFilter, departmentFilter, officeFilter, serialNumberFilter, phoneNumberFilter, emailFilter, deliveryLocationFilter, urgencyFilter, dateFromFilter, dateToFilter]);
+  }, [requestLogs, returnLogs, activeTab, searchTerm, itemNameFilter, categoryFilter, statusFilter, conditionFilter, departmentFilter, officeFilter, serialNumberFilter, phoneNumberFilter, emailFilter, assetNumberFilter, deliveryLocationFilter, urgencyFilter, dateFromFilter, dateToFilter]);
 
 
 
@@ -244,7 +247,12 @@ export default function AdminEquipmentReportsPage() {
             office: log.office,
             returnerFirstName: log.returnerFirstName,
             returnerLastName: log.returnerLastName,
-            itemsCount: log.items?.length
+            deliveryLocation: log.deliveryLocation || 'NOT FOUND',
+            itemsCount: log.items?.length,
+            items: log.items?.map((item: any) => ({
+              itemId: item.itemId,
+              itemName: item.itemName
+            }))
           });
         });
         
@@ -546,6 +554,8 @@ export default function AdminEquipmentReportsPage() {
     setOfficeFilter('');
     setSerialNumberFilter('');
     setPhoneNumberFilter('');
+    setEmailFilter('');
+    setAssetNumberFilter('');
     setDeliveryLocationFilter('');
     setUrgencyFilter('');
     setDateFromFilter('');
@@ -755,12 +765,38 @@ export default function AdminEquipmentReportsPage() {
           return false;
         });
 
-      // Delivery Location filter (only for request tab)
+      // Delivery Location filter (for both request and return tabs)
       const matchesDeliveryLocation = !deliveryLocationFilter || 
-        (activeTab === 'request' && (item as RequestLog).deliveryLocation?.toLowerCase().includes(deliveryLocationFilter.toLowerCase()));
+        (activeTab === 'request' && (item as RequestLog).deliveryLocation?.toLowerCase().includes(deliveryLocationFilter.toLowerCase())) ||
+        (activeTab === 'return' && (item as ReturnLog as any).deliveryLocation?.toLowerCase().includes(deliveryLocationFilter.toLowerCase()));
 
       // Email filter
       const matchesEmail = !emailFilter || (item.email && item.email.toLowerCase().includes(emailFilter.toLowerCase()));
+
+      // Asset Number filter (only for return tab) - กรองที่ระดับรายการย่อย (item level)
+      const matchesAssetNumber = !assetNumberFilter || 
+        (activeTab === 'return' && item.items.some(equip => {
+          const returnItem = equip as any;
+          const searchValue = assetNumberFilter.trim();
+          
+          // ถ้าไม่มีค่าค้นหา ให้แสดงทั้งหมด
+          if (!searchValue) {
+            return true;
+          }
+          
+          // ค้นหาใน assetNumber ที่แสดงในตาราง
+          if (returnItem.assetNumber && returnItem.assetNumber.trim() !== '') {
+            // ถ้าค้นหา "-" และมี assetNumber = ไม่แสดง
+            if (searchValue === '-') {
+              return false;
+            }
+            // ค้นหาตามค่า assetNumber ที่มี
+            return returnItem.assetNumber.toLowerCase().includes(searchValue.toLowerCase());
+          } else {
+            // ถ้าไม่มี assetNumber = แสดง "-" ในตาราง
+            return searchValue === '-';
+          }
+        }));
 
       // Urgency filter (only for request tab)
       const matchesUrgency = !urgencyFilter || 
@@ -783,7 +819,7 @@ export default function AdminEquipmentReportsPage() {
 
       return matchesSearch && matchesItemName && matchesCategory && matchesStatus && 
              matchesCondition && matchesDepartment && matchesOffice && 
-             matchesSerialNumber && matchesPhoneNumber && matchesEmail &&
+             matchesSerialNumber && matchesPhoneNumber && matchesEmail && matchesAssetNumber &&
              matchesDeliveryLocation && matchesUrgency && matchesRequestDate && matchesReturnDate;
     });
 
@@ -928,6 +964,19 @@ export default function AdminEquipmentReportsPage() {
                 if (item.numberPhone && item.numberPhone.trim() !== '') {
                   if (searchValue === '-') return false;
                   if (!item.numberPhone.toLowerCase().includes(searchValue.toLowerCase())) return false;
+                } else {
+                  if (searchValue !== '-') return false;
+                }
+              }
+            }
+
+            // Asset Number filter
+            if (assetNumberFilter) {
+              const searchValue = assetNumberFilter.trim();
+              if (searchValue) {
+                if (item.assetNumber && item.assetNumber.trim() !== '') {
+                  if (searchValue === '-') return false;
+                  if (!item.assetNumber.toLowerCase().includes(searchValue.toLowerCase())) return false;
                 } else {
                   if (searchValue !== '-') return false;
                 }
@@ -1094,6 +1143,7 @@ export default function AdminEquipmentReportsPage() {
           { header: 'Phone Number', key: 'phoneNumber', width: 15 },
           { header: 'เลขทรัพย์สิน', key: 'assetNumber', width: 15 },
           { header: 'จำนวน', key: 'quantity', width: 10 },
+          { header: 'สถานที่จัดส่ง', key: 'deliveryLocation', width: 20 },
           { header: 'หมายเหตุ', key: 'itemNotes', width: 30 },
           { header: 'รูปภาพ', key: 'image', width: 25 },
           { header: 'สถานะการดำเนินการ', key: 'actionStatus', width: 18 },
@@ -1122,6 +1172,7 @@ export default function AdminEquipmentReportsPage() {
             phoneNumber: item.numberPhone || '-',
             assetNumber: item.assetNumber || '-',
             quantity: item.quantity,
+            deliveryLocation: (log as any).deliveryLocation || '-',
             itemNotes: item.itemNotes ? item.itemNotes.replace(/\n/g, ' ') : '-',
             image: '',
             actionStatus: item.approvalStatus === 'approved' ? 'ยืนยันแล้ว' : 'รอยืนยัน',
@@ -1152,7 +1203,7 @@ export default function AdminEquipmentReportsPage() {
                 const imageHeight = 90;
 
                 worksheet.addImage(imageId, {
-                  tl: { col: 16, row: index + 1 },
+                  tl: { col: 17, row: index + 1 },
                   ext: { width: imageWidth, height: imageHeight },
                   editAs: 'oneCell' // รูปจะย้ายตามแถว/คอลัมน์
                 });
@@ -1283,23 +1334,6 @@ export default function AdminEquipmentReportsPage() {
 
 
 
-  // Get unique values for filters
-  const allLogs = [...requestLogs, ...returnLogs];
-  
-  // Get unique item names from all items (sorted alphabetically)
-  const itemNames = [...new Set(
-    allLogs.flatMap(log => 
-      log.items.map(item => getCurrentItemName(item))
-    )
-  )].sort((a, b) => a.localeCompare(b, 'th'));
-
-  // Get unique categories from all items (sorted alphabetically)
-  const categories = [...new Set(
-    allLogs.flatMap(log => 
-      log.items.map(item => (item as any).category || '')
-    ).filter(cat => cat !== '')
-  )].sort((a, b) => a.localeCompare(b, 'th'));
-
   // Helper function to convert status ID to name
   const getStatusName = (statusId: string): string => {
     if (!statusId || !statusConfigs || statusConfigs.length === 0) {
@@ -1318,50 +1352,89 @@ export default function AdminEquipmentReportsPage() {
     return found?.name || conditionId;
   };
 
-  // Get unique statuses from all items (sorted by name alphabetically)
-  const statusIds = [...new Set(
-    [
-      ...requestLogs.flatMap(log => 
-        log.items.map(item => (item as any).statusOnRequest).filter(Boolean)
-      ),
-      ...returnLogs.flatMap(log => 
-        log.items.map(item => (item as any).statusOnReturn).filter(Boolean)
-      )
-    ]
-  )];
+  // Get unique values for filters (formatted for SearchableSelect)
+  const allLogs = [...requestLogs, ...returnLogs];
   
-  const statuses = statusIds.map(id => ({
-    id,
-    name: getStatusName(id)
-  })).sort((a, b) => a.name.localeCompare(b.name, 'th'));
+  // Get unique item names from all items (sorted alphabetically)
+  const itemNameOptions = useMemo(() => {
+    const uniqueNames = [...new Set(
+      allLogs.flatMap(log => 
+        log.items.map(item => getCurrentItemName(item))
+      )
+    )].sort((a, b) => a.localeCompare(b, 'th'));
+    return uniqueNames.map(name => ({ value: name, label: name }));
+  }, [requestLogs, returnLogs]);
+
+  // Get unique categories from all items (sorted alphabetically)
+  const categoryOptions = useMemo(() => {
+    const uniqueCategories = [...new Set(
+      allLogs.flatMap(log => 
+        log.items.map(item => (item as any).category || '')
+      ).filter(cat => cat !== '')
+    )].sort((a, b) => a.localeCompare(b, 'th'));
+    return uniqueCategories.map(cat => ({ value: cat, label: cat }));
+  }, [requestLogs, returnLogs]);
+
+  // Get unique statuses from all items (sorted by name alphabetically)
+  const statusOptions = useMemo(() => {
+    const statusIds = [...new Set(
+      [
+        ...requestLogs.flatMap(log => 
+          log.items.map(item => (item as any).statusOnRequest).filter(Boolean)
+        ),
+        ...returnLogs.flatMap(log => 
+          log.items.map(item => (item as any).statusOnReturn).filter(Boolean)
+        )
+      ]
+    )];
+    
+    return statusIds.map(id => ({
+      value: id,
+      label: getStatusName(id)
+    })).sort((a, b) => a.label.localeCompare(b.label, 'th'));
+  }, [requestLogs, returnLogs, statusConfigs]);
 
   // Get unique conditions from all items (sorted by name alphabetically)
-  const conditionIds = [...new Set(
-    [
-      ...requestLogs.flatMap(log => 
-        log.items.map(item => (item as any).conditionOnRequest).filter(Boolean)
-      ),
-      ...returnLogs.flatMap(log => 
-        log.items.map(item => (item as any).conditionOnReturn).filter(Boolean)
-      )
-    ]
-  )];
-  
-  const conditions = conditionIds.map(id => ({
-    id,
-    name: getConditionName(id)
-  })).sort((a, b) => a.name.localeCompare(b.name, 'th'));
+  const conditionOptions = useMemo(() => {
+    const conditionIds = [...new Set(
+      [
+        ...requestLogs.flatMap(log => 
+          log.items.map(item => (item as any).conditionOnRequest).filter(Boolean)
+        ),
+        ...returnLogs.flatMap(log => 
+          log.items.map(item => (item as any).conditionOnReturn).filter(Boolean)
+        )
+      ]
+    )];
+    
+    return conditionIds.map(id => ({
+      value: id,
+      label: getConditionName(id)
+    })).sort((a, b) => a.label.localeCompare(b.label, 'th'));
+  }, [requestLogs, returnLogs, conditionConfigs]);
 
   // Get unique departments (sorted alphabetically)
-  const departments = [...new Set(allLogs.map(item => item.department))].sort((a, b) => a.localeCompare(b, 'th'));
+  const departmentOptions = useMemo(() => {
+    const uniqueDepts = [...new Set(allLogs.map(item => item.department))].sort((a, b) => a.localeCompare(b, 'th'));
+    return uniqueDepts.map(dept => ({ value: dept, label: dept }));
+  }, [requestLogs, returnLogs]);
   
   // Get unique offices (sorted alphabetically)
-  const offices = [...new Set(allLogs.map(item => item.office))].sort((a, b) => a.localeCompare(b, 'th'));
+  const officeOptions = useMemo(() => {
+    const uniqueOffices = [...new Set(allLogs.map(item => item.office))].sort((a, b) => a.localeCompare(b, 'th'));
+    return uniqueOffices.map(office => ({ value: office, label: office }));
+  }, [requestLogs, returnLogs]);
 
-  // Get unique delivery locations from request logs (sorted alphabetically)
-  const deliveryLocations = [...new Set(
-    requestLogs.map(log => log.deliveryLocation).filter(Boolean)
-  )].sort((a, b) => a.localeCompare(b, 'th'));
+  // Get unique delivery locations from request logs and return logs (sorted alphabetically)
+  const deliveryLocationOptions = useMemo(() => {
+    const uniqueLocations = [...new Set(
+      [
+        ...requestLogs.map(log => log.deliveryLocation).filter(Boolean),
+        ...returnLogs.map(log => (log as any).deliveryLocation).filter(Boolean)
+      ]
+    )].sort((a, b) => a.localeCompare(b, 'th'));
+    return uniqueLocations.map(location => ({ value: location, label: location }));
+  }, [requestLogs, returnLogs]);
 
   // Pagination
   const totalPages = Math.ceil(displayRows.length / itemsPerPage);
@@ -1491,166 +1564,128 @@ export default function AdminEquipmentReportsPage() {
                   <label className="block text-sm font-medium text-gray-700 mb-1">
                     อุปกรณ์
                   </label>
-                  <input
-                    list="itemNames-list"
+                  <SearchableSelect
+                    options={itemNameOptions}
                     value={itemNameFilter}
-                    onChange={(e) => setItemNameFilter(e.target.value)}
-                    className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 text-gray-900"
-                    placeholder="พิมพ์หรือเลือก"
+                    onChange={setItemNameFilter}
+                    placeholder="ทั้งหมด"
                   />
-                  <datalist id="itemNames-list">
-                    <option value="">ทั้งหมด</option>
-                    {itemNames.map((name) => (
-                      <option key={name} value={name} />
-                    ))}
-                  </datalist>
                 </div>
                 
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-1">
                     หมวดหมู่
                   </label>
-                  <input
-                    list="categories-list"
+                  <SearchableSelect
+                    options={categoryOptions}
                     value={categoryFilter}
-                    onChange={(e) => setCategoryFilter(e.target.value)}
-                    className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 text-gray-900"
-                    placeholder="พิมพ์หรือเลือก"
+                    onChange={setCategoryFilter}
+                    placeholder="ทั้งหมด"
                   />
-                  <datalist id="categories-list">
-                    <option value="">ทั้งหมด</option>
-                    {categories.map((cat) => (
-                      <option key={cat} value={cat} />
-                    ))}
-                  </datalist>
                 </div>
                 
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-1">
                     สถานะ
                   </label>
-                  <select
+                  <SearchableSelect
+                    options={statusOptions}
                     value={statusFilter}
-                    onChange={(e) => setStatusFilter(e.target.value)}
-                    className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 text-gray-900"
-                  >
-                    <option value="">ทั้งหมด</option>
-                    {statuses.map((status) => (
-                      <option key={status.id} value={status.id}>
-                        {status.name}
-                      </option>
-                    ))}
-                  </select>
+                    onChange={setStatusFilter}
+                    placeholder="ทั้งหมด"
+                  />
                 </div>
                 
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-1">
                     สภาพ
                   </label>
-                  <select
+                  <SearchableSelect
+                    options={conditionOptions}
                     value={conditionFilter}
-                    onChange={(e) => setConditionFilter(e.target.value)}
-                    className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 text-gray-900"
-                  >
-                    <option value="">ทั้งหมด</option>
-                    {conditions.map((condition) => (
-                      <option key={condition.id} value={condition.id}>
-                        {condition.name}
-                      </option>
-                    ))}
-                  </select>
+                    onChange={setConditionFilter}
+                    placeholder="ทั้งหมด"
+                  />
                 </div>
               </div>
 
-              {/* แถวที่ 2: แผนก, สาขา, สถานที่จัดส่ง, ความเร่งด่วน, วันที่ */}
+              {/* แถวที่ 2: เลขทรัพย์สิน, แผนก, สาขา, สถานที่จัดส่ง, ความเร่งด่วน, วันที่ */}
               <div className="grid max-[768px]:grid-cols-1 max-[1120px]:grid-cols-2 max-[1440px]:grid-cols-4 grid-cols-4 gap-4">
+                {activeTab === 'return' && (
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">
+                      เลขทรัพย์สิน
+                    </label>
+                    <div className="relative">
+                      <Search className="absolute left-3 top-2.5 h-4 w-4 text-gray-400" />
+                      <input
+                        type="text"
+                        value={assetNumberFilter}
+                        onChange={(e) => setAssetNumberFilter(e.target.value)}
+                        className="w-full pl-10 pr-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 text-gray-900"
+                        placeholder="ค้นหาเลขทรัพย์สิน"
+                      />
+                    </div>
+                  </div>
+                )}
+                
+                
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-1">
                     แผนก
                   </label>
-                  <input
-                    list="departments-list"
+                  <SearchableSelect
+                    options={departmentOptions}
                     value={departmentFilter}
-                    onChange={(e) => setDepartmentFilter(e.target.value)}
-                    className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 text-gray-900"
-                    placeholder="พิมพ์หรือเลือก"
+                    onChange={setDepartmentFilter}
+                    placeholder="ทั้งหมด"
                   />
-                  <datalist id="departments-list">
-                    <option value="">ทั้งหมด</option>
-                    {departments.map((dept) => (
-                      <option key={dept} value={dept} />
-                    ))}
-                  </datalist>
                 </div>
                 
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-1">
                     สาขา
                   </label>
-                  <input
-                    list="offices-list"
+                  <SearchableSelect
+                    options={officeOptions}
                     value={officeFilter}
-                    onChange={(e) => setOfficeFilter(e.target.value)}
-                    className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 text-gray-900"
-                    placeholder="พิมพ์หรือเลือก"
+                    onChange={setOfficeFilter}
+                    placeholder="ทั้งหมด"
                   />
-                  <datalist id="offices-list">
-                    <option value="">ทั้งหมด</option>
-                    {offices.map((office) => (
-                      <option key={office} value={office} />
-                    ))}
-                  </datalist>
+                </div>
+                
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">
+                    สถานที่จัดส่ง
+                  </label>
+                  <SearchableSelect
+                    options={deliveryLocationOptions}
+                    value={deliveryLocationFilter}
+                    onChange={setDeliveryLocationFilter}
+                    placeholder="ทั้งหมด"
+                  />
                 </div>
                 
                 {activeTab === 'request' && (
                   <>
                     <div>
                       <label className="block text-sm font-medium text-gray-700 mb-1">
-                        สถานที่จัดส่ง
-                      </label>
-                      <input
-                        list="deliveryLocations-list"
-                        value={deliveryLocationFilter}
-                        onChange={(e) => setDeliveryLocationFilter(e.target.value)}
-                        className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 text-gray-900"
-                        placeholder="พิมพ์หรือเลือก"
-                      />
-                      <datalist id="deliveryLocations-list">
-                        <option value="">ทั้งหมด</option>
-                        {deliveryLocations.map((location) => (
-                          <option key={location} value={location} />
-                        ))}
-                      </datalist>
-                    </div>
-                    
-                    <div>
-                      <label className="block text-sm font-medium text-gray-700 mb-1">
                         ความเร่งด่วน
                       </label>
-                      <select
+                      <SearchableSelect
+                        options={[
+                          { value: 'normal', label: 'ปกติ' },
+                          { value: 'very_urgent', label: 'ด่วนมาก' }
+                        ]}
                         value={urgencyFilter}
-                        onChange={(e) => setUrgencyFilter(e.target.value)}
-                        className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 text-gray-900"
-                      >
-                        <option value="">ทั้งหมด</option>
-                        <option value="normal">ปกติ</option>
-                        <option value="very_urgent">ด่วนมาก</option>
-                      </select>
+                        onChange={setUrgencyFilter}
+                        placeholder="ทั้งหมด"
+                      />
                     </div>
                   </>
                 )}
                 
-                {activeTab === 'request' ? (
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">
-                      วันที่เบิก
-                    </label>
-                    <DatePicker
-                      value={dateFromFilter}
-                      onChange={(date) => setDateFromFilter(date)}
-                    />
-                  </div>
-                ) : (
+                {activeTab === 'return' && (
                   <div>
                     <label className="block text-sm font-medium text-gray-700 mb-1">
                       วันที่คืน
@@ -1662,6 +1697,21 @@ export default function AdminEquipmentReportsPage() {
                   </div>
                 )}
               </div>
+
+              {/* แถวที่ 3: วันที่เบิก (request tab เท่านั้น) */}
+              {activeTab === 'request' && (
+                <div className="grid max-[768px]:grid-cols-1 max-[1120px]:grid-cols-2 max-[1440px]:grid-cols-4 grid-cols-4 gap-4">
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">
+                      วันที่เบิก
+                    </label>
+                    <DatePicker
+                      value={dateFromFilter}
+                      onChange={(date) => setDateFromFilter(date)}
+                    />
+                  </div>
+                </div>
+              )}
             </div>
           )}
 
@@ -2046,6 +2096,9 @@ export default function AdminEquipmentReportsPage() {
                       จำนวน
                     </th>
                     <th className="px-6 py-3 text-center text-xs font-medium text-white uppercase tracking-wider">
+                      สถานที่จัดส่ง
+                    </th>
+                    <th className="px-6 py-3 text-center text-xs font-medium text-white uppercase tracking-wider">
                       หมายเหตุ
                     </th>
                     <th className="px-6 py-3 text-center text-xs font-medium text-white uppercase tracking-wider">
@@ -2059,7 +2112,7 @@ export default function AdminEquipmentReportsPage() {
                 <tbody className="bg-white divide-y divide-gray-200">
                   {(loading || isTabSwitching) && (
                     <tr>
-                      <td colSpan={19} className="px-6 py-8 text-left text-gray-500">
+                      <td colSpan={20} className="px-6 py-8 text-left text-gray-500">
                         <RefreshCw className="inline-block w-4 h-4 mr-2 animate-spin text-gray-400" />
                         กำลังโหลดข้อมูล
                       </td>
@@ -2067,7 +2120,7 @@ export default function AdminEquipmentReportsPage() {
                   )}
                   {!loading && !isTabSwitching && currentItems.length === 0 && (
                     <tr>
-                      <td colSpan={19} className="px-6 py-8 text-center text-gray-500">ไม่พบข้อมูล</td>
+                      <td colSpan={20} className="px-6 py-8 text-left text-gray-500">ไม่พบข้อมูล</td>
                     </tr>
                   )}
                   {!isTabSwitching && currentItems.map((row, rowIndex) => {
@@ -2167,6 +2220,10 @@ export default function AdminEquipmentReportsPage() {
                         {/* จำนวน */}
                         <td className="px-6 py-4 text-sm text-gray-500 text-center text-selectable">
                           {item.quantity}
+                        </td>
+                        {/* สถานที่จัดส่ง */}
+                        <td className="px-6 py-4 text-sm text-gray-500 text-center text-selectable">
+                          {(returnLog as any).deliveryLocation || '-'}
                         </td>
                         {/* หมายเหตุ */}
                         <td className="px-6 py-4 text-sm text-gray-500 text-center text-selectable">

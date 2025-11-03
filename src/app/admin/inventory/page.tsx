@@ -41,6 +41,7 @@ import CategoryDeleteConfirmModal from '@/components/CategoryDeleteConfirmModal'
 import StatusDeleteConfirmModal from '@/components/StatusDeleteConfirmModal';
 import ConditionDeleteConfirmModal from '@/components/ConditionDeleteConfirmModal';
 import DatePicker from '@/components/DatePicker';
+import SearchableSelect from '@/components/SearchableSelect';
 import { 
   getStatusNameById, 
   getStatusClass as getStatusClassHelper,
@@ -635,11 +636,9 @@ export default function AdminInventoryPage() {
     const term = (searchTerm || '').toLowerCase();
     let filtered = items.filter(item => {
       const itemNameSafe = String((item as any)?.itemName || '').toLowerCase();
-      const categoryNameSafe = String(getCategoryName((item as any)?.categoryId) || '').toLowerCase();
       const matchesSearch =
         !term ||
-        itemNameSafe.includes(term) ||
-        categoryNameSafe.includes(term);
+        itemNameSafe.includes(term);
       
       const matchesCategory = !categoryFilter || item.categoryId === categoryFilter;
       
@@ -680,9 +679,9 @@ export default function AdminInventoryPage() {
           itemName: it.itemName,
           categoryId: it.categoryId,
           quantity: 0,
-          totalQuantity: 0,
-          availableQuantity: it.availableQuantity ?? 0, // 🔧 FIX: เพิ่ม availableQuantity จาก API
-          userOwnedQuantity: it.userOwnedQuantity ?? 0, // 🔧 FIX: เพิ่ม userOwnedQuantity จาก API
+          totalQuantity: it.totalQuantity ?? it.quantity ?? 0, // 🔧 CRITICAL FIX: ใช้ totalQuantity จาก API (aggregated)
+          availableQuantity: it.availableQuantity ?? 0, // 🔧 FIX: ใช้ availableQuantity จาก API (aggregated)
+          userOwnedQuantity: it.userOwnedQuantity ?? 0, // 🔧 FIX: ใช้ userOwnedQuantity จาก API (aggregated)
           serialNumbers: [] as string[],
           status: it.status,
           dateAdded: it.dateAdded,
@@ -704,17 +703,15 @@ export default function AdminInventoryPage() {
       });
       
       acc.quantity += it.quantity;
-      // 🔧 FIX: สะสม availableQuantity และ userOwnedQuantity จากทุกรายการ
-      acc.availableQuantity += (it.availableQuantity ?? 0);
-      acc.userOwnedQuantity += (it.userOwnedQuantity ?? 0);
       
-      // For serial-numbered records, total should be 1 per record regardless of remaining quantity
-      if (it.serialNumbers && Array.isArray(it.serialNumbers) && it.serialNumbers.length > 0) {
-        const addTotal = typeof it.totalQuantity === 'number' && it.totalQuantity > 0 ? it.totalQuantity : 1;
-        acc.totalQuantity += addTotal;
-      } else {
-        acc.totalQuantity += (typeof it.totalQuantity === 'number' ? it.totalQuantity : it.quantity);
-      }
+      // 🔧 CRITICAL FIX: availableQuantity และ totalQuantity มาจาก API ที่ aggregate แล้ว
+      // API ส่งข้อมูลที่ aggregate แล้ว (1 record per itemName+categoryId) 
+      // ดังนั้นไม่ควร sum หรือ update ค่าเหล่านี้เพราะจะทำให้เกิดการนับซ้ำ
+      // ค่าเหล่านี้ถูกตั้งไว้แล้วตอน initialization (line 683-684) และไม่ควรเปลี่ยนแปลง
+      
+      // 🔧 CRITICAL FIX: totalQuantity ก็มาจาก API ที่ aggregate แล้ว
+      // ไม่ควร sum เพราะจะเป็น double counting
+      // ใช้ค่าที่ตั้งไว้ตอน initialization เท่านั้น
       if (it.serialNumbers && Array.isArray(it.serialNumbers) && it.serialNumbers.length > 0) {
         acc.serialNumbers.push(...it.serialNumbers);
       }
@@ -3082,7 +3079,7 @@ export default function AdminInventoryPage() {
                       value={searchTerm}
                       onChange={(e) => setSearchTerm(e.target.value)}
                       className="w-full pl-10 pr-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 text-gray-900"
-                      placeholder="ชื่ออุปกรณ์, หมวดหมู่"
+                      placeholder="ชื่ออุปกรณ์"
                     />
                   </div>
                 </div>
@@ -3090,13 +3087,8 @@ export default function AdminInventoryPage() {
                   <label className="block text-sm font-medium text-gray-700 mb-1">
                     หมวดหมู่
                   </label>
-                  <select
-                    value={categoryFilter}
-                    onChange={(e) => setCategoryFilter(e.target.value)}
-                    className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 text-gray-900"
-                  >
-                    <option value="">ทั้งหมด</option>
-                    {categoryConfigs
+                  <SearchableSelect
+                    options={categoryConfigs
                       .filter(config => {
                         // ซ่อน "ไม่ระบุ"
                         if (config.isSystemCategory && config.id === 'cat_unassigned') return false;
@@ -3111,12 +3103,14 @@ export default function AdminInventoryPage() {
                         const bOrder = b.id === 'cat_sim_card' ? 998 : (b.order || 0);
                         return aOrder - bOrder;
                       })
-                      .map((config: any) => (
-                        <option key={config.id} value={config.id}>
-                          {config.name}
-                        </option>
-                      ))}
-                  </select>
+                      .map((config: any) => ({
+                        value: config.id,
+                        label: config.name
+                      }))}
+                    value={categoryFilter}
+                    onChange={setCategoryFilter}
+                    placeholder="ทั้งหมด"
+                  />
                 </div>
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-1">
@@ -3155,7 +3149,7 @@ export default function AdminInventoryPage() {
                   }}
                   className="px-3 py-1 text-sm border border-gray-300 rounded focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
                 >
-                  <option value="all">แสดงจำนวนทั้งหมด</option>
+                  <option value="all">แสดงจำนวนเบิกได้</option>
                   <option value="low_stock">สินค้าใกล้หมด ≤</option>
                 </select>
                 {stockDisplayMode === 'low_stock' && (

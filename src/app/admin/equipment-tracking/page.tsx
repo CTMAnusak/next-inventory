@@ -17,6 +17,7 @@ import {
   FileDown
 } from 'lucide-react';
 import DatePicker from '@/components/DatePicker';
+import SearchableSelect from '@/components/SearchableSelect';
 import { toast } from 'react-hot-toast';
 import { formatEquipmentTrackingDate } from '@/lib/thai-date-utils';
 import * as XLSX from 'xlsx';
@@ -308,64 +309,68 @@ export default function AdminEquipmentTrackingPage() {
     }
   };
 
-  // Get unique values for filters
-  const items = useMemo(() => {
+  // Get unique values for filters (formatted for SearchableSelect)
+  const itemOptions = useMemo(() => {
     if (!Array.isArray(trackingData)) return [];
-    return [...new Set(trackingData.map(record => record.currentItemName).filter(Boolean))];
+    const uniqueItems = [...new Set(trackingData.map(record => record.currentItemName).filter(Boolean))];
+    return uniqueItems.map(item => ({ value: item, label: item }));
   }, [trackingData]);
 
-  const categories = useMemo(() => {
+  const categoryOptions = useMemo(() => {
     if (!Array.isArray(trackingData)) return [];
     const categoryMap = new Map();
     trackingData.forEach(record => {
       const id = record.category;
       const name = record.categoryName || record.category;
       if (id && !categoryMap.has(id)) {
-        categoryMap.set(id, { id, name });
+        categoryMap.set(id, { value: id, label: name });
       }
     });
     return Array.from(categoryMap.values());
   }, [trackingData]);
 
-  const statuses = useMemo(() => {
+  const statusOptions = useMemo(() => {
     if (!Array.isArray(trackingData)) return [];
     const statusMap = new Map();
     trackingData.forEach(record => {
       const id = record.status;
       const name = record.statusName || record.status;
       if (id && !statusMap.has(id)) {
-        statusMap.set(id, { id, name });
+        statusMap.set(id, { value: id, label: name });
       }
     });
     return Array.from(statusMap.values());
   }, [trackingData]);
 
-  const conditions = useMemo(() => {
+  const conditionOptions = useMemo(() => {
     if (!Array.isArray(trackingData)) return [];
     const conditionMap = new Map();
     trackingData.forEach(record => {
       const id = record.condition;
       const name = record.conditionName || record.condition;
       if (id && !conditionMap.has(id)) {
-        conditionMap.set(id, { id, name });
+        conditionMap.set(id, { value: id, label: name });
       }
     });
     return Array.from(conditionMap.values());
   }, [trackingData]);
 
-  const departments = useMemo(() => {
+  const departmentOptions = useMemo(() => {
     if (!Array.isArray(trackingData)) return [];
-    return [...new Set(trackingData.map(record => record.department).filter(Boolean))];
+    const uniqueDepts = [...new Set(trackingData.map(record => record.department).filter(Boolean))];
+    return uniqueDepts.map(dept => ({ value: dept, label: dept }));
   }, [trackingData]);
 
-  const offices = useMemo(() => {
+  const officeOptions = useMemo(() => {
     if (!Array.isArray(trackingData)) return [];
-    return [...new Set(trackingData.map(record => record.office).filter(Boolean))];
+    const uniqueOffices = [...new Set(trackingData.map(record => record.office).filter(Boolean))];
+    return uniqueOffices.map(office => ({ value: office, label: office }));
   }, [trackingData]);
 
-  const deliveryLocations = useMemo(() => {
+  const deliveryLocationOptions = useMemo(() => {
     if (!Array.isArray(trackingData)) return [];
-    return [...new Set(trackingData.map(record => record.deliveryLocation).filter(Boolean))];
+    const uniqueLocations = [...new Set(trackingData.map(record => record.deliveryLocation).filter(Boolean))];
+    return uniqueLocations.map(location => ({ value: location, label: location }));
   }, [trackingData]);
 
   // Pagination
@@ -445,36 +450,24 @@ export default function AdminEquipmentTrackingPage() {
                   <label className="block text-sm font-medium text-gray-700 mb-1">
                     อุปกรณ์
                   </label>
-                  <select
+                  <SearchableSelect
+                    options={itemOptions}
                     value={itemFilter}
-                    onChange={(e) => setItemFilter(e.target.value)}
-                    className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 text-gray-900"
-                  >
-                    <option value="">ทั้งหมด</option>
-                    {items.map((item) => (
-                      <option key={item} value={item}>
-                        {item}
-                      </option>
-                    ))}
-                  </select>
+                    onChange={setItemFilter}
+                    placeholder="ทั้งหมด"
+                  />
                 </div>
 
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-1">
                     หมวดหมู่
                   </label>
-                  <select
+                  <SearchableSelect
+                    options={categoryOptions}
                     value={categoryFilter}
-                    onChange={(e) => setCategoryFilter(e.target.value)}
-                    className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 text-gray-900"
-                  >
-                    <option value="">ทั้งหมด</option>
-                    {categories.map((category) => (
-                      <option key={category.id} value={category.id}>
-                        {category.name}
-                      </option>
-                    ))}
-                  </select>
+                    onChange={setCategoryFilter}
+                    placeholder="ทั้งหมด"
+                  />
                 </div>
 
                 <div>
@@ -494,54 +487,36 @@ export default function AdminEquipmentTrackingPage() {
                   <label className="block text-sm font-medium text-gray-700 mb-1">
                     สถานะ
                   </label>
-                  <select
+                  <SearchableSelect
+                    options={statusOptions}
                     value={statusFilter}
-                    onChange={(e) => setStatusFilter(e.target.value)}
-                    className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 text-gray-900"
-                  >
-                    <option value="">ทั้งหมด</option>
-                    {statuses.map((status) => (
-                      <option key={status.id} value={status.id}>
-                        {status.name}
-                      </option>
-                    ))}
-                  </select>
+                    onChange={setStatusFilter}
+                    placeholder="ทั้งหมด"
+                  />
                 </div>
 
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-1">
                     สภาพ
                   </label>
-                  <select
+                  <SearchableSelect
+                    options={conditionOptions}
                     value={conditionFilter}
-                    onChange={(e) => setConditionFilter(e.target.value)}
-                    className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 text-gray-900"
-                  >
-                    <option value="">ทั้งหมด</option>
-                    {conditions.map((condition) => (
-                      <option key={condition.id} value={condition.id}>
-                        {condition.name}
-                      </option>
-                    ))}
-                  </select>
+                    onChange={setConditionFilter}
+                    placeholder="ทั้งหมด"
+                  />
                 </div>
                 
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-1">
                     แผนก
                   </label>
-                  <select
+                  <SearchableSelect
+                    options={departmentOptions}
                     value={departmentFilter}
-                    onChange={(e) => setDepartmentFilter(e.target.value)}
-                    className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 text-gray-900"
-                  >
-                    <option value="">ทั้งหมด</option>
-                    {departments.map((dept) => (
-                      <option key={dept} value={dept}>
-                        {dept}
-                      </option>
-                    ))}
-                  </select>
+                    onChange={setDepartmentFilter}
+                    placeholder="ทั้งหมด"
+                  />
                 </div>
                 
                 <div>
@@ -562,51 +537,39 @@ export default function AdminEquipmentTrackingPage() {
                   <label className="block text-sm font-medium text-gray-700 mb-1">
                     สาขา
                   </label>
-                  <select
+                  <SearchableSelect
+                    options={officeOptions}
                     value={officeFilter}
-                    onChange={(e) => setOfficeFilter(e.target.value)}
-                    className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 text-gray-900"
-                  >
-                    <option value="">ทั้งหมด</option>
-                    {offices.map((office) => (
-                      <option key={office} value={office}>
-                        {office}
-                      </option>
-                    ))}
-                  </select>
+                    onChange={setOfficeFilter}
+                    placeholder="ทั้งหมด"
+                  />
                 </div>
                 
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-1">
                     แหล่งที่มา
                   </label>
-                  <select
+                  <SearchableSelect
+                    options={[
+                      { value: 'request', label: 'เบิกอุปกรณ์' },
+                      { value: 'user-owned', label: 'เพิ่มอุปกรณ์ที่มี' }
+                    ]}
                     value={sourceFilter}
-                    onChange={(e) => setSourceFilter(e.target.value)}
-                    className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 text-gray-900"
-                  >
-                    <option value="">ทั้งหมด</option>
-                    <option value="request">เบิกอุปกรณ์</option>
-                    <option value="user-owned">เพิ่มอุปกรณ์ที่มี</option>
-                  </select>
+                    onChange={setSourceFilter}
+                    placeholder="ทั้งหมด"
+                  />
                 </div>
                 
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-1">
                     สถานที่จัดส่ง
                   </label>
-                  <select
+                  <SearchableSelect
+                    options={deliveryLocationOptions}
                     value={deliveryLocationFilter}
-                    onChange={(e) => setDeliveryLocationFilter(e.target.value)}
-                    className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 text-gray-900"
-                  >
-                    <option value="">ทั้งหมด</option>
-                    {deliveryLocations.map((location) => (
-                      <option key={location} value={location}>
-                        {location}
-                      </option>
-                    ))}
-                  </select>
+                    onChange={setDeliveryLocationFilter}
+                    placeholder="ทั้งหมด"
+                  />
                 </div>
                 
                 <div>

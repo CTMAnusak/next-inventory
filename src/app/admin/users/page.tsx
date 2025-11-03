@@ -20,6 +20,7 @@ import {
 } from 'lucide-react';
 import { toast } from 'react-hot-toast';
 import { customToast } from '@/lib/custom-toast';
+import SearchableSelect from '@/components/SearchableSelect';
 import * as XLSX from 'xlsx';
 
 interface User {
@@ -88,6 +89,7 @@ export default function AdminUsersPage() {
 
   // Search and filter states
   const [searchTerm, setSearchTerm] = useState('');
+  const [emailFilter, setEmailFilter] = useState('');
   const [userTypeFilter, setUserTypeFilter] = useState('');
   const [officeFilter, setOfficeFilter] = useState('');
 
@@ -127,7 +129,7 @@ export default function AdminUsersPage() {
 
   useEffect(() => {
     applyFilters();
-  }, [users, pendingUsers, searchTerm, userTypeFilter, officeFilter, activeTab]);
+  }, [users, pendingUsers, searchTerm, emailFilter, userTypeFilter, officeFilter, activeTab]);
 
   const fetchUsers = async () => {
     setLoading(true);
@@ -156,17 +158,15 @@ export default function AdminUsersPage() {
     
     let filtered = sourceData.filter(user => {
       const matchesSearch = !searchTerm || 
-        user.firstName.toLowerCase().includes(searchTerm.toLowerCase()) ||
-        user.lastName.toLowerCase().includes(searchTerm.toLowerCase()) ||
-        (user.nickname && user.nickname.toLowerCase().includes(searchTerm.toLowerCase())) ||
-        user.email.toLowerCase().includes(searchTerm.toLowerCase()) ||
-        user.office.toLowerCase().includes(searchTerm.toLowerCase()) ||
-        (user.department && user.department.toLowerCase().includes(searchTerm.toLowerCase()));
+        (user.firstName && user.firstName.toLowerCase().includes(searchTerm.toLowerCase())) ||
+        (user.lastName && user.lastName.toLowerCase().includes(searchTerm.toLowerCase())) ||
+        (user.nickname && user.nickname.toLowerCase().includes(searchTerm.toLowerCase()));
 
+      const matchesEmail = !emailFilter || (user.email && user.email.toLowerCase().includes(emailFilter.toLowerCase()));
       const matchesUserType = !userTypeFilter || user.userType === userTypeFilter;
-      const matchesOffice = !officeFilter || user.office.includes(officeFilter);
+      const matchesOffice = !officeFilter || (user.office && user.office.toLowerCase() === officeFilter.toLowerCase());
 
-      return matchesSearch && matchesUserType && matchesOffice;
+      return matchesSearch && matchesEmail && matchesUserType && matchesOffice;
     });
 
     // Sort by creation date (newest first)
@@ -639,7 +639,27 @@ export default function AdminUsersPage() {
 
   // Get unique values for filters
   const allUsers = [...users, ...pendingUsers];
-  const offices = [...new Set(allUsers.map(user => user.office))];
+  
+  // Get unique emails
+  const emails = [...new Set(allUsers.map(user => user.email).filter(Boolean))];
+  const emailOptions = emails.map(email => ({ value: email, label: email }));
+  
+  // Get unique offices with proper capitalization (capitalize first letter of each word if English)
+  const uniqueOffices = [...new Set(allUsers.map(user => user.office).filter(Boolean))];
+  const normalizedOffices = uniqueOffices.reduce((acc, office) => {
+    // Normalize: capitalize first letter of each word
+    const normalized = office
+      .split(' ')
+      .map(word => word.charAt(0).toUpperCase() + word.slice(1).toLowerCase())
+      .join(' ');
+    
+    // Check if this normalized version already exists (case-insensitive)
+    if (!acc.find(o => o.toLowerCase() === normalized.toLowerCase())) {
+      acc.push(normalized);
+    }
+    return acc;
+  }, [] as string[]);
+  const officeOptions = normalizedOffices.map(office => ({ value: office, label: office }));
 
   // Pagination
   const currentData = activeTab === 'approved' ? filteredUsers : filteredPendingUsers;
@@ -698,7 +718,7 @@ export default function AdminUsersPage() {
           {/* Filters */}
           {showFilters && (
             <div className="bg-gray-50 rounded-lg p-4 mb-6 space-y-4">
-              <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-1">
                     ค้นหา
@@ -710,40 +730,45 @@ export default function AdminUsersPage() {
                       value={searchTerm}
                       onChange={(e) => setSearchTerm(e.target.value)}
                       className="w-full pl-10 pr-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 text-gray-900"
-                      placeholder="ชื่อ, อีเมล, สาขา"
+                      placeholder="ชื่อ, นามสกุล, ชื่อเล่น"
                     />
                   </div>
                 </div>
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-1">
+                    อีเมล
+                  </label>
+                  <SearchableSelect
+                    options={emailOptions}
+                    value={emailFilter}
+                    onChange={setEmailFilter}
+                    placeholder="ทั้งหมด"
+                  />
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">
                     ประเภทผู้ใช้
                   </label>
-                  <select
+                  <SearchableSelect
+                    options={[
+                      { value: 'individual', label: 'บุคคล' },
+                      { value: 'branch', label: 'สาขา' }
+                    ]}
                     value={userTypeFilter}
-                    onChange={(e) => setUserTypeFilter(e.target.value)}
-                    className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 text-gray-900"
-                  >
-                    <option value="">ทั้งหมด</option>
-                    <option value="individual">บุคคล</option>
-                    <option value="branch">สาขา</option>
-                  </select>
+                    onChange={setUserTypeFilter}
+                    placeholder="ทั้งหมด"
+                  />
                 </div>
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-1">
                     สาขา
                   </label>
-                  <select
+                  <SearchableSelect
+                    options={officeOptions}
                     value={officeFilter}
-                    onChange={(e) => setOfficeFilter(e.target.value)}
-                    className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 text-gray-900"
-                  >
-                    <option value="">ทั้งหมด</option>
-                    {offices.map((office) => (
-                      <option key={office} value={office}>
-                        {office}
-                      </option>
-                    ))}
-                  </select>
+                    onChange={setOfficeFilter}
+                    placeholder="ทั้งหมด"
+                  />
                 </div>
               </div>
             </div>
@@ -830,7 +855,7 @@ export default function AdminUsersPage() {
               <tbody className="bg-white divide-y divide-gray-200">
                 {loading && (
                   <tr>
-                    <td colSpan={11} className="px-6 py-8 text-left text-gray-500">
+                    <td colSpan={11} className="px-6 py-8 text-center text-gray-500">
                       <RefreshCw className="inline-block w-4 h-4 mr-2 animate-spin text-gray-400" />
                       กำลังโหลดข้อมูล
                     </td>
@@ -845,8 +870,8 @@ export default function AdminUsersPage() {
                 )}
                 {currentItems.map((user, index) => (
                   <tr key={user._id || user.user_id} className={index % 2 === 0 ? 'bg-white' : 'bg-blue-50'}>
-                    <td className="px-6 py-4 whitespace-nowrap">
-                      <div className="flex items-center space-x-2">
+                    <td className="px-6 py-4 whitespace-nowrap text-center">
+                      <div className="flex items-center justify-center space-x-2">
                         <span className={`inline-flex items-center px-2 py-1 text-xs font-semibold rounded-full ${
                           user.userType === 'individual' 
                             ? 'bg-blue-100 text-blue-800' 
@@ -871,31 +896,31 @@ export default function AdminUsersPage() {
                         )}
                       </div>
                     </td>
-                    <td className="px-6 py-4 text-sm text-gray-500 text-selectable">
+                    <td className="px-6 py-4 text-sm text-gray-500 text-selectable text-center">
                       <span className="font-mono text-xs bg-gray-100 px-2 py-1 rounded">
                         {user.user_id || 'รอสร้าง'}
                       </span>
                     </td>
-                    <td className="px-6 py-4 text-sm font-medium text-gray-900 text-selectable">
+                    <td className="px-6 py-4 text-sm font-medium text-gray-900 text-selectable text-center">
                       {user.userType === 'individual' ? `${user.firstName} ${user.lastName}` : '-'}
                     </td>
-                    <td className="px-6 py-4 text-sm text-gray-500 text-selectable">
+                    <td className="px-6 py-4 text-sm text-gray-500 text-selectable text-center">
                       {user.nickname || '-'}
                     </td>
-                    <td className="px-6 py-4 text-sm text-gray-500 text-selectable">
+                    <td className="px-6 py-4 text-sm text-gray-500 text-selectable text-center">
                       {user.department || '-'}
                     </td>
-                    <td className="px-6 py-4 text-sm text-gray-500 text-selectable">
+                    <td className="px-6 py-4 text-sm text-gray-500 text-selectable text-center">
                       {user.office}
                     </td>
-                    <td className="px-6 py-4 text-sm text-gray-500 text-selectable">
+                    <td className="px-6 py-4 text-sm text-gray-500 text-selectable text-center">
                       {user.phone || '-'}
                     </td>
-                    <td className="px-6 py-4 text-sm text-gray-500 text-selectable">
+                    <td className="px-6 py-4 text-sm text-gray-500 text-selectable text-center">
                       {user.email}
                     </td>
-                    <td className="px-6 py-4 whitespace-nowrap">
-                      <div className="flex items-center space-x-2">
+                    <td className="px-6 py-4 whitespace-nowrap text-center">
+                      <div className="flex items-center justify-center space-x-2">
                         {user.pendingDeletion ? (
                           <div className="flex items-center space-x-2">
                             <span className="inline-flex items-center px-2 py-1 text-xs font-semibold rounded-full bg-red-100 text-red-800">
@@ -928,11 +953,11 @@ export default function AdminUsersPage() {
                         )}
                       </div>
                     </td>
-                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500 text-center">
                       {new Date(user.createdAt).toLocaleDateString('th-TH', { timeZone: 'Asia/Bangkok' })}
                     </td>
-                    <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
-                      <div className="flex justify-end space-x-2">
+                    <td className="px-6 py-4 whitespace-nowrap text-center text-sm font-medium">
+                      <div className="flex justify-center space-x-2">
                         {activeTab === 'pending' ? (
                           <>
                             <button

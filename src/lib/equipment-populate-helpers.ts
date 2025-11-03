@@ -415,10 +415,125 @@ export async function populateRequestLogComplete(requestLog: any) {
  * Populate ข้อมูลครบถ้วนสำหรับ ReturnLog
  * - Populate user info
  * - Populate item info (names, categories, status, condition)
+ * - Populate deliveryLocation from related RequestLog
  */
 export async function populateReturnLogComplete(returnLog: any) {
   let result = await populateReturnLogUser(returnLog);
   result = await populateReturnLogItems(result);
+  
+  // ✅ Populate deliveryLocation from related RequestLog
+  // หา RequestLog ที่เกี่ยวข้องผ่าน InventoryItem.transferInfo.requestId
+  if (result.items && Array.isArray(result.items) && result.items.length > 0) {
+    const InventoryItem = (await import('@/models/InventoryItem')).default;
+    const RequestLog = (await import('@/models/RequestLog')).default;
+    
+    // หา requestId จาก item แรก (เนื่องจาก deliveryLocation เป็นของ request ทั้งหมด ไม่ใช่ของ item)
+    // ถ้ามีหลาย item ที่มาจาก request คนละตัว ให้ใช้ requestId ของ item แรก
+    let deliveryLocation = null;
+    
+    // 🔍 Debug logging
+    console.log(`\n🔍 populateReturnLogComplete - ReturnLog ID: ${result._id}`);
+    console.log(`  Items count: ${result.items.length}`);
+    
+    for (const item of result.items) {
+      if (item.itemId) {
+        try {
+          console.log(`  Checking itemId: ${item.itemId}`);
+          
+          // 🔍 Method 1: Try to find InventoryItem by _id
+          let inventoryItem = await InventoryItem.findById(item.itemId).select('transferInfo.requestId');
+          
+          // 🔍 Method 2: If not found, try to find by serialNumber (if available)
+          if (!inventoryItem && item.serialNumber) {
+            console.log(`  Trying to find InventoryItem by serialNumber: ${item.serialNumber}`);
+            inventoryItem = await InventoryItem.findOne({
+              serialNumber: item.serialNumber,
+              'currentOwnership.userId': result.userId
+            }).select('transferInfo.requestId').sort({ createdAt: -1 });
+          }
+          
+          if (!inventoryItem) {
+            console.log(`  ⚠️ InventoryItem not found for itemId: ${item.itemId}`);
+            
+            // 🔍 Method 3: Try to find RequestLog directly by userId and item serialNumber/itemName
+            if (result.userId) {
+              console.log(`  Trying to find RequestLog directly by userId: ${result.userId}`);
+              const directRequestLog = await RequestLog.findOne({
+                userId: result.userId,
+                status: 'approved',
+                'items.assignedItemIds': item.itemId
+              }).select('deliveryLocation').sort({ requestDate: -1 });
+              
+              if (directRequestLog?.deliveryLocation) {
+                deliveryLocation = directRequestLog.deliveryLocation;
+                console.log(`  ✅ Found RequestLog directly: ${directRequestLog._id}`);
+                console.log(`  ✅ Using deliveryLocation: ${deliveryLocation}`);
+                break;
+              }
+            }
+            
+            continue;
+          }
+          
+          console.log(`  ✅ Found InventoryItem: ${inventoryItem._id}`);
+          console.log(`  transferInfo.requestId: ${inventoryItem.transferInfo?.requestId || 'null'}`);
+          
+          if (inventoryItem?.transferInfo?.requestId) {
+            const requestLog = await RequestLog.findById(inventoryItem.transferInfo.requestId).select('deliveryLocation');
+            
+            if (!requestLog) {
+              console.log(`  ⚠️ RequestLog not found for requestId: ${inventoryItem.transferInfo.requestId}`);
+              continue;
+            }
+            
+            console.log(`  ✅ Found RequestLog: ${requestLog._id}`);
+            console.log(`  deliveryLocation: ${requestLog.deliveryLocation || 'null'}`);
+            
+            if (requestLog?.deliveryLocation) {
+              deliveryLocation = requestLog.deliveryLocation;
+              console.log(`  ✅ Using deliveryLocation: ${deliveryLocation}`);
+              break; // ใช้ deliveryLocation จาก item แรกที่เจอ
+            }
+          } else {
+            console.log(`  ⚠️ No requestId in transferInfo`);
+            
+            // 🔍 Method 4: Try to find RequestLog by userId and item in assignedItemIds
+            if (result.userId) {
+              console.log(`  Trying to find RequestLog by userId and assignedItemIds`);
+              const fallbackRequestLog = await RequestLog.findOne({
+                userId: result.userId,
+                status: 'approved',
+                'items.assignedItemIds': item.itemId
+              }).select('deliveryLocation').sort({ requestDate: -1 });
+              
+              if (fallbackRequestLog?.deliveryLocation) {
+                deliveryLocation = fallbackRequestLog.deliveryLocation;
+                console.log(`  ✅ Found RequestLog via fallback: ${fallbackRequestLog._id}`);
+                console.log(`  ✅ Using deliveryLocation: ${deliveryLocation}`);
+                break;
+              }
+            }
+          }
+        } catch (error) {
+          // ถ้าไม่เจอ InventoryItem หรือ RequestLog ให้ข้ามไป
+          console.error(`  ❌ Error finding deliveryLocation for itemId ${item.itemId}:`, error);
+        }
+      } else {
+        console.log(`  ⚠️ Item has no itemId`);
+      }
+    }
+    
+    // เพิ่ม deliveryLocation ไปยัง returnLog
+    if (deliveryLocation) {
+      result.deliveryLocation = deliveryLocation;
+      console.log(`  ✅ Final deliveryLocation: ${deliveryLocation}`);
+    } else {
+      console.log(`  ❌ No deliveryLocation found for ReturnLog ${result._id}`);
+    }
+  } else {
+    console.log(`\n⚠️ populateReturnLogComplete - No items found in ReturnLog ${result._id}`);
+  }
+  
   return result;
 }
 

@@ -45,6 +45,13 @@ export async function GET() {
       console.log('office:', log.office);
       console.log('returnerFirstName:', log.returnerFirstName);
       console.log('returnerLastName:', log.returnerLastName);
+      console.log('deliveryLocation:', (log.deliveryLocation || 'NOT FOUND'));
+      console.log('items count:', log.items?.length || 0);
+      if (log.items && log.items.length > 0) {
+        log.items.forEach((item: any, itemIdx: number) => {
+          console.log(`  Item ${itemIdx + 1}: itemId=${item.itemId}`);
+        });
+      }
     });
     
     return NextResponse.json(populatedReturns);
