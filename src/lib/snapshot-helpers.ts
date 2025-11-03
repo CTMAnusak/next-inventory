@@ -246,13 +246,23 @@ export async function createSnapshotForMonth(thaiYear: number, month: number) {
     let totalInventoryCount = 0;
     let lowStockItems = 0;
     const itemDetails: Array<{
-      itemName: string;
-      categoryId: string;
+      masterId?: string;        // อ้างอิงไปยัง InventoryMaster._id
+      itemName: string;         // ชื่ออุปกรณ์ (snapshot ณ เวลานั้น)
+      categoryId: string;       // ID หมวดหมู่
+      categoryName: string;     // 🆕 ชื่อหมวดหมู่ (snapshot ณ เวลานั้น)
       totalQuantity: number;
       availableQuantity: number;
       userOwnedQuantity: number;
       isLowStock: boolean;
     }> = [];
+
+    // ดึง category configs สำหรับ lookup ชื่อหมวดหมู่
+    const config = await InventoryConfig.findOne({}).lean() as any;
+    const categoryConfigs: ICategoryConfig[] = config?.categoryConfigs || [];
+    const categoryMap = new Map<string, string>();
+    categoryConfigs.forEach(cat => {
+      categoryMap.set(cat.id, cat.name);
+    });
 
     for (const master of allMasters) {
       const key = `${master.itemName}||${master.categoryId}`;
@@ -279,9 +289,17 @@ export async function createSnapshotForMonth(thaiYear: number, month: number) {
         lowStockItems++;
       }
 
+      // ดึงชื่อหมวดหมู่ ณ เวลาที่ snapshot (fallback ถ้าไม่เจอใน config)
+      let categoryName = categoryMap.get(master.categoryId);
+      if (!categoryName) {
+        categoryName = await getCategoryNameById(master.categoryId).catch(() => 'ไม่ระบุ');
+      }
+
       itemDetails.push({
-        itemName: master.itemName,
+        masterId: master._id?.toString(), // เก็บ masterId เพื่ออ้างอิง (สำหรับ lookup ชื่อปัจจุบัน)
+        itemName: master.itemName,        // เก็บชื่อ ณ เวลาที่ snapshot (ประวัติศาสตร์)
         categoryId: master.categoryId,
+        categoryName: categoryName || 'ไม่ระบุ', // 🆕 เก็บชื่อหมวดหมู่ ณ เวลาที่ snapshot
         totalQuantity: finalTotalItems.length,
         availableQuantity: finalAvailableQty,
         userOwnedQuantity: finalUserOwnedItems.length,

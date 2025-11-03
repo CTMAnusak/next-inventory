@@ -12,8 +12,10 @@ export interface IInventorySnapshot extends Document {
   
   // ข้อมูลรายละเอียด (optional - สำหรับเก็บข้อมูลรายละเอียดของแต่ละ item)
   itemDetails?: Array<{
-    itemName: string;
-    categoryId: string;
+    masterId?: string;        // 🆕 อ้างอิงไปยัง InventoryMaster._id (ถ้ามี - สำหรับ lookup ชื่อปัจจุบัน)
+    itemName: string;         // ชื่ออุปกรณ์ (snapshot ณ เวลานั้น)
+    categoryId: string;       // ID หมวดหมู่
+    categoryName: string;     // 🆕 ชื่อหมวดหมู่ (snapshot ณ เวลานั้น - รองรับการลบ/เปลี่ยนชื่อ)
     totalQuantity: number;
     availableQuantity: number;
     userOwnedQuantity: number;
@@ -61,13 +63,21 @@ const InventorySnapshotSchema = new Schema<IInventorySnapshot>({
     default: 0
   },
   itemDetails: [{
+    masterId: {
+      type: String,
+      required: false  // Optional: อ้างอิงไปยัง InventoryMaster._id
+    },
     itemName: {
       type: String,
-      required: true
+      required: true   // ชื่ออุปกรณ์ ณ เวลานั้น
     },
     categoryId: {
       type: String,
-      required: true
+      required: true   // ID หมวดหมู่
+    },
+    categoryName: {
+      type: String,
+      required: true   // 🆕 ชื่อหมวดหมู่ ณ เวลานั้น (รองรับการลบ/เปลี่ยนชื่อ)
     },
     totalQuantity: {
       type: Number,

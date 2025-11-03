@@ -28,7 +28,9 @@ import {
   Edit3,
   AlertTriangle,
   Info,
-  Shield
+  Shield,
+  Upload,
+  FileText
 } from 'lucide-react';
 import { toast } from 'react-hot-toast';
 import DraggableList from '@/components/DraggableList';
@@ -124,6 +126,15 @@ export default function AdminInventoryPage() {
   // Simple Error Modal State
   const [showSimpleError, setShowSimpleError] = useState(false);
   const [simpleErrorMessage, setSimpleErrorMessage] = useState('');
+
+  // Import Excel states
+  const [showImportModal, setShowImportModal] = useState(false);
+  const [importLoading, setImportLoading] = useState(false);
+  const [importResults, setImportResults] = useState<{
+    success: number;
+    failed: number;
+    errors: Array<{ row: number; itemName: string; error: string }>;
+  } | null>(null);
 
   // Token expiry warning
   const { 
@@ -2352,6 +2363,235 @@ export default function AdminInventoryPage() {
     }
   };
 
+  // Download Sample Excel Template
+  const downloadSampleExcelTemplate = async () => {
+    try {
+      toast.loading('กำลังสร้างไฟล์ตัวอย่าง...', { id: 'sample-loading' });
+
+      const workbook = new ExcelJS.Workbook();
+      const worksheet = workbook.addWorksheet('ตัวอย่างข้อมูล');
+
+      // ตั้งค่าคอลัมน์
+      worksheet.columns = [
+        { header: 'หมวดหมู่', key: 'category', width: 20 },
+        { header: 'ชื่ออุปกรณ์', key: 'itemName', width: 25 },
+        { header: 'จำนวน', key: 'quantity', width: 10 },
+        { header: 'สถานะ', key: 'status', width: 15 },
+        { header: 'สภาพ', key: 'condition', width: 15 },
+        { header: 'Serial Number', key: 'serialNumber', width: 20 },
+        { header: 'Phone Number', key: 'phoneNumber', width: 15 },
+      ];
+
+      // เพิ่มข้อมูลตัวอย่าง
+      const sampleData = [
+        {
+          category: categoryConfigs.length > 0 ? categoryConfigs[0].name : 'เมาส์',
+          itemName: 'Logitech MX Master',
+          quantity: 5,
+          status: statusConfigs.length > 0 ? statusConfigs[0].name : 'ใช้งานได้',
+          condition: conditionConfigs.length > 0 ? conditionConfigs[0].name : 'ใช้งานได้',
+          serialNumber: '',
+          phoneNumber: '',
+        },
+        {
+          category: categoryConfigs.length > 0 ? categoryConfigs[0].name : 'เมาส์',
+          itemName: 'Logitech MX Master',
+          quantity: 1,
+          status: statusConfigs.length > 0 ? statusConfigs[0].name : 'ใช้งานได้',
+          condition: conditionConfigs.length > 0 ? conditionConfigs[0].name : 'ใช้งานได้',
+          serialNumber: 'SN123456789',
+          phoneNumber: '',
+        },
+        {
+          category: categoryConfigs.find(c => c.id === 'cat_sim_card')?.name || 'ซิมการ์ด',
+          itemName: 'AIS',
+          quantity: 1,
+          status: statusConfigs.length > 0 ? statusConfigs[0].name : 'ใช้งานได้',
+          condition: conditionConfigs.length > 0 ? conditionConfigs[0].name : 'ใช้งานได้',
+          serialNumber: '',
+          phoneNumber: '0812345678',
+        },
+      ];
+
+      sampleData.forEach(row => {
+        worksheet.addRow(row);
+      });
+
+      // จัดรูปแบบ header
+      const headerRow = worksheet.getRow(1);
+      headerRow.font = { bold: true, color: { argb: 'FFFFFFFF' }, size: 11 };
+      headerRow.fill = {
+        type: 'pattern',
+        pattern: 'solid',
+        fgColor: { argb: 'FF2563EB' },
+      };
+      headerRow.alignment = { vertical: 'middle', horizontal: 'center', wrapText: true };
+      headerRow.height = 25;
+
+      // จัดรูปแบบข้อมูล
+      worksheet.eachRow((row, rowNumber) => {
+        if (rowNumber > 1) {
+          row.eachCell({ includeEmpty: true }, (cell) => {
+            cell.alignment = { 
+              vertical: 'middle', 
+              horizontal: 'center', 
+              wrapText: true 
+            };
+            cell.border = {
+              top: { style: 'thin', color: { argb: 'FFD1D5DB' } },
+              left: { style: 'thin', color: { argb: 'FFD1D5DB' } },
+              bottom: { style: 'thin', color: { argb: 'FFD1D5DB' } },
+              right: { style: 'thin', color: { argb: 'FFD1D5DB' } }
+            };
+          });
+        }
+      });
+
+      // Generate filename
+      const filename = `ตัวอย่าง_การนำเข้าข้อมูลคลังสินค้า.xlsx`;
+
+      // Export file
+      const buffer = await workbook.xlsx.writeBuffer();
+      const blob = new Blob([buffer], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' });
+      const url = window.URL.createObjectURL(blob);
+      const link = document.createElement('a');
+      link.href = url;
+      link.download = filename;
+      link.click();
+      window.URL.revokeObjectURL(url);
+      
+      toast.dismiss('sample-loading');
+      toast.success('ดาวน์โหลดไฟล์ตัวอย่างสำเร็จ');
+    } catch (error) {
+      console.error('Sample template error:', error);
+      toast.dismiss('sample-loading');
+      toast.error('เกิดข้อผิดพลาดในการสร้างไฟล์ตัวอย่าง');
+    }
+  };
+
+  // Handle Excel Import
+  const handleImportExcel = async (event: React.ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0];
+    if (!file) return;
+
+    // Validate file type
+    if (!file.name.endsWith('.xlsx') && !file.name.endsWith('.xls')) {
+      toast.error('กรุณาเลือกไฟล์ Excel (.xlsx หรือ .xls)');
+      return;
+    }
+
+    setImportLoading(true);
+    setShowImportModal(true);
+    setImportResults(null);
+
+    try {
+      toast.loading('กำลังอ่านไฟล์ Excel...', { id: 'import-loading' });
+
+      // Read Excel file
+      const arrayBuffer = await file.arrayBuffer();
+      const workbook = new ExcelJS.Workbook();
+      await workbook.xlsx.load(arrayBuffer);
+
+      const worksheet = workbook.worksheets[0];
+      if (!worksheet) {
+        throw new Error('ไม่พบข้อมูลในไฟล์ Excel');
+      }
+
+      // Parse data
+      const rows: any[] = [];
+      worksheet.eachRow({ includeEmpty: false }, (row, rowNumber) => {
+        if (rowNumber === 1) return; // Skip header
+        
+        const rowData: any = {};
+        row.eachCell({ includeEmpty: true }, (cell, colNumber) => {
+          const header = worksheet.getRow(1).getCell(colNumber).value?.toString() || '';
+          const value = cell.value?.toString() || '';
+          
+          if (header === 'หมวดหมู่') rowData.category = value.trim();
+          else if (header === 'ชื่ออุปกรณ์') rowData.itemName = value.trim();
+          else if (header === 'จำนวน') rowData.quantity = parseInt(value) || 1;
+          else if (header === 'สถานะ') rowData.status = value.trim();
+          else if (header === 'สภาพ') rowData.condition = value.trim();
+          else if (header === 'Serial Number') rowData.serialNumber = value.trim();
+          else if (header === 'Phone Number') rowData.phoneNumber = value.trim();
+        });
+        
+        // Only add rows with itemName
+        if (rowData.itemName) {
+          rows.push({ ...rowData, rowNumber });
+        }
+      });
+
+      if (rows.length === 0) {
+        throw new Error('ไม่พบข้อมูลที่จะนำเข้า');
+      }
+
+      toast.loading(`กำลังนำเข้าข้อมูล ${rows.length} รายการ...`, { id: 'import-loading' });
+
+      // Send to API
+      const response = await fetch('/api/admin/inventory/import', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        credentials: 'include',
+        body: JSON.stringify({ items: rows }),
+      });
+
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.error || 'เกิดข้อผิดพลาดในการนำเข้าข้อมูล');
+      }
+
+      const result = await response.json();
+      
+      setImportResults({
+        success: result.success || 0,
+        failed: result.failed || 0,
+        errors: result.errors || [],
+      });
+
+      toast.dismiss('import-loading');
+      
+      if (result.failed === 0) {
+        toast.success(`นำเข้าข้อมูลสำเร็จ ${result.success} รายการ`);
+        // Refresh data
+        await refreshAndClearCache();
+      } else {
+        toast.error(`นำเข้าบางส่วนสำเร็จ ${result.success} รายการ, ล้มเหลว ${result.failed} รายการ`);
+      }
+
+      // Reset file input
+      event.target.value = '';
+    } catch (error: any) {
+      console.error('Import error:', error);
+      toast.dismiss('import-loading');
+      toast.error(error.message || 'เกิดข้อผิดพลาดในการนำเข้าข้อมูล');
+      setImportResults({
+        success: 0,
+        failed: 0,
+        errors: [{ row: 0, itemName: '', error: error.message || 'เกิดข้อผิดพลาด' }],
+      });
+    } finally {
+      setImportLoading(false);
+    }
+  };
+
+  // Helper function to get category ID from name
+  const getCategoryIdFromName = (categoryName: string): string | null => {
+    const config = categoryConfigs.find(c => c.name === categoryName);
+    return config?.id || null;
+  };
+
+  // Helper function to get status ID from name
+  const getStatusIdFromName = (statusName: string): string | null => {
+    const config = statusConfigs.find(s => getStatusText(s.id) === statusName);
+    return config?.id || null;
+  };
+
+  // Helper function to get condition ID from name
+  const getConditionIdFromName = (conditionName: string): string | null => {
+    const config = conditionConfigs.find(c => getConditionText(c.id) === conditionName);
+    return config?.id || null;
+  };
 
   // ✅ อัปเดตให้รองรับ statusId และ backward compatibility
   const getStatusText = (statusIdOrName: string) => {
@@ -2755,6 +2995,24 @@ export default function AdminInventoryPage() {
                 <RefreshCw className={`w-4 h-4 ${loading ? 'animate-spin' : ''}`} />
                 <span>รีเฟรช</span>
               </button>
+              <button
+                onClick={downloadSampleExcelTemplate}
+                className="w-full min-[440px]:w-3/7 min-[650px]:w-auto flex items-center justify-center space-x-2 px-4 py-2 bg-orange-600 text-white rounded-lg hover:bg-orange-700 transition-colors"
+                title="ดาวน์โหลดไฟล์ Excel ตัวอย่างพร้อมข้อมูลตัวอย่าง"
+              >
+                <FileText className="w-4 h-4" />
+                <span>ตัวอย่าง</span>
+              </button>
+              <label className="w-full min-[440px]:w-3/7 min-[650px]:w-auto flex items-center justify-center space-x-2 px-4 py-2 bg-purple-600 text-white rounded-lg hover:bg-purple-700 transition-colors cursor-pointer">
+                <Upload className="w-4 h-4" />
+                <span>Import</span>
+                <input
+                  type="file"
+                  accept=".xlsx,.xls"
+                  onChange={handleImportExcel}
+                  className="hidden"
+                />
+              </label>
               <button
                 onClick={exportToExcel}
                 disabled={loading || filteredItems.length === 0}
@@ -5428,6 +5686,88 @@ export default function AdminInventoryPage() {
         onClose={() => setShowSimpleError(false)}
         message={simpleErrorMessage}
       />
+
+      {/* Import Results Modal */}
+      {showImportModal && (
+        <div className="fixed inset-0 bg-black/30 backdrop-blur-sm flex items-center justify-center z-50">
+          <div className="bg-white/95 backdrop-blur-md rounded-3xl shadow-2xl max-w-4xl w-full mx-4 border border-white/20 max-h-[90vh] flex flex-col overflow-hidden">
+            {/* Header */}
+            <div className="sticky top-0 bg-white/95 backdrop-blur-md border-b border-gray-200 p-6 pb-4 z-10">
+              <div className="flex justify-between items-start">
+                <div className="flex-1">
+                  <h3 className="text-xl font-semibold text-gray-900">ผลการนำเข้าข้อมูล</h3>
+                </div>
+                <button onClick={() => { setShowImportModal(false); setImportResults(null); }} className="text-gray-400 hover:text-gray-600">
+                  <X className="w-6 h-6" />
+                </button>
+              </div>
+            </div>
+
+            {/* Content */}
+            <div className="flex-1 overflow-y-auto p-6">
+              {importLoading ? (
+                <div className="flex flex-col items-center justify-center py-12">
+                  <RefreshCw className="w-12 h-12 text-blue-600 animate-spin mb-4" />
+                  <p className="text-gray-700">กำลังประมวลผลข้อมูล...</p>
+                </div>
+              ) : importResults ? (
+                <div className="space-y-4">
+                  {/* Summary */}
+                  <div className="grid grid-cols-2 gap-4">
+                    <div className="bg-green-50 p-4 rounded-lg border border-green-200">
+                      <div className="text-sm text-green-700 mb-1">นำเข้าสำเร็จ</div>
+                      <div className="text-2xl font-bold text-green-800">{importResults.success} รายการ</div>
+                    </div>
+                    <div className="bg-red-50 p-4 rounded-lg border border-red-200">
+                      <div className="text-sm text-red-700 mb-1">นำเข้าล้มเหลว</div>
+                      <div className="text-2xl font-bold text-red-800">{importResults.failed} รายการ</div>
+                    </div>
+                  </div>
+
+                  {/* Errors */}
+                  {importResults.errors && importResults.errors.length > 0 && (
+                    <div className="mt-6">
+                      <h4 className="text-lg font-semibold text-gray-900 mb-3">รายละเอียดข้อผิดพลาด</h4>
+                      <div className="max-h-96 overflow-y-auto border border-gray-200 rounded-lg">
+                        <table className="min-w-full divide-y divide-gray-200">
+                          <thead className="bg-gray-50">
+                            <tr>
+                              <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">แถว</th>
+                              <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">ชื่ออุปกรณ์</th>
+                              <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">ข้อผิดพลาด</th>
+                            </tr>
+                          </thead>
+                          <tbody className="bg-white divide-y divide-gray-200">
+                            {importResults.errors.map((error, index) => (
+                              <tr key={index} className="hover:bg-gray-50">
+                                <td className="px-4 py-3 whitespace-nowrap text-sm text-gray-900">{error.row}</td>
+                                <td className="px-4 py-3 whitespace-nowrap text-sm text-gray-900">{error.itemName || '-'}</td>
+                                <td className="px-4 py-3 text-sm text-red-600">{error.error}</td>
+                              </tr>
+                            ))}
+                          </tbody>
+                        </table>
+                      </div>
+                    </div>
+                  )}
+                </div>
+              ) : null}
+            </div>
+
+            {/* Footer */}
+            <div className="sticky bottom-0 bg-white/95 backdrop-blur-md border-t border-gray-200 p-6 pt-4">
+              <div className="flex justify-end">
+                <button
+                  onClick={() => { setShowImportModal(false); setImportResults(null); }}
+                  className="px-6 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors font-medium"
+                >
+                  ปิด
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
 
     </Layout>
   );
