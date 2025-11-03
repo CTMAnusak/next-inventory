@@ -4,7 +4,7 @@ import InventoryItem from '@/models/InventoryItem';
 import RequestLog from '@/models/RequestLog';
 import ReturnLog from '@/models/ReturnLog';
 import InventorySnapshot from '@/models/InventorySnapshot';
-import InventoryConfig from '@/models/InventoryConfig';
+import InventoryConfig, { ICategoryConfig, IStatusConfig, IConditionConfig } from '@/models/InventoryConfig';
 import { getCategoryNameById } from '@/lib/category-helpers';
 import IssueLog from '@/models/IssueLog';
 import User from '@/models/User';
@@ -370,10 +370,10 @@ export async function createInventoryItemSnapshotsBatch(itemIds: string[]): Prom
     }
 
     // ดึงข้อมูล configs สำหรับ lookup ชื่อ
-    const config = await InventoryConfig.findOne({}).lean();
-    const categoryConfigs = config?.categoryConfigs || [];
-    const statusConfigs = config?.statusConfigs || [];
-    const conditionConfigs = config?.conditionConfigs || [];
+    const config = await InventoryConfig.findOne({}).lean() as any;
+    const categoryConfigs: ICategoryConfig[] = config?.categoryConfigs || [];
+    const statusConfigs: IStatusConfig[] = config?.statusConfigs || [];
+    const conditionConfigs: IConditionConfig[] = config?.conditionConfigs || [];
 
     // สร้าง lookup maps
     const categoryMap = new Map<string, string>();
@@ -653,10 +653,10 @@ export async function updateSnapshotsBeforeDelete(itemId: string): Promise<{
     }
 
     // ดึงข้อมูล configs สำหรับ lookup ชื่อ
-    const config = await InventoryConfig.findOne({}).lean();
-    const categoryConfigs = config?.categoryConfigs || [];
-    const statusConfigs = config?.statusConfigs || [];
-    const conditionConfigs = config?.conditionConfigs || [];
+    const config = await InventoryConfig.findOne({}).lean() as any;
+    const categoryConfigs: ICategoryConfig[] = config?.categoryConfigs || [];
+    const statusConfigs: IStatusConfig[] = config?.statusConfigs || [];
+    const conditionConfigs: IConditionConfig[] = config?.conditionConfigs || [];
 
     // สร้าง lookup maps
     const categoryMap = new Map<string, string>();
