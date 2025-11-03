@@ -2383,9 +2383,15 @@ export default function AdminInventoryPage() {
       ];
 
       // เพิ่มข้อมูลตัวอย่าง
+      // หาหมวดหมู่ที่ไม่ใช่ "ซิมการ์ด" และ "ไม่ระบุ" สำหรับตัวอย่างอุปกรณ์ทั่วไป
+      const nonSimCategory = categoryConfigs.find(c => 
+        c.id !== 'cat_sim_card' && c.id !== 'cat_unassigned'
+      );
+      const exampleCategory = nonSimCategory?.name || 'เมาส์'; // ใช้หมวดหมู่ที่มีอยู่ หรือแนะนำให้สร้าง "เมาส์"
+      
       const sampleData = [
         {
-          category: categoryConfigs.length > 0 ? categoryConfigs[0].name : 'เมาส์',
+          category: exampleCategory,
           itemName: 'Logitech MX Master',
           quantity: 5,
           status: statusConfigs.length > 0 ? statusConfigs[0].name : 'ใช้งานได้',
@@ -2394,7 +2400,7 @@ export default function AdminInventoryPage() {
           phoneNumber: '',
         },
         {
-          category: categoryConfigs.length > 0 ? categoryConfigs[0].name : 'เมาส์',
+          category: exampleCategory,
           itemName: 'Logitech MX Master',
           quantity: 1,
           status: statusConfigs.length > 0 ? statusConfigs[0].name : 'ใช้งานได้',
@@ -2966,44 +2972,67 @@ export default function AdminInventoryPage() {
       <div className="max-w-full mx-auto">
         <div className="bg-white/90 backdrop-blur-sm rounded-2xl shadow-xl p-8 border border-white/50">
           {/* Header */}
-          <div className="flex flex-col justify-between items-center mb-7 xl:flex-row">
-            <div>
-              <h1 className="text-2xl font-semibold text-gray-900 pb-2 xl:pb-0">จัดการคลังสินค้า</h1>
+          <div className="flex flex-col items-center mb-7 space-y-4">
+            {/* Title */}
+            <div className="w-full text-center">
+              <h1 className="text-2xl font-semibold text-gray-900">จัดการคลังสินค้า</h1>
             </div>
-            <div className="flex flex-wrap justify-center gap-4 w-full xl:w-auto">
-              <button
-                onClick={() => setShowFilters(!showFilters)}
-                className="w-full min-[440px]:w-3/7 min-[650px]:w-auto flex items-center justify-center space-x-2 px-4 py-2 bg-gray-100 text-gray-700 rounded-lg hover:bg-gray-200 transition-colors"
-              >
-                <Filter className="w-4 h-4" />
-                <span>ฟิลเตอร์</span>
-              </button>
-              <button
-                onClick={() => setShowSettingsModal(true)}
-                className="w-full min-[440px]:w-3/7 min-[650px]:w-auto flex items-center justify-center space-x-2 px-4 py-2 bg-purple-100 text-purple-700 rounded-lg hover:bg-purple-200 transition-colors"
-              >
-                <Settings className="w-4 h-4" />
-                <span>ตั้งค่า</span>
-              </button>
-
+            
+            {/* Action Buttons - Centered */}
+            <div className="flex flex-wrap justify-center gap-3 w-full">
+              {/* 1. รีเฟรช */}
               <button
                 onClick={refreshAndClearCache}
                 disabled={loading}
-                className="w-full min-[440px]:w-3/7 min-[650px]:w-auto flex items-center justify-center space-x-2 px-4 py-2 bg-blue-100 text-blue-700 rounded-lg hover:bg-blue-200 transition-colors disabled:opacity-50"
+                className="flex items-center justify-center space-x-2 px-4 py-2 bg-blue-100 text-blue-700 rounded-lg hover:bg-blue-200 transition-colors disabled:opacity-50"
                 title="รีเฟรชข้อมูล, ล้าง Cache และ Sync ข้อมูล InventoryMaster"
               >
                 <RefreshCw className={`w-4 h-4 ${loading ? 'animate-spin' : ''}`} />
                 <span>รีเฟรช</span>
               </button>
+
+              {/* 2. ฟิลเตอร์ */}
+              <button
+                onClick={() => setShowFilters(!showFilters)}
+                className="flex items-center justify-center space-x-2 px-4 py-2 bg-gray-100 text-gray-700 rounded-lg hover:bg-gray-200 transition-colors"
+              >
+                <Filter className="w-4 h-4" />
+                <span>ฟิลเตอร์</span>
+              </button>
+
+              {/* 3. ตั้งค่า */}
+              <button
+                onClick={() => setShowSettingsModal(true)}
+                className="flex items-center justify-center space-x-2 px-4 py-2 bg-purple-100 text-purple-700 rounded-lg hover:bg-purple-200 transition-colors"
+              >
+                <Settings className="w-4 h-4" />
+                <span>ตั้งค่า</span>
+              </button>
+
+              {/* 4. เพิ่มรายการ */}
+              <button
+                onClick={() => {
+                  resetForm();
+                  setShowAddModal(true);
+                }}
+                className="flex items-center justify-center space-x-2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
+              >
+                <Plus className="w-4 h-4" />
+                <span>เพิ่มรายการ</span>
+              </button>
+
+              {/* 5. ตัวอย่างข้อมูล import */}
               <button
                 onClick={downloadSampleExcelTemplate}
-                className="w-full min-[440px]:w-3/7 min-[650px]:w-auto flex items-center justify-center space-x-2 px-4 py-2 bg-orange-600 text-white rounded-lg hover:bg-orange-700 transition-colors"
+                className="flex items-center justify-center space-x-2 px-4 py-2 bg-orange-600 text-white rounded-lg hover:bg-orange-700 transition-colors"
                 title="ดาวน์โหลดไฟล์ Excel ตัวอย่างพร้อมข้อมูลตัวอย่าง"
               >
-                <FileText className="w-4 h-4" />
-                <span>ตัวอย่าง</span>
+                <Download className="w-4 h-4" />
+                <span>ตัวอย่างข้อมูล Import</span>
               </button>
-              <label className="w-full min-[440px]:w-3/7 min-[650px]:w-auto flex items-center justify-center space-x-2 px-4 py-2 bg-purple-600 text-white rounded-lg hover:bg-purple-700 transition-colors cursor-pointer">
+
+              {/* 6. Import */}
+              <label className="flex items-center justify-center space-x-2 px-4 py-2 bg-purple-600 text-white rounded-lg hover:bg-purple-700 transition-colors cursor-pointer">
                 <Upload className="w-4 h-4" />
                 <span>Import</span>
                 <input
@@ -3013,24 +3042,16 @@ export default function AdminInventoryPage() {
                   className="hidden"
                 />
               </label>
+
+              {/* 7. Export Excel */}
               <button
                 onClick={exportToExcel}
                 disabled={loading || filteredItems.length === 0}
-                className="w-full min-[440px]:w-3/7 min-[650px]:w-auto flex items-center justify-center space-x-2 px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                className="flex items-center justify-center space-x-2 px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
                 title={filteredItems.length === 0 ? 'ไม่มีข้อมูลให้ Export' : 'Export ข้อมูลเป็น Excel'}
               >
                 <Download className="w-4 h-4" />
                 <span>Export Excel</span>
-              </button>
-              <button
-                onClick={() => {
-                  resetForm();
-                  setShowAddModal(true);
-                }}
-                className="w-full min-[440px]:w-3/7 min-[650px]:w-auto flex items-center justify-center space-x-2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
-              >
-                <Plus className="w-4 h-4" />
-                <span>เพิ่มรายการ</span>
               </button>
             </div>
           </div>
@@ -4299,10 +4320,20 @@ export default function AdminInventoryPage() {
                   
                   {/* ✏️ แก้ไข/ลบ - ข้อความแตกต่างกันตามหมวดหมู่ */}
                   <option value="edit_items">
-                    {isSIMCardSync(stockItem?.categoryId || '')
-                      ? '✏️ แก้ไข/ลบ (อุปกรณ์ซิมการ์ด)' 
-                      : '✏️ แก้ไข/ลบ (อุปกรณ์ที่มี Serial Number)'
-                    }
+                    {(() => {
+                      // ตรวจสอบจากข้อมูลจริง: ถ้ามี availableItems และมี withPhoneNumber แสดงว่าเป็นซิมการ์ด
+                      // ถ้ายังไม่มี availableItems ให้ตรวจสอบจาก categoryId
+                      if (availableItems?.withPhoneNumber && availableItems.withPhoneNumber.length > 0) {
+                        return '✏️ แก้ไข/ลบ (อุปกรณ์ซิมการ์ด)';
+                      } else if (availableItems?.withSerialNumber && availableItems.withSerialNumber.length > 0) {
+                        return '✏️ แก้ไข/ลบ (อุปกรณ์ที่มี Serial Number)';
+                      } else {
+                        // Fallback: ตรวจสอบจาก categoryId
+                        return isSIMCardSync(stockItem?.categoryId || '')
+                          ? '✏️ แก้ไข/ลบ (อุปกรณ์ซิมการ์ด)' 
+                          : '✏️ แก้ไข/ลบ (อุปกรณ์ที่มี Serial Number)';
+                      }
+                    })()}
                   </option>
                   
                   {/* 🗑️ ลบรายการทั้งหมด - มีทุกหมวดหมู่, อยู่ล่างสุดเสมอ */}
@@ -4951,11 +4982,20 @@ export default function AdminInventoryPage() {
                       )}
 
                       {/* Items with Phone Numbers (SIM Cards) */}
-                      {isSIMCardSync(stockItem?.categoryId || '') && (
-                        <div className="mb-4">
-                          <h4 className="text-sm font-semibold text-gray-800 mb-2 flex items-center">
-                            📱 ซิมการ์ดที่มีเบอร์โทรศัพท์ ({availableItems?.withPhoneNumber ? getFilteredPhoneNumberItems().length : '...'} ชิ้น)
-                          </h4>
+                      {(() => {
+                        // ตรวจสอบจากข้อมูลจริง: ถ้ามี availableItems.withPhoneNumber แสดงว่าเป็นซิมการ์ด
+                        // ถ้ายังไม่มี availableItems ให้ตรวจสอบจาก categoryId
+                        const isSimCard = availableItems?.withPhoneNumber && availableItems.withPhoneNumber.length > 0
+                          ? true
+                          : isSIMCardSync(stockItem?.categoryId || '');
+                        
+                        if (!isSimCard) return null;
+                        
+                        return (
+                          <div className="mb-4">
+                            <h4 className="text-sm font-semibold text-gray-800 mb-2 flex items-center">
+                              📱 ซิมการ์ดที่มีเบอร์โทรศัพท์ ({availableItems?.withPhoneNumber ? getFilteredPhoneNumberItems().length : '...'} ชิ้น)
+                            </h4>
                           
                           {/* Show search and filter only if there are items */}
                           {availableItems?.withPhoneNumber && availableItems.withPhoneNumber.length > 0 && (
@@ -5090,7 +5130,8 @@ export default function AdminInventoryPage() {
                             )}
                           </div>
                         </div>
-                      )}
+                        );
+                      })()}
 
                     </div>
                   ) : (
