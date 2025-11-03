@@ -405,10 +405,10 @@ export default function DashboardPage() {
             numberPhone: form.serialNumber,
             serialNumber: '' // ล้าง serialNumber สำหรับซิมการ์ด
           }),
-          // สำหรับอุปกรณ์ทั่วไป ส่ง serialNumber ตรงๆ
+          // สำหรับอุปกรณ์ทั่วไป ส่ง serialNumber เท่านั้น (ไม่ส่ง numberPhone เพราะเป็นเบอร์ของผู้ใช้ ไม่ใช่เบอร์ของอุปกรณ์)
           ...(!isSIMCardSync(selectedCategoryId) && {
-            serialNumber: form.serialNumber || '',
-            numberPhone: form.phone || ''
+            serialNumber: form.serialNumber || ''
+            // ไม่ส่ง numberPhone สำหรับอุปกรณ์ทั่วไป เพราะ numberPhone ใน InventoryItem คือเบอร์ของอุปกรณ์ (เช่น ซิมการ์ด) ไม่ใช่เบอร์ของผู้ใช้
           })
         };
         
@@ -971,7 +971,7 @@ export default function DashboardPage() {
                               );
                             } else {
                               // ไม่มี SN หรือ Phone Number
-                              return <span className="text-gray-500">1 ชิ้น (อุปกรณ์ทั่วไป)</span>;
+                              return <span className="text-gray-500">1 ชิ้น (ทั่วไป)</span>;
                             }
                           }
                           
@@ -1046,7 +1046,7 @@ export default function DashboardPage() {
                             }
                           } else {
                             // มีแต่ที่ไม่มี SN หรือ Phone Number
-                            return <span className="text-gray-500">{totalQuantity} ชิ้น (อุปกรณ์ทั่วไป)</span>;
+                            return <span className="text-gray-500">{totalQuantity} ชิ้น (ทั่วไป)</span>;
                           }
                         })()}
                       </div>

@@ -88,6 +88,7 @@ export default function EquipmentReturnPage() {
   const [ownedEquipment, setOwnedEquipment] = useState<OwnedEquipment[]>([]);
   const [filteredEquipment, setFilteredEquipment] = useState<OwnedEquipment[]>([]);
   const [isLoadingEquipment, setIsLoadingEquipment] = useState(false);
+  const [isLoadingConfigs, setIsLoadingConfigs] = useState(false);
   
   // Form data including personal info for branch users
   const [formData, setFormData] = useState({
@@ -316,6 +317,7 @@ export default function EquipmentReturnPage() {
 
   const fetchConfigs = async () => {
     try {
+      setIsLoadingConfigs(true);
       const response = await fetch('/api/inventory-config');
       if (response.ok) {
         const data = await response.json();
@@ -324,6 +326,8 @@ export default function EquipmentReturnPage() {
       }
     } catch (error) {
       console.error('Error fetching configs:', error);
+    } finally {
+      setIsLoadingConfigs(false);
     }
   };
 
@@ -1239,8 +1243,11 @@ export default function EquipmentReturnPage() {
               <div className="border border-gray-200 rounded-lg p-4 mb-4">
                   {/* Equipment Selection */}
                   <div className="mb-4">
-                    <label className="block text-sm font-medium text-gray-700 mb-1">
+                    <label className="block text-sm font-medium text-gray-700 mb-1 flex items-center gap-2">
                       อุปกรณ์ *
+                      {isLoadingEquipment && (
+                        <div className="animate-spin rounded-full h-3 w-3 border-b-2 border-blue-600"></div>
+                      )}
                     </label>
                     <div className="relative">
                         <button
@@ -1249,7 +1256,7 @@ export default function EquipmentReturnPage() {
                           className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 text-left flex items-center justify-between cursor-pointer"
                         >
                         <span className={returnItem.itemName ? 'text-gray-900' : 'text-gray-500'}>
-                          {returnItem.itemName || 'เลือกอุปกรณ์'}
+                          {isLoadingEquipment ? 'กำลังโหลดข้อมูล...' : (returnItem.itemName || 'เลือกอุปกรณ์')}
                         </span>
                         <ChevronDown className="h-4 w-4 text-gray-400" />
                       </button>
@@ -1273,7 +1280,14 @@ export default function EquipmentReturnPage() {
                           
                           {/* Equipment List */}
                           <div className="max-h-48 overflow-auto">
-                            {filteredEquipment.length > 0 ? (
+                            {isLoadingEquipment ? (
+                              <div className="px-3 py-4 text-center text-gray-500">
+                                <div className="flex items-center justify-center gap-2">
+                                  <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-blue-600"></div>
+                                  <span>กำลังโหลดข้อมูลอุปกรณ์...</span>
+                                </div>
+                              </div>
+                            ) : filteredEquipment.length > 0 ? (
                               filteredEquipment.map((equipment) => (
                                 <div
                                   key={equipment._id}
@@ -1548,38 +1562,54 @@ export default function EquipmentReturnPage() {
                       {/* Status and Condition */}
                       <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
                         <div>
-                          <label className="block text-sm font-medium text-gray-700 mb-1">
+                          <label className="block text-sm font-medium text-gray-700 mb-1 flex items-center gap-2">
                             สถานะอุปกรณ์ *
+                            {isLoadingConfigs && (
+                              <div className="animate-spin rounded-full h-3 w-3 border-b-2 border-blue-600"></div>
+                            )}
                           </label>
                           <select
                             value={returnItem.statusOnReturn || 'status_available'}
                             onChange={(e) => handleItemChange('statusOnReturn', e.target.value)}
                             className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 text-gray-900"
                             required
+                            disabled={isLoadingConfigs}
                           >
-                            {statusConfigs.map((status) => (
-                              <option key={status.id} value={status.id}>
-                                {status.name}
-                              </option>
-                            ))}
+                            {isLoadingConfigs ? (
+                              <option value="">กำลังโหลด...</option>
+                            ) : (
+                              statusConfigs.map((status) => (
+                                <option key={status.id} value={status.id}>
+                                  {status.name}
+                                </option>
+                              ))
+                            )}
                           </select>
                         </div>
 
                         <div>
-                          <label className="block text-sm font-medium text-gray-700 mb-1">
+                          <label className="block text-sm font-medium text-gray-700 mb-1 flex items-center gap-2">
                             สภาพอุปกรณ์ *
+                            {isLoadingConfigs && (
+                              <div className="animate-spin rounded-full h-3 w-3 border-b-2 border-blue-600"></div>
+                            )}
                           </label>
                           <select
                             value={returnItem.conditionOnReturn || 'cond_working'}
                             onChange={(e) => handleItemChange('conditionOnReturn', e.target.value)}
                             className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 text-gray-900"
                             required
+                            disabled={isLoadingConfigs}
                           >
-                            {conditionConfigs.map((condition) => (
-                              <option key={condition.id} value={condition.id}>
-                                {condition.name}
-                              </option>
-                            ))}
+                            {isLoadingConfigs ? (
+                              <option value="">กำลังโหลด...</option>
+                            ) : (
+                              conditionConfigs.map((condition) => (
+                                <option key={condition.id} value={condition.id}>
+                                  {condition.name}
+                                </option>
+                              ))
+                            )}
                           </select>
                         </div>
                       </div>

@@ -704,6 +704,10 @@ export default function AdminInventoryPage() {
       });
       
       acc.quantity += it.quantity;
+      // 🔧 FIX: สะสม availableQuantity และ userOwnedQuantity จากทุกรายการ
+      acc.availableQuantity += (it.availableQuantity ?? 0);
+      acc.userOwnedQuantity += (it.userOwnedQuantity ?? 0);
+      
       // For serial-numbered records, total should be 1 per record regardless of remaining quantity
       if (it.serialNumbers && Array.isArray(it.serialNumbers) && it.serialNumbers.length > 0) {
         const addTotal = typeof it.totalQuantity === 'number' && it.totalQuantity > 0 ? it.totalQuantity : 1;
@@ -1972,6 +1976,13 @@ export default function AdminInventoryPage() {
         }
         
         closeStockModal();
+        
+        // 🆕 Use the same logic as refresh button to ensure consistent behavior
+        // Call refreshAndClearCache() directly - same as clicking the refresh button
+        setTimeout(async () => {
+          await refreshAndClearCache();
+        }, 300); // Small delay to ensure modal closes properly
+        
       } else {
         // 🆕 ENHANCED: Handle specific error types with better UX
         if (data.errorType === 'CANNOT_REDUCE_WITH_SERIAL_NUMBERS') {
