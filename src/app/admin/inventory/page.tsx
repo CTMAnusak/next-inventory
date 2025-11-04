@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef, useMemo } from 'react';
 import { enableDragScroll } from '@/lib/drag-scroll';
 import { isSIMCardSync } from '@/lib/sim-card-helpers';
 import { IConditionConfig } from '@/models/InventoryConfig';
@@ -182,6 +182,8 @@ export default function AdminInventoryPage() {
   const [categoryFilter, setCategoryFilter] = useState('');
   const [detailsFilter, setDetailsFilter] = useState('');
   const [dateFilter, setDateFilter] = useState(''); // yyyy-mm-dd format for DatePicker
+  const [monthFilter, setMonthFilter] = useState(''); // เดือน (1-12)
+  const [yearFilter, setYearFilter] = useState(''); // ปี พ.ศ.
   const [lowStockFilter, setLowStockFilter] = useState<number | null>(null);
   const [stockDisplayMode, setStockDisplayMode] = useState<'all' | 'low_stock'>('all');
   const [lowStockThreshold, setLowStockThreshold] = useState<number>(2);
@@ -382,6 +384,27 @@ export default function AdminInventoryPage() {
   };
   const statuses = statusConfigs.map(s => s.id); // ใช้ statusId แทน statusName
 
+  // Month and Year options
+  const monthOptions = useMemo(() => {
+    const months = [
+      { value: '1', label: 'ม.ค.' }, { value: '2', label: 'ก.พ.' }, { value: '3', label: 'มี.ค.' },
+      { value: '4', label: 'เม.ย.' }, { value: '5', label: 'พ.ค.' }, { value: '6', label: 'มิ.ย.' },
+      { value: '7', label: 'ก.ค.' }, { value: '8', label: 'ส.ค.' }, { value: '9', label: 'ก.ย.' },
+      { value: '10', label: 'ต.ค.' }, { value: '11', label: 'พ.ย.' }, { value: '12', label: 'ธ.ค.' }
+    ];
+    return months;
+  }, []);
+
+  const yearOptions = useMemo(() => {
+    const currentYearBE = new Date().getFullYear() + 543; // ปีปัจจุบัน พ.ศ.
+    const startYear = 2550;
+    const years = [];
+    for (let year = currentYearBE; year >= startYear; year--) {
+      years.push({ value: year.toString(), label: year.toString() });
+    }
+    return years;
+  }, []);
+
   // State for delete confirmation
   const [showDeleteConfirmModal, setShowDeleteConfirmModal] = useState(false);
   const [deleteConfirmText, setDeleteConfirmText] = useState('');
@@ -468,7 +491,7 @@ export default function AdminInventoryPage() {
 
   useEffect(() => {
     applyFilters();
-  }, [items, searchTerm, categoryFilter, detailsFilter, dateFilter, lowStockFilter, stockDisplayMode, lowStockThreshold]);
+  }, [items, searchTerm, categoryFilter, detailsFilter, dateFilter, monthFilter, yearFilter, lowStockFilter, stockDisplayMode, lowStockThreshold]);
 
   // Update stockValue when stockInfo changes for adjust_stock operation
   useEffect(() => {
@@ -664,8 +687,23 @@ export default function AdminInventoryPage() {
         // เช็คว่าวันที่ตรงกันหรือไม่
         matchesDate = itemDate.getTime() === filterDate.getTime();
       }
+
+      // Month and Year filter (ช่วงเวลา)
+      let matchesMonthYear = true;
+      if (monthFilter || yearFilter) {
+        const itemDate = new Date(item.dateAdded);
+        const itemMonth = itemDate.getMonth() + 1; // 1-12
+        const itemYearBE = itemDate.getFullYear() + 543; // พ.ศ.
+        
+        if (monthFilter && parseInt(monthFilter) !== itemMonth) {
+          matchesMonthYear = false;
+        }
+        if (yearFilter && parseInt(yearFilter) !== itemYearBE) {
+          matchesMonthYear = false;
+        }
+      }
       
-      return matchesSearch && matchesCategory && matchesDetails && matchesDate;
+      return matchesSearch && matchesCategory && matchesDetails && matchesDate && matchesMonthYear;
     });
 
     // Group by itemName + category
@@ -3133,6 +3171,31 @@ export default function AdminInventoryPage() {
                     onChange={(date) => setDateFilter(date)}
                   />
                 </div>
+
+                {/* Period Filter (ช่วงเวลา) */}
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">
+                    ช่วงเวลา
+                  </label>
+                  <div className="grid grid-cols-2 gap-2">
+                    <div>
+                      <SearchableSelect
+                        options={monthOptions}
+                        value={monthFilter}
+                        onChange={setMonthFilter}
+                        placeholder="เดือน"
+                      />
+                    </div>
+                    <div>
+                      <SearchableSelect
+                        options={yearOptions}
+                        value={yearFilter}
+                        onChange={setYearFilter}
+                        placeholder="ปี พ.ศ."
+                      />
+                    </div>
+                  </div>
+                </div>
               </div>
               <div className="flex items-center space-x-2">
                 <select
@@ -3361,6 +3424,15 @@ export default function AdminInventoryPage() {
                   →
                 </button>
               </div>
+            </div>
+          )}
+
+          {/* Note about red highlighting */}
+          {!loading && filteredItems.length > 0 && (
+            <div className="mt-5 text-left">
+              <p className="text-sm text-red-600 italic">
+                หมายเหตุ: รายการที่เป็นสีแดง เนื่องจากเป็นรายการที่มีจำนวนที่เบิกได้ ≤ {lowStockThreshold}
+              </p>
             </div>
           )}
         </div>

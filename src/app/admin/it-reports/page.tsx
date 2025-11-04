@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect, useRef, useMemo } from 'react';
 import { enableDragScroll } from '@/lib/drag-scroll';
 import Layout from '@/components/Layout';
 import { 
@@ -114,6 +114,8 @@ export default function AdminITReportsPage() {
   const [categoryFilter, setCategoryFilter] = useState('');
   const [adminFilter, setAdminFilter] = useState(''); // IT Admin ผู้รับงาน
   const [dateFilter, setDateFilter] = useState(''); // วันที่แจ้งงาน
+  const [monthFilter, setMonthFilter] = useState(''); // เดือน (1-12)
+  const [yearFilter, setYearFilter] = useState(''); // ปี พ.ศ.
 
   // Pagination
   const [currentPage, setCurrentPage] = useState(1);
@@ -154,7 +156,7 @@ export default function AdminITReportsPage() {
 
   useEffect(() => {
     applyFilters();
-  }, [issues, activeTab, searchTerm, nameFilter, emailFilter, phoneFilter, urgencyFilter, categoryFilter, adminFilter, dateFilter]);
+  }, [issues, activeTab, searchTerm, nameFilter, emailFilter, phoneFilter, urgencyFilter, categoryFilter, adminFilter, dateFilter, monthFilter, yearFilter]);
 
   // Handle escape key to close image modal
   useEffect(() => {
@@ -236,7 +238,22 @@ export default function AdminITReportsPage() {
       const matchesDate = !dateFilter || 
         new Date(issue.reportDate).toISOString().split('T')[0] === dateFilter;
 
-      return matchesSearch && matchesName && matchesEmail && matchesPhone && matchesUrgency && matchesCategory && matchesAdmin && matchesDate;
+      // Month and Year filter (ช่วงเวลา)
+      let matchesMonthYear = true;
+      if (monthFilter || yearFilter) {
+        const issueDate = new Date(issue.reportDate);
+        const issueMonth = issueDate.getMonth() + 1; // 1-12
+        const issueYearBE = issueDate.getFullYear() + 543; // พ.ศ.
+        
+        if (monthFilter && parseInt(monthFilter) !== issueMonth) {
+          matchesMonthYear = false;
+        }
+        if (yearFilter && parseInt(yearFilter) !== issueYearBE) {
+          matchesMonthYear = false;
+        }
+      }
+
+      return matchesSearch && matchesName && matchesEmail && matchesPhone && matchesUrgency && matchesCategory && matchesAdmin && matchesDate && matchesMonthYear;
     });
 
     // Sort by urgency and date
@@ -695,6 +712,27 @@ export default function AdminITReportsPage() {
     return Array.from(admins).sort();
   };
 
+  // Month and Year options
+  const monthOptions = useMemo(() => {
+    const months = [
+      { value: '1', label: 'ม.ค.' }, { value: '2', label: 'ก.พ.' }, { value: '3', label: 'มี.ค.' },
+      { value: '4', label: 'เม.ย.' }, { value: '5', label: 'พ.ค.' }, { value: '6', label: 'มิ.ย.' },
+      { value: '7', label: 'ก.ค.' }, { value: '8', label: 'ส.ค.' }, { value: '9', label: 'ก.ย.' },
+      { value: '10', label: 'ต.ค.' }, { value: '11', label: 'พ.ย.' }, { value: '12', label: 'ธ.ค.' }
+    ];
+    return months;
+  }, []);
+
+  const yearOptions = useMemo(() => {
+    const currentYearBE = new Date().getFullYear() + 543; // ปีปัจจุบัน พ.ศ.
+    const startYear = 2550;
+    const years = [];
+    for (let year = currentYearBE; year >= startYear; year--) {
+      years.push({ value: year.toString(), label: year.toString() });
+    }
+    return years;
+  }, []);
+
   // Pagination
   const totalPages = Math.ceil(filteredIssues.length / itemsPerPage);
   const startIndex = (currentPage - 1) * itemsPerPage;
@@ -869,10 +907,35 @@ export default function AdminITReportsPage() {
                     placeholder="dd/mm/yyyy"
                   />
                 </div>
+
+                {/* Period Filter (ช่วงเวลา) */}
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">
+                    ช่วงเวลา
+                  </label>
+                  <div className="grid grid-cols-2 gap-2">
+                    <div>
+                      <SearchableSelect
+                        options={monthOptions}
+                        value={monthFilter}
+                        onChange={setMonthFilter}
+                        placeholder="เดือน"
+                      />
+                    </div>
+                    <div>
+                      <SearchableSelect
+                        options={yearOptions}
+                        value={yearFilter}
+                        onChange={setYearFilter}
+                        placeholder="ปี พ.ศ."
+                      />
+                    </div>
+                  </div>
+                </div>
               </div>
 
               {/* Clear Filters Button */}
-              {(searchTerm || nameFilter || emailFilter || phoneFilter || urgencyFilter || categoryFilter || adminFilter || dateFilter) && (
+              {(searchTerm || nameFilter || emailFilter || phoneFilter || urgencyFilter || categoryFilter || adminFilter || dateFilter || monthFilter || yearFilter) && (
                 <div className="flex justify-end">
                   <button
                     onClick={() => {
@@ -884,6 +947,8 @@ export default function AdminITReportsPage() {
                       setCategoryFilter('');
                       setAdminFilter('');
                       setDateFilter('');
+                      setMonthFilter('');
+                      setYearFilter('');
                     }}
                     className="inline-flex items-center px-3 py-1.5 text-sm text-gray-600 hover:text-gray-800 border border-gray-300 rounded-md hover:bg-gray-50"
                   >

@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect, useRef, useMemo } from 'react';
 import Layout from '@/components/Layout';
 import { toast } from 'react-hot-toast';
 import { Clock, CheckCircle, XCircle, AlertCircle, RefreshCw, X, Search, Filter } from 'lucide-react';
@@ -81,6 +81,8 @@ export default function ITTrackingPage() {
   const [adminFilter, setAdminFilter] = useState('');
   const [statusFilter, setStatusFilter] = useState('');
   const [dateFilter, setDateFilter] = useState(''); // วันที่แจ้งงาน
+  const [monthFilter, setMonthFilter] = useState(''); // เดือน (1-12)
+  const [yearFilter, setYearFilter] = useState(''); // ปี พ.ศ.
   const [showFilters, setShowFilters] = useState(false);
 
   // Drag scroll ref
@@ -273,6 +275,20 @@ export default function ITTrackingPage() {
       if (issueDate !== dateFilter) return false;
     }
 
+    // Month and Year filter (ช่วงเวลา)
+    if (monthFilter || yearFilter) {
+      const issueDate = new Date(issue.reportDate);
+      const issueMonth = issueDate.getMonth() + 1; // 1-12
+      const issueYearBE = issueDate.getFullYear() + 543; // พ.ศ.
+      
+      if (monthFilter && parseInt(monthFilter) !== issueMonth) {
+        return false;
+      }
+      if (yearFilter && parseInt(yearFilter) !== issueYearBE) {
+        return false;
+      }
+    }
+
     // Filter by urgency
     if (urgencyFilter && issue.urgency !== urgencyFilter) {
       return false;
@@ -311,7 +327,7 @@ export default function ITTrackingPage() {
   // Reset to page 1 when changing tabs or filters
   useEffect(() => {
     setCurrentPage(1);
-  }, [activeTab, searchTerm, nameFilter, emailFilter, phoneFilter, dateFilter, urgencyFilter, categoryFilter, adminFilter, statusFilter]);
+  }, [activeTab, searchTerm, nameFilter, emailFilter, phoneFilter, dateFilter, urgencyFilter, categoryFilter, adminFilter, statusFilter, monthFilter, yearFilter]);
 
   // Get unique admins from issues
   const getUniqueAdmins = () => {
@@ -323,6 +339,27 @@ export default function ITTrackingPage() {
     });
     return Array.from(admins).sort();
   };
+
+  // Month and Year options
+  const monthOptions = useMemo(() => {
+    const months = [
+      { value: '1', label: 'ม.ค.' }, { value: '2', label: 'ก.พ.' }, { value: '3', label: 'มี.ค.' },
+      { value: '4', label: 'เม.ย.' }, { value: '5', label: 'พ.ค.' }, { value: '6', label: 'มิ.ย.' },
+      { value: '7', label: 'ก.ค.' }, { value: '8', label: 'ส.ค.' }, { value: '9', label: 'ก.ย.' },
+      { value: '10', label: 'ต.ค.' }, { value: '11', label: 'พ.ย.' }, { value: '12', label: 'ธ.ค.' }
+    ];
+    return months;
+  }, []);
+
+  const yearOptions = useMemo(() => {
+    const currentYearBE = new Date().getFullYear() + 543; // ปีปัจจุบัน พ.ศ.
+    const startYear = 2550;
+    const years = [];
+    for (let year = currentYearBE; year >= startYear; year--) {
+      years.push({ value: year.toString(), label: year.toString() });
+    }
+    return years;
+  }, []);
 
   const getStatusIcon = (status: string) => {
     switch (status) {
@@ -519,10 +556,35 @@ export default function ITTrackingPage() {
                     placeholder="dd/mm/yyyy"
                   />
                 </div>
+
+                {/* Period Filter (ช่วงเวลา) */}
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">
+                    ช่วงเวลา
+                  </label>
+                  <div className="grid grid-cols-2 gap-2">
+                    <div>
+                      <SearchableSelect
+                        options={monthOptions}
+                        value={monthFilter}
+                        onChange={setMonthFilter}
+                        placeholder="เดือน"
+                      />
+                    </div>
+                    <div>
+                      <SearchableSelect
+                        options={yearOptions}
+                        value={yearFilter}
+                        onChange={setYearFilter}
+                        placeholder="ปี พ.ศ."
+                      />
+                    </div>
+                  </div>
+                </div>
               </div>
 
               {/* Clear Filters Button */}
-              {(searchTerm || nameFilter || emailFilter || phoneFilter || dateFilter || urgencyFilter || categoryFilter || adminFilter || statusFilter) && (
+              {(searchTerm || nameFilter || emailFilter || phoneFilter || dateFilter || urgencyFilter || categoryFilter || adminFilter || statusFilter || monthFilter || yearFilter) && (
                 <div className="mt-4 flex justify-end">
                   <button
                     onClick={() => {
@@ -535,6 +597,8 @@ export default function ITTrackingPage() {
                       setCategoryFilter('');
                       setAdminFilter('');
                       setStatusFilter('');
+                      setMonthFilter('');
+                      setYearFilter('');
                     }}
                     className="inline-flex items-center px-3 py-1.5 text-sm text-gray-600 hover:text-gray-800 border border-gray-300 rounded-md hover:bg-gray-50"
                   >

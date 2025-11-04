@@ -1713,7 +1713,7 @@ export default function EquipmentReturnPage() {
                   {returnItems.length > 0 ? (
                     <ul className="divide-y divide-gray-100">
                       {returnItems.map((it, idx) => (
-                        <li key={`${it.itemId}-${it.serialNumber || it.numberPhone || idx}`} className="flex items-center justify-between p-3">
+                        <li key={`${it.itemId}-${it.serialNumber || it.numberPhone || idx}`} className="flex items-center justify-between p-3 pb-5">
                           <div className="text-gray-900">
                             <div>
                               {it.itemName} 

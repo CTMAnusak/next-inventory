@@ -909,7 +909,7 @@ export default function EquipmentRequestPage() {
                 {requestItems.length > 0 ? (
                   <ul className="divide-y divide-gray-100">
                     {requestItems.map(item => (
-                      <li key={item.itemId} className="flex items-center justify-between p-3">
+                      <li key={item.itemId} className="flex items-center justify-between p-3 pb-5">
                         <div className="text-gray-900">
                           {getItemDisplayName(item.itemId)} × {item.quantity}
                         </div>

@@ -149,6 +149,8 @@ export default function AdminEquipmentReportsPage() {
   const [urgencyFilter, setUrgencyFilter] = useState('');
   const [dateFromFilter, setDateFromFilter] = useState('');
   const [dateToFilter, setDateToFilter] = useState('');
+  const [monthFilter, setMonthFilter] = useState(''); // เดือน (1-12)
+  const [yearFilter, setYearFilter] = useState(''); // ปี พ.ศ.
 
   // Pagination
   const [currentPage, setCurrentPage] = useState(1);
@@ -186,7 +188,7 @@ export default function AdminEquipmentReportsPage() {
 
   useEffect(() => {
     applyFilters();
-  }, [requestLogs, returnLogs, activeTab, searchTerm, itemNameFilter, categoryFilter, statusFilter, conditionFilter, departmentFilter, officeFilter, serialNumberFilter, phoneNumberFilter, emailFilter, assetNumberFilter, deliveryLocationFilter, urgencyFilter, dateFromFilter, dateToFilter]);
+  }, [requestLogs, returnLogs, activeTab, searchTerm, itemNameFilter, categoryFilter, statusFilter, conditionFilter, departmentFilter, officeFilter, serialNumberFilter, phoneNumberFilter, emailFilter, assetNumberFilter, deliveryLocationFilter, urgencyFilter, dateFromFilter, dateToFilter, monthFilter, yearFilter]);
 
 
 
@@ -560,6 +562,8 @@ export default function AdminEquipmentReportsPage() {
     setUrgencyFilter('');
     setDateFromFilter('');
     setDateToFilter('');
+    setMonthFilter('');
+    setYearFilter('');
     setCurrentPage(1);
   };
 
@@ -817,10 +821,25 @@ export default function AdminEquipmentReportsPage() {
       // For return tab, use dateToFilter only (label: วันที่คืน)
       const matchesReturnDate = activeTab !== 'return' || !dateToFilter || itemLocalYMD === dateToFilter;
 
+      // Month and Year filter (ช่วงเวลา)
+      let matchesMonthYear = true;
+      if (monthFilter || yearFilter) {
+        const itemMonth = itemDate.getMonth() + 1; // 1-12
+        const itemYearBE = itemDate.getFullYear() + 543; // พ.ศ.
+        
+        if (monthFilter && parseInt(monthFilter) !== itemMonth) {
+          matchesMonthYear = false;
+        }
+        if (yearFilter && parseInt(yearFilter) !== itemYearBE) {
+          matchesMonthYear = false;
+        }
+      }
+
       return matchesSearch && matchesItemName && matchesCategory && matchesStatus && 
              matchesCondition && matchesDepartment && matchesOffice && 
              matchesSerialNumber && matchesPhoneNumber && matchesEmail && matchesAssetNumber &&
-             matchesDeliveryLocation && matchesUrgency && matchesRequestDate && matchesReturnDate;
+             matchesDeliveryLocation && matchesUrgency && matchesRequestDate && matchesReturnDate &&
+             matchesMonthYear;
     });
 
     // ✅ แก้ไข: กรองที่ระดับรายการย่อย (item level) แทนระดับคำขอ (request level)
@@ -1434,17 +1453,17 @@ export default function AdminEquipmentReportsPage() {
 
   // Get unique statuses from all items (sorted by name alphabetically)
   const statusOptions = useMemo(() => {
-    const statusIds = [...new Set(
-      [
-        ...requestLogs.flatMap(log => 
-          log.items.map(item => (item as any).statusOnRequest).filter(Boolean)
-        ),
-        ...returnLogs.flatMap(log => 
-          log.items.map(item => (item as any).statusOnReturn).filter(Boolean)
-        )
-      ]
-    )];
-    
+  const statusIds = [...new Set(
+    [
+      ...requestLogs.flatMap(log => 
+        log.items.map(item => (item as any).statusOnRequest).filter(Boolean)
+      ),
+      ...returnLogs.flatMap(log => 
+        log.items.map(item => (item as any).statusOnReturn).filter(Boolean)
+      )
+    ]
+  )];
+  
     return statusIds.map(id => ({
       value: id,
       label: getStatusName(id)
@@ -1453,17 +1472,17 @@ export default function AdminEquipmentReportsPage() {
 
   // Get unique conditions from all items (sorted by name alphabetically)
   const conditionOptions = useMemo(() => {
-    const conditionIds = [...new Set(
-      [
-        ...requestLogs.flatMap(log => 
-          log.items.map(item => (item as any).conditionOnRequest).filter(Boolean)
-        ),
-        ...returnLogs.flatMap(log => 
-          log.items.map(item => (item as any).conditionOnReturn).filter(Boolean)
-        )
-      ]
-    )];
-    
+  const conditionIds = [...new Set(
+    [
+      ...requestLogs.flatMap(log => 
+        log.items.map(item => (item as any).conditionOnRequest).filter(Boolean)
+      ),
+      ...returnLogs.flatMap(log => 
+        log.items.map(item => (item as any).conditionOnReturn).filter(Boolean)
+      )
+    ]
+  )];
+  
     return conditionIds.map(id => ({
       value: id,
       label: getConditionName(id)
@@ -1489,9 +1508,39 @@ export default function AdminEquipmentReportsPage() {
         ...requestLogs.map(log => log.deliveryLocation).filter(Boolean),
         ...returnLogs.map(log => (log as any).deliveryLocation).filter(Boolean)
       ]
-    )].sort((a, b) => a.localeCompare(b, 'th'));
+  )].sort((a, b) => a.localeCompare(b, 'th'));
     return uniqueLocations.map(location => ({ value: location, label: location }));
   }, [requestLogs, returnLogs]);
+
+  // Month options (ม.ค. ถึง ธ.ค.)
+  const monthOptions = useMemo(() => {
+    const months = [
+      { value: '1', label: 'ม.ค.' },
+      { value: '2', label: 'ก.พ.' },
+      { value: '3', label: 'มี.ค.' },
+      { value: '4', label: 'เม.ย.' },
+      { value: '5', label: 'พ.ค.' },
+      { value: '6', label: 'มิ.ย.' },
+      { value: '7', label: 'ก.ค.' },
+      { value: '8', label: 'ส.ค.' },
+      { value: '9', label: 'ก.ย.' },
+      { value: '10', label: 'ต.ค.' },
+      { value: '11', label: 'พ.ย.' },
+      { value: '12', label: 'ธ.ค.' }
+    ];
+    return months;
+  }, []);
+
+  // Year options (พ.ศ. ตั้งแต่ 2550 ถึงปีปัจจุบัน เรียงจากปีล่าสุดไว้บนสุด)
+  const yearOptions = useMemo(() => {
+    const currentYearBE = new Date().getFullYear() + 543; // ปีปัจจุบัน พ.ศ.
+    const startYear = 2550;
+    const years = [];
+    for (let year = currentYearBE; year >= startYear; year--) {
+      years.push({ value: year.toString(), label: year.toString() });
+    }
+    return years;
+  }, []);
 
   // Pagination
   const totalPages = Math.ceil(displayRows.length / itemsPerPage);
@@ -1669,13 +1718,13 @@ export default function AdminEquipmentReportsPage() {
               {/* แถวที่ 2: เลขทรัพย์สิน, แผนก, สาขา, สถานที่จัดส่ง, ความเร่งด่วน, วันที่ */}
               <div className="grid max-[768px]:grid-cols-1 max-[1120px]:grid-cols-2 max-[1440px]:grid-cols-4 grid-cols-4 gap-4">
                 {activeTab === 'return' && (
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">
                       เลขทรัพย์สิน
-                    </label>
+                  </label>
                     <div className="relative">
                       <Search className="absolute left-3 top-2.5 h-4 w-4 text-gray-400" />
-                      <input
+                  <input
                         type="text"
                         value={assetNumberFilter}
                         onChange={(e) => setAssetNumberFilter(e.target.value)}
@@ -1711,18 +1760,18 @@ export default function AdminEquipmentReportsPage() {
                   />
                 </div>
                 
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">
-                    สถานที่จัดส่ง
-                  </label>
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-1">
+                        สถานที่จัดส่ง
+                      </label>
                   <SearchableSelect
                     options={deliveryLocationOptions}
-                    value={deliveryLocationFilter}
+                        value={deliveryLocationFilter}
                     onChange={setDeliveryLocationFilter}
                     placeholder="ทั้งหมด"
                   />
-                </div>
-                
+                    </div>
+                    
                 {activeTab === 'request' && (
                   <>
                     <div>
@@ -1743,19 +1792,44 @@ export default function AdminEquipmentReportsPage() {
                 )}
                 
                 {activeTab === 'return' && (
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">
-                      วันที่คืน
-                    </label>
-                    <DatePicker
-                      value={dateToFilter}
-                      onChange={(date) => setDateToFilter(date)}
-                    />
-                  </div>
+                  <>
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-1">
+                        วันที่คืน
+                      </label>
+                      <DatePicker
+                        value={dateToFilter}
+                        onChange={(date) => setDateToFilter(date)}
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-1">
+                        ช่วงเวลา
+                      </label>
+                      <div className="grid grid-cols-2 gap-2">
+                        <div>
+                          <SearchableSelect
+                            options={monthOptions}
+                            value={monthFilter}
+                            onChange={setMonthFilter}
+                            placeholder="เดือน"
+                          />
+                        </div>
+                        <div>
+                          <SearchableSelect
+                            options={yearOptions}
+                            value={yearFilter}
+                            onChange={setYearFilter}
+                            placeholder="ปี พ.ศ."
+                          />
+                        </div>
+                      </div>
+                    </div>
+                  </>
                 )}
               </div>
 
-              {/* แถวที่ 3: วันที่เบิก (request tab เท่านั้น) */}
+              {/* แถวที่ 3: วันที่เบิก และ ช่วงเวลา (request tab เท่านั้น) */}
               {activeTab === 'request' && (
                 <div className="grid max-[768px]:grid-cols-1 max-[1120px]:grid-cols-2 max-[1440px]:grid-cols-4 grid-cols-4 gap-4">
                   <div>
@@ -1766,6 +1840,29 @@ export default function AdminEquipmentReportsPage() {
                       value={dateFromFilter}
                       onChange={(date) => setDateFromFilter(date)}
                     />
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">
+                      ช่วงเวลา
+                    </label>
+                    <div className="grid grid-cols-2 gap-2">
+                      <div>
+                        <SearchableSelect
+                          options={monthOptions}
+                          value={monthFilter}
+                          onChange={setMonthFilter}
+                          placeholder="เดือน"
+                        />
+                      </div>
+                      <div>
+                        <SearchableSelect
+                          options={yearOptions}
+                          value={yearFilter}
+                          onChange={setYearFilter}
+                          placeholder="ปี พ.ศ."
+                        />
+                      </div>
+                    </div>
                   </div>
                 </div>
               )}

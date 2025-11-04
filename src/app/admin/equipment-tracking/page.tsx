@@ -73,6 +73,8 @@ export default function AdminEquipmentTrackingPage() {
   const [sourceFilter, setSourceFilter] = useState('');
   const [deliveryLocationFilter, setDeliveryLocationFilter] = useState('');
   const [quantityFilter, setQuantityFilter] = useState('');
+  const [monthFilter, setMonthFilter] = useState(''); // เดือน (1-12)
+  const [yearFilter, setYearFilter] = useState(''); // ปี พ.ศ.
 
   // Pagination
   const [currentPage, setCurrentPage] = useState(1);
@@ -99,7 +101,7 @@ export default function AdminEquipmentTrackingPage() {
 
   useEffect(() => {
     applyFilters();
-  }, [trackingData, searchTerm, itemNameFilter, itemFilter, categoryFilter, detailFilter, statusFilter, conditionFilter, departmentFilter, officeFilter, dateAddedFilter, sourceFilter, deliveryLocationFilter, quantityFilter]);
+  }, [trackingData, searchTerm, itemNameFilter, itemFilter, categoryFilter, detailFilter, statusFilter, conditionFilter, departmentFilter, officeFilter, dateAddedFilter, sourceFilter, deliveryLocationFilter, quantityFilter, monthFilter, yearFilter]);
 
   const fetchTrackingData = async (page: number = 1) => {
     setLoading(true);
@@ -193,9 +195,24 @@ export default function AdminEquipmentTrackingPage() {
       const matchesQuantity = !quantityFilter || 
         record.quantity === parseInt(quantityFilter);
 
+      // Month and Year filter (ช่วงเวลา)
+      let matchesMonthYear = true;
+      if (monthFilter || yearFilter) {
+        const recordDate = new Date(record.dateAdded || record.requestDate);
+        const recordMonth = recordDate.getMonth() + 1; // 1-12
+        const recordYearBE = recordDate.getFullYear() + 543; // พ.ศ.
+        
+        if (monthFilter && parseInt(monthFilter) !== recordMonth) {
+          matchesMonthYear = false;
+        }
+        if (yearFilter && parseInt(yearFilter) !== recordYearBE) {
+          matchesMonthYear = false;
+        }
+      }
+
       return matchesSearch && matchesItemName && matchesItem && matchesCategory && matchesDetail && matchesStatus && 
              matchesCondition && matchesDepartment && matchesOffice && 
-             matchesDateAdded && matchesSource && matchesDeliveryLocation && matchesQuantity;
+             matchesDateAdded && matchesSource && matchesDeliveryLocation && matchesQuantity && matchesMonthYear;
     });
 
     setFilteredData(filtered);
@@ -216,6 +233,8 @@ export default function AdminEquipmentTrackingPage() {
     setSourceFilter('');
     setDeliveryLocationFilter('');
     setQuantityFilter('');
+    setMonthFilter('');
+    setYearFilter('');
     setCurrentPage(1);
     fetchTrackingData(1);
   };
@@ -372,6 +391,27 @@ export default function AdminEquipmentTrackingPage() {
     const uniqueLocations = [...new Set(trackingData.map(record => record.deliveryLocation).filter(Boolean))];
     return uniqueLocations.map(location => ({ value: location, label: location }));
   }, [trackingData]);
+
+  // Month and Year options
+  const monthOptions = useMemo(() => {
+    const months = [
+      { value: '1', label: 'ม.ค.' }, { value: '2', label: 'ก.พ.' }, { value: '3', label: 'มี.ค.' },
+      { value: '4', label: 'เม.ย.' }, { value: '5', label: 'พ.ค.' }, { value: '6', label: 'มิ.ย.' },
+      { value: '7', label: 'ก.ค.' }, { value: '8', label: 'ส.ค.' }, { value: '9', label: 'ก.ย.' },
+      { value: '10', label: 'ต.ค.' }, { value: '11', label: 'พ.ย.' }, { value: '12', label: 'ธ.ค.' }
+    ];
+    return months;
+  }, []);
+
+  const yearOptions = useMemo(() => {
+    const currentYearBE = new Date().getFullYear() + 543; // ปีปัจจุบัน พ.ศ.
+    const startYear = 2550;
+    const years = [];
+    for (let year = currentYearBE; year >= startYear; year--) {
+      years.push({ value: year.toString(), label: year.toString() });
+    }
+    return years;
+  }, []);
 
   // Pagination
   const startIndex = (currentPage - 1) * itemsPerPage;
@@ -601,6 +641,31 @@ export default function AdminEquipmentTrackingPage() {
                     value={dateAddedFilter}
                     onChange={(date) => setDateAddedFilter(date)}
                   />
+                </div>
+
+                {/* Period Filter (ช่วงเวลา) */}
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">
+                    ช่วงเวลา
+                  </label>
+                  <div className="grid grid-cols-2 gap-2">
+                    <div>
+                      <SearchableSelect
+                        options={monthOptions}
+                        value={monthFilter}
+                        onChange={setMonthFilter}
+                        placeholder="เดือน"
+                      />
+                    </div>
+                    <div>
+                      <SearchableSelect
+                        options={yearOptions}
+                        value={yearFilter}
+                        onChange={setYearFilter}
+                        placeholder="ปี พ.ศ."
+                      />
+                    </div>
+                  </div>
                 </div>
               </div>
             </div>
