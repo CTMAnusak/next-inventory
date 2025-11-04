@@ -923,8 +923,30 @@ export default function AdminEquipmentReportsPage() {
             const requestedQty = item.quantity || 0;
             const isItemApproved = assignedQty >= requestedQty;
             const group = isItemApproved ? 'approved' : 'pending';
-            const date = (log as any).submittedAt || (log as any).updatedAt || (log as any).createdAt || (log as any).requestDate || (log as any).returnDate || Date.now();
-            rows.push({ type: 'request', log, item, itemIndex: index, group, date: new Date(date), urgency: log.urgency || 'normal' });
+            
+            // ✅ สำหรับ approved ใช้วันที่และเวลาอนุมัติที่แม่นยำ สำหรับ pending ใช้วันที่เบิก
+            let sortDate;
+            if (isItemApproved) {
+              // ใช้วันที่อนุมัติรายการ (item level) หรือวันที่อนุมัติคำขอ (request level) พร้อมเวลาที่แม่นยำ
+              sortDate = (item as any).approvedAt || (log as any).approvedAt || (log as any).updatedAt || (log as any).createdAt || (log as any).requestDate || Date.now();
+            } else {
+              // ใช้วันที่เบิก
+              sortDate = (log as any).requestDate || (log as any).createdAt || Date.now();
+            }
+            
+            // 🔍 Debug: Log sorting date for first few items
+            if (rows.length < 5) {
+              console.log(`🔍 Sorting date for ${log.firstName} ${log.lastName}:`, {
+                group,
+                isItemApproved,
+                sortDate: new Date(sortDate).toLocaleString('th-TH', { timeZone: 'Asia/Bangkok' }),
+                itemApprovedAt: (item as any).approvedAt ? new Date((item as any).approvedAt).toLocaleString('th-TH', { timeZone: 'Asia/Bangkok' }) : null,
+                logApprovedAt: (log as any).approvedAt ? new Date((log as any).approvedAt).toLocaleString('th-TH', { timeZone: 'Asia/Bangkok' }) : null,
+                requestDate: new Date((log as any).requestDate).toLocaleString('th-TH', { timeZone: 'Asia/Bangkok' })
+              });
+            }
+            
+            rows.push({ type: 'request', log, item, itemIndex: index, group, date: new Date(sortDate), urgency: log.urgency || 'normal' });
           }
         });
       });
@@ -1011,27 +1033,49 @@ export default function AdminEquipmentReportsPage() {
     // ✅ เรียงลำดับ: 
     // - สำหรับ request tab: 
     //   1. รายการรอการยืนยัน (pending) อยู่บนสุดก่อน
-    //   2. ภายในแต่ละกลุ่ม: เรียงตามความเร่งด่วน (ด่วนมาก อยู่บนสุด)
-    //   3. ภายในความเร่งด่วนเดียวกัน: เรียงตามวันที่ล่าสุดไปเก่าสุด
+    //   2. ภายในกลุ่ม pending: เรียงตามความเร่งด่วน (ด่วนมาก อยู่บนสุด) แล้วตามวันที่ล่าสุด
+    //   3. ภายในกลุ่ม approved: เรียงตามวันที่ล่าสุดเท่านั้น (ไม่สนความเร่งด่วน)
     // - สำหรับ return tab: เรียงตาม pending/approved (pending อยู่บนสุด) แล้วตามวันที่ล่าสุดไปเก่าสุด
     const groupOrder = { pending: 0, approved: 1 } as const;
+    
+    // 🔍 Debug: Log rows before sorting
+    if (activeTab === 'request') {
+      console.log('\n📊 Rows before sorting (first 6):');
+      rows.slice(0, 6).forEach((row, idx) => {
+        const log = row.log as RequestLog;
+        console.log(`  ${idx + 1}. ${log.firstName} ${log.lastName} - Group: ${row.group}, Urgency: ${log.urgency}, Date: ${row.date.toLocaleString('th-TH', { timeZone: 'Asia/Bangkok' })}`);
+      });
+    }
+    
     rows.sort((a, b) => {
       // 1. เรียงตาม group ก่อน (pending อยู่บนสุด)
       const groupDiff = groupOrder[a.group as 'pending' | 'approved'] - groupOrder[b.group as 'pending' | 'approved'];
       if (groupDiff !== 0) return groupDiff;
       
       if (activeTab === 'request') {
-        // 2. สำหรับ request tab: เรียงตาม urgency (ด่วนมาก อยู่บนสุด)
-        const urgencyOrder = { very_urgent: 0, normal: 1 };
-        const urgencyA = urgencyOrder[(a.log as RequestLog).urgency as 'very_urgent' | 'normal'] ?? 1;
-        const urgencyB = urgencyOrder[(b.log as RequestLog).urgency as 'very_urgent' | 'normal'] ?? 1;
-        const urgencyDiff = urgencyA - urgencyB;
-        if (urgencyDiff !== 0) return urgencyDiff;
+        // 2. สำหรับ request tab: เรียงตาม urgency เฉพาะกลุ่ม pending เท่านั้น
+        if (a.group === 'pending' && b.group === 'pending') {
+          const urgencyOrder = { very_urgent: 0, normal: 1 };
+          const urgencyA = urgencyOrder[(a.log as RequestLog).urgency as 'very_urgent' | 'normal'] ?? 1;
+          const urgencyB = urgencyOrder[(b.log as RequestLog).urgency as 'very_urgent' | 'normal'] ?? 1;
+          const urgencyDiff = urgencyA - urgencyB;
+          if (urgencyDiff !== 0) return urgencyDiff;
+        }
+        // สำหรับกลุ่ม approved: ข้ามการเรียงตาม urgency ไปเรียงตามวันที่เลย
       }
       
       // 3. เรียงตามวันที่ล่าสุดไปเก่าสุด
       return (b.date as Date).getTime() - (a.date as Date).getTime();
     });
+    
+    // 🔍 Debug: Log rows after sorting
+    if (activeTab === 'request') {
+      console.log('\n📊 Rows after sorting (first 6):');
+      rows.slice(0, 6).forEach((row, idx) => {
+        const log = row.log as RequestLog;
+        console.log(`  ${idx + 1}. ${log.firstName} ${log.lastName} - Group: ${row.group}, Urgency: ${log.urgency}, Date: ${row.date.toLocaleString('th-TH', { timeZone: 'Asia/Bangkok' })}`);
+      });
+    }
 
     setFilteredData(filtered);
     setDisplayRows(rows);
