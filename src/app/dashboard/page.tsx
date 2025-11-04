@@ -13,6 +13,7 @@ import SimpleErrorModal from '@/components/SimpleErrorModal';
 import CancelReturnModal from '@/components/CancelReturnModal';
 import AuthGuard from '@/components/AuthGuard';
 import { usePerformanceMonitoring, useUserActionTracking, PageViewTracker } from '@/providers/ErrorMonitoringProvider';
+import DashboardSkeleton from '@/components/DashboardSkeleton';
 
 interface ICategoryConfig {
   id: string;
@@ -757,6 +758,19 @@ export default function DashboardPage() {
     );
   }
 
+  // แสดง Skeleton Screen ระหว่างโหลดข้อมูลอุปกรณ์ครั้งแรก
+  // ไม่แสดงเมื่อ manual refresh เพื่อให้ user เห็นข้อมูลเดิมขณะรีเฟรช
+  if (!dataLoaded || (ownedLoading && !isManualRefresh)) {
+    return (
+      <AuthGuard>
+        <Layout>
+          <PageViewTracker pageName="Dashboard" />
+          <DashboardSkeleton />
+        </Layout>
+      </AuthGuard>
+    );
+  }
+
   return (
     <AuthGuard>
       <Layout>
@@ -811,7 +825,7 @@ export default function DashboardPage() {
         <div className="bg-white/80 backdrop-blur-sm rounded-2xl shadow-lg py-8 px-6 border border-white/50">
           {/* Desktop Layout (768px and above) */}
           <div className="flex flex-col md:flex-row text-center md:text-left justify-between mb-7 gap-4">
-            <div className="text-2xl font-font-medium text-blue-600">{
+            <div className="text-2xl font-medium text-blue-600">{
               (user?.userType === 'branch'
                 ? `ทรัพย์สินที่มี ของ สาขา ${user?.office || ''}`
                 : `ทรัพย์สินที่มี ของ ${[user?.firstName, user?.lastName].filter(Boolean).join(' ')}`
@@ -1293,7 +1307,7 @@ export default function DashboardPage() {
           </div>
           
           {/* Information Note */}
-          <div className="mt-4 p-4 bg-blue-50 border border-blue-200 rounded-lg">
+          <div className="mt-8 p-4 bg-yellow-50 border border-yellow-200 rounded-lg shadow-sm">
             <h4 className="text-sm font-medium text-blue-900 mb-3">หมายเหตุ:</h4>
             
             {/* การแก้ไขข้อมูล */}
