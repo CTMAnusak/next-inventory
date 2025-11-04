@@ -71,6 +71,9 @@ export default function DashboardPage() {
   // Edit loading state - track loading for each item
   const [editLoadingItems, setEditLoadingItems] = useState<Set<string>>(new Set());
   
+  // Return loading state - track loading for return button for each item
+  const [returnLoadingItems, setReturnLoadingItems] = useState<Set<string>>(new Set());
+  
   // Drag scroll ref
   const tableContainerRef = useRef<HTMLDivElement>(null);
 
@@ -89,6 +92,14 @@ export default function DashboardPage() {
     const cleanup = enableDragScroll(element);
     return cleanup;
   }, [ownedLoading, ownedItems.length]);
+
+  // Reset return loading state when component unmounts (navigation completes)
+  useEffect(() => {
+    return () => {
+      // Cleanup: reset loading states when component unmounts (happens on navigation)
+      setReturnLoadingItems(new Set());
+    };
+  }, []);
 
   const fetchOwned = useCallback(async () => {
     try {
@@ -868,8 +879,8 @@ export default function DashboardPage() {
                   <th className="px-3 py-2 text-center border-b text-white">สถานที่จัดส่ง</th>
                   <th className="px-3 py-2 text-center border-b text-white">ชื่ออุปกรณ์</th>
                   <th className="px-3 py-2 text-center border-b text-white">หมวดหมู่</th>
-                  <th className="px-3 py-2 text-center border-b text-white">สภาพ</th>
                   <th className="px-3 py-2 text-center border-b text-white">สถานะ</th>
+                  <th className="px-3 py-2 text-center border-b text-white">สภาพ</th>
                   <th className="px-3 py-2 text-center border-b text-white">รายละเอียด</th>
                   <th className="px-3 py-2 text-center border-b text-white">จัดการ</th>
                 </tr>
@@ -954,12 +965,12 @@ export default function DashboardPage() {
                     <td className="px-3 py-2 text-center border-b"><div className="text-gray-900">{getCategoryName(row.categoryId || (row as any).categoryId)}</div></td>
                     <td className="px-3 py-2 text-center border-b">
                       <div className="text-gray-900">
-                        {row.conditionId ? getConditionName(row.conditionId) : ((row as any).conditionName || '-')}
+                        {row.statusId ? getStatusName(row.statusId) : ((row as any).statusName || '-')}
                       </div>
                     </td>
                     <td className="px-3 py-2 text-center border-b">
                       <div className="text-gray-900">
-                        {row.statusId ? getStatusName(row.statusId) : ((row as any).statusName || '-')}
+                        {row.conditionId ? getConditionName(row.conditionId) : ((row as any).conditionName || '-')}
                       </div>
                     </td>
                     <td className="px-3 py-2 text-center border-b">
@@ -1270,9 +1281,14 @@ export default function DashboardPage() {
                             {/* Return Equipment button */}
                             <button
                               onClick={() => {
+                                const itemId = (row._id || (row as any).itemId) as string;
+                                
+                                // Set loading state for this specific item
+                                setReturnLoadingItems(prev => new Set(prev).add(itemId));
+                                
                                 // Build URL with personal info for branch users
                                 const params = new URLSearchParams({
-                                  id: (row._id || (row as any).itemId) as string
+                                  id: itemId
                                 });
                                 
                                 // ✅ เพิ่ม serialNumber หรือ numberPhone เพื่อล็อคค่าในหน้าคืน
@@ -1294,10 +1310,32 @@ export default function DashboardPage() {
                                 
                                 // Navigate to equipment return page with all params
                                 router.push(`/equipment-return?${params.toString()}`);
+                                
+                                // Reset loading state after a delay (in case navigation is slow)
+                                // This will be cleared by useEffect cleanup when navigation completes
+                                setTimeout(() => {
+                                  setReturnLoadingItems(prev => {
+                                    const newSet = new Set(prev);
+                                    newSet.delete(itemId);
+                                    return newSet;
+                                  });
+                                }, 3000); // Reset after 3 seconds as fallback
                               }}
-                              className="px-3 py-1 text-xs text-orange-600 hover:text-orange-800 hover:bg-orange-50 border border-orange-200 rounded"
+                              disabled={returnLoadingItems.has(row._id || (row as any).itemId)}
+                              className={`px-3 py-1 text-xs border rounded transition-all duration-200 ${
+                                returnLoadingItems.has(row._id || (row as any).itemId)
+                                  ? 'bg-orange-100 text-orange-400 border-orange-200 cursor-not-allowed'
+                                  : 'text-orange-600 hover:text-orange-800 hover:bg-orange-50 border-orange-200'
+                              }`}
                             >
-                              คืน
+                              {returnLoadingItems.has(row._id || (row as any).itemId) ? (
+                                <svg className="animate-spin h-3 w-3 text-orange-400" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                                  <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                                  <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                                </svg>
+                              ) : (
+                                'คืน'
+                              )}
                             </button>
                           </>
                         )}
