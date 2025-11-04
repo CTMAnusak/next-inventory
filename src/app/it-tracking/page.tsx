@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect, useRef, useLayoutEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import Layout from '@/components/Layout';
 import { toast } from 'react-hot-toast';
 import { Clock, CheckCircle, XCircle, AlertCircle, RefreshCw, X, Search, Filter } from 'lucide-react';
@@ -115,38 +115,17 @@ export default function ITTrackingPage() {
     }
   }, [user]);
 
-  // Initialize drag scrolling
-  useLayoutEffect(() => {
-    if (isLoading) {
-      return;
-    }
+  // Initialize drag scrolling - reinitialize when table is rendered
+  useEffect(() => {
+    // Wait for table to be rendered
+    if (isLoading || issues.length === 0) return;
 
-    // Use MutationObserver to wait for the table to be rendered
-    const observer = new MutationObserver((mutations) => {
-      const element = tableContainerRef.current;
-      
-      if (element) {
-        const cleanup = enableDragScroll(element);
-        
-        // Disconnect observer after setup
-        observer.disconnect();
-        
-        // Return cleanup function
-        return cleanup;
-      }
-    });
+    const element = tableContainerRef.current;
+    if (!element) return;
 
-    // Start observing
-    observer.observe(document.body, {
-      childList: true,
-      subtree: true
-    });
-
-    // Cleanup function
-    return () => {
-      observer.disconnect();
-    };
-  }, [isLoading]);
+    const cleanup = enableDragScroll(element);
+    return cleanup;
+  }, [isLoading, issues.length]);
 
   const fetchUserIssues = async () => {
     setIsLoading(true);
@@ -503,7 +482,7 @@ export default function ITTrackingPage() {
           {!isLoading && paginatedIssues.length > 0 && (
             <>
               <div ref={tableContainerRef} className="table-container mx-2">
-                <table className="w-full shadow-xl" style={{boxShadow: 'rgba(100, 100, 111, 0.2) 0px 7px 29px 0px'}}>
+                <table className="min-w-[140%] shadow-xl" style={{boxShadow: 'rgba(100, 100, 111, 0.2) 0px 7px 29px 0px'}}>
                 <thead className="bg-gradient-to-r from-blue-600 to-blue-700 border-b-2 border-blue-800">
                   <tr>
                     <th className="px-4 py-3 text-center text-xs font-semibold text-white uppercase tracking-wider whitespace-nowrap border-r border-blue-500">Issue ID</th>

@@ -78,14 +78,17 @@ export default function DashboardPage() {
     fetchCategories();
   }, []);
 
-  // Initialize drag scrolling
+  // Initialize drag scrolling - reinitialize when table is rendered
   useEffect(() => {
+    // Wait for table to be rendered
+    if (ownedLoading || ownedItems.length === 0) return;
+
     const element = tableContainerRef.current;
     if (!element) return;
 
     const cleanup = enableDragScroll(element);
     return cleanup;
-  }, []);
+  }, [ownedLoading, ownedItems.length]);
 
   const fetchOwned = useCallback(async () => {
     try {
