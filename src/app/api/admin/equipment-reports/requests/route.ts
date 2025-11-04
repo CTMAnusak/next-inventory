@@ -57,7 +57,6 @@ export async function GET() {
         email: request.email || request.requesterEmail || '',
         deliveryLocation: request.deliveryLocation || '',
         urgency: request.urgency || 'normal',
-        notes: request.notes || '',
         userInfo: {
           firstName: 'Unknown',
           lastName: 'User',

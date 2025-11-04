@@ -50,7 +50,6 @@ export interface IRequestLog extends Document {
   requestDate: Date; // วันที่ต้องการเบิก
   urgency: 'very_urgent' | 'normal'; // ความเร่งด่วน
   deliveryLocation: string; // สถานที่จัดส่ง
-  notes?: string; // หมายเหตุการเบิก (ไม่บังคับ)
   items: IRequestItem[]; // รายการอุปกรณ์ที่เบิก
   status: 'approved' | 'pending' | 'rejected' | 'completed'; // สถานะการเบิก
   requestType: 'request' | 'user-owned'; // ประเภท: การเบิก หรือ อุปกรณ์ที่ user เพิ่มเอง
@@ -123,7 +122,6 @@ const RequestLogSchema = new Schema<IRequestLog>({
     default: 'normal'
   },
   deliveryLocation: { type: String, required: true },
-  notes: { type: String },
   items: [RequestItemSchema],
   status: { 
     type: String, 

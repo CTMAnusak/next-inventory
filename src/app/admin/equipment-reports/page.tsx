@@ -1009,27 +1009,28 @@ export default function AdminEquipmentReportsPage() {
     }
 
     // ✅ เรียงลำดับ: 
-    // - สำหรับ request tab: เรียงตามความเร่งด่วน (ด่วนมาก อยู่บนสุด) แล้วตามวันที่ล่าสุดไปเก่าสุด
+    // - สำหรับ request tab: 
+    //   1. รายการรอการยืนยัน (pending) อยู่บนสุดก่อน
+    //   2. ภายในแต่ละกลุ่ม: เรียงตามความเร่งด่วน (ด่วนมาก อยู่บนสุด)
+    //   3. ภายในความเร่งด่วนเดียวกัน: เรียงตามวันที่ล่าสุดไปเก่าสุด
     // - สำหรับ return tab: เรียงตาม pending/approved (pending อยู่บนสุด) แล้วตามวันที่ล่าสุดไปเก่าสุด
     const groupOrder = { pending: 0, approved: 1 } as const;
     rows.sort((a, b) => {
+      // 1. เรียงตาม group ก่อน (pending อยู่บนสุด)
+      const groupDiff = groupOrder[a.group as 'pending' | 'approved'] - groupOrder[b.group as 'pending' | 'approved'];
+      if (groupDiff !== 0) return groupDiff;
+      
       if (activeTab === 'request') {
-        // สำหรับ request tab: เรียงตาม urgency ก่อน
+        // 2. สำหรับ request tab: เรียงตาม urgency (ด่วนมาก อยู่บนสุด)
         const urgencyOrder = { very_urgent: 0, normal: 1 };
         const urgencyA = urgencyOrder[(a.log as RequestLog).urgency as 'very_urgent' | 'normal'] ?? 1;
         const urgencyB = urgencyOrder[(b.log as RequestLog).urgency as 'very_urgent' | 'normal'] ?? 1;
         const urgencyDiff = urgencyA - urgencyB;
         if (urgencyDiff !== 0) return urgencyDiff;
-        
-        // ถ้า urgency เท่ากัน ให้เรียงตามวันที่ล่าสุดไปเก่าสุด
-        return (b.date as Date).getTime() - (a.date as Date).getTime();
-      } else {
-        // สำหรับ return tab: เรียงตาม group แล้วตาม date
-        const g = groupOrder[a.group as 'pending' | 'approved'] - groupOrder[b.group as 'pending' | 'approved'];
-        if (g !== 0) return g;
-        // เรียงตามวันที่ล่าสุดไปเก่าสุด
-        return (b.date as Date).getTime() - (a.date as Date).getTime();
       }
+      
+      // 3. เรียงตามวันที่ล่าสุดไปเก่าสุด
+      return (b.date as Date).getTime() - (a.date as Date).getTime();
     });
 
     setFilteredData(filtered);
