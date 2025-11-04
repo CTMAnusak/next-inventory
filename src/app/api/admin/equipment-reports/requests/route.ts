@@ -10,7 +10,7 @@ export async function GET() {
 
     // Use optimized query with lean() and select only needed fields
     const requests = await RequestLog.find({ requestType: 'request' })
-      .select('_id userId requestDate createdAt status items approvedBy firstName lastName nickname department office phone email requesterFirstName requesterLastName requesterNickname requesterDepartment requesterOffice requesterPhone requesterEmail') // ✅ เพิ่มข้อมูลผู้ใช้ที่จำเป็น
+      .select('_id userId requestDate createdAt status items approvedBy firstName lastName nickname department office phone email requesterFirstName requesterLastName requesterNickname requesterDepartment requesterOffice requesterPhone requesterEmail deliveryLocation urgency notes') // ✅ เพิ่มข้อมูลผู้ใช้ที่จำเป็นและ deliveryLocation, urgency, notes
       .sort({ requestDate: -1, createdAt: -1 })
       .lean(); // Use lean() for better performance
     
@@ -55,6 +55,9 @@ export async function GET() {
         phone: request.phone || request.requesterPhone || '',
         office: request.office || request.requesterOffice || '',
         email: request.email || request.requesterEmail || '',
+        deliveryLocation: request.deliveryLocation || '',
+        urgency: request.urgency || 'normal',
+        notes: request.notes || '',
         userInfo: {
           firstName: 'Unknown',
           lastName: 'User',

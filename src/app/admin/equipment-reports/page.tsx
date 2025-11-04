@@ -924,7 +924,7 @@ export default function AdminEquipmentReportsPage() {
             const isItemApproved = assignedQty >= requestedQty;
             const group = isItemApproved ? 'approved' : 'pending';
             const date = (log as any).submittedAt || (log as any).updatedAt || (log as any).createdAt || (log as any).requestDate || (log as any).returnDate || Date.now();
-            rows.push({ type: 'request', log, item, itemIndex: index, group, date: new Date(date) });
+            rows.push({ type: 'request', log, item, itemIndex: index, group, date: new Date(date), urgency: log.urgency || 'normal' });
           }
         });
       });
@@ -1009,15 +1009,27 @@ export default function AdminEquipmentReportsPage() {
     }
 
     // ✅ เรียงลำดับ: 
-    // - pending (รอดำเนินการ) อยู่บนสุด → แสดงปุ่ม "เลือกอุปกรณ์และอนุมัติ" หรือ "ยืนยันการคืน"
-    // - approved (เสร็จสิ้นแล้ว) อยู่ด้านล่าง → แสดง "เสร็จสิ้น" หรือ "ยืนยันแล้ว"
-    // - ภายในแต่ละกลุ่ม เรียงตามวันที่ล่าสุดไปเก่าสุด
+    // - สำหรับ request tab: เรียงตามความเร่งด่วน (ด่วนมาก อยู่บนสุด) แล้วตามวันที่ล่าสุดไปเก่าสุด
+    // - สำหรับ return tab: เรียงตาม pending/approved (pending อยู่บนสุด) แล้วตามวันที่ล่าสุดไปเก่าสุด
     const groupOrder = { pending: 0, approved: 1 } as const;
     rows.sort((a, b) => {
-      const g = groupOrder[a.group as 'pending' | 'approved'] - groupOrder[b.group as 'pending' | 'approved'];
-      if (g !== 0) return g;
-      // เรียงตามวันที่ล่าสุดไปเก่าสุด
-      return (b.date as Date).getTime() - (a.date as Date).getTime();
+      if (activeTab === 'request') {
+        // สำหรับ request tab: เรียงตาม urgency ก่อน
+        const urgencyOrder = { very_urgent: 0, normal: 1 };
+        const urgencyA = urgencyOrder[(a.log as RequestLog).urgency as 'very_urgent' | 'normal'] ?? 1;
+        const urgencyB = urgencyOrder[(b.log as RequestLog).urgency as 'very_urgent' | 'normal'] ?? 1;
+        const urgencyDiff = urgencyA - urgencyB;
+        if (urgencyDiff !== 0) return urgencyDiff;
+        
+        // ถ้า urgency เท่ากัน ให้เรียงตามวันที่ล่าสุดไปเก่าสุด
+        return (b.date as Date).getTime() - (a.date as Date).getTime();
+      } else {
+        // สำหรับ return tab: เรียงตาม group แล้วตาม date
+        const g = groupOrder[a.group as 'pending' | 'approved'] - groupOrder[b.group as 'pending' | 'approved'];
+        if (g !== 0) return g;
+        // เรียงตามวันที่ล่าสุดไปเก่าสุด
+        return (b.date as Date).getTime() - (a.date as Date).getTime();
+      }
     });
 
     setFilteredData(filtered);
@@ -1057,6 +1069,7 @@ export default function AdminEquipmentReportsPage() {
         worksheet.columns = [
           { header: 'ลำดับ', key: 'no', width: 8 },
           { header: 'วันที่เบิก', key: 'requestDate', width: 15 },
+          { header: 'ความเร่งด่วน', key: 'urgency', width: 12 },
           { header: 'ชื่อผู้เบิก', key: 'requester', width: 20 },
           { header: 'ชื่อเล่น', key: 'nickname', width: 12 },
           { header: 'แผนก', key: 'department', width: 20 },
@@ -1070,7 +1083,6 @@ export default function AdminEquipmentReportsPage() {
           { header: 'Serial Number', key: 'serialNumber', width: 20 },
           { header: 'Phone Number', key: 'phoneNumber', width: 15 },
           { header: 'จำนวน', key: 'quantity', width: 10 },
-          { header: 'ความเร่งด่วน', key: 'urgency', width: 12 },
           { header: 'สถานที่จัดส่ง', key: 'deliveryLocation', width: 20 },
           { header: 'เหตุผลการเบิก', key: 'reason', width: 30 },
           { header: 'สถานะการดำเนินการ', key: 'actionStatus', width: 18 },
@@ -1105,6 +1117,7 @@ export default function AdminEquipmentReportsPage() {
           worksheet.addRow({
             no: index + 1,
             requestDate: log.requestDate ? new Date(log.requestDate).toLocaleDateString('th-TH', { timeZone: 'Asia/Bangkok' }) : '-',
+            urgency: log.urgency === 'very_urgent' ? 'ด่วนมาก' : 'ปกติ',
             requester: log.firstName && log.lastName ? `${log.firstName} ${log.lastName}` : 'Unknown User',
             nickname: log.nickname || '-',
             department: log.department || '-',
@@ -1118,7 +1131,6 @@ export default function AdminEquipmentReportsPage() {
             serialNumber: serialNumbers,
             phoneNumber: phoneNumbers,
             quantity: item.quantity,
-            urgency: log.urgency === 'very_urgent' ? 'ด่วนมาก' : 'ปกติ',
             deliveryLocation: log.deliveryLocation || '-',
             reason: item.itemNotes || '-',
             actionStatus: isApproved ? 'เสร็จสิ้น' : 'รอดำเนินการ',
@@ -1772,6 +1784,9 @@ export default function AdminEquipmentReportsPage() {
                       วันที่เบิก
                     </th>
                     <th className="px-6 py-3 text-center text-xs font-medium text-white uppercase tracking-wider">
+                      ความเร่งด่วน
+                    </th>
+                    <th className="px-6 py-3 text-center text-xs font-medium text-white uppercase tracking-wider">
                       ชื่อผู้เบิก
                     </th>
                     <th className="px-6 py-3 text-center text-xs font-medium text-white uppercase tracking-wider">
@@ -1809,9 +1824,6 @@ export default function AdminEquipmentReportsPage() {
                     </th>
                     <th className="px-6 py-3 text-center text-xs font-medium text-white uppercase tracking-wider">
                       จำนวน
-                    </th>
-                    <th className="px-6 py-3 text-center text-xs font-medium text-white uppercase tracking-wider">
-                      ความเร่งด่วน
                     </th>
                     <th className="px-6 py-3 text-center text-xs font-medium text-white uppercase tracking-wider">
                       สถานที่จัดส่ง
@@ -1852,6 +1864,16 @@ export default function AdminEquipmentReportsPage() {
                         {/* วันที่เบิก */}
                         <td className="px-6 py-4 text-sm text-gray-500 text-center text-selectable">
                           {requestLog.requestDate ? new Date(requestLog.requestDate).toLocaleDateString('th-TH', { timeZone: 'Asia/Bangkok' }) : '-'}
+                        </td>
+                        {/* ความเร่งด่วน */}
+                        <td className="px-6 py-4 whitespace-nowrap text-center">
+                          <span className={`inline-flex px-2 py-1 text-xs font-semibold rounded-full ${
+                            requestLog.urgency === 'very_urgent' 
+                              ? 'bg-red-100 text-red-800' 
+                              : 'bg-gray-100 text-gray-800'
+                          }`}>
+                            {requestLog.urgency === 'very_urgent' ? 'ด่วนมาก' : 'ปกติ'}
+                          </span>
                         </td>
                         {/* ชื่อผู้เบิก */}
                         <td className="px-6 py-4 text-sm text-center text-selectable">
@@ -1995,16 +2017,6 @@ export default function AdminEquipmentReportsPage() {
                         {/* จำนวน */}
                         <td className="px-6 py-4 text-sm text-gray-500 text-center text-selectable">
                           {item.quantity}
-                        </td>
-                        {/* ความเร่งด่วน */}
-                        <td className="px-6 py-4 whitespace-nowrap text-center">
-                          <span className={`inline-flex px-2 py-1 text-xs font-semibold rounded-full ${
-                            requestLog.urgency === 'very_urgent' 
-                              ? 'bg-red-100 text-red-800' 
-                              : 'bg-gray-100 text-gray-800'
-                          }`}>
-                            {requestLog.urgency === 'very_urgent' ? 'ด่วนมาก' : 'ปกติ'}
-                          </span>
                         </td>
                         {/* สถานที่จัดส่ง */}
                         <td className="px-6 py-4 text-sm text-gray-500 text-center text-selectable">

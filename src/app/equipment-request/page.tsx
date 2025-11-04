@@ -459,7 +459,7 @@ export default function EquipmentRequestPage() {
         // Reset form
         setIsSubmitted(false);
         setFormData({
-          requestDate: '',
+          requestDate: new Date().toISOString().split('T')[0], // Today's date as default
           urgency: 'normal',
           deliveryLocation: '',
           firstName: '',
