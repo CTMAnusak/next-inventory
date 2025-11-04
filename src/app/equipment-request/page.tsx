@@ -941,8 +941,8 @@ export default function EquipmentRequestPage() {
                 
                 {/* หมายเหตุอธิบาย */}
                 <div className="px-3 pb-3">
-                  <div className="text-xs text-gray-500 bg-blue-50 p-2 rounded border-l-4 border-blue-200">
-                    <div className="font-medium text-blue-800 mb-1">💡 หมายเหตุ:</div>
+                  <div className="text-xs text-gray-500 bg-yellow-50 p-2 rounded border-l-4 border-yellow-200">
+                    <div className="font-medium text-orange-500 mb-1">💡 หมายเหตุ:</div>
                     <div>เฉพาะอุปกรณ์ที่อยู่ในรายการนี้เท่านั้นที่จะถูกส่งเบิก กรุณาเพิ่มรายการอุปกรณ์ที่ต้องการเบิกให้ครบถ้วนก่อนกดบันทึก</div>
                   </div>
                 </div>

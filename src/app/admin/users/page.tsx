@@ -16,7 +16,8 @@ import {
   Building,
   Phone,
   Mail,
-  Download
+  Download,
+  Loader2
 } from 'lucide-react';
 import { toast } from 'react-hot-toast';
 import { customToast } from '@/lib/custom-toast';
@@ -86,6 +87,10 @@ export default function AdminUsersPage() {
   const [showPendingDeletionModal, setShowPendingDeletionModal] = useState(false);
   const [pendingDeletionUser, setPendingDeletionUser] = useState<User | null>(null);
   const [userEquipment, setUserEquipment] = useState<any[]>([]);
+  
+  // States สำหรับ loading ของแต่ละ action
+  const [editingUserId, setEditingUserId] = useState<string | null>(null);
+  const [deletingUserId, setDeletingUserId] = useState<string | null>(null);
 
   // Search and filter states
   const [searchTerm, setSearchTerm] = useState('');
@@ -316,26 +321,35 @@ export default function AdminUsersPage() {
     }
   };
 
-  const handleEdit = (user: User) => {
-    setEditingUser(user);
-    setFormData({
-      firstName: user.firstName || '',
-      lastName: user.lastName || '',
-      nickname: user.nickname || '',
-      department: user.department || '',
-      office: user.office,
-      phone: user.phone || '',
-      email: user.email,
-      password: '',
-      userType: user.userType,
-      userRole: user.userRole
-    });
-    setShowEditModal(true);
+  const handleEdit = async (user: User) => {
+    setEditingUserId(user._id || null);
+    try {
+      // จำลองการโหลดเล็กน้อยเพื่อให้เห็นแอนิเมชัน (ถ้ามีการ fetch ข้อมูลเพิ่มเติมในอนาคต)
+      await new Promise(resolve => setTimeout(resolve, 100));
+      
+      setEditingUser(user);
+      setFormData({
+        firstName: user.firstName || '',
+        lastName: user.lastName || '',
+        nickname: user.nickname || '',
+        department: user.department || '',
+        office: user.office,
+        phone: user.phone || '',
+        email: user.email,
+        password: '',
+        userType: user.userType,
+        userRole: user.userRole
+      });
+      setShowEditModal(true);
+    } finally {
+      setEditingUserId(null);
+    }
   };
 
   const handleDelete = async (id: string) => {
     if (!confirm('คุณต้องการลบผู้ใช้นี้หรือไม่?')) return;
 
+    setDeletingUserId(id);
     try {
       const response = await fetch(`/api/admin/users/${id}`, {
         method: 'DELETE',
@@ -405,6 +419,8 @@ export default function AdminUsersPage() {
       }
     } catch (error) {
       toast.error('เกิดข้อผิดพลาดในการเชื่อมต่อ');
+    } finally {
+      setDeletingUserId(null);
     }
   };
 
@@ -981,19 +997,29 @@ export default function AdminUsersPage() {
                           <>
                             <button
                               onClick={() => handleEdit(user)}
-                              className="text-blue-600 hover:text-blue-900 p-1"
+                              disabled={editingUserId === user._id || deletingUserId === user._id}
+                              className="text-blue-600 hover:text-blue-900 p-1 disabled:opacity-50 disabled:cursor-not-allowed"
                               title={user.isMainAdmin ? "แก้ไขข้อมูล (Admin หลัก - ไม่สามารถลบได้)" : "แก้ไขข้อมูล"}
                             >
-                              <Edit className="w-4 h-4" />
+                              {editingUserId === user._id ? (
+                                <Loader2 className="w-4 h-4 animate-spin" />
+                              ) : (
+                                <Edit className="w-4 h-4" />
+                              )}
                             </button>
                             {/* Hide delete button for Main Admin */}
                             {!user.isMainAdmin && (
                               <button
                                 onClick={() => handleDelete(user._id!)}
-                                className="text-red-600 hover:text-red-900 p-1"
+                                disabled={editingUserId === user._id || deletingUserId === user._id}
+                                className="text-red-600 hover:text-red-900 p-1 disabled:opacity-50 disabled:cursor-not-allowed"
                                 title="ลบผู้ใช้"
                               >
-                                <Trash2 className="w-4 h-4" />
+                                {deletingUserId === user._id ? (
+                                  <Loader2 className="w-4 h-4 animate-spin" />
+                                ) : (
+                                  <Trash2 className="w-4 h-4" />
+                                )}
                               </button>
                             )}
                           </>
