@@ -120,7 +120,7 @@ export default function ITTrackingPage() {
     }
   }, [user]);
 
-  // Initialize drag scrolling - reinitialize when table is rendered
+  // Initialize drag scrolling - reinitialize when table is rendered or tab changes
   useEffect(() => {
     // Wait for table to be rendered
     if (isLoading || issues.length === 0) return;
@@ -128,9 +128,18 @@ export default function ITTrackingPage() {
     const element = tableContainerRef.current;
     if (!element) return;
 
-    const cleanup = enableDragScroll(element);
-    return cleanup;
-  }, [isLoading, issues.length]);
+    let cleanup: (() => void) | undefined;
+
+    // Small delay to ensure table is fully rendered after tab change
+    const timer = setTimeout(() => {
+      cleanup = enableDragScroll(element);
+    }, 100);
+
+    return () => {
+      clearTimeout(timer);
+      if (cleanup) cleanup();
+    };
+  }, [isLoading, issues.length, activeTab]);
 
   const fetchUserIssues = async () => {
     setIsLoading(true);
