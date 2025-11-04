@@ -381,7 +381,7 @@ export default function AdminEquipmentTrackingPage() {
   return (
     <Layout>
       <div className="max-w-full mx-auto">
-        <div className="bg-white/90 backdrop-blur-sm rounded-2xl shadow-xl p-8 border border-white/50">
+        <div className="bg-white/90 backdrop-blur-sm rounded-2xl shadow-xl px-4 py-6 md:p-8 border border-white/50">
           {/* Header */}
           <div className="flex justify-between items-center mb-6  flex-col lg:flex-row ">
             <div className="text-center lg:text-left mb-5 lg:mb-0">
@@ -430,7 +430,7 @@ export default function AdminEquipmentTrackingPage() {
                   type="text"
                   value={searchTerm}
                   onChange={(e) => setSearchTerm(e.target.value)}
-                  className="w-full pl-10 pr-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 text-gray-900 text-lg"
+                  className="w-full pl-10 pr-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 text-gray-900"
                   placeholder="ชื่อ, นามสกุล, ชื่อเล่น"
                 />
               </div>
@@ -446,7 +446,7 @@ export default function AdminEquipmentTrackingPage() {
                   type="text"
                   value={itemNameFilter}
                   onChange={(e) => setItemNameFilter(e.target.value)}
-                  className="w-full pl-10 pr-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 text-gray-900 text-lg"
+                  className="w-full pl-10 pr-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 text-gray-900"
                   placeholder="ชื่ออุปกรณ์"
                 />
               </div>
@@ -455,7 +455,7 @@ export default function AdminEquipmentTrackingPage() {
 
           {/* Advanced Filters */}
           {showFilters && (
-            <div className="bg-gray-50 rounded-lg p-6 mb-6 space-y-4">
+            <div className="bg-gray-100 rounded-lg p-6 mb-6 space-y-4">
               <div className="flex justify-between items-center">
                 <h3 className="text-lg font-semibold text-gray-900">ฟิลเตอร์ขั้นสูง</h3>
                 <button
