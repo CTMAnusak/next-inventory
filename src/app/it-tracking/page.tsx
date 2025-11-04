@@ -9,6 +9,7 @@ import { handleAuthError } from '@/lib/auth-error-handler';
 import { enableDragScroll } from '@/lib/drag-scroll';
 import AuthGuard from '@/components/AuthGuard';
 import SearchableSelect from '@/components/SearchableSelect';
+import DatePicker from '@/components/DatePicker';
 
 interface IssueItem {
   _id: string;
@@ -71,11 +72,15 @@ export default function ITTrackingPage() {
   const [selectedImage, setSelectedImage] = useState<string | null>(null);
 
   // Filter states
-  const [searchTerm, setSearchTerm] = useState('');
+  const [searchTerm, setSearchTerm] = useState(''); // Issue ID only
+  const [nameFilter, setNameFilter] = useState(''); // ชื่อ, นามสกุล, ชื่อเล่น
+  const [emailFilter, setEmailFilter] = useState(''); // อีเมล
+  const [phoneFilter, setPhoneFilter] = useState(''); // เบอร์โทรศัพท์
   const [urgencyFilter, setUrgencyFilter] = useState('');
   const [categoryFilter, setCategoryFilter] = useState('');
   const [adminFilter, setAdminFilter] = useState('');
   const [statusFilter, setStatusFilter] = useState('');
+  const [dateFilter, setDateFilter] = useState(''); // วันที่แจ้งงาน
   const [showFilters, setShowFilters] = useState(false);
 
   // Drag scroll ref
@@ -225,17 +230,38 @@ export default function ITTrackingPage() {
       if (issue.status !== 'closed') return false;
     }
 
-    // Filter by search term (Issue ID, ชื่อ-นามสกุล, ชื่อเล่น, เบอร์, อีเมล)
+    // Filter by Issue ID only
     if (searchTerm) {
       const searchLower = searchTerm.toLowerCase();
-      const matchesSearch = 
-        issue.issueId.toLowerCase().includes(searchLower) ||
-        `${issue.firstName} ${issue.lastName}`.toLowerCase().includes(searchLower) ||
-        (issue.nickname && issue.nickname.toLowerCase().includes(searchLower)) ||
-        issue.phone.includes(searchTerm) ||
-        issue.email.toLowerCase().includes(searchLower);
+      if (!issue.issueId.toLowerCase().includes(searchLower)) return false;
+    }
+
+    // Filter by name (ชื่อ, นามสกุล, ชื่อเล่น)
+    if (nameFilter) {
+      const nameLower = nameFilter.toLowerCase();
+      const matchesName = 
+        (issue.firstName && issue.firstName.toLowerCase().includes(nameLower)) ||
+        (issue.lastName && issue.lastName.toLowerCase().includes(nameLower)) ||
+        (issue.nickname && issue.nickname.toLowerCase().includes(nameLower));
       
-      if (!matchesSearch) return false;
+      if (!matchesName) return false;
+    }
+
+    // Filter by email
+    if (emailFilter) {
+      const emailLower = emailFilter.toLowerCase();
+      if (!issue.email.toLowerCase().includes(emailLower)) return false;
+    }
+
+    // Filter by phone
+    if (phoneFilter) {
+      if (!issue.phone.includes(phoneFilter)) return false;
+    }
+
+    // Filter by date (วันที่แจ้งงาน)
+    if (dateFilter) {
+      const issueDate = new Date(issue.reportDate).toISOString().split('T')[0];
+      if (issueDate !== dateFilter) return false;
     }
 
     // Filter by urgency
@@ -276,7 +302,7 @@ export default function ITTrackingPage() {
   // Reset to page 1 when changing tabs or filters
   useEffect(() => {
     setCurrentPage(1);
-  }, [activeTab, searchTerm, urgencyFilter, categoryFilter, adminFilter, statusFilter]);
+  }, [activeTab, searchTerm, nameFilter, emailFilter, phoneFilter, dateFilter, urgencyFilter, categoryFilter, adminFilter, statusFilter]);
 
   // Get unique admins from issues
   const getUniqueAdmins = () => {
@@ -349,11 +375,11 @@ export default function ITTrackingPage() {
           {/* Filters */}
           {showFilters && (
             <div className="px-6 pb-4 border-b border-gray-200">
-              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 2xl:grid-cols-5 gap-4">
-                {/* Search Filter */}
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 2xl:grid-cols-4 gap-4">
+                {/* Search Issue ID Filter */}
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-1">
-                    ค้นหา (Issue ID, ชื่อ, เบอร์, อีเมล)
+                    ค้นหา Issue ID
                   </label>
                   <div className="relative">
                     <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-4 h-4" />
@@ -361,6 +387,57 @@ export default function ITTrackingPage() {
                       type="text"
                       value={searchTerm}
                       onChange={(e) => setSearchTerm(e.target.value)}
+                      placeholder="พิมพ์เพื่อค้นหา..."
+                      className="w-full pl-10 pr-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 text-gray-900"
+                    />
+                  </div>
+                </div>
+
+                {/* Name Filter */}
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">
+                    ค้นหา ชื่อ, นามสกุล, ชื่อเล่น
+                  </label>
+                  <div className="relative">
+                    <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-4 h-4" />
+                    <input
+                      type="text"
+                      value={nameFilter}
+                      onChange={(e) => setNameFilter(e.target.value)}
+                      placeholder="พิมพ์เพื่อค้นหา..."
+                      className="w-full pl-10 pr-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 text-gray-900"
+                    />
+                  </div>
+                </div>
+
+                {/* Email Filter */}
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">
+                    ค้นหา อีเมล
+                  </label>
+                  <div className="relative">
+                    <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-4 h-4" />
+                    <input
+                      type="text"
+                      value={emailFilter}
+                      onChange={(e) => setEmailFilter(e.target.value)}
+                      placeholder="พิมพ์เพื่อค้นหา..."
+                      className="w-full pl-10 pr-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 text-gray-900"
+                    />
+                  </div>
+                </div>
+
+                {/* Phone Filter */}
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">
+                    ค้นหาเบอร์
+                  </label>
+                  <div className="relative">
+                    <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-4 h-4" />
+                    <input
+                      type="text"
+                      value={phoneFilter}
+                      onChange={(e) => setPhoneFilter(e.target.value)}
                       placeholder="พิมพ์เพื่อค้นหา..."
                       className="w-full pl-10 pr-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 text-gray-900"
                     />
@@ -421,14 +498,30 @@ export default function ITTrackingPage() {
                     placeholder="ทั้งหมด"
                   />
                 </div>
+
+                {/* Date Filter */}
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">
+                    วันที่แจ้งงาน
+                  </label>
+                  <DatePicker
+                    value={dateFilter}
+                    onChange={(date) => setDateFilter(date)}
+                    placeholder="dd/mm/yyyy"
+                  />
+                </div>
               </div>
 
               {/* Clear Filters Button */}
-              {(searchTerm || urgencyFilter || categoryFilter || adminFilter || statusFilter) && (
+              {(searchTerm || nameFilter || emailFilter || phoneFilter || dateFilter || urgencyFilter || categoryFilter || adminFilter || statusFilter) && (
                 <div className="mt-4 flex justify-end">
                   <button
                     onClick={() => {
                       setSearchTerm('');
+                      setNameFilter('');
+                      setEmailFilter('');
+                      setPhoneFilter('');
+                      setDateFilter('');
                       setUrgencyFilter('');
                       setCategoryFilter('');
                       setAdminFilter('');

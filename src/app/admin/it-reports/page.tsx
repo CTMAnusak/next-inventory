@@ -106,10 +106,14 @@ export default function AdminITReportsPage() {
   const [sendingWork, setSendingWork] = useState(false);
 
   // Search and filter states
-  const [searchTerm, setSearchTerm] = useState('');
+  const [searchTerm, setSearchTerm] = useState(''); // Issue ID only
+  const [nameFilter, setNameFilter] = useState(''); // ชื่อ, นามสกุล, ชื่อเล่น
+  const [emailFilter, setEmailFilter] = useState(''); // อีเมล
+  const [phoneFilter, setPhoneFilter] = useState(''); // เบอร์โทรศัพท์
   const [urgencyFilter, setUrgencyFilter] = useState('');
   const [categoryFilter, setCategoryFilter] = useState('');
-  const [dateFilter, setDateFilter] = useState('');
+  const [adminFilter, setAdminFilter] = useState(''); // IT Admin ผู้รับงาน
+  const [dateFilter, setDateFilter] = useState(''); // วันที่แจ้งงาน
 
   // Pagination
   const [currentPage, setCurrentPage] = useState(1);
@@ -150,7 +154,7 @@ export default function AdminITReportsPage() {
 
   useEffect(() => {
     applyFilters();
-  }, [issues, activeTab, searchTerm, urgencyFilter, categoryFilter, dateFilter]);
+  }, [issues, activeTab, searchTerm, nameFilter, emailFilter, phoneFilter, urgencyFilter, categoryFilter, adminFilter, dateFilter]);
 
   // Handle escape key to close image modal
   useEffect(() => {
@@ -200,12 +204,23 @@ export default function AdminITReportsPage() {
       // Filter by tab
       if (issue.status !== activeTab) return false;
 
-      // Search filter
+      // Filter by Issue ID only
       const matchesSearch = !searchTerm || 
-        issue.issueId.toLowerCase().includes(searchTerm.toLowerCase()) ||
-        (issue.firstName && issue.firstName.toLowerCase().includes(searchTerm.toLowerCase())) ||
-        (issue.lastName && issue.lastName.toLowerCase().includes(searchTerm.toLowerCase())) ||
-        issue.description.toLowerCase().includes(searchTerm.toLowerCase());
+        issue.issueId.toLowerCase().includes(searchTerm.toLowerCase());
+
+      // Filter by name (ชื่อ, นามสกุล, ชื่อเล่น)
+      const matchesName = !nameFilter || 
+        (issue.firstName && issue.firstName.toLowerCase().includes(nameFilter.toLowerCase())) ||
+        (issue.lastName && issue.lastName.toLowerCase().includes(nameFilter.toLowerCase())) ||
+        (issue.nickname && issue.nickname.toLowerCase().includes(nameFilter.toLowerCase()));
+
+      // Filter by email
+      const matchesEmail = !emailFilter || 
+        issue.email.toLowerCase().includes(emailFilter.toLowerCase());
+
+      // Filter by phone
+      const matchesPhone = !phoneFilter || 
+        issue.phone.includes(phoneFilter);
 
       // Urgency filter
       const matchesUrgency = !urgencyFilter || issue.urgency === urgencyFilter;
@@ -213,11 +228,15 @@ export default function AdminITReportsPage() {
       // Category filter
       const matchesCategory = !categoryFilter || issue.issueCategory === categoryFilter;
 
-      // Date filter
+      // Admin filter (IT Admin ผู้รับงาน)
+      const matchesAdmin = !adminFilter || 
+        (adminFilter === 'unassigned' ? !issue.assignedAdmin?.name : issue.assignedAdmin?.name === adminFilter);
+
+      // Date filter (วันที่แจ้งงาน)
       const matchesDate = !dateFilter || 
         new Date(issue.reportDate).toISOString().split('T')[0] === dateFilter;
 
-      return matchesSearch && matchesUrgency && matchesCategory && matchesDate;
+      return matchesSearch && matchesName && matchesEmail && matchesPhone && matchesUrgency && matchesCategory && matchesAdmin && matchesDate;
     });
 
     // Sort by urgency and date
@@ -665,6 +684,17 @@ export default function AdminITReportsPage() {
       <span className="inline-flex px-2 py-1 text-xs font-semibold rounded-full bg-gray-100 text-gray-800">ปกติ</span>;
   };
 
+  // Get unique admins from issues
+  const getUniqueAdmins = () => {
+    const admins = new Set<string>();
+    issues.forEach(issue => {
+      if (issue.assignedAdmin?.name) {
+        admins.add(issue.assignedAdmin.name);
+      }
+    });
+    return Array.from(admins).sort();
+  };
+
   // Pagination
   const totalPages = Math.ceil(filteredIssues.length / itemsPerPage);
   const startIndex = (currentPage - 1) * itemsPerPage;
@@ -715,9 +745,10 @@ export default function AdminITReportsPage() {
           {showFilters && (
             <div className="bg-gray-50 rounded-lg p-4 mb-6 space-y-4">
               <div className="grid max-[768px]:grid-cols-1 max-[1120px]:grid-cols-2 grid-cols-4 gap-4">
+                {/* Search Issue ID */}
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-1">
-                    ค้นหา
+                    ค้นหา Issue ID
                   </label>
                   <div className="relative">
                     <Search className="absolute left-3 top-2.5 h-4 w-4 text-gray-400" />
@@ -726,10 +757,63 @@ export default function AdminITReportsPage() {
                       value={searchTerm}
                       onChange={(e) => setSearchTerm(e.target.value)}
                       className="w-full pl-10 pr-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 text-gray-900"
-                      placeholder="Issue ID, ชื่อ, รายละเอียด"
+                      placeholder="พิมพ์เพื่อค้นหา..."
                     />
                   </div>
                 </div>
+
+                {/* Name Filter */}
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">
+                    ค้นหา ชื่อ-นามสกุล (ชื่อเล่น)
+                  </label>
+                  <div className="relative">
+                    <Search className="absolute left-3 top-2.5 h-4 w-4 text-gray-400" />
+                    <input
+                      type="text"
+                      value={nameFilter}
+                      onChange={(e) => setNameFilter(e.target.value)}
+                      className="w-full pl-10 pr-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 text-gray-900"
+                      placeholder="พิมพ์เพื่อค้นหา..."
+                    />
+                  </div>
+                </div>
+
+                {/* Email Filter */}
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">
+                    ค้นหาอีเมล
+                  </label>
+                  <div className="relative">
+                    <Search className="absolute left-3 top-2.5 h-4 w-4 text-gray-400" />
+                    <input
+                      type="text"
+                      value={emailFilter}
+                      onChange={(e) => setEmailFilter(e.target.value)}
+                      className="w-full pl-10 pr-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 text-gray-900"
+                      placeholder="พิมพ์เพื่อค้นหา..."
+                    />
+                  </div>
+                </div>
+
+                {/* Phone Filter */}
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">
+                    ค้นหาเบอร์
+                  </label>
+                  <div className="relative">
+                    <Search className="absolute left-3 top-2.5 h-4 w-4 text-gray-400" />
+                    <input
+                      type="text"
+                      value={phoneFilter}
+                      onChange={(e) => setPhoneFilter(e.target.value)}
+                      className="w-full pl-10 pr-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 text-gray-900"
+                      placeholder="พิมพ์เพื่อค้นหา..."
+                    />
+                  </div>
+                </div>
+
+                {/* Urgency Filter */}
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-1">
                     ความเร่งด่วน
@@ -744,9 +828,11 @@ export default function AdminITReportsPage() {
                     placeholder="ทั้งหมด"
                   />
                 </div>
+
+                {/* Category Filter */}
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-1">
-                    หมวดหมู่
+                    หัวข้อปัญหา
                   </label>
                   <SearchableSelect
                     options={categories.map(category => ({ value: category, label: category }))}
@@ -755,9 +841,27 @@ export default function AdminITReportsPage() {
                     placeholder="ทั้งหมด"
                   />
                 </div>
+
+                {/* Admin Filter */}
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-1">
-                    วันที่
+                    ผู้รับผิดชอบ
+                  </label>
+                  <SearchableSelect
+                    options={[
+                      { value: 'unassigned', label: 'รอรับงาน' },
+                      ...getUniqueAdmins().map(admin => ({ value: admin, label: admin }))
+                    ]}
+                    value={adminFilter}
+                    onChange={setAdminFilter}
+                    placeholder="ทั้งหมด"
+                  />
+                </div>
+
+                {/* Date Filter */}
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">
+                    วันที่แจ้งงาน
                   </label>
                   <DatePicker
                     value={dateFilter}
@@ -766,6 +870,28 @@ export default function AdminITReportsPage() {
                   />
                 </div>
               </div>
+
+              {/* Clear Filters Button */}
+              {(searchTerm || nameFilter || emailFilter || phoneFilter || urgencyFilter || categoryFilter || adminFilter || dateFilter) && (
+                <div className="flex justify-end">
+                  <button
+                    onClick={() => {
+                      setSearchTerm('');
+                      setNameFilter('');
+                      setEmailFilter('');
+                      setPhoneFilter('');
+                      setUrgencyFilter('');
+                      setCategoryFilter('');
+                      setAdminFilter('');
+                      setDateFilter('');
+                    }}
+                    className="inline-flex items-center px-3 py-1.5 text-sm text-gray-600 hover:text-gray-800 border border-gray-300 rounded-md hover:bg-gray-50"
+                  >
+                    <X className="w-4 h-4 mr-1" />
+                    ล้างฟิลเตอร์ทั้งหมด
+                  </button>
+                </div>
+              )}
             </div>
           )}
 
