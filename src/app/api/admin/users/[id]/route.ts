@@ -158,27 +158,34 @@ export async function PUT(
     }
 
     // ✅ Check for duplicate data - collect all errors first (excluding current user)
+    // ตรวจสอบทั้ง user ที่อนุมัติแล้วและรอการอนุมัติ
     const duplicateErrors = [];
 
-    // Check email
+    // Check email (ตรวจสอบทั้ง approved และ pending users)
     const existingUserByEmail = await User.findOne({ 
       email, 
       _id: { $ne: id } 
     });
     if (existingUserByEmail) {
-      duplicateErrors.push('อีเมลล์นี้มีอยู่ในระบบแล้ว');
+      const statusText = existingUserByEmail.isApproved === false 
+        ? ' (รวมถึงที่รอการอนุมัติ)' 
+        : '';
+      duplicateErrors.push(`อีเมลล์นี้มีอยู่ในระบบแล้ว${statusText}`);
     }
 
-    // Check phone number
+    // Check phone number (ตรวจสอบทั้ง approved และ pending users)
     const existingUserByPhone = await User.findOne({ 
       phone, 
       _id: { $ne: id } 
     });
     if (existingUserByPhone) {
-      duplicateErrors.push('เบอร์โทรศัพท์นี้มีผู้ใช้งานในระบบแล้ว');
+      const statusText = existingUserByPhone.isApproved === false 
+        ? ' (รวมถึงที่รอการอนุมัติ)' 
+        : '';
+      duplicateErrors.push(`เบอร์โทรศัพท์นี้มีผู้ใช้งานในระบบแล้ว${statusText}`);
     }
 
-    // Check full name for individual users
+    // Check full name for individual users (ตรวจสอบทั้ง approved และ pending users)
     if (userType === 'individual' && firstName && lastName) {
       const existingUserByName = await User.findOne({ 
         firstName,
@@ -186,7 +193,10 @@ export async function PUT(
         _id: { $ne: id }
       });
       if (existingUserByName) {
-        duplicateErrors.push(`ชื่อ-นามสกุล "${firstName} ${lastName}" มีผู้ใช้งานในระบบแล้ว`);
+        const statusText = existingUserByName.isApproved === false 
+          ? ' (รวมถึงที่รอการอนุมัติ)' 
+          : '';
+        duplicateErrors.push(`ชื่อ-นามสกุล "${firstName} ${lastName}" มีผู้ใช้งานในระบบแล้ว${statusText}`);
       }
     }
 

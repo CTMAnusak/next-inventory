@@ -112,6 +112,14 @@ export default function AdminUsersPage() {
     userRole: 'user'
   });
 
+  // Field errors state for duplicate validation
+  const [fieldErrors, setFieldErrors] = useState<{
+    email?: boolean;
+    phone?: boolean;
+    firstName?: boolean;
+    lastName?: boolean;
+  }>({});
+
   // Pagination
   const [currentPage, setCurrentPage] = useState(1);
   const itemsPerPage = 20;
@@ -187,6 +195,15 @@ export default function AdminUsersPage() {
 
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) => {
     const { name, value } = e.target;
+    
+    // Clear field error when user starts typing
+    if (fieldErrors[name as keyof typeof fieldErrors]) {
+      setFieldErrors(prev => {
+        const newErrors = { ...prev };
+        delete newErrors[name as keyof typeof fieldErrors];
+        return newErrors;
+      });
+    }
     
     // Validation for phone number
     if (name === 'phone') {
@@ -281,10 +298,28 @@ export default function AdminUsersPage() {
         toast.success(editingUser ? 'อัพเดตข้อมูลเรียบร้อยแล้ว' : 'เพิ่มผู้ใช้เรียบร้อยแล้ว');
         await fetchUsers();
         resetForm();
+        setFieldErrors({}); // Clear field errors on success
         setShowAddModal(false);
         setShowEditModal(false);
       } else {
         const data = await response.json();
+        
+        // Parse duplicate errors and set field errors
+        const newFieldErrors: typeof fieldErrors = {};
+        if (data.duplicateFields && Array.isArray(data.duplicateFields)) {
+          data.duplicateFields.forEach((errorMsg: string) => {
+            if (errorMsg.includes('อีเมลล์')) {
+              newFieldErrors.email = true;
+            } else if (errorMsg.includes('เบอร์โทรศัพท์')) {
+              newFieldErrors.phone = true;
+            } else if (errorMsg.includes('ชื่อ-นามสกุล')) {
+              newFieldErrors.firstName = true;
+              newFieldErrors.lastName = true;
+            }
+          });
+        }
+        setFieldErrors(newFieldErrors);
+        
         // Check if it's a duplicate error with multiple fields
         if (data.duplicateFields && data.duplicateFields.length > 1) {
           // Show detailed error for multiple duplicates
@@ -340,6 +375,7 @@ export default function AdminUsersPage() {
         userType: user.userType,
         userRole: user.userRole
       });
+      setFieldErrors({}); // Clear field errors when opening edit modal
       setShowEditModal(true);
     } finally {
       setEditingUserId(null);
@@ -544,6 +580,7 @@ export default function AdminUsersPage() {
       userRole: 'user'
     });
     setEditingUser(null);
+    setFieldErrors({}); // Clear field errors when resetting form
   };
 
   const handleExportExcel = () => {
@@ -721,6 +758,7 @@ export default function AdminUsersPage() {
               <button
                 onClick={() => {
                   resetForm();
+                  setFieldErrors({}); // Clear field errors when opening add modal
                   setShowAddModal(true);
                 }}
                 className="flex justify-center items-center space-x-2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
@@ -1080,7 +1118,10 @@ export default function AdminUsersPage() {
               <div className="flex justify-between items-center mb-6">
                 <h3 className="text-xl font-bold text-gray-900">เพิ่มผู้ใช้ใหม่</h3>
                 <button
-                  onClick={() => setShowAddModal(false)}
+                  onClick={() => {
+                    setShowAddModal(false);
+                    setFieldErrors({}); // Clear field errors when closing modal
+                  }}
                   className="text-gray-400 hover:text-gray-600"
                 >
                   <X className="w-6 h-6" />
@@ -1135,7 +1176,13 @@ export default function AdminUsersPage() {
                           name="firstName"
                           value={formData.firstName}
                           onChange={handleInputChange}
-                          className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 text-gray-900"
+                          data-error={fieldErrors.firstName ? "true" : "false"}
+                          style={fieldErrors.firstName ? { backgroundColor: '#fef2f2' } : { backgroundColor: '#ffffff' }}
+                          className={`w-full px-3 py-2 border rounded-md focus:outline-none focus:ring-2 text-gray-900 ${
+                            fieldErrors.firstName 
+                              ? 'border-red-500 focus:ring-red-500' 
+                              : 'border-gray-300 focus:ring-blue-500'
+                          }`}
                           required
                         />
                       </div>
@@ -1149,7 +1196,13 @@ export default function AdminUsersPage() {
                           name="lastName"
                           value={formData.lastName}
                           onChange={handleInputChange}
-                          className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 text-gray-900"
+                          data-error={fieldErrors.lastName ? "true" : "false"}
+                          style={fieldErrors.lastName ? { backgroundColor: '#fef2f2' } : { backgroundColor: '#ffffff' }}
+                          className={`w-full px-3 py-2 border rounded-md focus:outline-none focus:ring-2 text-gray-900 ${
+                            fieldErrors.lastName 
+                              ? 'border-red-500 focus:ring-red-500' 
+                              : 'border-gray-300 focus:ring-blue-500'
+                          }`}
                           required
                         />
                       </div>
@@ -1211,7 +1264,13 @@ export default function AdminUsersPage() {
                        name="phone"
                        value={formData.phone}
                        onChange={handleInputChange}
-                       className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 text-gray-900"
+                       data-error={fieldErrors.phone ? "true" : "false"}
+                       style={fieldErrors.phone ? { backgroundColor: '#fef2f2' } : { backgroundColor: '#ffffff' }}
+                       className={`w-full px-3 py-2 border rounded-md focus:outline-none focus:ring-2 text-gray-900 ${
+                         fieldErrors.phone 
+                           ? 'border-red-500 focus:ring-red-500' 
+                           : 'border-gray-300 focus:ring-blue-500'
+                       }`}
                        placeholder={formData.email === 'vexclusive.it@gmail.com' ? '000-000-0000' : '0812345678'}
                        pattern={formData.email === 'vexclusive.it@gmail.com' ? undefined : '[0-9]{10}'}
                        maxLength={formData.email === 'vexclusive.it@gmail.com' ? 13 : 10}
@@ -1229,7 +1288,13 @@ export default function AdminUsersPage() {
                       name="email"
                       value={formData.email}
                       onChange={handleInputChange}
-                      className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 text-gray-900"
+                      data-error={fieldErrors.email ? "true" : "false"}
+                      style={fieldErrors.email ? { backgroundColor: '#fef2f2' } : { backgroundColor: '#ffffff' }}
+                      className={`w-full px-3 py-2 border rounded-md focus:outline-none focus:ring-2 text-gray-900 ${
+                        fieldErrors.email 
+                          ? 'border-red-500 focus:ring-red-500' 
+                          : 'border-gray-300 focus:ring-blue-500'
+                      }`}
                       placeholder="example@email.com"
                       title="กรุณากรอกอีเมลล์ให้ถูกต้อง"
                       required
@@ -1255,7 +1320,10 @@ export default function AdminUsersPage() {
                 <div className="flex justify-end space-x-3 pt-4">
                   <button
                     type="button"
-                    onClick={() => setShowAddModal(false)}
+                    onClick={() => {
+                      setShowAddModal(false);
+                      setFieldErrors({}); // Clear field errors when canceling
+                    }}
                     className="px-4 py-2 text-gray-600 hover:text-gray-800 hover:bg-gray-100 rounded-lg transition-colors"
                   >
                     ยกเลิก
@@ -1281,7 +1349,10 @@ export default function AdminUsersPage() {
               <div className="flex justify-between items-center mb-6">
                 <h3 className="text-xl font-semibold text-gray-900">แก้ไขผู้ใช้</h3>
                 <button
-                  onClick={() => setShowEditModal(false)}
+                  onClick={() => {
+                    setShowEditModal(false);
+                    setFieldErrors({}); // Clear field errors when closing modal
+                  }}
                   className="text-gray-400 hover:text-gray-600"
                 >
                   <X className="w-6 h-6" />
@@ -1336,7 +1407,13 @@ export default function AdminUsersPage() {
                           name="firstName"
                           value={formData.firstName}
                           onChange={handleInputChange}
-                          className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 text-gray-900"
+                          data-error={fieldErrors.firstName ? "true" : "false"}
+                          style={fieldErrors.firstName ? { backgroundColor: '#fef2f2' } : { backgroundColor: '#ffffff' }}
+                          className={`w-full px-3 py-2 border rounded-md focus:outline-none focus:ring-2 text-gray-900 ${
+                            fieldErrors.firstName 
+                              ? 'border-red-500 focus:ring-red-500' 
+                              : 'border-gray-300 focus:ring-blue-500'
+                          }`}
                           required
                         />
                       </div>
@@ -1350,7 +1427,13 @@ export default function AdminUsersPage() {
                           name="lastName"
                           value={formData.lastName}
                           onChange={handleInputChange}
-                          className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 text-gray-900"
+                          data-error={fieldErrors.lastName ? "true" : "false"}
+                          style={fieldErrors.lastName ? { backgroundColor: '#fef2f2' } : { backgroundColor: '#ffffff' }}
+                          className={`w-full px-3 py-2 border rounded-md focus:outline-none focus:ring-2 text-gray-900 ${
+                            fieldErrors.lastName 
+                              ? 'border-red-500 focus:ring-red-500' 
+                              : 'border-gray-300 focus:ring-blue-500'
+                          }`}
                           required
                         />
                       </div>
@@ -1412,7 +1495,13 @@ export default function AdminUsersPage() {
                        name="phone"
                        value={formData.phone}
                        onChange={handleInputChange}
-                       className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 text-gray-900"
+                       data-error={fieldErrors.phone ? "true" : "false"}
+                       style={fieldErrors.phone ? { backgroundColor: '#fef2f2' } : { backgroundColor: '#ffffff' }}
+                       className={`w-full px-3 py-2 border rounded-md focus:outline-none focus:ring-2 text-gray-900 ${
+                         fieldErrors.phone 
+                           ? 'border-red-500 focus:ring-red-500' 
+                           : 'border-gray-300 focus:ring-blue-500'
+                       }`}
                        placeholder={formData.email === 'vexclusive.it@gmail.com' ? '000-000-0000' : '0812345678'}
                        pattern={formData.email === 'vexclusive.it@gmail.com' ? undefined : '[0-9]{10}'}
                        maxLength={formData.email === 'vexclusive.it@gmail.com' ? 13 : 10}
@@ -1430,7 +1519,13 @@ export default function AdminUsersPage() {
                       name="email"
                       value={formData.email}
                       onChange={handleInputChange}
-                      className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 text-gray-900"
+                      data-error={fieldErrors.email ? "true" : "false"}
+                      style={fieldErrors.email ? { backgroundColor: '#fef2f2' } : { backgroundColor: '#ffffff' }}
+                      className={`w-full px-3 py-2 border rounded-md focus:outline-none focus:ring-2 text-gray-900 ${
+                        fieldErrors.email 
+                          ? 'border-red-500 focus:ring-red-500' 
+                          : 'border-gray-300 focus:ring-blue-500'
+                      }`}
                       placeholder="example@email.com"
                       title="กรุณากรอกอีเมลล์ให้ถูกต้อง"
                       required
@@ -1456,7 +1551,10 @@ export default function AdminUsersPage() {
                 <div className="flex justify-end space-x-3 pt-4">
                   <button
                     type="button"
-                    onClick={() => setShowEditModal(false)}
+                    onClick={() => {
+                      setShowEditModal(false);
+                      setFieldErrors({}); // Clear field errors when canceling
+                    }}
                     className="px-4 py-2 text-gray-600 hover:text-gray-800 hover:bg-gray-100 rounded-lg transition-colors"
                   >
                     ยกเลิก

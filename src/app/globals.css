@@ -146,7 +146,20 @@ textarea,
 select {
   color: #111827 !important; /* text-gray-900 */
   background-color: #ffffff !important; /* bg-white */
+  -webkit-box-shadow: 0 0 0 30px #ffffff inset !important; /* Override autofill background */
+  box-shadow: 0 0 0 30px #ffffff inset !important;
 }
+
+/* Override autofill styles completely */
+input:-webkit-autofill,
+input:-webkit-autofill:hover,
+input:-webkit-autofill:focus,
+input:-webkit-autofill:active {
+  -webkit-box-shadow: 0 0 0 30px #ffffff inset !important;
+  box-shadow: 0 0 0 30px #ffffff inset !important;
+  background-color: #ffffff !important;
+}
+
 
 input[type="text"]::placeholder,
 input[type="email"]::placeholder,
@@ -163,6 +176,28 @@ textarea:focus,
 select:focus {
   color: #111827 !important; /* text-gray-900 */
   background-color: #ffffff !important; /* bg-white */
+}
+
+/* Override background for error states - allow red background for validation errors */
+/* Use higher specificity to override autofill and default styles */
+input[type="text"][data-error="true"],
+input[type="email"][data-error="true"],
+input[type="tel"][data-error="true"],
+input[type="text"][data-error="true"]:focus,
+input[type="email"][data-error="true"]:focus,
+input[type="tel"][data-error="true"]:focus,
+input[type="text"][data-error="true"]:-webkit-autofill,
+input[type="email"][data-error="true"]:-webkit-autofill,
+input[type="tel"][data-error="true"]:-webkit-autofill,
+input[type="text"][data-error="true"]:-webkit-autofill:hover,
+input[type="email"][data-error="true"]:-webkit-autofill:hover,
+input[type="tel"][data-error="true"]:-webkit-autofill:hover,
+input[type="text"][data-error="true"]:-webkit-autofill:focus,
+input[type="email"][data-error="true"]:-webkit-autofill:focus,
+input[type="tel"][data-error="true"]:-webkit-autofill:focus {
+  background-color: #fef2f2 !important; /* bg-red-50 */
+  -webkit-box-shadow: 0 0 0 30px #fef2f2 inset !important; /* Override autofill yellow background */
+  box-shadow: 0 0 0 30px #fef2f2 inset !important;
 }
 
 /* Select dropdown options */

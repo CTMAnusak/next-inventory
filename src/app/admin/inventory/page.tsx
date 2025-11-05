@@ -1625,41 +1625,16 @@ export default function AdminInventoryPage() {
       // Close stock modal after edit item operation
       closeStockModal();
       
-      // Clear cache and refresh table like clicking refresh button
+      // Automatically trigger refresh button functionality (clear cache + sync + refresh table)
+      // This ensures the table is refreshed with latest data after editing/deleting items
       setTimeout(async () => {
         try {
-          setBreakdownData({});
-          setBreakdownRefreshCounter(prev => prev + 1);
-          await fetchInventory();
+          await refreshAndClearCache();
         } catch (error) {
           console.warn('⚠️ Failed to refresh table after edit item:', error);
-        }
-      }, 100); // Quick refresh after modal closes
-
-      // If this was a delete operation, close the entire stock modal and refresh main inventory
-      if (isDelete) {
-        
-        // Close the stock modal completely
-        closeStockModal();
-        
-        // Show loading toast while refreshing
-        const loadingToast = toast.loading('🔄 กำลังอัพเดทข้อมูล...');
-        
-        try {
-          // Refresh main inventory data
-          await fetchInventory();
-          
-          // Dismiss loading toast and show success
-          toast.dismiss(loadingToast);
-        } catch (refreshError) {
-          // Dismiss loading toast and show error
-          toast.dismiss(loadingToast);
-          console.warn('⚠️ Failed to refresh main inventory after delete:', refreshError);
           toast.error('ข้อมูลอาจไม่เป็นปัจจุบัน กรุณารีเฟรชหน้า');
         }
-      } else {
-        // For edit operations, just show success - modal will close and refresh automatically
-      }
+      }, 300); // Small delay to ensure modal closes properly before refreshing
 
     } catch (error) {
       console.error('Error saving item:', error);
