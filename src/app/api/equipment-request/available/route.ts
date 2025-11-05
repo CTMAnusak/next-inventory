@@ -51,8 +51,8 @@ export async function GET(request: NextRequest) {
       query.itemName = { $regex: search, $options: 'i' };
     }
     
-    // Only get InventoryMasters with available inventory
-    query.availableQuantity = { $gt: 0 };
+    // ✅ แก้ไข: ดึงอุปกรณ์ทั้งหมดในหมวดหมู่นี้ (รวมที่ availableQuantity = 0)
+    // ไม่กรอง availableQuantity > 0 เพื่อให้แสดงอุปกรณ์ที่ไม่พร้อมเบิกด้วย
     
     // Get InventoryMasters directly
     const inventoryMasters = await InventoryMaster.find(query)
@@ -74,30 +74,29 @@ export async function GET(request: NextRequest) {
         deletedAt: { $exists: false }
       });
       
-      // ข้ามรายการที่ไม่มีอุปกรณ์พร้อมใช้งาน
-      if (actualAvailableCount === 0) {
-        continue;
-      }
+      // ✅ แก้ไข: ไม่ข้ามรายการที่มี availableQuantity = 0 เพื่อให้แสดงอุปกรณ์ที่ไม่พร้อมเบิก
+      // แต่จะตั้งค่า availableQuantity เป็น 0 และ isAvailable เป็น false
       
-      // Get sample available items for detailed info
-      const sampleItems = await InventoryItem.find({
+      // Get sample available items for detailed info (ถ้ามี)
+      const sampleItems = actualAvailableCount > 0 ? await InventoryItem.find({
         itemName: inventoryMaster.itemName,
         categoryId: inventoryMaster.categoryId,
         'currentOwnership.ownerType': 'admin_stock',
         statusId: availableStatusId,
         conditionId: workingConditionId,
         deletedAt: { $exists: false }
-      }).limit(3);
+      }).limit(3) : [];
       
     availableItems.push({
       itemMasterId: String(inventoryMaster._id), // Legacy compatibility
       itemName: inventoryMaster.itemName,
       categoryId: inventoryMaster.categoryId,
       hasSerialNumber: (inventoryMaster.itemDetails.withSerialNumber as any)?.count > 0 || false,
-        availableQuantity: actualAvailableCount, // ✅ ใช้จำนวนที่นับจากอุปกรณ์ที่กรองแล้ว
+        availableQuantity: actualAvailableCount, // ✅ ใช้จำนวนที่นับจากอุปกรณ์ที่กรองแล้ว (อาจเป็น 0)
         totalQuantity: inventoryMaster.totalQuantity,
         statusBreakdown: inventoryMaster.statusBreakdown,
         itemDetails: inventoryMaster.itemDetails,
+        isAvailable: actualAvailableCount > 0, // ✅ เพิ่ม flag เพื่อบอกว่าพร้อมเบิกหรือไม่
         // Include some sample items for display
         sampleItems: sampleItems.map(item => ({
           id: item._id,

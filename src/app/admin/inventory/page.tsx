@@ -3177,7 +3177,7 @@ export default function AdminInventoryPage() {
                   <label className="block text-sm font-medium text-gray-700 mb-1">
                     ช่วงเวลา
                   </label>
-                  <div className="grid grid-cols-2 gap-2">
+                  <div className="grid grid-cols-3 gap-2">
                     <div>
                       <SearchableSelect
                         options={monthOptions}
@@ -3194,44 +3194,44 @@ export default function AdminInventoryPage() {
                         placeholder="ปี พ.ศ."
                       />
                     </div>
+                    <div>
+                      <select
+                        value={stockDisplayMode}
+                        onChange={(e) => {
+                          const mode = e.target.value as 'all' | 'low_stock';
+                          setStockDisplayMode(mode);
+                          // Update lowStockFilter based on mode
+                          if (mode === 'all') {
+                            setLowStockFilter(null);
+                          } else {
+                            setLowStockFilter(lowStockThreshold);
+                          }
+                        }}
+                        className="w-full px-3 py-2 text-sm border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-gray-900"
+                      >
+                        <option value="all">เลือกจำนวนที่เบิกได้</option>
+                        <option value="low_stock">สินค้าใกล้หมด ≤</option>
+                      </select>
+                      {stockDisplayMode === 'low_stock' && (
+                        <div className="flex items-center space-x-2 mt-2">
+                          <input
+                            type="number"
+                            min="0"
+                            value={lowStockThreshold}
+                            onChange={(e) => {
+                              const value = parseInt(e.target.value) || 0;
+                              setLowStockThreshold(value);
+                              setLowStockFilter(value);
+                            }}
+                            placeholder="0"
+                            className="w-16 px-2 py-1 text-sm border border-gray-300 rounded focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                          />
+                          <span className="text-sm text-gray-700">ชิ้น</span>
+                        </div>
+                      )}
+                    </div>
                   </div>
                 </div>
-              </div>
-              <div className="flex items-center space-x-2">
-                <select
-                  value={stockDisplayMode}
-                  onChange={(e) => {
-                    const mode = e.target.value as 'all' | 'low_stock';
-                    setStockDisplayMode(mode);
-                    // Update lowStockFilter based on mode
-                    if (mode === 'all') {
-                      setLowStockFilter(null);
-                    } else {
-                      setLowStockFilter(lowStockThreshold);
-                    }
-                  }}
-                  className="px-3 py-1 text-sm border border-gray-300 rounded focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-                >
-                  <option value="all">แสดงจำนวนเบิกได้</option>
-                  <option value="low_stock">สินค้าใกล้หมด ≤</option>
-                </select>
-                {stockDisplayMode === 'low_stock' && (
-                  <>
-                    <input
-                      type="number"
-                      min="0"
-                      value={lowStockThreshold}
-                      onChange={(e) => {
-                        const value = parseInt(e.target.value) || 0;
-                        setLowStockThreshold(value);
-                        setLowStockFilter(value);
-                      }}
-                      placeholder="0"
-                      className="w-16 px-2 py-1 text-sm border border-gray-300 rounded focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-                    />
-                    <span className="text-sm text-gray-700">ชิ้น</span>
-                  </>
-                )}
               </div>
             </div>
           )}

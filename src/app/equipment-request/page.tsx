@@ -25,6 +25,7 @@ interface InventoryItem {
   price: number;
   quantity: number;
   serialNumber?: string;
+  isAvailable?: boolean; // ✅ เพิ่ม flag เพื่อบอกว่าพร้อมเบิกหรือไม่
 }
 
 interface ICategoryConfig {
@@ -132,17 +133,19 @@ export default function EquipmentRequestPage() {
             category: item.categoryId, // For backward compatibility
             quantity: item.availableQuantity,
             price: 0,
-            serialNumber: item.sampleItems?.[0]?.serialNumber || ''
+            serialNumber: item.sampleItems?.[0]?.serialNumber || '',
+            isAvailable: item.isAvailable === true // ✅ เก็บ flag isAvailable จาก API (ถ้าไม่มีค่าให้เป็น false)
           }));
           
           setInventoryItems(items);
           
-          // Group items by categoryId ONLY - กรองเฉพาะอุปกรณ์ที่มีสถานะ "มี" และสภาพ "ใช้งานได้"
+          // Group items by categoryId - รวมอุปกรณ์ที่พร้อมเบิกและไม่พร้อมเบิก
           const grouped: {[key: string]: string[]} = {};
           availableItems.forEach((item: any) => {
             const categoryId = item.categoryId;
             
-            if (categoryId && item.availableQuantity > 0) {
+            // ✅ แก้ไข: รวมอุปกรณ์ทั้งหมด (รวมที่ availableQuantity = 0)
+            if (categoryId) {
               if (!grouped[categoryId]) {
                 grouped[categoryId] = [];
               }
@@ -710,25 +713,47 @@ export default function EquipmentRequestPage() {
                                 <div className="max-h-48 overflow-auto">
                                   {filtered.length > 0 ? (
                                     filtered.map((itemName) => {
-                                      const availableQty = inventoryItems
-                                        .filter(i => i.itemName === itemName && i.quantity > 0)
-                                        .reduce((sum, i) => sum + i.quantity, 0);
-                                      const label = `${itemName} (คงเหลือ: ${availableQty > 0 ? availableQty : 0} ชิ้น)`;
+                                      // ✅ หาอุปกรณ์ที่ตรงกับชื่อ
                                       const selectedItem = inventoryItems.find(i => i.itemName === itemName);
+                                      
+                                      // ✅ ตรวจสอบว่าอุปกรณ์นี้พร้อมเบิกหรือไม่ (ใช้ isAvailable flag จาก API)
+                                      // ถ้าไม่พบ item ใน inventoryItems ให้ถือว่าไม่พร้อมเบิก
+                                      const isAvailable = selectedItem?.isAvailable === true;
+                                      const availableQty = selectedItem?.quantity || 0;
+                                      
                                       const itemId = selectedItem ? String(selectedItem._id) : '';
+                                      
                                       return (
                                         <div
                                           key={itemName}
                                           onClick={async () => {
-                                            if (itemId) {
+                                            // ✅ ไม่อนุญาตให้เลือกอุปกรณ์ที่ไม่พร้อมเบิก
+                                            if (itemId && isAvailable) {
                                               await handleItemSelect(itemId);
                                               setShowItemSelector(false);
                                               setItemSearchTerm('');
+                                            } else {
+                                              toast.error('อุปกรณ์นี้ยังไม่พร้อมเบิก กรุณารอสั่งซื้อ');
                                             }
                                           }}
-                                          className="px-3 py-2 hover:bg-blue-50 cursor-pointer border-b border-gray-100 text-gray-900"
+                                          className={`px-3 py-2 border-b border-gray-100 ${
+                                            isAvailable 
+                                              ? 'hover:bg-blue-50 cursor-pointer text-gray-900' 
+                                              : 'cursor-not-allowed text-gray-900'
+                                          }`}
                                         >
-                                          {label}
+                                          {isAvailable ? (
+                                            // ✅ อุปกรณ์ที่พร้อมเบิก - แสดงปกติ
+                                            <span>{itemName} (คงเหลือ: {availableQty} ชิ้น)</span>
+                                          ) : (
+                                            // ✅ อุปกรณ์ที่ไม่พร้อมเบิก - แยกสีข้อความ
+                                            <span>
+                                              {itemName} (คงเหลือ: 0 ชิ้น) 
+                                              <span className="ml-2 px-2 py-0.5 text-xs font-medium text-orange-600 bg-yellow-100 rounded-md">
+                                                รอสั่งซื้อ
+                                              </span>
+                                            </span>
+                                          )}
                                         </div>
                                       );
                                     })
