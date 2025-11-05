@@ -492,7 +492,7 @@ export async function snapshotIssueLogsBeforeUserDelete(userId: string): Promise
     await dbConnect();
 
     // ดึงข้อมูลผู้ใช้เพื่อ snapshot
-    const user = await User.findOne({ user_id: userId }).select('userType firstName lastName nickname department office phone email');
+    const user = await User.findOne({ user_id: userId }).select('userType firstName lastName nickname department office officeId officeName phone email');
     
     if (!user) {
       console.warn(`User ${userId} not found for snapshot`);
@@ -508,6 +508,10 @@ export async function snapshotIssueLogsBeforeUserDelete(userId: string): Promise
     // Snapshot ข้อมูลผู้แจ้ง (requester) ในทุก IssueLog ที่ requesterId ตรงกัน
     // สำหรับ IssueLog ข้อมูลผู้แจ้งจะถูก snapshot ใน firstName, lastName, nickname, department, office, phone, email
     // ข้อมูลเหล่านี้จะถูก populate จาก User ตอนแสดงผล แต่ตอนลบ User ต้อง snapshot ไว้ก่อน
+    // 🆕 Populate office name จาก officeId หรือ officeName
+    const userOffice = user.officeName || user.office || '';
+    const userOfficeId = user.officeId || undefined;
+    
     if (user.userType === 'individual') {
       // ผู้ใช้บุคคล: Snapshot ทุกข้อมูล
       const requesterResult = await IssueLog.updateMany(
@@ -518,7 +522,9 @@ export async function snapshotIssueLogsBeforeUserDelete(userId: string): Promise
             lastName: user.lastName || '',
             nickname: user.nickname || '',
             department: user.department || '',
-            office: user.office || '',
+            office: userOffice, // 🆕 ใช้ officeName ที่ populate แล้ว
+            officeId: userOfficeId, // 🆕 Snapshot officeId
+            officeName: userOffice, // 🆕 Snapshot officeName
             phone: user.phone || '',
             email: user.email || ''
           }
@@ -526,14 +532,16 @@ export async function snapshotIssueLogsBeforeUserDelete(userId: string): Promise
       );
       requesterModified = requesterResult.modifiedCount;
     } else if (user.userType === 'branch') {
-      // ผู้ใช้สาขา: Snapshot เฉพาะข้อมูลสาขา (office, email)
+      // ผู้ใช้สาขา: Snapshot เฉพาะข้อมูลสาขา (office, officeId, officeName, email)
       // ❌ ไม่แตะ: firstName, lastName, nickname, department, phone
       // เพราะข้อมูลเหล่านี้มาจากฟอร์มที่กรอกแต่ละครั้ง
       const requesterResult = await IssueLog.updateMany(
         { requesterId: userId },
         {
           $set: {
-            office: user.office || '',
+            office: userOffice, // 🆕 ใช้ officeName ที่ populate แล้ว
+            officeId: userOfficeId, // 🆕 Snapshot officeId
+            officeName: userOffice, // 🆕 Snapshot officeName
             email: user.email || ''
           }
         }
@@ -542,9 +550,10 @@ export async function snapshotIssueLogsBeforeUserDelete(userId: string): Promise
     }
 
     // Snapshot ข้อมูลผู้รับงาน (assignedAdmin) ในทุก IssueLog ที่ assignedAdminId ตรงกัน
+    // 🆕 ใช้ officeName ที่ populate แล้วสำหรับ admin name
     const adminName = user.userType === 'individual' 
       ? `${user.firstName || ''} ${user.lastName || ''}`.trim() || user.nickname || ''
-      : user.office || '';
+      : userOffice || '';
     
     const adminEmail = user.email || '';
 

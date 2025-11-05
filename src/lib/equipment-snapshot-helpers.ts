@@ -4,6 +4,7 @@ import InventoryMaster from '@/models/InventoryMaster';
 import RequestLog from '@/models/RequestLog';
 import ReturnLog from '@/models/ReturnLog';
 import TransferLog from '@/models/TransferLog';
+import InventoryItem from '@/models/InventoryItem';
 
 /**
  * =========================================
@@ -77,7 +78,7 @@ export async function snapshotRequestLogsBeforeUserDelete(userId: string) {
     const userName = await getUserName(userId);
     
     // ดึงข้อมูลผู้ใช้เพื่อ snapshot
-    const user = await User.findOne({ user_id: userId }).select('userType firstName lastName nickname department office phone email');
+    const user = await User.findOne({ user_id: userId }).select('userType firstName lastName nickname department office officeId officeName phone email');
     
     let totalModified = 0;
     
@@ -86,6 +87,10 @@ export async function snapshotRequestLogsBeforeUserDelete(userId: string) {
       // แยกการ snapshot ตาม userType
       let updateFields: any = {};
       
+      // 🆕 Populate office name จาก officeId หรือ officeName
+      const userOffice = user.officeName || user.office || '';
+      const userOfficeId = user.officeId || undefined;
+      
       if (user.userType === 'individual') {
         // ผู้ใช้บุคคล: Snapshot ทุกข้อมูล
         updateFields = {
@@ -93,14 +98,18 @@ export async function snapshotRequestLogsBeforeUserDelete(userId: string) {
           requesterLastName: user.lastName || '',
           requesterNickname: user.nickname || '',
           requesterDepartment: user.department || '',
-          requesterOffice: user.office || '',
+          requesterOffice: userOffice, // 🆕 ใช้ officeName ที่ populate แล้ว
+          requesterOfficeId: userOfficeId, // 🆕 Snapshot officeId
+          requesterOfficeName: userOffice, // 🆕 Snapshot officeName
           requesterPhone: user.phone || '',
           requesterEmail: user.email || ''
         };
       } else if (user.userType === 'branch') {
         // ผู้ใช้สาขา: Snapshot เฉพาะข้อมูลสาขา (ห้ามแตะข้อมูลส่วนตัว)
         updateFields = {
-          requesterOffice: user.office || '',
+          requesterOffice: userOffice, // 🆕 ใช้ officeName ที่ populate แล้ว
+          requesterOfficeId: userOfficeId, // 🆕 Snapshot officeId
+          requesterOfficeName: userOffice, // 🆕 Snapshot officeName
           requesterEmail: user.email || ''
           // ❌ ไม่แตะ: firstName, lastName, nickname, department, phone
           // เพราะข้อมูลเหล่านี้มาจากฟอร์มที่กรอกแต่ละครั้ง
@@ -159,7 +168,7 @@ export async function snapshotReturnLogsBeforeUserDelete(userId: string) {
     const userName = await getUserName(userId);
     
     // ดึงข้อมูลผู้ใช้เพื่อ snapshot
-    const user = await User.findOne({ user_id: userId }).select('userType firstName lastName nickname department office phone email');
+    const user = await User.findOne({ user_id: userId }).select('userType firstName lastName nickname department office officeId officeName phone email');
     
     let modifiedCount = 0;
     
@@ -168,6 +177,10 @@ export async function snapshotReturnLogsBeforeUserDelete(userId: string) {
       // แยกการ snapshot ตาม userType
       let updateFields: any = {};
       
+      // 🆕 Populate office name จาก officeId หรือ officeName
+      const userOffice = user.officeName || user.office || '';
+      const userOfficeId = user.officeId || undefined;
+      
       if (user.userType === 'individual') {
         // ผู้ใช้บุคคล: Snapshot ทุกข้อมูล
         updateFields = {
@@ -175,14 +188,18 @@ export async function snapshotReturnLogsBeforeUserDelete(userId: string) {
           returnerLastName: user.lastName || '',
           returnerNickname: user.nickname || '',
           returnerDepartment: user.department || '',
-          returnerOffice: user.office || '',
+          returnerOffice: userOffice, // 🆕 ใช้ officeName ที่ populate แล้ว
+          returnerOfficeId: userOfficeId, // 🆕 Snapshot officeId
+          returnerOfficeName: userOffice, // 🆕 Snapshot officeName
           returnerPhone: user.phone || '',
           returnerEmail: user.email || ''
         };
       } else if (user.userType === 'branch') {
         // ผู้ใช้สาขา: Snapshot เฉพาะข้อมูลสาขา (ห้ามแตะข้อมูลส่วนตัว)
         updateFields = {
-          returnerOffice: user.office || '',
+          returnerOffice: userOffice, // 🆕 ใช้ officeName ที่ populate แล้ว
+          returnerOfficeId: userOfficeId, // 🆕 Snapshot officeId
+          returnerOfficeName: userOffice, // 🆕 Snapshot officeName
           returnerEmail: user.email || ''
           // ❌ ไม่แตะ: firstName, lastName, nickname, department, phone
           // เพราะข้อมูลเหล่านี้มาจากฟอร์มที่กรอกแต่ละครั้ง
@@ -298,6 +315,69 @@ export async function snapshotTransferLogsBeforeUserDelete(userId: string) {
 }
 
 /**
+ * Snapshot InventoryItem requesterInfo ก่อนลบ User
+ * - Snapshot ข้อมูลผู้ใช้ใน requesterInfo สำหรับอุปกรณ์ที่ user เพิ่มเอง
+ * - ใช้สำหรับหน้า /equipment-tracking
+ */
+export async function snapshotInventoryItemRequesterInfoBeforeUserDelete(userId: string) {
+  try {
+    // ดึงข้อมูลผู้ใช้เพื่อ snapshot
+    const user = await User.findOne({ user_id: userId }).select('userType firstName lastName nickname department office officeId officeName phone email');
+    
+    if (!user) {
+      console.warn(`User ${userId} not found for InventoryItem snapshot`);
+      return { success: true, modifiedCount: 0 };
+    }
+    
+    // 🆕 Populate office name จาก officeId หรือ officeName
+    const userOffice = user.officeName || user.office || '';
+    const userOfficeId = user.officeId || undefined;
+    
+    let updateFields: any = {};
+    let modifiedCount = 0;
+    
+    // แยกการ snapshot ตาม userType
+    if (user.userType === 'individual') {
+      // ผู้ใช้บุคคล: Snapshot ทุกข้อมูลใน requesterInfo
+      updateFields = {
+        'requesterInfo.firstName': user.firstName || '',
+        'requesterInfo.lastName': user.lastName || '',
+        'requesterInfo.nickname': user.nickname || '',
+        'requesterInfo.department': user.department || '',
+        'requesterInfo.office': userOffice, // 🆕 ใช้ officeName ที่ populate แล้ว
+        'requesterInfo.officeId': userOfficeId, // 🆕 Snapshot officeId
+        'requesterInfo.officeName': userOffice, // 🆕 Snapshot officeName
+        'requesterInfo.phone': user.phone || ''
+      };
+    } else if (user.userType === 'branch') {
+      // ผู้ใช้สาขา: Snapshot เฉพาะข้อมูลสาขา (ห้ามแตะข้อมูลส่วนตัว)
+      // ❌ ไม่แตะ: firstName, lastName, nickname, department, phone
+      // เพราะข้อมูลเหล่านี้มาจากฟอร์มที่กรอกแต่ละครั้ง
+      updateFields = {
+        'requesterInfo.office': userOffice, // 🆕 ใช้ officeName ที่ populate แล้ว
+        'requesterInfo.officeId': userOfficeId, // 🆕 Snapshot officeId
+        'requesterInfo.officeName': userOffice // 🆕 Snapshot officeName
+      };
+    }
+    
+    // Snapshot ใน InventoryItem ที่ user นี้เป็นผู้เพิ่ม (sourceInfo.addedByUserId)
+    const inventoryItemResult = await InventoryItem.updateMany(
+      { 'sourceInfo.addedByUserId': userId },
+      { $set: updateFields }
+    );
+    modifiedCount = inventoryItemResult.modifiedCount;
+    
+    console.log(`✅ Snapshot ${modifiedCount} InventoryItems requesterInfo (user: ${userId})`);
+    console.log(`   - User Type: ${user.userType}`);
+    
+    return { success: true, modifiedCount };
+  } catch (error) {
+    console.error('Error snapshotting InventoryItem requesterInfo:', error);
+    return { success: false, error, modifiedCount: 0 };
+  }
+}
+
+/**
  * Snapshot ทุก Equipment Logs ก่อนลบ User
  */
 export async function snapshotEquipmentLogsBeforeUserDelete(userId: string) {
@@ -306,7 +386,8 @@ export async function snapshotEquipmentLogsBeforeUserDelete(userId: string) {
   const results = {
     requestLogs: await snapshotRequestLogsBeforeUserDelete(userId),
     returnLogs: await snapshotReturnLogsBeforeUserDelete(userId),
-    transferLogs: await snapshotTransferLogsBeforeUserDelete(userId)
+    transferLogs: await snapshotTransferLogsBeforeUserDelete(userId),
+    inventoryItems: await snapshotInventoryItemRequesterInfoBeforeUserDelete(userId) // 🆕 Snapshot InventoryItem requesterInfo
   };
   
   return results;
