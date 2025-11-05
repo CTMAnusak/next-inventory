@@ -15,7 +15,8 @@ export interface IIssueLog extends Document {
   phone: string;
   email: string;
   department: string;
-  office: string; // สาขา/ออฟฟิศ
+  office: string; // สาขา/ออฟฟิศ (สำหรับ backward compatibility)
+  officeName?: string; // 🆕 Office Name (populated field)
   
   issueCategory: string; // หัวข้อปัญหา
   customCategory?: string; // สำหรับ "อื่น ๆ (โปรดระบุ)"
@@ -91,7 +92,8 @@ const IssueLogSchema = new Schema<IIssueLog>({
   phone: { type: String, required: true },
   email: { type: String, required: true },
   department: { type: String, required: true },
-  office: { type: String, required: true },
+  office: { type: String, required: true }, // เก็บไว้สำหรับ backward compatibility
+  officeName: { type: String }, // 🆕 Office Name (populated field)
   issueCategory: { 
     type: String, 
     required: true,

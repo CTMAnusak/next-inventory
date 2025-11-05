@@ -40,7 +40,34 @@ export async function PUT(
     // Fields สำหรับยกเลิก pending deletion
     pendingDeletion, pendingDeletionReason, pendingDeletionRequestedBy, pendingDeletionRequestedAt
   } = body;
+  let { officeId } = body; // เปลี่ยนเป็น let เพื่อให้สามารถกำหนดค่าใหม่ได้
   const { id } = await params;
+
+  // 🐛 Debug: Log officeId ที่ได้รับ
+  console.log('🔍 PUT /api/admin/users/[id] - Received officeId:', officeId, 'office:', office);
+
+  // 🆕 ดึง office name จาก Office collection ถ้ามี officeId
+  let officeName = office; // default fallback
+  if (officeId && officeId.trim() !== '' && officeId !== 'UNSPECIFIED_OFFICE') {
+    const Office = (await import('@/models/Office')).default;
+    const officeDoc = await Office.findOne({ office_id: officeId, deletedAt: null });
+    if (officeDoc) {
+      officeName = officeDoc.name;
+      console.log('✅ Found office:', officeDoc.name, 'for officeId:', officeId);
+    } else {
+      // ถ้าไม่เจอ office ให้ใช้ default
+      console.log('⚠️ Office not found, using default. officeId:', officeId);
+      officeId = 'UNSPECIFIED_OFFICE';
+      officeName = 'ไม่ระบุสาขา';
+    }
+  } else if (!officeId || officeId.trim() === '') {
+    // ถ้าไม่มี officeId ให้ใช้ default
+    console.log('⚠️ No officeId provided, using default');
+    officeId = 'UNSPECIFIED_OFFICE';
+    officeName = 'ไม่ระบุสาขา';
+  } else if (officeId === 'UNSPECIFIED_OFFICE') {
+    officeName = 'ไม่ระบุสาขา';
+  }
 
     // ตรวจสอบว่าเป็นการยกเลิก pending deletion หรือไม่
     if (pendingDeletion !== undefined) {
@@ -98,14 +125,14 @@ export async function PUT(
 
     // Validate required fields based on user type (สำหรับการแก้ไขข้อมูลปกติ)
     if (userType === 'individual') {
-      if (!firstName || !lastName || !nickname || !department || !office || !phone || !email) {
+      if (!firstName || !lastName || !nickname || !department || (!officeId && !office) || !phone || !email) {
         return NextResponse.json(
           { error: 'กรุณากรอกข้อมูลให้ครบถ้วน' },
           { status: 400 }
         );
       }
     } else {
-      if (!office || !phone || !email) {
+      if ((!officeId && !office) || !phone || !email) {
         return NextResponse.json(
           { error: 'กรุณากรอกข้อมูลให้ครบถ้วน' },
           { status: 400 }
@@ -222,22 +249,46 @@ export async function PUT(
       lastName: userType === 'individual' ? lastName : undefined,
       nickname: userType === 'individual' ? nickname : undefined,
       department: userType === 'individual' ? department : undefined,
-      office,
       phone,
       email,
       userRole: userRole || 'user',
       updatedAt: new Date()
     };
+    
+    // 🆕 อัพเดต officeId และ officeName แบบชัดเจน
+    // เก็บแค่ officeName ใน DB (office เป็น virtual field)
+    if (officeId && officeId.trim() !== '') {
+      updateData.officeId = officeId.trim();
+      updateData.officeName = officeName; // ใช้ officeName เป็นหลัก (เก็บแค่อันเดียวใน DB)
+      console.log('✅ Setting officeId:', officeId, 'officeName:', officeName);
+    } else {
+      // ถ้าไม่มี officeId ให้ใช้ default
+      updateData.officeId = 'UNSPECIFIED_OFFICE';
+      updateData.officeName = 'ไม่ระบุสาขา';
+      console.log('⚠️ No officeId, using default');
+    }
+    
+    console.log('📝 Update data:', JSON.stringify(updateData, null, 2));
 
     // Only update password if provided
     if (password && password.trim()) {
       updateData.password = await hashPassword(password);
     }
 
+    // 🆕 ลบ undefined values ออกก่อน update (เพื่อไม่ให้เกิดปัญหา)
+    const cleanedUpdateData: any = {};
+    Object.keys(updateData).forEach(key => {
+      if (updateData[key] !== undefined) {
+        cleanedUpdateData[key] = updateData[key];
+      }
+    });
+
+    console.log('📝 Cleaned update data:', JSON.stringify(cleanedUpdateData, null, 2));
+
     const updatedUser = await User.findByIdAndUpdate(
       id,
-      updateData,
-      { new: true }
+      { $set: cleanedUpdateData }, // 🆕 ใช้ $set กับ cleaned data
+      { new: true, runValidators: false }
     ).select('-password');
 
     if (!updatedUser) {
@@ -351,7 +402,9 @@ export async function DELETE(
           // สำหรับผู้ใช้ประเภทสาขา ไม่ snapshot ข้อมูลส่วนตัว เพราะใช้ข้อมูลจากฟอร์ม
           ...(userToDelete.userType === 'branch' ? {
             // เฉพาะข้อมูลสาขา
-            office: userToDelete.office,
+            office: userToDelete.office || userToDelete.officeName, // 🆕 ใช้ officeName ถ้าไม่มี office
+            officeId: userToDelete.officeId, // 🆕 Snapshot officeId
+            officeName: userToDelete.officeName || userToDelete.office, // 🆕 Snapshot officeName
             email: userToDelete.email,
             // ❌ ไม่ snapshot phone เพราะมาจากฟอร์มที่กรอกแต่ละครั้ง
           } : {
@@ -360,7 +413,9 @@ export async function DELETE(
             lastName: userToDelete.lastName,
             nickname: userToDelete.nickname,
             department: userToDelete.department,
-            office: userToDelete.office,
+            office: userToDelete.office || userToDelete.officeName, // 🆕 ใช้ officeName ถ้าไม่มี office
+            officeId: userToDelete.officeId, // 🆕 Snapshot officeId
+            officeName: userToDelete.officeName || userToDelete.office, // 🆕 Snapshot officeName
             phone: userToDelete.phone,
             email: userToDelete.email,
           }),

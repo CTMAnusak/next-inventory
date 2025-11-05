@@ -6,6 +6,7 @@ import InventoryMaster from '@/models/InventoryMaster';
 import User from '@/models/User';
 import DeletedUsers from '@/models/DeletedUser';
 import InventoryConfig from '@/models/InventoryConfig';
+import { getOfficeNameById } from '@/lib/office-helpers'; // 🆕 Import helper function
 
 // GET - ดึงข้อมูลการติดตามอุปกรณ์ทั้งหมด (รวมอุปกรณ์ที่เบิกและอุปกรณ์ที่ user มี)
 export async function GET(request: NextRequest) {
@@ -143,8 +144,18 @@ export async function GET(request: NextRequest) {
         let nickname = user?.nickname || '';
         let userDepartment = user?.department || '';
         let userPhone = user?.phone || '';
-        let userOffice = user?.office || '';
+        // 🆕 ใช้ officeName แทน office (office field ถูกลบออกแล้ว)
+        let userOffice = user?.officeName || user?.office || '';
         const isDeletedUser = (user as any)?._isDeleted || false;
+        
+        // 🆕 ถ้าไม่มี officeName แต่มี officeId ให้ populate จาก Office collection
+        if (!userOffice && user?.officeId) {
+          try {
+            userOffice = await getOfficeNameById(user.officeId);
+          } catch (error) {
+            console.error('Error fetching office name:', error);
+          }
+        }
         
         // 🔍 Debug: Log item data
         console.log(`\n📦 Processing item: ${item.itemName} (${item._id})`);
@@ -166,7 +177,8 @@ export async function GET(request: NextRequest) {
             userDepartment = itemRequesterInfo.department || userDepartment;
             userPhone = itemRequesterInfo.phone || userPhone;
             // ⚠️ office ต้องใช้จาก User Collection เสมอ (เพื่อให้อัปเดตตามที่แอดมินแก้ไข)
-            userOffice = user?.office || userOffice;
+            // 🆕 ใช้ officeName แทน office
+            userOffice = user?.officeName || user?.office || userOffice;
           } else {
             // ผู้ใช้ individual: ใช้ข้อมูลจาก requesterInfo ทั้งหมด
             firstName = itemRequesterInfo.firstName || firstName;
@@ -174,21 +186,37 @@ export async function GET(request: NextRequest) {
             nickname = itemRequesterInfo.nickname || nickname;
             userDepartment = itemRequesterInfo.department || userDepartment;
             userPhone = itemRequesterInfo.phone || userPhone;
-            userOffice = itemRequesterInfo.office || userOffice;
+            // 🆕 ใช้ officeName จาก requesterInfo ถ้ามี
+            userOffice = itemRequesterInfo.officeName || itemRequesterInfo.office || userOffice;
           }
         } else if (isDeletedUser && user?.userType === 'branch') {
           // 🆕 สำหรับผู้ใช้สาขาที่ถูกลบ แต่ไม่มี requesterInfo:
           // ใช้ข้อมูลจาก DeletedUsers เฉพาะ office
-          userOffice = user.office || userOffice;
+          // 🆕 ใช้ officeName แทน office
+          userOffice = user.officeName || user.office || userOffice;
         }
         
-        console.log(`   Final data:`, { firstName, lastName, nickname, userDepartment });
+        // 🆕 ถ้ายังไม่มี officeName และมี officeId ให้ populate อีกครั้ง (กรณีที่ requesterInfo ไม่มี officeName)
+        if (!userOffice && user?.officeId) {
+          try {
+            userOffice = await getOfficeNameById(user.officeId);
+          } catch (error) {
+            console.error('Error fetching office name (second attempt):', error);
+          }
+        }
+        
+        // 🆕 Fallback: ถ้ายังไม่มี office ให้ใช้ default
+        if (!userOffice) {
+          userOffice = 'ไม่ระบุสาขา';
+        }
+        
+        console.log(`   Final data:`, { firstName, lastName, nickname, userDepartment, userOffice });
         
         // Determine source: 'request' (เบิก) or 'user-owned' (เพิ่มเอง)
         let source = 'user-owned';
         let dateAdded = item.sourceInfo?.dateAdded || item.currentOwnership?.ownedSince || item.createdAt;
-        let deliveryLocationValue = userOffice || ''; // Default to office
-      
+        let deliveryLocationValue = userOffice || '-'; // 🆕 Default to "-" if no office
+        
         // Check if this item came from a request
         const requestInfo = itemToRequestMap.get(String(item._id));
         
@@ -196,10 +224,16 @@ export async function GET(request: NextRequest) {
           source = 'request';
           if (requestInfo) {
             dateAdded = requestInfo.requestDate;
-            deliveryLocationValue = requestInfo.deliveryLocation || userOffice || '';
+            // 🆕 ใช้ "-" ถ้าไม่มีข้อมูลสถานที่จัดส่ง
+            deliveryLocationValue = requestInfo.deliveryLocation || '-';
           } else if (item.transferInfo?.transferDate) {
             dateAdded = item.transferInfo.transferDate;
           }
+        }
+        
+        // 🆕 ถ้าไม่มีข้อมูลสถานที่จัดส่งเลย ให้ใช้ "-"
+        if (!deliveryLocationValue || deliveryLocationValue.trim() === '') {
+          deliveryLocationValue = '-';
         }
         
         // Apply department and office filters if specified

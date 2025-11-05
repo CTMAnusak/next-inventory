@@ -277,13 +277,18 @@ export default function EquipmentReturnPage() {
 
   // Set office in formData when user data is available
   useEffect(() => {
-    if (user?.office) {
+    if (user?.officeName) {
       setFormData(prev => ({
         ...prev,
-        office: user.office
+        office: user.officeName
+      }));
+    } else if (user?.office) {
+      setFormData(prev => ({
+        ...prev,
+        office: user.office || ''
       }));
     }
-  }, [user?.office]);
+  }, [user?.officeName, user?.office]);
 
   // Re-fetch user items when form data changes for branch users
   useEffect(() => {
@@ -431,7 +436,7 @@ export default function EquipmentReturnPage() {
     }
   };
 
-  const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+  const handleInputChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) => {
     const { name, value } = e.target;
     
     // Validation for phone number
@@ -1182,7 +1187,7 @@ export default function EquipmentReturnPage() {
               formData={{
                 ...formData,
                 email: formData.email || user?.email || '',
-                office: formData.office || user?.office || ''
+                office: formData.office || user?.officeName || user?.office || ''
               }}
               onInputChange={handleInputChange}
               title="ข้อมูลผู้คืนอุปกรณ์"

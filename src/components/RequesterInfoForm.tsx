@@ -1,6 +1,8 @@
 'use client';
 
+import { useState, useEffect } from 'react';
 import { useAuth } from '@/contexts/AuthContext';
+import SearchableSelect from '@/components/SearchableSelect';
 
 interface RequesterInfoFormProps {
   formData: {
@@ -10,18 +12,74 @@ interface RequesterInfoFormProps {
     department: string;
     phone: string;
     office: string;
+    officeId?: string; // 🆕 Office ID
     email?: string;
   };
-  onInputChange: (e: React.ChangeEvent<HTMLInputElement>) => void;
+  onInputChange: (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) => void;
+  onOfficeChange?: (officeId: string) => void; // 🆕 Callback สำหรับเมื่อเลือก office
   showEmail?: boolean;
   title?: string;
   lockPersonalInfo?: boolean; // New prop to lock personal info fields (except phone)
+  lockOffice?: boolean; // 🆕 Prop สำหรับล็อค office field
 }
 
-export default function RequesterInfoForm({ formData, onInputChange, showEmail = false, title = "ข้อมูลผู้ขอเบิก", lockPersonalInfo = false }: RequesterInfoFormProps) {
+export default function RequesterInfoForm({ 
+  formData, 
+  onInputChange, 
+  onOfficeChange,
+  showEmail = false, 
+  title = "ข้อมูลผู้ขอเบิก", 
+  lockPersonalInfo = false,
+  lockOffice = false // 🆕 Default ไม่ล็อค
+}: RequesterInfoFormProps) {
   const { user } = useAuth();
+  const [officeOptions, setOfficeOptions] = useState<Array<{ value: string; label: string }>>([]);
+  const [loadingOffices, setLoadingOffices] = useState(false);
+
+  // ดึงรายการ Office สำหรับ dropdown
+  useEffect(() => {
+    const fetchOffices = async () => {
+      setLoadingOffices(true);
+      try {
+        const response = await fetch('/api/admin/offices');
+        if (response.ok) {
+          const offices = await response.json();
+          setOfficeOptions(offices.map((office: any) => ({
+            value: office.office_id,
+            label: office.name
+          })));
+        }
+      } catch (error) {
+        console.error('Error fetching offices:', error);
+      } finally {
+        setLoadingOffices(false);
+      }
+    };
+
+    fetchOffices();
+  }, []);
 
   if (!user) return null;
+
+  const handleOfficeSelectChange = (officeId: string) => {
+    // หา office name จาก options
+    const selectedOffice = officeOptions.find(opt => opt.value === officeId);
+    
+    // สร้าง synthetic event สำหรับ backward compatibility
+    const syntheticEvent = {
+      target: {
+        name: 'office',
+        value: selectedOffice?.label || officeId
+      }
+    } as React.ChangeEvent<HTMLInputElement>;
+    
+    onInputChange(syntheticEvent);
+    
+    // เรียก callback ถ้ามี
+    if (onOfficeChange) {
+      onOfficeChange(officeId);
+    }
+  };
 
   return (
     <div className="bg-gray-50/50 rounded-xl p-4 border border-gray-200 mb-5">
@@ -50,7 +108,7 @@ export default function RequesterInfoForm({ formData, onInputChange, showEmail =
             </div>
             <div className="bg-white rounded-lg p-3 border border-gray-200">
               <span className="text-xs font-medium text-gray-500 uppercase tracking-wide">ออฟฟิศ/สาขา</span>
-              <p className="text-lg font-medium text-gray-900 mt-1">{user.office || '-'}</p>
+              <p className="text-lg font-medium text-gray-900 mt-1">{user.officeName || '-'}</p>
             </div>
           </div>
           
@@ -147,15 +205,30 @@ export default function RequesterInfoForm({ formData, onInputChange, showEmail =
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <div className="bg-white rounded-lg p-3 border border-gray-200">
               <label className="block text-xs font-medium text-gray-500 uppercase tracking-wide mb-2">
-                ออฟฟิศ/สาขา
+                ออฟฟิศ/สาขา *
               </label>
-              <input
-                type="text"
-                value={user.office || '-'}
-                className="w-full px-3 py-2 border border-gray-300 rounded-md bg-gray-100 text-gray-900 cursor-not-allowed"
-                disabled
-                readOnly
-              />
+              {loadingOffices ? (
+                <input
+                  type="text"
+                  value="กำลังโหลด..."
+                  className="w-full px-3 py-2 border border-gray-300 rounded-md bg-gray-50 text-gray-900 cursor-not-allowed"
+                  disabled
+                />
+              ) : (
+                <SearchableSelect
+                  options={officeOptions}
+                  value={formData.officeId || user?.officeId || ''}
+                  onChange={handleOfficeSelectChange}
+                  placeholder="เลือกสาขา"
+                  className="w-full"
+                  disabled={lockOffice || user?.userType === 'branch'} // 🆕 ล็อคสำหรับผู้ใช้ประเภทสาขาหรือเมื่อ lockOffice = true
+                />
+              )}
+              {(lockOffice || user?.userType === 'branch') && (
+                <p className="text-xs text-gray-500 mt-1">
+                  🔒 สาขาถูกล็อคตามบัญชีที่ล็อคอินอยู่ (จะอัพเดตอัตโนมัติเมื่อมีการแก้ไขสาขาในระบบ)
+                </p>
+              )}
             </div>
             <div className="bg-white rounded-lg p-3 border border-gray-200">
               <label className="block text-xs font-medium text-gray-500 uppercase tracking-wide mb-2">
@@ -199,11 +272,14 @@ export default function RequesterInfoForm({ formData, onInputChange, showEmail =
                   type="email"
                   name="email"
                   value={user.email || ''}
-                  className="w-full px-3 py-2 border border-gray-300 rounded-md bg-gray-100 text-gray-900 cursor-not-allowed"
+                  className="w-full px-3 py-2 border border-gray-300 rounded-md bg-gray-50 text-gray-900 cursor-not-allowed"
                   placeholder="อีเมล (ดึงจากบัญชีผู้ใช้)"
                   disabled
                   readOnly
                 />
+                <p className="text-xs text-gray-500 mt-1">
+                  🔒 อีเมลถูกล็อคตามบัญชีที่ล็อคอินอยู่
+                </p>
               </div>
             </div>
           )}

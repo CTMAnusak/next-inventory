@@ -25,7 +25,11 @@
     "test-new-system": "tsx src/scripts/test-reference-system.ts",
     "test-complete-system": "tsx src/scripts/test-complete-system.ts",
     "test-user-snapshot": "tsx src/scripts/test-user-snapshot-flow.ts",
-    "backfill-deleted-users": "tsx src/scripts/backfill-deleted-user-snapshots.ts"
+    "backfill-deleted-users": "tsx src/scripts/backfill-deleted-user-snapshots.ts",
+    "migrate-office-to-id": "tsx scripts/migrate-office-to-id.ts",
+    "merge-duplicate-offices": "tsx scripts/merge-duplicate-offices.ts",
+    "create-default-office": "tsx scripts/create-default-office.ts",
+    "migrate-office-to-officename": "tsx scripts/migrate-office-to-officename.ts"
   },
   "dependencies": {
     "@dnd-kit/core": "^6.3.1",

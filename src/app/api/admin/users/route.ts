@@ -63,18 +63,28 @@ export async function POST(request: NextRequest) {
     await dbConnect();
     
     const body = await request.json();
-    const { firstName, lastName, nickname, department, office, phone, email, password, userType, userRole } = body;
+    const { firstName, lastName, nickname, department, office, officeId, phone, email, password, userType, userRole } = body;
+
+    // 🆕 ดึง office name จาก Office collection ถ้ามี officeId
+    let officeName = office; // default fallback
+    if (officeId) {
+      const Office = (await import('@/models/Office')).default;
+      const officeDoc = await Office.findOne({ office_id: officeId, isActive: true, deletedAt: null });
+      if (officeDoc) {
+        officeName = officeDoc.name;
+      }
+    }
 
     // Validate required fields based on user type
     if (userType === 'individual') {
-      if (!firstName || !lastName || !nickname || !department || !office || !phone || !email || !password) {
+      if (!firstName || !lastName || !nickname || !department || (!officeId && !office) || !phone || !email || !password) {
         return NextResponse.json(
           { error: 'กรุณากรอกข้อมูลให้ครบถ้วน' },
           { status: 400 }
         );
       }
     } else {
-      if (!office || !phone || !email || !password) {
+      if ((!officeId && !office) || !phone || !email || !password) {
         return NextResponse.json(
           { error: 'กรุณากรอกข้อมูลให้ครบถ้วน' },
           { status: 400 }
@@ -210,7 +220,9 @@ export async function POST(request: NextRequest) {
       lastName: userType === 'individual' ? lastName : undefined,
       nickname: userType === 'individual' ? nickname : undefined,
       department: userType === 'individual' ? department : undefined,
-      office,
+      officeId: officeId && officeId.trim() !== '' ? officeId.trim() : 'UNSPECIFIED_OFFICE', // 🆕 เก็บ officeId (หรือ default)
+      officeName: officeName, // 🆕 ใช้ officeName เป็นหลัก (เก็บแค่อันเดียวใน DB)
+      // office เป็น virtual field - ไม่ต้องเก็บใน DB
       phone,
       email,
       password: hashedPassword,

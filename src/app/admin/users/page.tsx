@@ -22,6 +22,7 @@ import {
 import { toast } from 'react-hot-toast';
 import { customToast } from '@/lib/custom-toast';
 import SearchableSelect from '@/components/SearchableSelect';
+import OfficeManagementModal from '@/components/OfficeManagementModal';
 import * as XLSX from 'xlsx';
 
 interface User {
@@ -32,6 +33,8 @@ interface User {
   nickname?: string;
   department?: string;
   office: string;
+  officeId?: string; // 🆕 Office ID
+  officeName?: string; // 🆕 Office Name (populated)
   phone?: string;
   email: string;
   userType: 'individual' | 'branch';
@@ -60,6 +63,7 @@ interface UserFormData {
   nickname: string;
   department: string;
   office: string;
+  officeId?: string; // 🆕 Office ID
   phone: string;
   email: string;
   password: string;
@@ -88,6 +92,11 @@ export default function AdminUsersPage() {
   const [pendingDeletionUser, setPendingDeletionUser] = useState<User | null>(null);
   const [userEquipment, setUserEquipment] = useState<any[]>([]);
   
+  // 🆕 States สำหรับ Office Management
+  const [showOfficeModal, setShowOfficeModal] = useState(false);
+  const [officeOptions, setOfficeOptions] = useState<Array<{ value: string; label: string }>>([]);
+  const [loadingOffices, setLoadingOffices] = useState(false);
+  
   // States สำหรับ loading ของแต่ละ action
   const [editingUserId, setEditingUserId] = useState<string | null>(null);
   const [deletingUserId, setDeletingUserId] = useState<string | null>(null);
@@ -105,6 +114,7 @@ export default function AdminUsersPage() {
     nickname: '',
     department: '',
     office: '',
+    officeId: '', // 🆕 Office ID
     phone: '',
     email: '',
     password: '',
@@ -129,7 +139,27 @@ export default function AdminUsersPage() {
 
   useEffect(() => {
     fetchUsers();
+    fetchOfficeOptions(); // 🆕 ดึงรายการ Office
   }, []);
+
+  // 🆕 ดึงรายการ Office สำหรับ dropdown
+  const fetchOfficeOptions = async () => {
+    setLoadingOffices(true);
+    try {
+      const response = await fetch('/api/admin/offices');
+      if (response.ok) {
+        const offices = await response.json();
+        setOfficeOptions(offices.map((office: any) => ({
+          value: office.office_id,
+          label: office.name
+        })));
+      }
+    } catch (error) {
+      console.error('Error fetching offices:', error);
+    } finally {
+      setLoadingOffices(false);
+    }
+  };
 
   // Initialize drag scrolling
   useEffect(() => {
@@ -177,7 +207,11 @@ export default function AdminUsersPage() {
 
       const matchesEmail = !emailFilter || (user.email && user.email.toLowerCase().includes(emailFilter.toLowerCase()));
       const matchesUserType = !userTypeFilter || user.userType === userTypeFilter;
-      const matchesOffice = !officeFilter || (user.office && user.office.toLowerCase() === officeFilter.toLowerCase());
+      // 🆕 อัพเดต filter ให้รองรับทั้ง officeId และ office (backward compatibility)
+      const matchesOffice = !officeFilter || 
+        (user.officeId && user.officeId === officeFilter) ||
+        (user.office && user.office.toLowerCase() === officeFilter.toLowerCase()) ||
+        (user.officeName && user.officeName.toLowerCase() === officeFilter.toLowerCase());
 
       return matchesSearch && matchesEmail && matchesUserType && matchesOffice;
     });
@@ -362,13 +396,27 @@ export default function AdminUsersPage() {
       // จำลองการโหลดเล็กน้อยเพื่อให้เห็นแอนิเมชัน (ถ้ามีการ fetch ข้อมูลเพิ่มเติมในอนาคต)
       await new Promise(resolve => setTimeout(resolve, 100));
       
+      // 🆕 ตรวจสอบว่า officeId ของ user ยังมีอยู่หรือไม่ ถ้าไม่มีให้ใช้ default
+      let officeId = user.officeId || '';
+      if (officeId && officeId !== 'UNSPECIFIED_OFFICE') {
+        const officeExists = officeOptions.find(opt => opt.value === officeId);
+        if (!officeExists) {
+          // Office ถูกลบแล้ว ให้ใช้ default
+          officeId = 'UNSPECIFIED_OFFICE';
+        }
+      } else if (!officeId) {
+        // ไม่มี officeId ให้ใช้ default
+        officeId = 'UNSPECIFIED_OFFICE';
+      }
+      
       setEditingUser(user);
       setFormData({
         firstName: user.firstName || '',
         lastName: user.lastName || '',
         nickname: user.nickname || '',
         department: user.department || '',
-        office: user.office,
+        office: user.officeName || user.office || 'ไม่ระบุสาขา',
+        officeId: officeId, // 🆕 ใช้ officeId ที่ตรวจสอบแล้ว
         phone: user.phone || '',
         email: user.email,
         password: '',
@@ -573,6 +621,7 @@ export default function AdminUsersPage() {
       nickname: '',
       department: '',
       office: '',
+      officeId: '', // 🆕
       phone: '',
       email: '',
       password: '',
@@ -603,7 +652,7 @@ export default function AdminUsersPage() {
           'นามสกุล': user.lastName || '-',
           'ชื่อเล่น': user.nickname || '-',
           'แผนก': user.department || '-',
-          'สาขา': user.office,
+          'สาขา': user.officeName || user.office || '-', // 🆕 แสดงชื่อ office
           'เบอร์โทร': user.phone || '-',
           'อีเมล': user.email,
           'วิธีสมัคร': user.registrationMethod === 'google' ? 'Google OAuth' : 'Manual',
@@ -697,22 +746,8 @@ export default function AdminUsersPage() {
   const emails = [...new Set(allUsers.map(user => user.email).filter(Boolean))];
   const emailOptions = emails.map(email => ({ value: email, label: email }));
   
-  // Get unique offices with proper capitalization (capitalize first letter of each word if English)
-  const uniqueOffices = [...new Set(allUsers.map(user => user.office).filter(Boolean))];
-  const normalizedOffices = uniqueOffices.reduce((acc, office) => {
-    // Normalize: capitalize first letter of each word
-    const normalized = office
-      .split(' ')
-      .map(word => word.charAt(0).toUpperCase() + word.slice(1).toLowerCase())
-      .join(' ');
-    
-    // Check if this normalized version already exists (case-insensitive)
-    if (!acc.find(o => o.toLowerCase() === normalized.toLowerCase())) {
-      acc.push(normalized);
-    }
-    return acc;
-  }, [] as string[]);
-  const officeOptions = normalizedOffices.map(office => ({ value: office, label: office }));
+  // 🆕 Get unique offices from officeOptions state (ใช้ ID จาก Office collection)
+  const officeFilterOptions = officeOptions;
 
   // Pagination
   const currentData = activeTab === 'approved' ? filteredUsers : filteredPendingUsers;
@@ -731,6 +766,13 @@ export default function AdminUsersPage() {
             
             {/* Action Buttons */}
             <div className="flex max-[470px]:flex-col max-[470px]:gap-3 max-[470px]:w-4/5 space-x-4 max-[470px]:space-x-0">
+              <button
+                onClick={() => setShowOfficeModal(true)}
+                className="flex justify-center items-center space-x-2 px-4 py-2 bg-purple-600 text-white rounded-lg hover:bg-purple-700 transition-colors"
+              >
+                <Building className="w-4 h-4" />
+                <span>แก้ไขสาขา</span>
+              </button>
               <button
                 onClick={() => setShowFilters(!showFilters)}
                 className="flex justify-center items-center space-x-2 px-4 py-2 bg-gray-100 text-gray-700 rounded-lg hover:bg-gray-200 transition-colors"
@@ -818,7 +860,7 @@ export default function AdminUsersPage() {
                     สาขา
                   </label>
                   <SearchableSelect
-                    options={officeOptions}
+                    options={officeFilterOptions}
                     value={officeFilter}
                     onChange={setOfficeFilter}
                     placeholder="ทั้งหมด"
@@ -965,7 +1007,7 @@ export default function AdminUsersPage() {
                       {user.department || '-'}
                     </td>
                     <td className="px-6 py-4 text-sm text-gray-500 text-selectable text-center">
-                      {user.office}
+                      {user.officeName || user.office || '-'}
                     </td>
                     <td className="px-6 py-4 text-sm text-gray-500 text-selectable text-center">
                       {user.phone || '-'}
@@ -1244,14 +1286,29 @@ export default function AdminUsersPage() {
                   <label className="block text-sm font-medium text-gray-700 mb-1">
                     ออฟฟิศ/สาขา *
                   </label>
-                  <input
-                    type="text"
-                    name="office"
-                    value={formData.office}
-                    onChange={handleInputChange}
-                    className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 text-gray-900"
-                    required
-                  />
+                  {loadingOffices ? (
+                    <input
+                      type="text"
+                      value="กำลังโหลด..."
+                      className="w-full px-3 py-2 border border-gray-300 rounded-md bg-gray-100 text-gray-500 cursor-not-allowed"
+                      disabled
+                    />
+                  ) : (
+                    <SearchableSelect
+                      options={officeOptions}
+                      value={formData.officeId || ''}
+                      onChange={(officeId) => {
+                        const selectedOffice = officeOptions.find(opt => opt.value === officeId);
+                        setFormData({
+                          ...formData,
+                          officeId: officeId,
+                          office: selectedOffice?.label || ''
+                        });
+                      }}
+                      placeholder="เลือกสาขา"
+                      className="w-full"
+                    />
+                  )}
                 </div>
                 
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
@@ -1313,6 +1370,7 @@ export default function AdminUsersPage() {
                     onChange={handleInputChange}
                     className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 text-gray-900"
                     minLength={6}
+                    placeholder="กรอกรหัสผ่าน (อย่างน้อย 6 ตัวอักษร)"
                     required
                   />
                 </div>
@@ -1333,8 +1391,8 @@ export default function AdminUsersPage() {
                     disabled={loading}
                     className="flex items-center space-x-2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors disabled:opacity-50"
                   >
-                    <Save className="w-4 h-4" />
-                    <span>{loading ? 'กำลังบันทึก...' : 'บันทึก'}</span>
+                    {loading && <Loader2 className="w-4 h-4 animate-spin" />}
+                    <span>เพิ่มผู้ใช้</span>
                   </button>
                 </div>
               </form>
@@ -1475,14 +1533,29 @@ export default function AdminUsersPage() {
                   <label className="block text-sm font-medium text-gray-700 mb-1">
                     ออฟฟิศ/สาขา *
                   </label>
-                  <input
-                    type="text"
-                    name="office"
-                    value={formData.office}
-                    onChange={handleInputChange}
-                    className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 text-gray-900"
-                    required
-                  />
+                  {loadingOffices ? (
+                    <input
+                      type="text"
+                      value="กำลังโหลด..."
+                      className="w-full px-3 py-2 border border-gray-300 rounded-md bg-gray-100 text-gray-500 cursor-not-allowed"
+                      disabled
+                    />
+                  ) : (
+                    <SearchableSelect
+                      options={officeOptions}
+                      value={formData.officeId || ''}
+                      onChange={(officeId) => {
+                        const selectedOffice = officeOptions.find(opt => opt.value === officeId);
+                        setFormData({
+                          ...formData,
+                          officeId: officeId,
+                          office: selectedOffice?.label || ''
+                        });
+                      }}
+                      placeholder="เลือกสาขา"
+                      className="w-full"
+                    />
+                  )}
                 </div>
                 
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
@@ -1598,7 +1671,7 @@ export default function AdminUsersPage() {
                   </div>
                 </div>
                 <div className="text-sm text-gray-600 space-y-1">
-                  <p><strong>สาขา:</strong> {approvingUser.office}</p>
+                  <p><strong>สาขา:</strong> {approvingUser.officeName || approvingUser.office || '-'}</p>
                   <p><strong>แผนก:</strong> {approvingUser.department || '-'}</p>
                   <p><strong>เบอร์โทร:</strong> {approvingUser.phone}</p>
                   <p><strong>วิธีสมัคร:</strong> {approvingUser.registrationMethod === 'google' ? 'Google OAuth' : 'Manual'}</p>
@@ -1679,7 +1752,7 @@ export default function AdminUsersPage() {
                   </div>
                   <div>
                     <label className="block text-sm font-medium text-gray-700 mb-1">สาขา</label>
-                    <p className="text-gray-900">{pendingDeletionUser.office}</p>
+                    <p className="text-gray-900">{pendingDeletionUser.officeName || pendingDeletionUser.office || '-'}</p>
                   </div>
                 </div>
               </div>
@@ -1750,6 +1823,16 @@ export default function AdminUsersPage() {
             </div>
           </div>
         )}
+        
+        {/* 🆕 Office Management Modal */}
+        <OfficeManagementModal
+          isOpen={showOfficeModal}
+          onClose={() => setShowOfficeModal(false)}
+          onRefresh={() => {
+            fetchUsers();
+            fetchOfficeOptions();
+          }}
+        />
       </div>
     </Layout>
   );

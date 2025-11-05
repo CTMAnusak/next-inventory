@@ -43,7 +43,9 @@ export interface IInventoryItem extends Document {
     nickname?: string;
     department?: string;
     phone?: string;
-    office?: string;
+    office?: string; // backward compatibility
+    officeId?: string; // 🆕 Office ID สำหรับอ้างอิง
+    officeName?: string; // 🆕 Office Name (populated field)
   };
   
   // ข้อมูลการลบ (soft delete)
@@ -191,7 +193,13 @@ const InventoryItemSchema = new Schema<IInventoryItem>({
       type: String
     },
     office: {
-      type: String
+      type: String // backward compatibility
+    },
+    officeId: {
+      type: String // 🆕 Office ID สำหรับอ้างอิง
+    },
+    officeName: {
+      type: String // 🆕 Office Name (populated field)
     }
   },
   

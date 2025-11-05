@@ -92,11 +92,11 @@ export default function SearchableSelect({
         type="button"
         onClick={handleToggle}
         disabled={disabled}
-        className={`w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 text-gray-900 bg-white text-left flex items-center justify-between ${
-          disabled ? 'opacity-50 cursor-not-allowed' : 'cursor-pointer hover:border-gray-400'
+        className={`w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white text-left flex items-center justify-between ${
+          disabled ? 'cursor-not-allowed bg-gray-50' : 'cursor-pointer hover:border-gray-400'
         }`}
       >
-        <span className={value ? 'text-gray-900' : 'text-gray-500'}>
+        <span className="text-gray-900">
           {displayValue}
         </span>
         <div className="flex items-center space-x-1">

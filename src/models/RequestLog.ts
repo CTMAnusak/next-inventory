@@ -46,7 +46,9 @@ export interface IRequestLog extends Document {
   requesterDepartment?: string; // แผนกผู้ขอเบิก (สำหรับผู้ใช้ประเภทสาขา)
   requesterPhone?: string; // เบอร์โทรผู้ขอเบิก (สำหรับผู้ใช้ประเภทสาขา)
   requesterEmail?: string; // อีเมลผู้ขอเบิก (ดึงจากบัญชีผู้ใช้)
-  requesterOffice?: string; // ออฟฟิศ/สาขาผู้ขอเบิก (สำหรับผู้ใช้ประเภทสาขา)
+  requesterOffice?: string; // ออฟฟิศ/สาขาผู้ขอเบิก (สำหรับผู้ใช้ประเภทสาขา) - backward compatibility
+  requesterOfficeId?: string; // 🆕 Office ID สำหรับอ้างอิง
+  requesterOfficeName?: string; // 🆕 Office Name (populated field)
   requestDate: Date; // วันที่ต้องการเบิก
   urgency: 'very_urgent' | 'normal'; // ความเร่งด่วน
   deliveryLocation: string; // สถานที่จัดส่ง
@@ -113,7 +115,9 @@ const RequestLogSchema = new Schema<IRequestLog>({
   requesterDepartment: { type: String }, // แผนกผู้ขอเบิก (สำหรับผู้ใช้ประเภทสาขา)
   requesterPhone: { type: String }, // เบอร์โทรผู้ขอเบิก (สำหรับผู้ใช้ประเภทสาขา)
   requesterEmail: { type: String }, // อีเมลผู้ขอเบิก (ดึงจากบัญชีผู้ใช้)
-  requesterOffice: { type: String }, // ออฟฟิศ/สาขาผู้ขอเบิก (สำหรับผู้ใช้ประเภทสาขา)
+  requesterOffice: { type: String }, // ออฟฟิศ/สาขาผู้ขอเบิก (สำหรับผู้ใช้ประเภทสาขา) - backward compatibility
+  requesterOfficeId: { type: String }, // 🆕 Office ID สำหรับอ้างอิง
+  requesterOfficeName: { type: String }, // 🆕 Office Name (populated field)
   requestDate: { type: Date, required: true },
   urgency: { 
     type: String, 

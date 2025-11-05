@@ -59,6 +59,7 @@ export default function EquipmentRequestPage() {
     phone: '',
     email: '',
     office: '',
+    officeId: '', // 🆕 Office ID สำหรับอ้างอิง
   });
 
   const [requestItem, setRequestItem] = useState<RequestItem>({
@@ -89,13 +90,25 @@ export default function EquipmentRequestPage() {
 
   // Set office in formData when user data is available
   useEffect(() => {
-    if (user?.office) {
+    if (user?.userType === 'branch') {
+      // 🆕 สำหรับผู้ใช้ประเภทสาขา: ล็อค officeId และ officeName จากบัญชีที่ล็อคอินอยู่
       setFormData(prev => ({
         ...prev,
-        office: user.office
+        office: user.officeName || user.office || '',
+        officeId: user.officeId || ''
+      }));
+    } else if (user?.officeName) {
+      setFormData(prev => ({
+        ...prev,
+        office: user.officeName
+      }));
+    } else if (user?.office) {
+      setFormData(prev => ({
+        ...prev,
+        office: user.office || ''
       }));
     }
-  }, [user?.office]);
+  }, [user?.userType, user?.officeName, user?.office, user?.officeId]);
 
   const fetchInventoryItems = async () => {
     try {
@@ -417,7 +430,8 @@ export default function EquipmentRequestPage() {
         lastName: user.userType === 'individual' ? user.lastName : formData.lastName,
         nickname: user.userType === 'individual' ? (user.nickname || '') : formData.nickname,
         department: user.userType === 'individual' ? (user.department || '') : formData.department,
-        office: formData.office || user.office || '',
+        office: formData.office || user.officeName || user.office || '',
+        officeId: user.userType === 'branch' ? (user.officeId || formData.officeId || '') : (formData.officeId || ''), // 🆕 สำหรับ branch users ใช้ officeId จาก user
         phone: user.userType === 'individual' ? (user.phone || '') : formData.phone,
         // Form data
         requestDate: formData.requestDate,
@@ -472,6 +486,7 @@ export default function EquipmentRequestPage() {
           phone: '',
           email: '',
           office: '',
+          officeId: '', // 🆕 Reset officeId
         });
         setRequestItem({ itemId: '', quantity: 1, serialNumber: '', itemNotes: '' });
         setRequestItems([]);
@@ -512,11 +527,13 @@ export default function EquipmentRequestPage() {
             formData={{
               ...formData,
               email: formData.email || user?.email || '',
-              office: formData.office || user?.office || ''
+              office: formData.office || user?.officeName || user?.office || '',
+              officeId: formData.officeId || user?.officeId || '' // 🆕 ส่ง officeId ด้วย
             }}
             onInputChange={handleInputChange}
             title="ข้อมูลผู้ขอเบิก"
             showEmail={true}
+            lockOffice={user?.userType === 'branch'} // 🆕 ล็อค office สำหรับผู้ใช้ประเภทสาขา
           />
 
           <form onSubmit={handleSubmit} className={`space-y-6 ${isSubmitted ? 'form-submitted' : ''}`}>

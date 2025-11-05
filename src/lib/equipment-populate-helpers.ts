@@ -1,5 +1,6 @@
 import { getStatusName, getConditionName, getUserName, getCategoryName } from '@/lib/equipment-snapshot-helpers';
 import { getItemNameAndCategory, getCategoryNameById } from '@/lib/item-name-resolver';
+import { populateOfficeName, populateOfficeNameBatch } from '@/lib/office-helpers';
 import InventoryMaster from '@/models/InventoryMaster';
 
 /**
@@ -215,14 +216,26 @@ export async function populateRequestLogUser(requestLog: any) {
   if (populated.userId) {
     const User = (await import('@/models/User')).default;
     const user = await User.findOne({ user_id: populated.userId }).select(
-      'firstName lastName nickname department office phone email userType'
+      'firstName lastName nickname department office officeId officeName phone email userType'
     );
     
     if (user) {
       // ✅ ตรวจสอบประเภทผู้ใช้จาก User collection ก่อน (ข้อมูลล่าสุด)
       // Branch User: Populate เฉพาะข้อมูลสาขา (ข้อมูลส่วนตัวใช้จากฟอร์ม)
       if (user.userType === 'branch') {
-        populated.office = user.office;
+        // 🆕 Populate office จาก officeId หรือ officeName
+        let userOffice = user.officeName || user.office || '';
+        if (!userOffice && user.officeId) {
+          const { getOfficeNameById } = await import('@/lib/office-helpers');
+          userOffice = await getOfficeNameById(user.officeId);
+        }
+        if (!userOffice) {
+          userOffice = 'ไม่ระบุสาขา';
+        }
+        
+        populated.officeId = user.officeId;
+        populated.officeName = userOffice;
+        populated.office = userOffice;
         populated.email = user.email;
         // ✅ firstName, lastName, phone, etc. → ใช้จาก requesterFirstName, requesterLastName (snapshot ในฟอร์ม)
         // ⚠️ ไม่ populate จาก User collection เพราะเป็นข้อมูลส่วนตัวที่เปลี่ยนไปตามคนที่มาเบิก
@@ -238,7 +251,19 @@ export async function populateRequestLogUser(requestLog: any) {
         populated.lastName = user.lastName;
         populated.nickname = user.nickname;
         populated.department = user.department;
-        populated.office = user.office;
+        // 🆕 Populate office จาก officeId หรือ officeName
+        let userOffice = user.officeName || user.office || '';
+        if (!userOffice && user.officeId) {
+          const { getOfficeNameById } = await import('@/lib/office-helpers');
+          userOffice = await getOfficeNameById(user.officeId);
+        }
+        if (!userOffice) {
+          userOffice = 'ไม่ระบุสาขา';
+        }
+        
+        populated.officeId = user.officeId;
+        populated.officeName = userOffice;
+        populated.office = userOffice;
         populated.phone = user.phone;
         populated.email = user.email;
       }
@@ -246,7 +271,7 @@ export async function populateRequestLogUser(requestLog: any) {
       // ✅ ไม่เจอ user (ถูกลบแล้ว) → ค้นหาจาก DeletedUsers collection
       const DeletedUsers = (await import('@/models/DeletedUser')).default;
       const deletedUser = await DeletedUsers.findOne({ user_id: populated.userId }).select(
-        'firstName lastName nickname department office phone email userType'
+        'firstName lastName nickname department office officeId officeName phone email userType'
       );
       
       if (deletedUser) {
@@ -259,15 +284,38 @@ export async function populateRequestLogUser(requestLog: any) {
           populated.department = populated.requesterDepartment || '-';
           populated.phone = populated.requesterPhone || '-';        // จากฟอร์ม
           populated.email = populated.requesterEmail || '-';        // จากฟอร์ม
-          // เฉพาะสาขาใช้จาก DeletedUsers (ข้อมูลล่าสุดก่อนลบ)
-          populated.office = deletedUser.office || populated.requesterOffice || '-';
+          // 🆕 Populate office จาก officeId หรือ officeName
+          let deletedUserOffice = deletedUser.officeName || deletedUser.office || '';
+          if (!deletedUserOffice && deletedUser.officeId) {
+            const { getOfficeNameById } = await import('@/lib/office-helpers');
+            deletedUserOffice = await getOfficeNameById(deletedUser.officeId);
+          }
+          if (!deletedUserOffice) {
+            deletedUserOffice = populated.requesterOffice || 'ไม่ระบุสาขา';
+          }
+          
+          populated.officeId = deletedUser.officeId;
+          populated.officeName = deletedUserOffice;
+          populated.office = deletedUserOffice;
         } else {
           // ผู้ใช้บุคคล: ใช้ข้อมูลจาก DeletedUsers เป็นหลัก (ข้อมูลล่าสุดก่อนลบ)
           populated.firstName = deletedUser.firstName ?? populated.requesterFirstName ?? '-';
           populated.lastName = deletedUser.lastName ?? populated.requesterLastName ?? '-';
           populated.nickname = deletedUser.nickname ?? populated.requesterNickname ?? '-';
           populated.department = deletedUser.department ?? populated.requesterDepartment ?? '-';
-          populated.office = deletedUser.office ?? populated.requesterOffice ?? '-';
+          // 🆕 Populate office จาก officeId หรือ officeName
+          let deletedUserOffice = deletedUser.officeName || deletedUser.office || '';
+          if (!deletedUserOffice && deletedUser.officeId) {
+            const { getOfficeNameById } = await import('@/lib/office-helpers');
+            deletedUserOffice = await getOfficeNameById(deletedUser.officeId);
+          }
+          if (!deletedUserOffice) {
+            deletedUserOffice = populated.requesterOffice || 'ไม่ระบุสาขา';
+          }
+          
+          populated.officeId = deletedUser.officeId;
+          populated.officeName = deletedUserOffice;
+          populated.office = deletedUserOffice;
           populated.phone = deletedUser.phone ?? populated.requesterPhone ?? '-';
           populated.email = deletedUser.email ?? '-';
         }
@@ -277,11 +325,29 @@ export async function populateRequestLogUser(requestLog: any) {
         populated.lastName = populated.requesterLastName || '-';
         populated.nickname = populated.requesterNickname || '-';
         populated.department = populated.requesterDepartment || '-';
-        populated.office = populated.requesterOffice || '-';
+        // 🆕 Populate office จาก requesterOfficeId ถ้ามี
+        if (populated.requesterOfficeId) {
+          populated.officeId = populated.requesterOfficeId;
+          populated.officeName = await (await import('@/lib/office-helpers')).getOfficeNameById(populated.requesterOfficeId);
+          populated.office = populated.officeName || populated.requesterOffice || '-';
+        } else {
+          populated.office = populated.requesterOffice || '-';
+          populated.officeName = populated.office;
+        }
         populated.phone = populated.requesterPhone || '-';
       }
     }
+  } else {
+    // ถ้าไม่มี userId แต่มี requesterOfficeId ให้ populate
+    if (populated.requesterOfficeId) {
+      populated.officeId = populated.requesterOfficeId;
+      populated.officeName = await (await import('@/lib/office-helpers')).getOfficeNameById(populated.requesterOfficeId);
+      populated.office = populated.officeName || populated.requesterOffice || '-';
+    }
   }
+  
+  // 🆕 Populate office name จาก Office collection
+  await populateOfficeName(populated, 'requesterOffice');
   
   return populated;
 }
@@ -319,7 +385,7 @@ export async function populateReturnLogUser(returnLog: any) {
   if (populated.userId) {
     const User = (await import('@/models/User')).default;
     const user = await User.findOne({ user_id: populated.userId }).select(
-      'firstName lastName nickname department office phone email userType'
+      'firstName lastName nickname department office officeId officeName phone email userType'
     );
     
     if (user) {
@@ -327,7 +393,19 @@ export async function populateReturnLogUser(returnLog: any) {
       // ✅ ตรวจสอบประเภทผู้ใช้จาก User collection ก่อน (ข้อมูลล่าสุด)
       // Branch User: Populate เฉพาะข้อมูลสาขา (ข้อมูลส่วนตัวใช้จากฟอร์ม)
       if (user.userType === 'branch') {
-        populated.office = user.office;
+        // 🆕 Populate office จาก officeId หรือ officeName
+        let userOffice = user.officeName || user.office || '';
+        if (!userOffice && user.officeId) {
+          const { getOfficeNameById } = await import('@/lib/office-helpers');
+          userOffice = await getOfficeNameById(user.officeId);
+        }
+        if (!userOffice) {
+          userOffice = 'ไม่ระบุสาขา';
+        }
+        
+        populated.officeId = user.officeId;
+        populated.officeName = userOffice;
+        populated.office = userOffice;
         populated.email = user.email;
         // ✅ firstName, lastName, phone, etc. → ใช้จาก returnerFirstName, returnerLastName (snapshot ในฟอร์ม)
         // ⚠️ ไม่ populate จาก User collection เพราะเป็นข้อมูลส่วนตัวที่เปลี่ยนไปตามคนที่มาคืน
@@ -340,7 +418,7 @@ export async function populateReturnLogUser(returnLog: any) {
         console.log('  Branch User - After populate:');
         console.log('    firstName:', populated.firstName);
         console.log('    lastName:', populated.lastName);
-        console.log('    nickname:', populated.nickname);
+        console.log('    office:', populated.office);
       }
       // Individual User: Populate ทุกฟิลด์จาก User collection (ข้อมูลล่าสุด)
       else if (user.userType === 'individual') {
@@ -348,19 +426,32 @@ export async function populateReturnLogUser(returnLog: any) {
         populated.lastName = user.lastName;
         populated.nickname = user.nickname;
         populated.department = user.department;
-        populated.office = user.office;
+        // 🆕 Populate office จาก officeId หรือ officeName
+        let userOffice = user.officeName || user.office || '';
+        if (!userOffice && user.officeId) {
+          const { getOfficeNameById } = await import('@/lib/office-helpers');
+          userOffice = await getOfficeNameById(user.officeId);
+        }
+        if (!userOffice) {
+          userOffice = 'ไม่ระบุสาขา';
+        }
+        
+        populated.officeId = user.officeId;
+        populated.officeName = userOffice;
+        populated.office = userOffice;
         populated.phone = user.phone;
         populated.email = user.email;
         
         console.log('  Individual User - After populate:');
         console.log('    firstName:', populated.firstName);
         console.log('    lastName:', populated.lastName);
+        console.log('    office:', populated.office);
       }
     } else {
       // ✅ ไม่เจอ user (ถูกลบแล้ว) → ค้นหาจาก DeletedUsers collection
       const DeletedUsers = (await import('@/models/DeletedUser')).default;
       const deletedUser = await DeletedUsers.findOne({ user_id: populated.userId }).select(
-        'firstName lastName nickname department office phone email userType'
+        'firstName lastName nickname department office officeId officeName phone email userType'
       );
       
       if (deletedUser) {
@@ -373,15 +464,38 @@ export async function populateReturnLogUser(returnLog: any) {
           populated.department = populated.returnerDepartment || '-';
           populated.phone = populated.returnerPhone || '-';        // จากฟอร์ม
           populated.email = populated.returnerEmail || '-';        // จากฟอร์ม
-          // เฉพาะสาขาใช้จาก DeletedUsers (ข้อมูลล่าสุดก่อนลบ)
-          populated.office = deletedUser.office || populated.returnerOffice || '-';
+          // 🆕 Populate office จาก officeId หรือ officeName
+          let deletedUserOffice = deletedUser.officeName || deletedUser.office || '';
+          if (!deletedUserOffice && deletedUser.officeId) {
+            const { getOfficeNameById } = await import('@/lib/office-helpers');
+            deletedUserOffice = await getOfficeNameById(deletedUser.officeId);
+          }
+          if (!deletedUserOffice) {
+            deletedUserOffice = populated.returnerOffice || 'ไม่ระบุสาขา';
+          }
+          
+          populated.officeId = deletedUser.officeId;
+          populated.officeName = deletedUserOffice;
+          populated.office = deletedUserOffice;
         } else {
           // ผู้ใช้บุคคล: ใช้ข้อมูลจาก DeletedUsers เป็นหลัก (ข้อมูลล่าสุดก่อนลบ)
           populated.firstName = deletedUser.firstName ?? populated.returnerFirstName ?? '-';
           populated.lastName = deletedUser.lastName ?? populated.returnerLastName ?? '-';
           populated.nickname = deletedUser.nickname ?? populated.returnerNickname ?? '-';
           populated.department = deletedUser.department ?? populated.returnerDepartment ?? '-';
-          populated.office = deletedUser.office ?? populated.returnerOffice ?? '-';
+          // 🆕 Populate office จาก officeId หรือ officeName
+          let deletedUserOffice = deletedUser.officeName || deletedUser.office || '';
+          if (!deletedUserOffice && deletedUser.officeId) {
+            const { getOfficeNameById } = await import('@/lib/office-helpers');
+            deletedUserOffice = await getOfficeNameById(deletedUser.officeId);
+          }
+          if (!deletedUserOffice) {
+            deletedUserOffice = populated.returnerOffice || 'ไม่ระบุสาขา';
+          }
+          
+          populated.officeId = deletedUser.officeId;
+          populated.officeName = deletedUserOffice;
+          populated.office = deletedUserOffice;
           populated.phone = deletedUser.phone ?? populated.returnerPhone ?? '-';
           populated.email = deletedUser.email ?? '-';
         }
@@ -391,11 +505,29 @@ export async function populateReturnLogUser(returnLog: any) {
         populated.lastName = populated.returnerLastName || '-';
         populated.nickname = populated.returnerNickname || '-';
         populated.department = populated.returnerDepartment || '-';
-        populated.office = populated.returnerOffice || '-';
+        // 🆕 Populate office จาก returnerOfficeId ถ้ามี
+        if (populated.returnerOfficeId) {
+          populated.officeId = populated.returnerOfficeId;
+          populated.officeName = await (await import('@/lib/office-helpers')).getOfficeNameById(populated.returnerOfficeId);
+          populated.office = populated.officeName || populated.returnerOffice || '-';
+        } else {
+          populated.office = populated.returnerOffice || '-';
+          populated.officeName = populated.office;
+        }
         populated.phone = populated.returnerPhone || '-';
       }
     }
+  } else {
+    // ถ้าไม่มี userId แต่มี returnerOfficeId ให้ populate
+    if (populated.returnerOfficeId) {
+      populated.officeId = populated.returnerOfficeId;
+      populated.officeName = await (await import('@/lib/office-helpers')).getOfficeNameById(populated.returnerOfficeId);
+      populated.office = populated.officeName || populated.returnerOffice || '-';
+    }
   }
+  
+  // 🆕 Populate office name จาก Office collection
+  await populateOfficeName(populated, 'returnerOffice');
   
   return populated;
 }

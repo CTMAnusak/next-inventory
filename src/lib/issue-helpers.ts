@@ -1,4 +1,5 @@
 import User from '@/models/User';
+import { getOfficeNameById } from '@/lib/office-helpers'; // 🆕 Import helper function
 
 /**
  * Populate IT Admin information from User collection
@@ -18,17 +19,30 @@ export async function populateAdminInfo(issue: any) {
   // มี assignedAdminId = ยัง populate ได้
   try {
     const admin = await User.findOne({ user_id: issue.assignedAdminId }).select(
-      'firstName lastName office email userType user_id'
+      'firstName lastName office officeId officeName email userType user_id'
     );
 
     if (!admin) {
       // ✅ Admin ไม่พบ → ค้นหาจาก DeletedUsers collection
       const DeletedUsers = (await import('@/models/DeletedUser')).default;
       const deletedAdmin = await DeletedUsers.findOne({ user_id: issue.assignedAdminId }).select(
-        'firstName lastName office email userType user_id'
+        'firstName lastName office officeId officeName email userType user_id'
       );
       
       if (deletedAdmin) {
+        // 🆕 Populate office name จาก officeId หรือ officeName
+        let adminOffice = deletedAdmin.officeName || deletedAdmin.office || '';
+        if (!adminOffice && deletedAdmin.officeId) {
+          try {
+            adminOffice = await getOfficeNameById(deletedAdmin.officeId);
+          } catch (error) {
+            console.error(`Error fetching office name for ${deletedAdmin.officeId}:`, error);
+          }
+        }
+        if (!adminOffice) {
+          adminOffice = 'ไม่ระบุสาขา';
+        }
+        
         // ✅ ใช้ข้อมูลจาก DeletedUsers snapshot
         return {
           ...issueObj,
@@ -36,7 +50,7 @@ export async function populateAdminInfo(issue: any) {
             userId: deletedAdmin.user_id,
             name: deletedAdmin.userType === 'individual'
               ? `${deletedAdmin.firstName} ${deletedAdmin.lastName}`.trim()
-              : deletedAdmin.office || '',
+              : adminOffice,
             email: deletedAdmin.email || ''
           }
         };
@@ -46,6 +60,19 @@ export async function populateAdminInfo(issue: any) {
       return issueObj;
     }
 
+    // 🆕 Populate office name จาก officeId หรือ officeName
+    let adminOffice = admin.officeName || admin.office || '';
+    if (!adminOffice && admin.officeId) {
+      try {
+        adminOffice = await getOfficeNameById(admin.officeId);
+      } catch (error) {
+        console.error(`Error fetching office name for ${admin.officeId}:`, error);
+      }
+    }
+    if (!adminOffice) {
+      adminOffice = 'ไม่ระบุสาขา';
+    }
+    
     // Populate ข้อมูล Admin ล่าสุด
     return {
       ...issueObj,
@@ -53,7 +80,7 @@ export async function populateAdminInfo(issue: any) {
         userId: admin.user_id,
         name: admin.userType === 'individual'
           ? `${admin.firstName} ${admin.lastName}`.trim()
-          : admin.office,
+          : adminOffice,
         email: admin.email
       }
     };
@@ -99,7 +126,7 @@ export async function populateRequesterInfo(issue: any) {
   // มี requesterId = ยัง populate ได้
   try {
     const user = await User.findOne({ user_id: issue.requesterId }).select(
-      'firstName lastName nickname department office phone email userType'
+      'firstName lastName nickname department office officeId officeName phone email userType'
     );
 
     if (!user) {
@@ -107,12 +134,25 @@ export async function populateRequesterInfo(issue: any) {
       // ✅ User ไม่พบ → ค้นหาจาก DeletedUsers collection
       const DeletedUsers = (await import('@/models/DeletedUser')).default;
       const deletedUser = await DeletedUsers.findOne({ user_id: issue.requesterId }).select(
-        'firstName lastName nickname department office phone email userType'
+        'firstName lastName nickname department office officeId officeName phone email userType'
       );
       
       if (deletedUser) {
         console.log(`  - Found in DeletedUsers, userType: ${deletedUser.userType}`);
         // ✅ แยกการจัดการตามประเภทผู้ใช้
+        // 🆕 Populate office name จาก officeId หรือ officeName
+        let deletedUserOffice = deletedUser.officeName || deletedUser.office || '';
+        if (!deletedUserOffice && deletedUser.officeId) {
+          try {
+            deletedUserOffice = await getOfficeNameById(deletedUser.officeId);
+          } catch (error) {
+            console.error(`Error fetching office name for ${deletedUser.officeId}:`, error);
+          }
+        }
+        if (!deletedUserOffice) {
+          deletedUserOffice = 'ไม่ระบุสาขา';
+        }
+        
         if (deletedUser.userType === 'branch') {
           console.log(`  - Branch user: Using form data (firstName: ${issueObj.firstName})`);
           // ผู้ใช้สาขา: ข้อมูลส่วนตัวจากฟอร์ม, เฉพาะสาขาจาก DeletedUsers
@@ -125,7 +165,7 @@ export async function populateRequesterInfo(issue: any) {
             phone: issueObj.phone || '-',         // ใช้จากฟอร์มแจ้งงาน
             email: issueObj.email || '-',         // ใช้จากฟอร์มแจ้งงาน
             // เฉพาะสาขาใช้จาก DeletedUsers (ข้อมูลล่าสุดก่อนลบ)
-            office: deletedUser.office || issueObj.office || '-',
+            office: deletedUserOffice || issueObj.office || '-',
           };
         } else {
           console.log(`  - Individual user: Using DeletedUsers data (firstName: ${deletedUser.firstName})`);
@@ -136,7 +176,7 @@ export async function populateRequesterInfo(issue: any) {
             lastName: deletedUser.lastName || issueObj.lastName,
             nickname: deletedUser.nickname || issueObj.nickname,
             department: deletedUser.department || issueObj.department,
-            office: deletedUser.office || issueObj.office,
+            office: deletedUserOffice || issueObj.office || '-',
             phone: deletedUser.phone || issueObj.phone,
             email: deletedUser.email || issueObj.email,
           };
@@ -150,13 +190,26 @@ export async function populateRequesterInfo(issue: any) {
 
     console.log(`  - User found in User collection, userType: ${user.userType}`);
     
+    // 🆕 Populate office name จาก officeId หรือ officeName
+    let userOffice = user.officeName || user.office || '';
+    if (!userOffice && user.officeId) {
+      try {
+        userOffice = await getOfficeNameById(user.officeId);
+      } catch (error) {
+        console.error(`Error fetching office name for ${user.officeId}:`, error);
+      }
+    }
+    if (!userOffice) {
+      userOffice = 'ไม่ระบุสาขา';
+    }
+    
     // ✅ ตรวจสอบประเภทผู้ใช้จาก User collection ก่อน (ข้อมูลล่าสุด)
     // Branch User: Populate เฉพาะข้อมูลสาขา (ข้อมูลส่วนตัวใช้จากฟอร์ม)
     if (user.userType === 'branch') {
       console.log(`  - Branch user: Using form data (firstName: ${issueObj.firstName})`);
       return {
         ...issueObj,
-        office: user.office || issueObj.office, // อัพเดทชื่อสาขาล่าสุด
+        office: userOffice || issueObj.office || '-', // 🆕 ใช้ officeName ที่ populate แล้ว
         // ✅ firstName, lastName, nickname, department, phone, email → ใช้จากฟอร์มที่กรอก (issueObj)
         // ⚠️ ไม่ populate จาก User collection เพราะเป็นข้อมูลส่วนตัวที่เปลี่ยนไปตามคนที่มาแจ้งงาน
       };
@@ -171,7 +224,7 @@ export async function populateRequesterInfo(issue: any) {
         lastName: user.lastName || issueObj.lastName,
         nickname: user.nickname || issueObj.nickname,
         department: user.department || issueObj.department,
-        office: user.office || issueObj.office,
+        office: userOffice || issueObj.office || '-', // 🆕 ใช้ officeName ที่ populate แล้ว
         phone: user.phone || issueObj.phone,
         email: user.email || issueObj.email,
       };
@@ -181,7 +234,7 @@ export async function populateRequesterInfo(issue: any) {
     console.log(`  - Unknown user type, using form data (firstName: ${issueObj.firstName})`);
     return {
       ...issueObj,
-      office: user.office || issueObj.office, // อัพเดทชื่อสาขาล่าสุด
+      office: userOffice || issueObj.office || '-', // 🆕 ใช้ officeName ที่ populate แล้ว
       // ใช้ข้อมูลจากฟอร์มเพื่อความปลอดภัย
     };
   } catch (error) {

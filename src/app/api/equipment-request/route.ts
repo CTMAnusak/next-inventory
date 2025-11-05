@@ -190,6 +190,8 @@ export async function POST(request: NextRequest) {
       requesterPhone: requestData.phone || undefined,
       requesterEmail: requestData.email || user?.email || undefined,
       requesterOffice: requestData.office || undefined,
+      requesterOfficeId: requestData.officeId || undefined, // 🆕 Office ID สำหรับอ้างอิง
+      requesterOfficeName: requestData.office || undefined, // 🆕 Office Name (ใช้ office จาก requestData)
       requestDate: createDatabaseDate(),
       urgency: requestData.urgency,
       deliveryLocation: requestData.deliveryLocation,

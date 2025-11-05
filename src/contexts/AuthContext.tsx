@@ -14,7 +14,9 @@ interface User {
   department?: string;
   phone?: string;
   userType: 'individual' | 'branch';
-  office: string;
+  office?: string; // Keep for backward compatibility
+  officeId?: string; // 🆕 Office ID
+  officeName: string; // 🆕 Office Name (primary field)
   isMainAdmin?: boolean;
   userRole?: 'user' | 'admin' | 'it_admin';
   pendingDeletion?: boolean; // เพิ่ม pendingDeletion status
@@ -70,7 +72,9 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
             department: data.user.department,
             phone: data.user.phone,
             userType: data.user.userType,
-            office: data.user.office,
+            office: data.user.office || data.user.officeName, // Backward compatibility
+            officeId: data.user.officeId,
+            officeName: data.user.officeName || data.user.office || 'ไม่ระบุสาขา',
             isMainAdmin: data.user.isMainAdmin || false,
             userRole: data.user.userRole || 'user',
             pendingDeletion: data.user.pendingDeletion || false // เพิ่ม pendingDeletion

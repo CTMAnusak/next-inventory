@@ -6,7 +6,8 @@ export interface IUser extends Document {
   lastName?: string;
   nickname?: string;
   department?: string;
-  office: string; // สาขา/ออฟฟิศ
+  officeId?: string; // 🆕 Office ID สำหรับอ้างอิง
+  officeName: string; // 🆕 Office Name (field เดียว - ไม่มี office field แล้ว)
   phone: string;
   email: string;
   password?: string; // Optional สำหรับ Google users
@@ -57,7 +58,11 @@ const UserSchema = new Schema<IUser>({
     type: String, 
     required: function() { return this.userType === 'individual'; }
   },
-  office: { type: String, required: true },
+  officeId: { type: String, index: true }, // 🆕 Office ID สำหรับอ้างอิง
+  officeName: { 
+    type: String,
+    required: true // 🆕 ใช้ officeName เป็น field เดียว
+  }, // 🆕 Office Name (field เดียว - ไม่มี office field แล้ว)
   phone: { type: String, required: true },
   email: { type: String, required: true, unique: true },
   password: { 
@@ -101,6 +106,41 @@ const UserSchema = new Schema<IUser>({
   jwtInvalidatedAt: { type: Date }
 }, {
   timestamps: true
+});
+
+// 🆕 Pre-save middleware: ตรวจสอบว่า officeName มีค่า
+UserSchema.pre('save', function(next) {
+  // ถ้าไม่มี officeName ให้ใช้ default
+  if (!this.officeName) {
+    this.officeName = 'ไม่ระบุสาขา';
+    if (!this.officeId) {
+      this.officeId = 'UNSPECIFIED_OFFICE';
+    }
+  }
+  next();
+});
+
+// 🆕 Pre-update middleware: ลบ office field ออกและแปลงเป็น officeName
+UserSchema.pre(['updateOne', 'findOneAndUpdate', 'updateMany'], function(next) {
+  const update = this.getUpdate() as any;
+  if (update && typeof update === 'object') {
+    // ถ้ามี $set
+    if (update.$set) {
+      // ถ้ามีการส่ง office มาแต่ไม่มี officeName ให้แปลงเป็น officeName
+      if (update.$set.office && !update.$set.officeName) {
+        update.$set.officeName = update.$set.office;
+      }
+      // ลบ office field ออกเสมอ (ไม่เก็บใน DB)
+      delete update.$set.office;
+    }
+    // ถ้า update โดยตรง (ไม่ใช้ $set)
+    if (update.office && !update.officeName) {
+      update.officeName = update.office;
+    }
+    // ลบ office field ออกเสมอ (ไม่เก็บใน DB)
+    delete update.office;
+  }
+  next();
 });
 
 export default mongoose.models.User || mongoose.model<IUser>('User', UserSchema);

@@ -40,13 +40,18 @@ export default function ITReportPage() {
 
   // Set office and email in formData when user data is available
   useEffect(() => {
-    if (user?.office) {
+    if (user?.officeName) {
       setFormData(prev => ({
         ...prev,
-        office: user.office
+        office: user.officeName
+      }));
+    } else if (user?.office) {
+      setFormData(prev => ({
+        ...prev,
+        office: user.office || ''
       }));
     }
-  }, [user?.office]);
+  }, [user?.officeName, user?.office]);
 
   // Form data including personal info for branch users
   const [formData, setFormData] = useState({
@@ -371,7 +376,7 @@ export default function ITReportPage() {
           <RequesterInfoForm 
             formData={{
               ...formData,
-              office: formData.office || user?.office || ''
+              office: formData.office || user?.officeName || user?.office || ''
             }}
             onInputChange={handleInputChange}
             showEmail={true}

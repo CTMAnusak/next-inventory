@@ -76,7 +76,9 @@ export async function POST(request: NextRequest) {
         firstName: user.firstName,
         lastName: user.lastName,
         userType: user.userType,
-        office: user.office,
+        office: user.office || user.officeName, // Backward compatibility
+        officeId: user.officeId,
+        officeName: user.officeName || user.office || 'ไม่ระบุสาขา',
         isMainAdmin: user.isMainAdmin || false,
         userRole: user.userRole || 'user'
       }

@@ -142,12 +142,34 @@ input[type="password"],
 input[type="tel"],
 input[type="date"],
 input[type="number"],
-textarea,
-select {
+textarea {
   color: #111827 !important; /* text-gray-900 */
   background-color: #ffffff !important; /* bg-white */
   -webkit-box-shadow: 0 0 0 30px #ffffff inset !important; /* Override autofill background */
   box-shadow: 0 0 0 30px #ffffff inset !important;
+}
+
+/* Select dropdown styling with arrow */
+select {
+  color: #111827 !important; /* text-gray-900 */
+  -webkit-appearance: none !important;
+  -moz-appearance: none !important;
+  appearance: none !important;
+  background-color: #ffffff !important;
+  background-image: url("data:image/svg+xml;charset=UTF-8,%3csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%23374151' stroke-width='2.5' stroke-linecap='round' stroke-linejoin='round'%3e%3cpolyline points='6,9 12,15 18,9'%3e%3c/polyline%3e%3c/svg%3e") !important;
+  background-repeat: no-repeat !important;
+  background-position: right 12px center !important;
+  background-size: 20px 20px !important;
+  padding-right: 40px !important;
+  -webkit-box-shadow: none !important;
+  box-shadow: none !important;
+}
+
+/* Disabled select elements - lighter arrow */
+select:disabled {
+  background-color: #f3f4f6 !important;
+  background-image: url("data:image/svg+xml;charset=UTF-8,%3csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%239CA3AF' stroke-width='2.5' stroke-linecap='round' stroke-linejoin='round'%3e%3cpolyline points='6,9 12,15 18,9'%3e%3c/polyline%3e%3c/svg%3e") !important;
+  cursor: not-allowed !important;
 }
 
 /* Override autofill styles completely */

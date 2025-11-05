@@ -53,7 +53,9 @@ export async function GET(request: NextRequest) {
         department: user.department,
         phone: user.phone,
         userType: user.userType,
-        office: user.office,
+        office: user.office || user.officeName, // Backward compatibility
+        officeId: user.officeId,
+        officeName: user.officeName || user.office || 'ไม่ระบุสาขา',
         isMainAdmin: user.isMainAdmin || false,
         userRole: user.userRole || 'user',
         pendingDeletion: user.pendingDeletion || false // เพิ่ม pendingDeletion status

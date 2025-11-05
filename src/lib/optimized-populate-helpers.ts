@@ -1,5 +1,6 @@
 import { getStatusName, getConditionName, getUserName, getCategoryName } from '@/lib/equipment-snapshot-helpers';
 import { getItemNameAndCategory, getCategoryNameById } from '@/lib/item-name-resolver';
+import { getOfficeNameById } from '@/lib/office-helpers'; // 🆕 Import helper function
 import InventoryMaster from '@/models/InventoryMaster';
 import User from '@/models/User';
 import DeletedUser from '@/models/DeletedUser';
@@ -143,6 +144,28 @@ export async function populateRequestLogUsersBatchOptimized(requestLogs: any[]) 
   const activeUserMap = new Map(activeUsers.map(user => [(user as any).user_id, user]));
   const deletedUserMap = new Map(deletedUsers.map(user => [(user as any).originalUserId, user]));
   
+  // 🆕 Batch fetch office names for all users that have officeId
+  const officeIds = new Set<string>();
+  activeUsers.forEach((user: any) => {
+    if (user.officeId) officeIds.add(user.officeId);
+  });
+  deletedUsers.forEach((user: any) => {
+    if (user.officeId) officeIds.add(user.officeId);
+  });
+  
+  // Batch populate office names
+  const officeNameMap = new Map<string, string>();
+  if (officeIds.size > 0) {
+    await Promise.all(Array.from(officeIds).map(async (officeId) => {
+      try {
+        const officeName = await getOfficeNameById(officeId);
+        officeNameMap.set(officeId, officeName);
+      } catch (error) {
+        console.error(`Error fetching office name for ${officeId}:`, error);
+      }
+    }));
+  }
+  
   // Populate all logs
   return requestLogs.map(log => {
     const populated = log.toObject ? log.toObject() : JSON.parse(JSON.stringify(log));
@@ -156,6 +179,15 @@ export async function populateRequestLogUsersBatchOptimized(requestLogs: any[]) 
         if (user) {
           const userType = (user as any).userType;
           
+          // 🆕 Populate office name จาก officeId หรือ officeName
+          let userOffice = (user as any).officeName || (user as any).office || '';
+          if (!userOffice && (user as any).officeId) {
+            userOffice = officeNameMap.get((user as any).officeId) || '';
+          }
+          if (!userOffice) {
+            userOffice = 'ไม่ระบุสาขา';
+          }
+          
           if (userType === 'individual') {
             // ✅ ผู้ใช้บุคคล: Populate ทุกข้อมูลจาก User collection (ข้อมูลล่าสุด)
             populated.firstName = (user as any).firstName || '';
@@ -163,11 +195,11 @@ export async function populateRequestLogUsersBatchOptimized(requestLogs: any[]) 
             populated.nickname = (user as any).nickname || '';
             populated.department = (user as any).department || '';
             populated.phone = (user as any).phone || '';
-            populated.office = (user as any).office || '';
+            populated.office = userOffice; // 🆕 ใช้ officeName ที่ populate แล้ว
             populated.email = (user as any).email || '';
           } else if (userType === 'branch') {
             // ✅ ผู้ใช้สาขา: Populate เฉพาะข้อมูลสาขา + ใช้ข้อมูลส่วนตัวจาก snapshot ในฟอร์ม
-            populated.office = (user as any).office || '';
+            populated.office = userOffice; // 🆕 ใช้ officeName ที่ populate แล้ว
             populated.email = (user as any).email || '';
             // ข้อมูลส่วนตัวใช้จาก snapshot ในฟอร์ม (requesterFirstName, etc.)
             populated.firstName = populated.requesterFirstName || '';
@@ -184,7 +216,7 @@ export async function populateRequestLogUsersBatchOptimized(requestLogs: any[]) 
             nickname: (user as any).nickname,
             department: (user as any).department,
             phone: (user as any).phone,
-            office: (user as any).office,
+            office: userOffice, // 🆕 ใช้ officeName ที่ populate แล้ว
             email: (user as any).email,
             userType: userType,
             isActive: true
@@ -196,6 +228,15 @@ export async function populateRequestLogUsersBatchOptimized(requestLogs: any[]) 
         if (deletedUser) {
           const userType = (deletedUser as any).userType;
           
+          // 🆕 Populate office name จาก officeId หรือ officeName
+          let deletedUserOffice = (deletedUser as any).officeName || (deletedUser as any).office || '';
+          if (!deletedUserOffice && (deletedUser as any).officeId) {
+            deletedUserOffice = officeNameMap.get((deletedUser as any).officeId) || '';
+          }
+          if (!deletedUserOffice) {
+            deletedUserOffice = 'ไม่ระบุสาขา';
+          }
+          
           if (userType === 'individual') {
             // ✅ ผู้ใช้บุคคล: ใช้ข้อมูลจาก snapshot (ข้อมูลล่าสุดก่อนลบ)
             populated.firstName = (deletedUser as any).firstName || '';
@@ -203,11 +244,11 @@ export async function populateRequestLogUsersBatchOptimized(requestLogs: any[]) 
             populated.nickname = (deletedUser as any).nickname || '';
             populated.department = (deletedUser as any).department || '';
             populated.phone = (deletedUser as any).phone || '';
-            populated.office = (deletedUser as any).office || '';
+            populated.office = deletedUserOffice; // 🆕 ใช้ officeName ที่ populate แล้ว
             populated.email = (deletedUser as any).email || '';
           } else if (userType === 'branch') {
             // ✅ ผู้ใช้สาขา: ใช้ข้อมูลสาขาจาก snapshot + ข้อมูลส่วนตัวจากฟอร์ม
-            populated.office = (deletedUser as any).office || '';
+            populated.office = deletedUserOffice; // 🆕 ใช้ officeName ที่ populate แล้ว
             populated.email = (deletedUser as any).email || '';
             // ข้อมูลส่วนตัวใช้จาก snapshot ในฟอร์ม (requesterFirstName, etc.)
             populated.firstName = populated.requesterFirstName || '';
@@ -224,7 +265,7 @@ export async function populateRequestLogUsersBatchOptimized(requestLogs: any[]) 
             nickname: (deletedUser as any).nickname,
             department: (deletedUser as any).department,
             phone: (deletedUser as any).phone,
-            office: (deletedUser as any).office,
+            office: deletedUserOffice, // 🆕 ใช้ officeName ที่ populate แล้ว
             email: (deletedUser as any).email,
             userType: userType,
             isActive: false
@@ -232,12 +273,21 @@ export async function populateRequestLogUsersBatchOptimized(requestLogs: any[]) 
         }
       } else {
         // User not found - ใช้ข้อมูลจาก snapshot ใน RequestLog (ถ้ามี)
+        // 🆕 Populate office name จาก requesterOfficeId หรือ requesterOfficeName
+        let requesterOffice = populated.requesterOfficeName || populated.requesterOffice || '';
+        if (!requesterOffice && populated.requesterOfficeId) {
+          requesterOffice = officeNameMap.get(populated.requesterOfficeId) || '';
+        }
+        if (!requesterOffice) {
+          requesterOffice = 'ไม่ระบุสาขา';
+        }
+        
         populated.firstName = populated.requesterFirstName || 'Unknown';
         populated.lastName = populated.requesterLastName || 'User';
         populated.nickname = populated.requesterNickname || '';
         populated.department = populated.requesterDepartment || '';
         populated.phone = populated.requesterPhone || '';
-        populated.office = populated.requesterOffice || '';
+        populated.office = requesterOffice; // 🆕 ใช้ officeName ที่ populate แล้ว
         populated.email = populated.requesterEmail || '';
         
         // เก็บ userInfo สำหรับการ debug
@@ -247,7 +297,7 @@ export async function populateRequestLogUsersBatchOptimized(requestLogs: any[]) 
           nickname: 'Unknown',
           department: 'Unknown',
           phone: 'Unknown',
-          office: 'Unknown',
+          office: requesterOffice, // 🆕 ใช้ officeName ที่ populate แล้ว
           email: 'Unknown',
           userType: 'unknown',
           isActive: false

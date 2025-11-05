@@ -10,7 +10,9 @@ export interface IDeletedUser extends Document {
   lastName?: string;
   nickname?: string;
   department?: string;
-  office?: string;
+  office?: string; // backward compatibility
+  officeId?: string; // 🆕 Office ID สำหรับอ้างอิง
+  officeName?: string; // 🆕 Office Name (populated field)
   phone?: string;
   email?: string;
   deletedAt: Date;
@@ -26,7 +28,9 @@ const DeletedUserSchema = new Schema<IDeletedUser>({
   lastName: { type: String },
   nickname: { type: String },
   department: { type: String },
-  office: { type: String },
+  office: { type: String }, // backward compatibility
+  officeId: { type: String }, // 🆕 Office ID สำหรับอ้างอิง
+  officeName: { type: String }, // 🆕 Office Name (populated field)
   phone: { type: String },
   email: { type: String },
   deletedAt: { type: Date, required: true, default: Date.now }
