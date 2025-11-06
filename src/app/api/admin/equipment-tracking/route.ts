@@ -132,68 +132,127 @@ export async function GET(request: NextRequest) {
         let nickname = user?.nickname || '';
         let userDepartment = user?.department || '';
         let userPhone = user?.phone || '';
-        // 🆕 ใช้ officeName แทน office (office field ถูกลบออกแล้ว)
-        let userOffice = user?.officeName || user?.office || '';
+        // 🆕 ใช้ officeId เพื่อดึงชื่อสาขาล่าสุดจาก Office collection (เพื่อให้อัปเดตตามที่แอดมินแก้ไข)
+        let userOffice = '';
         const isDeletedUser = (user as any)?._isDeleted || false;
+        const userType = user?.userType;
         
-        // 🆕 ถ้าไม่มี officeName แต่มี officeId ให้ populate จาก Office collection
-        if (!userOffice && user?.officeId) {
+        // 🆕 สำหรับผู้ใช้สาขา: ใช้ officeId เพื่อดึงชื่อสาขาล่าสุดเสมอ (ไม่ใช้ snapshot)
+        if (userType === 'branch' && user?.officeId && user.officeId !== 'UNSPECIFIED_OFFICE') {
+          try {
+            userOffice = await getOfficeNameById(user.officeId);
+          } catch (error) {
+            console.error('Error fetching office name for branch user:', error);
+            userOffice = user?.officeName || user?.office || '';
+          }
+        } else if (userType === 'individual' && user?.officeId && user.officeId !== 'UNSPECIFIED_OFFICE') {
+          // ✅ สำหรับผู้ใช้บุคคล: ใช้ officeId เพื่อดึงชื่อสาขาล่าสุดเสมอ (เพื่อให้อัปเดตตามที่แอดมินแก้ไข)
+          try {
+            userOffice = await getOfficeNameById(user.officeId);
+          } catch (error) {
+            console.error('Error fetching office name for individual user:', error);
+            userOffice = user?.officeName || user?.office || '';
+          }
+        } else if (user?.officeId && user.officeId !== 'UNSPECIFIED_OFFICE') {
+          // สำหรับผู้ใช้ประเภทอื่น: ลองใช้ officeId ก่อน แล้วค่อย fallback
           try {
             userOffice = await getOfficeNameById(user.officeId);
           } catch (error) {
             console.error('Error fetching office name:', error);
+            userOffice = user?.officeName || user?.office || '';
           }
+        } else {
+          userOffice = user?.officeName || user?.office || '';
         }
         
         // ✅ สำหรับอุปกรณ์ที่เพิ่มเอง: ดึงข้อมูลจาก requesterInfo ใน InventoryItem
         // (ใช้สำหรับผู้ใช้สาขาที่กรอกข้อมูลเพิ่มเติมตอนเพิ่มอุปกรณ์)
         const itemRequesterInfo = (item as any).requesterInfo;
         if (itemRequesterInfo && (itemRequesterInfo.firstName || itemRequesterInfo.lastName)) {
-          // ✅ สำหรับผู้ใช้สาขา: ข้อมูลส่วนตัวจาก requesterInfo, office จาก User Collection
-          if (user?.userType === 'branch') {
+          // ✅ สำหรับผู้ใช้สาขา: ข้อมูลส่วนตัวจาก requesterInfo, office จาก User Collection (ใช้ officeId เสมอ)
+          if (userType === 'branch') {
             firstName = itemRequesterInfo.firstName || firstName;
             lastName = itemRequesterInfo.lastName || lastName;
             nickname = itemRequesterInfo.nickname || nickname;
             userDepartment = itemRequesterInfo.department || userDepartment;
             userPhone = itemRequesterInfo.phone || userPhone;
-            // ⚠️ office ต้องใช้จาก User Collection เสมอ (เพื่อให้อัปเดตตามที่แอดมินแก้ไข)
-            // 🆕 ใช้ officeName แทน office
-            userOffice = user?.officeName || user?.office || userOffice;
+            // ⚠️ สำคัญ: สำหรับผู้ใช้สาขา office ต้องใช้จาก User Collection เสมอ (ใช้ officeId เพื่อดึงชื่อสาขาล่าสุด)
+            // ไม่ใช้ snapshot จาก requesterInfo เพื่อให้อัปเดตตามที่แอดมินแก้ไข
+            if (user?.officeId) {
+              try {
+                userOffice = await getOfficeNameById(user.officeId);
+              } catch (error) {
+                console.error('Error fetching office name for branch user (requesterInfo case):', error);
+                // Fallback: ถ้าไม่สามารถดึงได้ ให้ใช้ค่าที่มีอยู่แล้ว (ไม่ใช้ snapshot)
+                if (!userOffice) {
+                  userOffice = user?.officeName || user?.office || 'ไม่ระบุสาขา';
+                }
+              }
+            } else {
+              // ถ้าไม่มี officeId ให้ใช้ค่าจาก User collection (ไม่ใช้ snapshot)
+              userOffice = user?.officeName || user?.office || 'ไม่ระบุสาขา';
+            }
           } else {
-            // ผู้ใช้ individual: ใช้ข้อมูลจาก requesterInfo ทั้งหมด
+            // ผู้ใช้ individual: ใช้ข้อมูลส่วนตัวจาก requesterInfo แต่ office ใช้จาก User collection (ข้อมูลล่าสุด)
             firstName = itemRequesterInfo.firstName || firstName;
             lastName = itemRequesterInfo.lastName || lastName;
             nickname = itemRequesterInfo.nickname || nickname;
             userDepartment = itemRequesterInfo.department || userDepartment;
             userPhone = itemRequesterInfo.phone || userPhone;
             
-            // 🔧 Populate officeName จาก officeId (real-time lookup)
-            if (itemRequesterInfo.officeId) {
+            // ⚠️ สำคัญ: สำหรับผู้ใช้บุคคล office ต้องใช้จาก User collection เสมอ (เพื่อให้อัปเดตตามที่แอดมินแก้ไข)
+            // Priority 1: ใช้ officeId จาก User collection ก่อน (ข้อมูลล่าสุด)
+            if (user?.officeId && user.officeId !== 'UNSPECIFIED_OFFICE') {
               try {
-                userOffice = await getOfficeNameById(itemRequesterInfo.officeId);
+                userOffice = await getOfficeNameById(user.officeId);
               } catch (error) {
-                console.error('Error fetching office name from officeId:', error);
-                // Fallback to stored officeName or office
-                userOffice = itemRequesterInfo.officeName || itemRequesterInfo.office || userOffice;
+                console.error('Error fetching office name for individual user:', error);
               }
-            } else {
-              // ใช้ officeName หรือ office เดิม (backward compatible)
-              userOffice = itemRequesterInfo.officeName || itemRequesterInfo.office || userOffice;
+            }
+            
+            // Priority 2: ถ้าไม่มี officeId ให้ใช้ officeName/office จาก User collection
+            if (!userOffice) {
+              userOffice = user?.officeName || user?.office || '';
+            }
+            
+            // Priority 3: Fallback ไป snapshot (กรณีที่ User collection ไม่มีข้อมูล)
+            if (!userOffice) {
+              userOffice = itemRequesterInfo.officeName || itemRequesterInfo.office || '';
+              if (!userOffice && itemRequesterInfo.officeId) {
+                try {
+                  userOffice = await getOfficeNameById(itemRequesterInfo.officeId);
+                } catch (error) {
+                  console.error('Error fetching office name from requesterInfo.officeId:', error);
+                }
+              }
+            }
+            
+            if (!userOffice) {
+              userOffice = 'ไม่ระบุสาขา';
             }
           }
-        } else if (isDeletedUser && user?.userType === 'branch') {
+        } else if (isDeletedUser && userType === 'branch') {
           // 🆕 สำหรับผู้ใช้สาขาที่ถูกลบ แต่ไม่มี requesterInfo:
-          // ใช้ข้อมูลจาก DeletedUsers เฉพาะ office
-          // 🆕 ใช้ officeName แทน office
-          userOffice = user.officeName || user.office || userOffice;
+          // ใช้ข้อมูลจาก DeletedUsers เฉพาะ office (ใช้ officeId เพื่อดึงชื่อสาขาล่าสุด)
+          if (user.officeId) {
+            try {
+              userOffice = await getOfficeNameById(user.officeId);
+            } catch (error) {
+              console.error('Error fetching office name for deleted branch user:', error);
+              userOffice = user.officeName || user.office || 'ไม่ระบุสาขา';
+            }
+          } else {
+            userOffice = user.officeName || user.office || 'ไม่ระบุสาขา';
+          }
         }
         
-        // 🆕 ถ้ายังไม่มี officeName และมี officeId ให้ populate อีกครั้ง (กรณีที่ requesterInfo ไม่มี officeName)
-        if (!userOffice && user?.officeId) {
+        // 🆕 สำหรับผู้ใช้สาขาที่ยังมีอยู่: ถ้ายังไม่มี officeName และมี officeId ให้ populate อีกครั้ง
+        // (เพื่อให้แน่ใจว่าได้ชื่อสาขาล่าสุดเมื่อแอดมินแก้ไข)
+        if (userType === 'branch' && !userOffice && user?.officeId) {
           try {
             userOffice = await getOfficeNameById(user.officeId);
           } catch (error) {
-            console.error('Error fetching office name (second attempt):', error);
+            console.error('Error fetching office name (final attempt for branch user):', error);
           }
         }
         

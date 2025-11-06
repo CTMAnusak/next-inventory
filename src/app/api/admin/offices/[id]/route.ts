@@ -95,6 +95,8 @@ export async function PUT(
     
     // Clear cache
     clearOfficeCacheById(id);
+    const { clearAllCaches } = await import('@/lib/cache-utils');
+    clearAllCaches(); // Clear all caches since office list changed
     
     return NextResponse.json({
       success: true,
@@ -142,26 +144,18 @@ export async function DELETE(
       );
     }
     
-    // ตรวจสอบว่ามีการใช้งานหรือไม่
-    const usage = await checkOfficeUsage(id);
-    
-    if (usage.isUsed) {
-      return NextResponse.json(
-        { 
-          error: 'ไม่สามารถลบสาขาได้ เนื่องจากมีการใช้งานอยู่',
-          usage: usage.usage
-        },
-        { status: 400 }
-      );
-    }
-    
-    // Snapshot ก่อนลบ (ป้องกันกรณีที่อาจมีการใช้งานในอนาคต)
+    // 📸 Snapshot ชื่อสาขาก่อนลบเสมอ (แม้มีผู้ใช้อยู่)
+    // เพื่อเก็บข้อมูลประวัติให้ครบถ้วนก่อนลบสาขา
     const snapshotResult = await snapshotOfficeBeforeDelete(id);
     if (!snapshotResult.success) {
       console.warn('Failed to snapshot office before delete:', snapshotResult.error);
+      // ยังคงดำเนินการต่อ แต่แจ้งเตือน
     }
     
-    // 🆕 อัพเดตผู้ใช้ที่ใช้ Office นี้ให้ใช้ Default Office แทน
+    console.log(`📸 Snapshot completed for office ${id}:`, snapshotResult.updated);
+    
+    // 🆕 อัพเดต officeId ให้ชี้ไปที่ Default Office แทน
+    // แต่คงชื่อสาขาไว้ (จาก snapshot) เพื่อให้ประวัติยังแสดงชื่อสาขาเดิมได้
     const DEFAULT_OFFICE_ID = 'UNSPECIFIED_OFFICE';
     const { default: User } = await import('@/models/User');
     const { default: RequestLog } = await import('@/models/RequestLog');
@@ -170,13 +164,15 @@ export async function DELETE(
     const { default: InventoryItem } = await import('@/models/InventoryItem');
     const { default: DeletedUser } = await import('@/models/DeletedUser');
     
+    // ⚠️ สำคัญ: อัพเดตเฉพาะ officeId เท่านั้น ไม่ต้องอัพเดต office/officeName 
+    // เพราะ snapshotOfficeBeforeDelete ได้บันทึกชื่อสาขาไว้แล้ว
     await Promise.all([
-      User.updateMany({ officeId: id }, { $set: { officeId: DEFAULT_OFFICE_ID, office: 'ไม่ระบุสาขา', officeName: 'ไม่ระบุสาขา' } }),
-      RequestLog.updateMany({ requesterOfficeId: id }, { $set: { requesterOfficeId: DEFAULT_OFFICE_ID, requesterOffice: 'ไม่ระบุสาขา', requesterOfficeName: 'ไม่ระบุสาขา' } }),
-      ReturnLog.updateMany({ returnerOfficeId: id }, { $set: { returnerOfficeId: DEFAULT_OFFICE_ID, returnerOffice: 'ไม่ระบุสาขา', returnerOfficeName: 'ไม่ระบุสาขา' } }),
-      IssueLog.updateMany({ officeId: id }, { $set: { officeId: DEFAULT_OFFICE_ID, office: 'ไม่ระบุสาขา', officeName: 'ไม่ระบุสาขา' } }),
-      InventoryItem.updateMany({ 'requesterInfo.officeId': id }, { $set: { 'requesterInfo.officeId': DEFAULT_OFFICE_ID, 'requesterInfo.office': 'ไม่ระบุสาขา', 'requesterInfo.officeName': 'ไม่ระบุสาขา' } }),
-      DeletedUser.updateMany({ officeId: id }, { $set: { officeId: DEFAULT_OFFICE_ID, office: 'ไม่ระบุสาขา', officeName: 'ไม่ระบุสาขา' } })
+      User.updateMany({ officeId: id }, { $set: { officeId: DEFAULT_OFFICE_ID } }),
+      RequestLog.updateMany({ requesterOfficeId: id }, { $set: { requesterOfficeId: DEFAULT_OFFICE_ID } }),
+      ReturnLog.updateMany({ returnerOfficeId: id }, { $set: { returnerOfficeId: DEFAULT_OFFICE_ID } }),
+      IssueLog.updateMany({ officeId: id }, { $set: { officeId: DEFAULT_OFFICE_ID } }),
+      InventoryItem.updateMany({ 'requesterInfo.officeId': id }, { $set: { 'requesterInfo.officeId': DEFAULT_OFFICE_ID } }),
+      DeletedUser.updateMany({ officeId: id }, { $set: { officeId: DEFAULT_OFFICE_ID } })
     ]);
     
     // Soft delete
@@ -186,10 +182,16 @@ export async function DELETE(
     
     // Clear cache
     clearOfficeCacheById(id);
+    const { clearAllCaches } = await import('@/lib/cache-utils');
+    clearAllCaches(); // Clear all caches since office list changed
     
     return NextResponse.json({
       success: true,
-      message: 'ลบสาขาสำเร็จ'
+      message: 'ลบสาขาสำเร็จ',
+      snapshot: {
+        completed: snapshotResult.success,
+        updated: snapshotResult.updated
+      }
     });
   } catch (error: any) {
     console.error('Error deleting office:', error);

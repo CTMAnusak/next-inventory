@@ -17,7 +17,8 @@ import {
   Phone,
   Mail,
   Download,
-  Loader2
+  Loader2,
+  AlertTriangle
 } from 'lucide-react';
 import { toast } from 'react-hot-toast';
 import { customToast } from '@/lib/custom-toast';
@@ -100,6 +101,9 @@ export default function AdminUsersPage() {
   // States สำหรับ loading ของแต่ละ action
   const [editingUserId, setEditingUserId] = useState<string | null>(null);
   const [deletingUserId, setDeletingUserId] = useState<string | null>(null);
+  const [showDeleteUserConfirm, setShowDeleteUserConfirm] = useState(false);
+  const [userToDelete, setUserToDelete] = useState<User | null>(null);
+  const [deleteUserConfirmText, setDeleteUserConfirmText] = useState('');
 
   // Search and filter states
   const [searchTerm, setSearchTerm] = useState('');
@@ -430,12 +434,21 @@ export default function AdminUsersPage() {
     }
   };
 
-  const handleDelete = async (id: string) => {
-    if (!confirm('คุณต้องการลบผู้ใช้นี้หรือไม่?')) return;
+  const handleDeleteClick = (user: User) => {
+    setUserToDelete(user);
+    setDeleteUserConfirmText('');
+    setShowDeleteUserConfirm(true);
+  };
 
-    setDeletingUserId(id);
+  const handleDeleteConfirm = async () => {
+    if (!userToDelete || deleteUserConfirmText !== 'delete') {
+      return;
+    }
+
+    setDeletingUserId(userToDelete._id!);
+    setShowDeleteUserConfirm(false);
     try {
-      const response = await fetch(`/api/admin/users/${id}`, {
+      const response = await fetch(`/api/admin/users/${userToDelete._id}`, {
         method: 'DELETE',
       });
 
@@ -505,7 +518,15 @@ export default function AdminUsersPage() {
       toast.error('เกิดข้อผิดพลาดในการเชื่อมต่อ');
     } finally {
       setDeletingUserId(null);
+      setUserToDelete(null);
+      setDeleteUserConfirmText('');
     }
+  };
+
+  const handleDeleteCancel = () => {
+    setShowDeleteUserConfirm(false);
+    setUserToDelete(null);
+    setDeleteUserConfirmText('');
   };
 
   // Function สำหรับแสดงรายละเอียด pending deletion
@@ -1090,7 +1111,7 @@ export default function AdminUsersPage() {
                             {/* Hide delete button for Main Admin */}
                             {!user.isMainAdmin && (
                               <button
-                                onClick={() => handleDelete(user._id!)}
+                                onClick={() => handleDeleteClick(user)}
                                 disabled={editingUserId === user._id || deletingUserId === user._id}
                                 className="text-red-600 hover:text-red-900 p-1 disabled:opacity-50 disabled:cursor-not-allowed"
                                 title="ลบผู้ใช้"
@@ -1833,6 +1854,94 @@ export default function AdminUsersPage() {
             fetchOfficeOptions();
           }}
         />
+
+        {/* Delete User Confirmation Modal */}
+        {showDeleteUserConfirm && userToDelete && (
+          <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-50 p-4">
+            <div className="bg-white rounded-2xl shadow-2xl max-w-md w-full max-h-[90vh] overflow-y-auto">
+              {/* Header */}
+              <div className="flex justify-between items-center p-6 border-b border-gray-200">
+                <div className="flex items-center gap-2">
+                  <span className="text-lg font-semibold text-gray-900">
+                    ยืนยันการลบผู้ใช้
+                  </span>
+                </div>
+                <button
+                  onClick={handleDeleteCancel}
+                  className="text-gray-400 hover:text-gray-600 transition-colors"
+                  disabled={deletingUserId === userToDelete._id}
+                >
+                  <X className="w-6 h-6" />
+                </button>
+              </div>
+
+              {/* Content */}
+              <div className="p-6">
+                <div className="flex items-start gap-4">
+                  <div className="flex-shrink-0">
+                    <AlertTriangle className="w-6 h-6 text-red-500" />
+                  </div>
+                  <div className="flex-1">
+                    <h3 className="text-lg font-medium text-gray-900 mb-2">
+                      คุณแน่ใจหรือไม่ที่จะลบผู้ใช้ "{userToDelete.firstName} {userToDelete.lastName}"?
+                    </h3>
+                    <div className="text-sm text-gray-600 space-y-2 mb-4">
+                      <p>การดำเนินการนี้ไม่สามารถย้อนกลับได้</p>
+                      <p>ผู้ใช้นี้จะถูกลบออกจากระบบอย่างถาวร</p>
+                      {userToDelete.email && (
+                        <p className="mt-2">
+                          <strong>อีเมล:</strong> {userToDelete.email}
+                        </p>
+                      )}
+                    </div>
+                    
+                    <div className="mt-4">
+                      <label className="block text-sm font-medium text-gray-700 mb-2">
+                        พิมพ์ <span className="font-mono font-bold text-red-600">delete</span> เพื่อยืนยัน:
+                      </label>
+                      <input
+                        type="text"
+                        value={deleteUserConfirmText}
+                        onChange={(e) => setDeleteUserConfirmText(e.target.value)}
+                        className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-red-500 focus:border-red-500"
+                        placeholder="delete"
+                        disabled={deletingUserId === userToDelete._id}
+                        autoFocus
+                      />
+                      {deleteUserConfirmText && deleteUserConfirmText !== 'delete' && (
+                        <p className="text-red-500 text-sm mt-1">กรุณาพิมพ์ "delete" ให้ถูกต้อง</p>
+                      )}
+                      {deleteUserConfirmText === 'delete' && (
+                        <p className="text-green-600 text-sm mt-1">✓ ยืนยันแล้ว</p>
+                      )}
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              {/* Actions */}
+              <div className="flex justify-end gap-3 p-6 border-t border-gray-200">
+                <button
+                  onClick={handleDeleteCancel}
+                  className="px-4 py-2 text-gray-700 bg-gray-100 hover:bg-gray-200 rounded-lg transition-colors"
+                  disabled={deletingUserId === userToDelete._id}
+                >
+                  ยกเลิก
+                </button>
+                <button
+                  onClick={handleDeleteConfirm}
+                  disabled={deleteUserConfirmText !== 'delete' || deletingUserId === userToDelete._id}
+                  className="px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 disabled:bg-gray-300 disabled:cursor-not-allowed transition-colors flex items-center gap-2"
+                >
+                  {deletingUserId === userToDelete._id && (
+                    <Loader2 className="w-4 h-4 animate-spin" />
+                  )}
+                  ลบผู้ใช้
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
       </div>
     </Layout>
   );

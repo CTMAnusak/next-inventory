@@ -21,6 +21,8 @@ import { verifyToken } from '@/lib/auth';
  * - categoryId: หมวดหมู่อุปกรณ์ (required)
  */
 export async function GET(request: NextRequest) {
+  const startTime = Date.now();
+  
   try {
     await dbConnect();
     
@@ -45,8 +47,31 @@ export async function GET(request: NextRequest) {
       );
     }
     
-    // Load configs to get "มี" (available) status and "ใช้งานได้" (working) condition
-    const inventoryConfig = await InventoryConfig.findOne({});
+    // Check cache first
+    const { getCachedData, setCachedData } = await import('@/lib/cache-utils');
+    const cacheKey = `available_from_stock_${categoryId}`;
+    const cached = getCachedData(cacheKey);
+    if (cached) {
+      if (process.env.NODE_ENV === 'development') {
+        console.log(`✅ Available From Stock API - Cache hit (${Date.now() - startTime}ms)`);
+      }
+      return NextResponse.json(cached);
+    }
+    
+    // Load configs to get "มี" (available) status and "ใช้งานได้" (working) condition (with cache)
+    const { getCachedData: getConfigCache, setCachedData: setConfigCache } = await import('@/lib/cache-utils');
+    const configCacheKey = 'inventory_config_all';
+    let inventoryConfig = getConfigCache(configCacheKey);
+    
+    if (!inventoryConfig) {
+      inventoryConfig = await InventoryConfig.findOne({})
+        .select('statusConfigs conditionConfigs')
+        .lean();
+      if (inventoryConfig) {
+        setConfigCache(configCacheKey, inventoryConfig);
+      }
+    }
+    
     if (!inventoryConfig) {
       return NextResponse.json(
         { error: 'ไม่พบการตั้งค่าระบบ' },
@@ -61,20 +86,41 @@ export async function GET(request: NextRequest) {
   // Find the "ใช้งานได้" condition config (should be cond_working)
   const workingCondition = inventoryConfig.conditionConfigs?.find((c: any) => c.name === 'ใช้งานได้');
   const workingConditionId = workingCondition?.id || 'cond_working';
-
-    console.log('🔍 Dashboard Equipment List Filter:', {
-      categoryId,
-      availableStatusId,
-      workingConditionId,
-      availableStatusName: availableStatus?.name,
-      workingConditionName: workingCondition?.name
-    });
     
     // ✅ Get ALL InventoryMasters in this category (ไม่กรอง availableQuantity)
     // เพราะผู้ใช้กำลังบันทึกอุปกรณ์ที่ตัวเองมี ไม่ใช่การเบิกจากคลัง
     const inventoryMasters = await InventoryMaster.find({
       categoryId: categoryId
-    }).sort({ itemName: 1 });
+    })
+    .select('itemName categoryId')
+    .sort({ itemName: 1 })
+    .lean();
+    
+    // ✅ Optimize: Batch query all items at once instead of N+1 queries
+    const itemNames = inventoryMasters.map(m => m.itemName);
+    const categoryIds = [...new Set(inventoryMasters.map(m => m.categoryId))];
+    
+    // Get all matching items in one query
+    const allMatchingItems = await InventoryItem.find({
+      itemName: { $in: itemNames },
+      categoryId: { $in: categoryIds },
+      'currentOwnership.ownerType': 'admin_stock',
+      statusId: availableStatusId,
+      conditionId: workingConditionId,
+      deletedAt: { $exists: false }
+    })
+    .select('_id itemName categoryId serialNumber numberPhone statusId conditionId')
+    .lean();
+    
+    // Group items by itemName+categoryId
+    const itemsByMaster = new Map<string, typeof allMatchingItems>();
+    allMatchingItems.forEach(item => {
+      const key = `${item.itemName}||${item.categoryId}`;
+      if (!itemsByMaster.has(key)) {
+        itemsByMaster.set(key, []);
+      }
+      itemsByMaster.get(key)!.push(item);
+    });
     
     // For each InventoryMaster, try to get sample item from admin_stock (if available)
     const availableItems: {
@@ -92,25 +138,10 @@ export async function GET(request: NextRequest) {
     }[] = [];
     
     for (const inventoryMaster of inventoryMasters) {
-      // Count items in admin_stock with status "มี" and condition "ใช้งานได้"
-      const count = await InventoryItem.countDocuments({
-        itemName: inventoryMaster.itemName,
-        categoryId: inventoryMaster.categoryId,
-        'currentOwnership.ownerType': 'admin_stock',
-        statusId: availableStatusId,
-        conditionId: workingConditionId,
-        deletedAt: { $exists: false }
-      });
-      
-      // Try to get one sample item from admin_stock
-      const sampleItem = await InventoryItem.findOne({
-        itemName: inventoryMaster.itemName,
-        categoryId: inventoryMaster.categoryId,
-        'currentOwnership.ownerType': 'admin_stock',
-        statusId: availableStatusId,
-        conditionId: workingConditionId,
-        deletedAt: { $exists: false }
-      });
+      const key = `${inventoryMaster.itemName}||${inventoryMaster.categoryId}`;
+      const matchingItems = itemsByMaster.get(key) || [];
+      const count = matchingItems.length;
+      const sampleItem = matchingItems[0] || null;
       
       // ✅ แสดงอุปกรณ์ทั้งหมด ไม่ว่าจะมี sampleItem หรือไม่
       availableItems.push({
@@ -128,9 +159,7 @@ export async function GET(request: NextRequest) {
       });
     }
     
-    console.log(`✅ Found ${availableItems.length} equipment types in category ${categoryId}`);
-    
-    return NextResponse.json({
+    const result = {
       categoryId,
       availableItems,
       filters: {
@@ -139,7 +168,16 @@ export async function GET(request: NextRequest) {
         conditionId: workingConditionId,
         conditionName: workingCondition?.name || 'ใช้งานได้'
       }
-    });
+    };
+    
+    // Cache the result
+    setCachedData(cacheKey, result);
+    
+    if (process.env.NODE_ENV === 'development') {
+      console.log(`✅ Available From Stock API - Found ${availableItems.length} items (${Date.now() - startTime}ms)`);
+    }
+    
+    return NextResponse.json(result);
     
   } catch (error) {
     console.error('Error fetching available stock items:', error);

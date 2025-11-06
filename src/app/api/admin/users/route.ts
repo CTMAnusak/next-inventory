@@ -6,6 +6,8 @@ import jwt from 'jsonwebtoken';
 
 // GET - Fetch all users
 export async function GET(request: NextRequest) {
+  const startTime = Date.now();
+  
   try {
     // Verify admin token
     const token = request.cookies.get('auth-token')?.value;
@@ -25,9 +27,73 @@ export async function GET(request: NextRequest) {
       return NextResponse.json({ error: 'Insufficient permissions' }, { status: 403 });
     }
 
+    // Check cache first
+    const { getCachedData, setCachedData } = await import('@/lib/cache-utils');
+    const cacheKey = 'admin_users_all';
+    const cached = getCachedData(cacheKey);
+    if (cached) {
+      if (process.env.NODE_ENV === 'development') {
+        console.log(`✅ Users API - Cache hit (${Date.now() - startTime}ms)`);
+      }
+      return NextResponse.json(cached);
+    }
+
     await dbConnect();
     
-    const users = await User.find({}).select('-password').sort({ createdAt: -1 });
+    // Use lean() for better performance and select only needed fields
+    const users = await User.find({})
+      .select('-password')
+      .select('user_id firstName lastName nickname department office officeId officeName phone email userType userRole registrationMethod googleId profilePicture isApproved approvedBy approvedAt profileCompleted pendingDeletion pendingDeletionReason pendingDeletionRequestedBy pendingDeletionRequestedAt createdAt updatedAt isMainAdmin')
+      .sort({ createdAt: -1 })
+      .lean();
+    
+    // Batch populate office names if needed
+    const officeIds = new Set<string>();
+    users.forEach((user: any) => {
+      if (user.officeId && !user.officeName) {
+        officeIds.add(user.officeId);
+      }
+    });
+
+    // Batch fetch office names
+    if (officeIds.size > 0) {
+      const { getOfficeMap } = await import('@/lib/office-helpers');
+      const officeMap = await getOfficeMap(Array.from(officeIds));
+      
+      // Populate office names
+      users.forEach((user: any) => {
+        if (user.officeId) {
+          // ⚠️ ถ้า officeId = UNSPECIFIED_OFFICE ให้แสดง "ไม่ระบุสาขา" เสมอ (ไม่ใช้ snapshot)
+          if (user.officeId === 'UNSPECIFIED_OFFICE') {
+            user.officeName = 'ไม่ระบุสาขา';
+            user.office = 'ไม่ระบุสาขา';
+          } else {
+            user.officeName = user.officeName || officeMap.get(user.officeId) || user.office || 'ไม่ระบุสาขา';
+            // Backward compatibility
+            if (!user.office) {
+              user.office = user.officeName;
+            }
+          }
+        } else if (user.office && !user.officeName) {
+          user.officeName = user.office;
+        }
+      });
+    }
+    
+    // ⚠️ สำหรับ users ที่ไม่ได้อยู่ใน officeIds (มี officeName อยู่แล้ว) แต่ officeId = UNSPECIFIED_OFFICE
+    users.forEach((user: any) => {
+      if (user.officeId === 'UNSPECIFIED_OFFICE') {
+        user.officeName = 'ไม่ระบุสาขา';
+        user.office = 'ไม่ระบุสาขา';
+      }
+    });
+
+    // Cache the result
+    setCachedData(cacheKey, users);
+    
+    if (process.env.NODE_ENV === 'development') {
+      console.log(`✅ Users API - Fetched ${users.length} users (${Date.now() - startTime}ms)`);
+    }
     
     return NextResponse.json(users);
   } catch (error) {
@@ -238,6 +304,10 @@ export async function POST(request: NextRequest) {
     await client.close();
     
     console.log('Created user with user_id:', newUser.user_id);
+
+    // Clear users cache
+    const { clearAllCaches } = await import('@/lib/cache-utils');
+    clearAllCaches(); // Clear all caches since user list changed
 
     // Return user without password
     const { password: _, ...userWithoutPassword } = newUser;

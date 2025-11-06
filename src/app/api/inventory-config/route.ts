@@ -4,106 +4,115 @@ import InventoryConfig from '@/models/InventoryConfig';
 
 // GET - ดึงการตั้งค่าทั้งหมด (สำหรับผู้ใช้ทั่วไป)
 export async function GET() {
+  const startTime = Date.now();
+  
   try {
+    // Check cache first
+    const { getCachedData, setCachedData } = await import('@/lib/cache-utils');
+    const cacheKey = 'inventory_config_user';
+    const cached = getCachedData(cacheKey);
+    if (cached) {
+      if (process.env.NODE_ENV === 'development') {
+        console.log(`✅ Inventory Config API - Cache hit (${Date.now() - startTime}ms)`);
+      }
+      return NextResponse.json(cached);
+    }
+    
     await dbConnect();
     
-    let config = await InventoryConfig.findOne({});
+    let config = await InventoryConfig.findOne({})
+      .select('categoryConfigs statusConfigs conditionConfigs')
+      .lean();
     
+    // ✅ Only create default configs if config doesn't exist AND hasn't been created before
+    // Use a flag to prevent repeated saves
     if (!config) {
-      // สร้าง config ใหม่ถ้าไม่มี
-      config = new InventoryConfig({
-        categoryConfigs: [],
-        statusConfigs: [],
-        conditionConfigs: []
-      });
-      await config.save();
+      // Check if we need to create defaults (only once)
+      const existingConfig = await InventoryConfig.findOne({}).lean();
+      if (!existingConfig) {
+        // Create config with defaults only if truly doesn't exist
+        const newConfig = new InventoryConfig({
+          categoryConfigs: [
+            {
+              id: 'cat_sim_card',
+              name: 'ซิมการ์ด',
+              isSystemCategory: true,
+              order: 1,
+              createdAt: new Date(),
+              updatedAt: new Date()
+            },
+            {
+              id: 'cat_unassigned',
+              name: 'ไม่ระบุ',
+              isSystemCategory: true,
+              order: 999,
+              createdAt: new Date(),
+              updatedAt: new Date()
+            }
+          ],
+          statusConfigs: [
+            {
+              id: 'status_available',
+              name: 'มี',
+              color: '#10B981',
+              order: 1,
+              isSystemConfig: true,
+              createdAt: new Date(),
+              updatedAt: new Date()
+            },
+            {
+              id: 'status_missing',
+              name: 'หาย',
+              color: '#EF4444',
+              order: 2,
+              isSystemConfig: true,
+              createdAt: new Date(),
+              updatedAt: new Date()
+            }
+          ],
+          conditionConfigs: [
+            {
+              id: 'cond_working',
+              name: 'ใช้งานได้',
+              color: '#10B981',
+              order: 1,
+              isSystemConfig: true,
+              createdAt: new Date(),
+              updatedAt: new Date()
+            },
+            {
+              id: 'cond_damaged',
+              name: 'ชำรุด',
+              color: '#F59E0B',
+              order: 2,
+              isSystemConfig: true,
+              createdAt: new Date(),
+              updatedAt: new Date()
+            }
+          ]
+        });
+        await newConfig.save();
+        config = newConfig.toObject();
+      } else {
+        config = existingConfig;
+      }
     }
     
-    // ตรวจสอบและเพิ่ม default configs ถ้าไม่มี
-    let needsSave = false;
+    // ✅ Use existing configs or defaults - don't save every time
+    const result = {
+      categoryConfigs: (config?.categoryConfigs || []).sort((a: any, b: any) => a.order - b.order),
+      statusConfigs: (config?.statusConfigs || []).sort((a: any, b: any) => a.order - b.order),
+      conditionConfigs: (config?.conditionConfigs || []).sort((a: any, b: any) => a.order - b.order)
+    };
     
-    // เพิ่ม default categories ถ้าไม่มี
-    if (!config.categoryConfigs || config.categoryConfigs.length === 0) {
-      config.categoryConfigs = [
-        {
-          id: 'cat_sim_card',
-          name: 'ซิมการ์ด',
-          isSystemCategory: true,
-          order: 1,
-          createdAt: new Date(),
-          updatedAt: new Date()
-        },
-        {
-          id: 'cat_unassigned',
-          name: 'ไม่ระบุ',
-          isSystemCategory: true,
-          order: 999,
-          createdAt: new Date(),
-          updatedAt: new Date()
-        }
-      ] as any;
-      needsSave = true;
+    // Cache the result
+    setCachedData(cacheKey, result);
+    
+    if (process.env.NODE_ENV === 'development') {
+      console.log(`✅ Inventory Config API - Fetched config (${Date.now() - startTime}ms)`);
     }
     
-    // เพิ่ม default statuses ถ้าไม่มี
-    if (!config.statusConfigs || config.statusConfigs.length === 0) {
-      config.statusConfigs = [
-        {
-          id: 'status_available',
-          name: 'มี',
-          color: '#10B981',
-          order: 1,
-          isSystemConfig: true,
-          createdAt: new Date(),
-          updatedAt: new Date()
-        },
-        {
-          id: 'status_missing',
-          name: 'หาย',
-          color: '#EF4444',
-          order: 2,
-          isSystemConfig: true,
-          createdAt: new Date(),
-          updatedAt: new Date()
-        }
-      ] as any;
-      needsSave = true;
-    }
-    
-    // เพิ่ม default conditions ถ้าไม่มี
-    if (!config.conditionConfigs || config.conditionConfigs.length === 0) {
-      config.conditionConfigs = [
-        {
-          id: 'cond_working',
-          name: 'ใช้งานได้',
-          color: '#10B981',
-          order: 1,
-          isSystemConfig: true,
-          createdAt: new Date(),
-          updatedAt: new Date()
-        },
-        {
-          id: 'cond_damaged',
-          name: 'ชำรุด',
-          color: '#F59E0B',
-          order: 2,
-          isSystemConfig: true,
-          createdAt: new Date(),
-          updatedAt: new Date()
-        }
-      ] as any;
-      needsSave = true;
-    }
-    
-    if (needsSave) {
-      await config.save();
-    }
-    
-    return NextResponse.json({
-      categoryConfigs: config.categoryConfigs.sort((a: any, b: any) => a.order - b.order),
-      statusConfigs: config.statusConfigs.sort((a: any, b: any) => a.order - b.order),
-      conditionConfigs: config.conditionConfigs.sort((a: any, b: any) => a.order - b.order)
-    });
+    return NextResponse.json(result);
     
   } catch (error) {
     console.error('Error fetching inventory config:', error);

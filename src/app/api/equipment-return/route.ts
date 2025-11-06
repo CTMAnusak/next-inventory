@@ -217,6 +217,8 @@ export async function POST(request: NextRequest) {
 }
 
 export async function GET(request: NextRequest) {
+  const startTime = Date.now();
+  
   try {
     await dbConnect();
     
@@ -224,6 +226,17 @@ export async function GET(request: NextRequest) {
     const { searchParams } = new URL(request.url);
     const userId = searchParams.get('userId');
     const status = searchParams.get('status');
+    
+    // Check cache first
+    const { getCachedData, setCachedData } = await import('@/lib/cache-utils');
+    const cacheKey = `equipment_return_${userId || 'all'}_${status || 'all'}`;
+    const cached = getCachedData(cacheKey);
+    if (cached) {
+      if (process.env.NODE_ENV === 'development') {
+        console.log(`✅ Equipment Return API - Cache hit (${Date.now() - startTime}ms)`);
+      }
+      return NextResponse.json(cached);
+    }
     
     // Build filter object
     const filter: any = {};
@@ -236,15 +249,26 @@ export async function GET(request: NextRequest) {
       filter.status = status;
     }
     
-    // Fetch return logs
+    // Fetch return logs with lean() and select only needed fields
     const returns = await ReturnLog.find(filter)
-      .sort({ returnDate: -1 });
+      .select('_id userId returnDate items status notes returnerFirstName returnerLastName returnerNickname returnerDepartment returnerPhone returnerEmail returnerOffice createdAt updatedAt')
+      .sort({ returnDate: -1 })
+      .lean();
     
     // ใช้ populate functions เพื่อ populate ข้อมูลล่าสุด
     const { populateReturnLogCompleteBatch } = await import('@/lib/equipment-populate-helpers');
     const populatedReturns = await populateReturnLogCompleteBatch(returns);
     
-    return NextResponse.json({ returns: populatedReturns });
+    const result = { returns: populatedReturns };
+    
+    // Cache the result
+    setCachedData(cacheKey, result);
+    
+    if (process.env.NODE_ENV === 'development') {
+      console.log(`✅ Equipment Return API - Fetched ${populatedReturns.length} returns (${Date.now() - startTime}ms)`);
+    }
+    
+    return NextResponse.json(result);
     
   } catch (error) {
     console.error('Error fetching return logs:', error);

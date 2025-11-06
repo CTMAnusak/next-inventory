@@ -32,9 +32,12 @@ export async function GET(request: NextRequest) {
       clearAllCaches();
     }
     
-    // Check cache first
+    // ✅ Check cache first - use cache unless forceRefresh is true
     const cached = getCachedData(cacheKey);
     if (cached && !forceRefresh) {
+      if (process.env.NODE_ENV === 'development') {
+        console.log(`✅ Inventory API - Cache hit for ${cacheKey}`);
+      }
       return NextResponse.json(cached);
     }
     
@@ -96,8 +99,12 @@ export async function GET(request: NextRequest) {
       }
     };
     
-    // Cache the result for 30 seconds
+    // ✅ Cache the result - use longer TTL for inventory data (5 minutes)
     setCachedData(cacheKey, result);
+    
+    if (process.env.NODE_ENV === 'development') {
+      console.log(`✅ Inventory API - Cached ${aggregatedItems.length} items for ${cacheKey}`);
+    }
     
     return NextResponse.json(result);
   } catch (error) {

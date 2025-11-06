@@ -117,12 +117,9 @@ export default function DashboardPage() {
       const controller = new AbortController();
       const timeoutId = setTimeout(() => controller.abort(), 30000); // 30 second timeout
       
+      // Remove cache-busting headers - let server-side cache handle it
       const ownedRes = await fetch(`/api/user/owned-equipment?${withUserId.toString()}`, {
-        signal: controller.signal,
-        cache: 'no-cache',
-        headers: {
-          'Cache-Control': 'no-cache'
-        }
+        signal: controller.signal
       });
       
       clearTimeout(timeoutId);
@@ -263,12 +260,8 @@ export default function DashboardPage() {
 
   const fetchCategories = async () => {
     try {
-      const res = await fetch('/api/admin/inventory/config', {
-        cache: 'no-cache',
-        headers: {
-          'Cache-Control': 'no-cache'
-        }
-      });
+      // ✅ Remove cache-busting headers - let server-side cache handle it
+      const res = await fetch('/api/inventory-config');
       if (res.ok) {
         const data = await res.json();
         setCategoryConfigs(data.categoryConfigs || []);

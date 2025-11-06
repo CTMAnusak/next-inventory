@@ -68,9 +68,11 @@ export async function GET(request: NextRequest) {
     const queryStart = Date.now();
     const [items, total] = await Promise.all([
       InventoryMaster.find(filter)
+        .select('_id itemName categoryId totalQuantity availableQuantity userOwnedQuantity updatedAt createdAt itemDetails')
         .sort({ itemName: 1, updatedAt: -1 })
         .skip(skip)
-        .limit(limit),
+        .limit(limit)
+        .lean(), // Use lean() for better performance
       InventoryMaster.countDocuments(filter)
     ]);
 

@@ -8,15 +8,32 @@ import { clearOfficeCache, clearOfficeCacheById } from '@/lib/office-helpers';
  * GET - ดึงรายการ Office ทั้งหมด
  */
 export async function GET(request: NextRequest) {
+  const startTime = Date.now();
+  
   try {
-    await dbConnect();
-    
-    // 🆕 ตรวจสอบและสร้าง Default Office อัตโนมัติก่อน
-    const { ensureDefaultOffice } = await import('@/lib/office-helpers');
-    await ensureDefaultOffice();
-    
+    // Check cache first
+    const { getCachedData, setCachedData } = await import('@/lib/cache-utils');
     const searchParams = request.nextUrl.searchParams;
     const includeInactive = searchParams.get('includeInactive') === 'true';
+    const cacheKey = `admin_offices_${includeInactive ? 'all' : 'active'}`;
+    
+    const cached = getCachedData(cacheKey);
+    if (cached) {
+      if (process.env.NODE_ENV === 'development') {
+        console.log(`✅ Offices API - Cache hit (${Date.now() - startTime}ms)`);
+      }
+      return NextResponse.json(cached);
+    }
+
+    await dbConnect();
+    
+    // 🆕 ตรวจสอบและสร้าง Default Office อัตโนมัติก่อน (แต่ cache ผลลัพธ์)
+    // ใช้ flag เพื่อไม่ให้เรียกบ่อยเกินไป
+    const { ensureDefaultOffice } = await import('@/lib/office-helpers');
+    // เรียก ensureDefaultOffice แบบ async แต่ไม่รอ (fire and forget) เพื่อไม่ให้ช้า
+    ensureDefaultOffice().catch(err => {
+      console.error('Error ensuring default office (non-blocking):', err);
+    });
     
     const query: any = {
       deletedAt: null
@@ -27,8 +44,16 @@ export async function GET(request: NextRequest) {
     }
     
     const offices = await Office.find(query)
+      .select('office_id name description isActive isSystemOffice createdAt updatedAt')
       .sort({ isSystemOffice: 1, name: 1 }) // System office อยู่ท้ายสุด
       .lean();
+    
+    // Cache the result
+    setCachedData(cacheKey, offices);
+    
+    if (process.env.NODE_ENV === 'development') {
+      console.log(`✅ Offices API - Fetched ${offices.length} offices (${Date.now() - startTime}ms)`);
+    }
     
     return NextResponse.json(offices);
   } catch (error: any) {
@@ -111,6 +136,8 @@ export async function POST(request: NextRequest) {
     
     // Clear cache
     clearOfficeCache();
+    const { clearAllCaches } = await import('@/lib/cache-utils');
+    clearAllCaches(); // Clear all caches since office list changed
     
     return NextResponse.json({
       success: true,

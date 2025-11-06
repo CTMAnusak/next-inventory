@@ -8,13 +8,18 @@ const nextConfig: NextConfig = {
         '127.0.0.1:3000',
         'ctm-inventory-system.rubtumseo.com'
       ]
-    }
+    },
+    // Optimize RSC performance
+    optimizePackageImports: ['lucide-react', 'react-hot-toast'],
   },
   // Production optimization
   output: 'standalone',
   env: {
     PORT: '3000'
   },
+  // Performance optimizations
+  compress: true,
+  poweredByHeader: false,
   // Trust proxy for production
   async headers() {
     return [

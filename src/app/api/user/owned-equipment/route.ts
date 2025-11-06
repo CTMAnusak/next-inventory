@@ -6,6 +6,8 @@ import { authenticateUser } from '@/lib/auth-helpers';
 
 // GET - ดึงอุปกรณ์ที่ User เป็นเจ้าของ
 export async function GET(request: NextRequest) {
+  const startTime = Date.now();
+  
   try {
     await dbConnect();
     
@@ -19,47 +21,64 @@ export async function GET(request: NextRequest) {
     const url = new URL(request.url);
     const excludePendingReturns = url.searchParams.get('excludePendingReturns') === 'true';
     
-    // Get user's owned items
+    // Check cache first
+    const { getCachedData, setCachedData } = await import('@/lib/cache-utils');
+    const cacheKey = `owned_equipment_${userId}_${excludePendingReturns ? 'exclude' : 'include'}`;
+    const cached = getCachedData(cacheKey);
+    if (cached) {
+      if (process.env.NODE_ENV === 'development') {
+        console.log(`✅ Owned Equipment API - Cache hit (${Date.now() - startTime}ms)`);
+      }
+      return NextResponse.json(cached);
+    }
+    
+    // Get user's owned items with lean() and select only needed fields
     const ownedItems = await InventoryItem.find({
       'currentOwnership.ownerType': 'user_owned',
       'currentOwnership.userId': userId,
       deletedAt: { $exists: false }
-    }).sort({ 'currentOwnership.ownedSince': -1 });
+    })
+    .select('_id itemMasterId itemName categoryId serialNumber numberPhone statusId conditionId currentOwnership sourceInfo createdAt updatedAt requesterInfo')
+    .sort({ 'currentOwnership.ownedSince': -1 })
+    .lean();
 
-    // Get all return logs (approved and pending)
+    // ✅ Optimize: Only fetch return logs if we need to filter pending returns
+    // For dashboard, we don't need to filter, so skip this expensive query
     const ReturnLog = (await import('@/models/ReturnLog')).default;
-    const allReturns = await ReturnLog.find({
-      userId: userId
-    });
+    const allReturns = excludePendingReturns 
+      ? await ReturnLog.find({ userId: userId })
+        .select('items userId status')
+        .lean()
+      : [];
 
-    // Create a map of approved returned items with their approval timestamps
-    // Key: itemKey, Value: approvedAt timestamp
+    // ✅ Optimize: Only process return logs if we fetched them
     const returnedItemsMap = new Map();
-    // Create a set of pending return items to mark
     const pendingReturnItems = new Set();
     
-    allReturns.forEach(returnLog => {
-      returnLog.items.forEach((item: any) => {
-        const itemKey = item.serialNumber 
-          ? `${item.itemId}-${item.serialNumber}` 
-          : item.itemId;
-        
-        // If approved, store the approval timestamp
-        if (item.approvalStatus === 'approved' && item.approvedAt) {
-          // ✅ เก็บเฉพาะ Return Log ที่ใหม่ที่สุดสำหรับแต่ละ item
-          const existingApprovedAt = returnedItemsMap.get(itemKey);
-          const currentApprovedAt = new Date(item.approvedAt);
+    if (allReturns.length > 0) {
+      allReturns.forEach(returnLog => {
+        returnLog.items.forEach((item: any) => {
+          const itemKey = item.serialNumber 
+            ? `${item.itemId}-${item.serialNumber}` 
+            : item.itemId;
           
-          if (!existingApprovedAt || currentApprovedAt > existingApprovedAt) {
-            returnedItemsMap.set(itemKey, currentApprovedAt);
+          // If approved, store the approval timestamp
+          if (item.approvalStatus === 'approved' && item.approvedAt) {
+            // ✅ เก็บเฉพาะ Return Log ที่ใหม่ที่สุดสำหรับแต่ละ item
+            const existingApprovedAt = returnedItemsMap.get(itemKey);
+            const currentApprovedAt = new Date(item.approvedAt);
+            
+            if (!existingApprovedAt || currentApprovedAt > existingApprovedAt) {
+              returnedItemsMap.set(itemKey, currentApprovedAt);
+            }
           }
-        }
-        // If pending, add to pending items (to mark with badge)
-        else if (item.approvalStatus === 'pending' || !item.approvalStatus) {
-          pendingReturnItems.add(itemKey);
-        }
+          // If pending, add to pending items (to mark with badge)
+          else if (item.approvalStatus === 'pending' || !item.approvalStatus) {
+            pendingReturnItems.add(itemKey);
+          }
+        });
       });
-    });
+    }
 
     // ✅ Filter out items that have been approved for return AFTER they were owned
     // (i.e., only filter if return was approved AFTER the current ownership started)
@@ -89,14 +108,21 @@ export async function GET(request: NextRequest) {
       return returnApprovedAt < ownedSince;
     });
     
-    // Get request logs to fetch delivery location
+    // ✅ Optimize: Only fetch request logs if we need delivery location
+    // For most cases, we can skip this expensive query
     const RequestLog = (await import('@/models/RequestLog')).default;
     
-    const approvedRequests = await RequestLog.find({
-      userId: userId,
-      status: 'approved',
-      requestType: 'request'
-    }).lean();
+    // Only fetch if we have items that might need delivery location
+    const approvedRequests = availableItems.length > 0
+      ? await RequestLog.find({
+          userId: userId,
+          status: 'approved',
+          requestType: 'request'
+        })
+        .select('items deliveryLocation requesterFirstName requesterLastName requesterNickname requesterDepartment requesterPhone requesterOffice')
+        .limit(100) // ✅ Limit to recent requests only
+        .lean()
+      : [];
     
     // Build maps of itemId -> deliveryLocation and find most recent requester info for branch users
     const itemToDeliveryLocationMap = new Map();
@@ -132,16 +158,32 @@ export async function GET(request: NextRequest) {
       });
     });
     
-    // Get configurations for display
-    const config = await InventoryConfig.findOne({});
+    // Get configurations for display (with cache)
+    const { getCachedData: getConfigCache, setCachedData: setConfigCache } = await import('@/lib/cache-utils');
+    const configCacheKey = 'inventory_config_all';
+    let config = getConfigCache(configCacheKey);
+    
+    if (!config) {
+      config = await InventoryConfig.findOne({})
+        .select('statusConfigs conditionConfigs categoryConfigs')
+        .lean();
+      if (config) {
+        setConfigCache(configCacheKey, config);
+      }
+    }
+    
     const statusConfigs = config?.statusConfigs || [];
     const conditionConfigs = config?.conditionConfigs || [];
     const categoryConfigs = config?.categoryConfigs || [];
     
-    // 🆕 Load Office collection for real-time office name lookup
-    const Office = (await import('@/models/Office')).default;
-    const offices = await Office.find({ isActive: true }).lean();
-    const officeMap = new Map(offices.map(o => [o.office_id, o.name]));
+    // 🆕 Load Office collection for real-time office name lookup (with cache)
+    const { getOfficeMap } = await import('@/lib/office-helpers');
+    const officeIds = new Set<string>();
+    ownedItems.forEach((item: any) => {
+      if (item.requesterInfo?.officeId) officeIds.add(item.requesterInfo.officeId);
+      if (user?.officeId) officeIds.add(user.officeId);
+    });
+    const officeMap = await getOfficeMap(Array.from(officeIds));
     
     // ประกอบข้อมูลด้วยฟิลด์จาก InventoryItem โดยตรง + mapping จาก InventoryConfig
     const populatedItems = availableItems.map((item) => {
@@ -167,27 +209,39 @@ export async function GET(request: NextRequest) {
       const finalDepartment = itemRequesterInfo?.department || mostRecentRequesterInfo?.department || undefined;
       const finalPhone = itemRequesterInfo?.phone || mostRecentRequesterInfo?.phone || undefined;
       
-      // 🔧 Office Name Logic: Lookup แบบ real-time จาก Office collection
-      // 🆕 ถ้ามี officeId ใน requesterInfo → lookup จาก Office collection (real-time)
-      // 🆕 ถ้าไม่มี officeId แต่เป็น branch user → fallback ไป User Collection (real-time)
-      // 🆕 ถ้าไม่มีทั้งคู่ → ใช้ officeName หรือ office เดิม (backward compatible)
+      // 🔧 Office Name Logic: ใช้ snapshot ก่อน แล้วค่อย lookup จาก Office collection
+      // 🆕 ลำดับความสำคัญ: snapshot (officeName/office) → User Collection → Office collection lookup
       let finalOffice: string | undefined = undefined;
       
-      // ลำดับความสำคัญ: requesterInfo.officeId → User.officeId → officeName/office เดิม
-      const itemOfficeId = itemRequesterInfo?.officeId;
+      // ✅ Priority 1: ใช้ snapshot จาก requesterInfo ก่อน (ข้อมูลที่ snapshot ไว้เมื่อลบสาขา)
+      finalOffice = itemRequesterInfo?.officeName || itemRequesterInfo?.office || '';
       
-      if (itemOfficeId && officeMap.has(itemOfficeId)) {
-        // ✅ Priority 1: Populate real-time จาก Office collection (ถ้ามี officeId ใน requesterInfo)
-        finalOffice = officeMap.get(itemOfficeId);
-      } else if (user?.userType === 'branch' && user?.officeId && officeMap.has(user.officeId)) {
-        // ✅ Priority 2: สำหรับ branch user → lookup จาก User.officeId (real-time)
-        finalOffice = officeMap.get(user.officeId);
-      } else if (user?.userType === 'branch') {
-        // ✅ Priority 3: Fallback สำหรับ branch user → ใช้จาก User Collection (backward compatible)
-        finalOffice = user?.officeName || user?.office;
-      } else {
-        // ✅ Priority 4: Fallback สำหรับ individual user → ใช้จาก requesterInfo หรือ RequestLog
-        finalOffice = itemRequesterInfo?.officeName || itemRequesterInfo?.office || mostRecentRequesterInfo?.office;
+      // ✅ Priority 2: ถ้าไม่มี snapshot ให้ใช้จาก mostRecentRequesterInfo (จาก RequestLog)
+      if (!finalOffice) {
+        finalOffice = mostRecentRequesterInfo?.office || '';
+      }
+      
+      // ✅ Priority 3: ถ้าไม่มี snapshot เลย ให้ใช้จาก User Collection (สำหรับกรณีที่ยังไม่ snapshot)
+      if (!finalOffice && user?.userType === 'branch') {
+        finalOffice = user?.officeName || user?.office || '';
+      }
+      
+      // ✅ Priority 4: ถ้ายังไม่มี ให้ lookup จาก Office collection (real-time)
+      // แต่เฉพาะกรณีที่ officeId ไม่ใช่ UNSPECIFIED_OFFICE (เพื่อป้องกันการ lookup สาขาที่ถูกลบแล้ว)
+      if (!finalOffice) {
+        const itemOfficeId = itemRequesterInfo?.officeId;
+        const userOfficeId = user?.officeId;
+        const officeIdToLookup = itemOfficeId || userOfficeId;
+        
+        // ⚠️ สำคัญ: ไม่ lookup ถ้า officeId เป็น UNSPECIFIED_OFFICE (เพราะอาจเป็นสาขาที่ถูกลบแล้ว)
+        if (officeIdToLookup && officeIdToLookup !== 'UNSPECIFIED_OFFICE' && officeMap.has(officeIdToLookup)) {
+          finalOffice = officeMap.get(officeIdToLookup);
+        }
+      }
+      
+      // ✅ Priority 5: Fallback สุดท้าย
+      if (!finalOffice) {
+        finalOffice = 'ไม่ระบุสาขา';
       }
       
       // ✅ กำหนด source ตามการได้มาของอุปกรณ์
@@ -230,10 +284,19 @@ export async function GET(request: NextRequest) {
       };
     });
     
-    return NextResponse.json({
+    const result = {
       items: populatedItems,
       totalCount: populatedItems.length
-    });
+    };
+    
+    // Cache the result
+    setCachedData(cacheKey, result);
+    
+    if (process.env.NODE_ENV === 'development') {
+      console.log(`✅ Owned Equipment API - Fetched ${populatedItems.length} items (${Date.now() - startTime}ms)`);
+    }
+    
+    return NextResponse.json(result);
     
   } catch (error) {
     console.error('Error fetching owned equipment:', error);
@@ -349,6 +412,10 @@ export async function POST(request: NextRequest) {
       const newItem = await createInventoryItem(itemData);
       createdItems.push(newItem);
     }
+    
+    // Clear owned equipment cache for this user
+    const { clearAllCaches } = await import('@/lib/cache-utils');
+    clearAllCaches(); // Clear all caches since user's owned equipment changed
     
     return NextResponse.json({
       message: `เพิ่มอุปกรณ์เรียบร้อยแล้ว ${quantity} ชิ้น`,

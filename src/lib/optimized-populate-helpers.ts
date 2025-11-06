@@ -153,6 +153,13 @@ export async function populateRequestLogUsersBatchOptimized(requestLogs: any[]) 
     if (user.officeId) officeIds.add(user.officeId);
   });
   
+  // 🆕 เพิ่ม requesterOfficeId จาก RequestLogs เพื่อ populate ชื่อสาขาล่าสุด
+  requestLogs.forEach((log: any) => {
+    if (log.requesterOfficeId && log.requesterOfficeId !== 'UNSPECIFIED_OFFICE') {
+      officeIds.add(log.requesterOfficeId);
+    }
+  });
+  
   // Batch populate office names
   const officeNameMap = new Map<string, string>();
   if (officeIds.size > 0) {
@@ -179,27 +186,46 @@ export async function populateRequestLogUsersBatchOptimized(requestLogs: any[]) 
         if (user) {
           const userType = (user as any).userType;
           
-          // 🆕 Populate office name จาก officeId หรือ officeName
-          let userOffice = (user as any).officeName || (user as any).office || '';
-          if (!userOffice && (user as any).officeId) {
-            userOffice = officeNameMap.get((user as any).officeId) || '';
-          }
-          if (!userOffice) {
-            userOffice = 'ไม่ระบุสาขา';
-          }
+          // 🆕 Populate office: สำหรับผู้ใช้สาขา ใช้ officeId เพื่อดึงชื่อสาขาล่าสุดจาก Office collection เสมอ
+          // (เพื่อให้อัปเดตตามที่แอดมินแก้ไข) สำหรับผู้ใช้บุคคล ใช้ snapshot จากฟอร์มก่อน
+          let userOffice = '';
           
-          if (userType === 'individual') {
-            // ✅ ผู้ใช้บุคคล: Populate ทุกข้อมูลจาก User collection (ข้อมูลล่าสุด)
-            populated.firstName = (user as any).firstName || '';
-            populated.lastName = (user as any).lastName || '';
-            populated.nickname = (user as any).nickname || '';
-            populated.department = (user as any).department || '';
-            populated.phone = (user as any).phone || '';
-            populated.office = userOffice; // 🆕 ใช้ officeName ที่ populate แล้ว
-            populated.email = (user as any).email || '';
-          } else if (userType === 'branch') {
+          if (userType === 'branch') {
+            // ✅ ผู้ใช้สาขา: 
+            // - ถ้าสาขายังมีอยู่ (officeId ไม่ใช่ UNSPECIFIED_OFFICE) → ใช้ officeId เพื่อดึงชื่อสาขาล่าสุด
+            // - ถ้าสาขาถูกลบ (officeId เป็น UNSPECIFIED_OFFICE) → ใช้ snapshot จาก requesterOffice/requesterOfficeName
+            
+            // Priority 1: ใช้ officeId จาก User collection ก่อน (ถ้าสาขายังมีอยู่)
+            if ((user as any).officeId && (user as any).officeId !== 'UNSPECIFIED_OFFICE') {
+              userOffice = officeNameMap.get((user as any).officeId) || '';
+            }
+            
+            // Priority 2: ถ้าไม่มี officeId จาก User collection ให้ใช้ requesterOfficeId จาก snapshot (ถ้าสาขายังมีอยู่)
+            if (!userOffice && populated.requesterOfficeId && populated.requesterOfficeId !== 'UNSPECIFIED_OFFICE') {
+              userOffice = officeNameMap.get(populated.requesterOfficeId) || '';
+            }
+            
+            // Priority 3: ถ้า officeId เป็น UNSPECIFIED_OFFICE (สาขาถูกลบ) → ใช้ snapshot
+            // หรือ fallback ไป snapshot/User collection ถ้าไม่มี officeId
+            if (!userOffice) {
+              // ถ้า officeId เป็น UNSPECIFIED_OFFICE หรือไม่มี officeId ให้ใช้ snapshot
+              if (((user as any).officeId === 'UNSPECIFIED_OFFICE' || !(user as any).officeId) && 
+                  (populated.requesterOfficeId === 'UNSPECIFIED_OFFICE' || !populated.requesterOfficeId)) {
+                // สาขาถูกลบ → ใช้ snapshot
+                userOffice = populated.requesterOfficeName || populated.requesterOffice || 
+                            (user as any).officeName || (user as any).office || '';
+              } else {
+                // Fallback ปกติ
+                userOffice = (user as any).officeName || (user as any).office || populated.requesterOfficeName || populated.requesterOffice || '';
+              }
+            }
+            
+            if (!userOffice) {
+              userOffice = 'ไม่ระบุสาขา';
+            }
+            
             // ✅ ผู้ใช้สาขา: Populate เฉพาะข้อมูลสาขา + ใช้ข้อมูลส่วนตัวจาก snapshot ในฟอร์ม
-            populated.office = userOffice; // 🆕 ใช้ officeName ที่ populate แล้ว
+            populated.office = userOffice; // 🆕 ใช้ชื่อสาขาล่าสุดจาก Office collection หรือ snapshot
             populated.email = (user as any).email || '';
             // ข้อมูลส่วนตัวใช้จาก snapshot ในฟอร์ม (requesterFirstName, etc.)
             populated.firstName = populated.requesterFirstName || '';
@@ -207,6 +233,35 @@ export async function populateRequestLogUsersBatchOptimized(requestLogs: any[]) 
             populated.nickname = populated.requesterNickname || '';
             populated.department = populated.requesterDepartment || '';
             populated.phone = populated.requesterPhone || '';
+          } else if (userType === 'individual') {
+            // ✅ ผู้ใช้บุคคล: Populate ทุกข้อมูลจาก User collection (ข้อมูลล่าสุด)
+            // สำหรับ office: ใช้ข้อมูลจาก User collection ก่อนเสมอ (เพื่อให้อัปเดตตามที่แอดมินแก้ไข)
+            // Priority 1: ใช้ officeId จาก User collection ก่อน (ข้อมูลล่าสุด)
+            if ((user as any).officeId && (user as any).officeId !== 'UNSPECIFIED_OFFICE') {
+              userOffice = officeNameMap.get((user as any).officeId) || '';
+            }
+            
+            // Priority 2: ถ้าไม่มี officeId ให้ใช้ officeName/office จาก User collection
+            if (!userOffice) {
+              userOffice = (user as any).officeName || (user as any).office || '';
+            }
+            
+            // Priority 3: Fallback ไป snapshot (กรณีที่ User collection ไม่มีข้อมูล)
+            if (!userOffice) {
+              userOffice = populated.requesterOfficeName || populated.requesterOffice || '';
+            }
+            
+            if (!userOffice) {
+              userOffice = 'ไม่ระบุสาขา';
+            }
+            
+            populated.firstName = (user as any).firstName || '';
+            populated.lastName = (user as any).lastName || '';
+            populated.nickname = (user as any).nickname || '';
+            populated.department = (user as any).department || '';
+            populated.phone = (user as any).phone || '';
+            populated.office = userOffice; // 🆕 ใช้ข้อมูลล่าสุดจาก User collection
+            populated.email = (user as any).email || '';
           }
           
           // เก็บ userInfo สำหรับการ debug
@@ -228,9 +283,14 @@ export async function populateRequestLogUsersBatchOptimized(requestLogs: any[]) 
         if (deletedUser) {
           const userType = (deletedUser as any).userType;
           
-          // 🆕 Populate office name จาก officeId หรือ officeName
-          let deletedUserOffice = (deletedUser as any).officeName || (deletedUser as any).office || '';
-          if (!deletedUserOffice && (deletedUser as any).officeId) {
+          // 🆕 Populate office: ใช้ snapshot จากฟอร์มก่อน (requesterOffice/requesterOfficeName)
+          // แล้วค่อย fallback ไป DeletedUsers แล้วค่อย lookup จาก Office collection
+          let deletedUserOffice = populated.requesterOfficeName || populated.requesterOffice || '';
+          if (!deletedUserOffice) {
+            deletedUserOffice = (deletedUser as any).officeName || (deletedUser as any).office || '';
+          }
+          // ⚠️ สำคัญ: ไม่ lookup ถ้า officeId เป็น UNSPECIFIED_OFFICE (เพราะอาจเป็นสาขาที่ถูกลบแล้ว)
+          if (!deletedUserOffice && (deletedUser as any).officeId && (deletedUser as any).officeId !== 'UNSPECIFIED_OFFICE') {
             deletedUserOffice = officeNameMap.get((deletedUser as any).officeId) || '';
           }
           if (!deletedUserOffice) {
@@ -273,9 +333,11 @@ export async function populateRequestLogUsersBatchOptimized(requestLogs: any[]) 
         }
       } else {
         // User not found - ใช้ข้อมูลจาก snapshot ใน RequestLog (ถ้ามี)
-        // 🆕 Populate office name จาก requesterOfficeId หรือ requesterOfficeName
+        // 🆕 Populate office: ใช้ snapshot จากฟอร์มก่อน (requesterOffice/requesterOfficeName)
+        // แล้วค่อย lookup จาก Office collection ถ้ามี requesterOfficeId
         let requesterOffice = populated.requesterOfficeName || populated.requesterOffice || '';
-        if (!requesterOffice && populated.requesterOfficeId) {
+        // ⚠️ สำคัญ: ไม่ lookup ถ้า officeId เป็น UNSPECIFIED_OFFICE (เพราะอาจเป็นสาขาที่ถูกลบแล้ว)
+        if (!requesterOffice && populated.requesterOfficeId && populated.requesterOfficeId !== 'UNSPECIFIED_OFFICE') {
           requesterOffice = officeNameMap.get(populated.requesterOfficeId) || '';
         }
         if (!requesterOffice) {

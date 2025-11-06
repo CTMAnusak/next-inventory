@@ -424,7 +424,8 @@ export default function AdminInventoryPage() {
 
 
   useEffect(() => {
-    fetchInventory();
+    // ✅ Initial load - use cache
+    fetchInventory(1, '', '', false);
     fetchConfig();
   }, []);
   
@@ -510,25 +511,20 @@ export default function AdminInventoryPage() {
     }
   }, [stockInfo, stockOperation]);
 
-  const fetchInventory = async (page: number = 1, search: string = '', category: string = '') => {
+  const fetchInventory = async (page: number = 1, search: string = '', category: string = '', forceRefresh: boolean = false) => {
     setLoading(true);
     try {
-      // Build query parameters - add timestamp to prevent caching
+      // Build query parameters - only add forceRefresh if explicitly requested
       const params = new URLSearchParams({
         page: page.toString(),
         limit: '50',
-        forceRefresh: 'true',
-        t: Date.now().toString(),
         ...(search && { search }),
-        ...(category && { category })
+        ...(category && { category }),
+        ...(forceRefresh && { forceRefresh: 'true' })
       });
       
-      const response = await fetch(`/api/admin/inventory?${params.toString()}`, {
-        cache: 'no-store',
-        headers: {
-          'Cache-Control': 'no-cache'
-        }
-      });
+      // ✅ Remove cache-busting headers - let server-side cache handle it
+      const response = await fetch(`/api/admin/inventory?${params.toString()}`);
       const handledResponse = await handleApiResponse(response, 'ไม่สามารถโหลดข้อมูลคลังสินค้าได้ - เซสชันหมดอายุ');
       
       if (handledResponse && handledResponse.ok) {
@@ -610,8 +606,8 @@ export default function AdminInventoryPage() {
       setLoading(false);
     }
     
-    // Always refresh inventory data at the end
-    await fetchInventory();
+    // ✅ Always refresh inventory data at the end - force refresh after import
+    await fetchInventory(currentPage, searchTerm, categoryFilter, true);
   };
 
   const fetchConfig = async () => {
@@ -931,7 +927,8 @@ export default function AdminInventoryPage() {
           // ไม่บล็อกการทำงานต่อ แค่ log error
         }
         
-        await fetchInventory();
+        // ✅ After adding item - force refresh to show new data
+        await fetchInventory(currentPage, searchTerm, categoryFilter, true);
         resetForm();
         setShowAddModal(false);
         setShowEditModal(false);
@@ -1046,7 +1043,8 @@ export default function AdminInventoryPage() {
         setShowStockModal(false);
         
         // Refresh main table
-        await fetchInventory();
+        // ✅ After editing item - force refresh to show updated data
+        await fetchInventory(currentPage, searchTerm, categoryFilter, true);
         
       } else {
         const error = await response.json();
@@ -1178,7 +1176,8 @@ export default function AdminInventoryPage() {
     setItemFilterBy('all');
     
     // Refresh table after modal closes
-    await fetchInventory();
+    // ✅ After closing modal - use cache (no force refresh needed)
+    await fetchInventory(currentPage, searchTerm, categoryFilter, false);
     
     // Clear breakdown cache to ensure fresh data
     setBreakdownData({});
@@ -1233,7 +1232,8 @@ export default function AdminInventoryPage() {
         toast.success(`เปลี่ยนชื่อสำเร็จ: "${stockRenameOldName}" → "${stockRenameNewName}"`);
         
         // Refresh inventory and close modal
-        await fetchInventory();
+        // ✅ After renaming - force refresh to show new name
+        await fetchInventory(currentPage, searchTerm, categoryFilter, true);
         
         // อัปเดต stockItem ให้ใช้ชื่อใหม่
         setStockItem(prev => prev ? ({
@@ -1327,7 +1327,8 @@ export default function AdminInventoryPage() {
 
       if (response.ok) {
         toast.success(`ลบรายการจำนวน ${quantity} เรียบร้อยแล้ว`);
-        await fetchInventory();
+        // ✅ After deleting item - force refresh to remove deleted item
+        await fetchInventory(currentPage, searchTerm, categoryFilter, true);
       } else {
         const data = await response.json();
         toast.error(data.error || 'เกิดข้อผิดพลาดในการลบ');
@@ -1699,7 +1700,8 @@ export default function AdminInventoryPage() {
           }
         }
         
-        await fetchInventory();
+        // ✅ After stock operation - force refresh to show updated stock
+        await fetchInventory(currentPage, searchTerm, categoryFilter, true);
         closeDeleteConfirmModal();
         closeStockModal();
       } else {
@@ -1971,7 +1973,8 @@ export default function AdminInventoryPage() {
         setBreakdownRefreshCounter(prev => prev + 1);
         console.log('🧹 Final breakdown cache clear before closing modal');
         
-        await fetchInventory();
+        // ✅ After stock operation - force refresh to show updated data
+        await fetchInventory(currentPage, searchTerm, categoryFilter, true);
         
         // Additional delay and refresh for change_status_condition and edit_items
         if (stockOperation === 'change_status_condition' || stockOperation === 'edit_items') {
@@ -1982,7 +1985,8 @@ export default function AdminInventoryPage() {
           console.log(`🧹 Additional breakdown cache clear for ${stockOperation}`);
           
           await new Promise(resolve => setTimeout(resolve, 500)); // Longer delay
-          await fetchInventory();
+          // ✅ Force refresh again for these operations
+          await fetchInventory(currentPage, searchTerm, categoryFilter, true);
         }
         
         closeStockModal();

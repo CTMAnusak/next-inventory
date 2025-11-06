@@ -155,7 +155,16 @@ export async function populateRequesterInfo(issue: any) {
         
         if (deletedUser.userType === 'branch') {
           console.log(`  - Branch user: Using form data (firstName: ${issueObj.firstName})`);
-          // ผู้ใช้สาขา: ข้อมูลส่วนตัวจากฟอร์ม, เฉพาะสาขาจาก DeletedUsers
+          // ผู้ใช้สาขา: ข้อมูลส่วนตัวจากฟอร์ม, เฉพาะสาขาจาก snapshot
+          // 🆕 Populate office: ใช้ snapshot จากฟอร์มก่อน (office/officeName)
+          // แล้วค่อย fallback ไป DeletedUsers แล้วค่อย lookup จาก Office collection
+          let finalOffice = issueObj.officeName || issueObj.office || '';
+          if (!finalOffice) {
+            finalOffice = deletedUserOffice;
+          }
+          if (!finalOffice) {
+            finalOffice = 'ไม่ระบุสาขา';
+          }
           return {
             ...issueObj,
             firstName: issueObj.firstName || '-', // ใช้จากฟอร์มแจ้งงาน
@@ -164,19 +173,30 @@ export async function populateRequesterInfo(issue: any) {
             department: issueObj.department || '-', // ใช้จากฟอร์มแจ้งงาน
             phone: issueObj.phone || '-',         // ใช้จากฟอร์มแจ้งงาน
             email: issueObj.email || '-',         // ใช้จากฟอร์มแจ้งงาน
-            // เฉพาะสาขาใช้จาก DeletedUsers (ข้อมูลล่าสุดก่อนลบ)
-            office: deletedUserOffice || issueObj.office || '-',
+            // เฉพาะสาขาใช้จาก snapshot (ข้อมูลล่าสุดก่อนลบ)
+            office: finalOffice,
+            officeName: finalOffice,
           };
         } else {
           console.log(`  - Individual user: Using DeletedUsers data (firstName: ${deletedUser.firstName})`);
           // ผู้ใช้บุคคล: ใช้ข้อมูลจาก DeletedUsers เป็นหลัก (ข้อมูลล่าสุดก่อนลบ)
+          // 🆕 Populate office: ใช้ snapshot จากฟอร์มก่อน (office/officeName)
+          // แล้วค่อย fallback ไป DeletedUsers แล้วค่อย lookup จาก Office collection
+          let finalOffice = issueObj.officeName || issueObj.office || '';
+          if (!finalOffice) {
+            finalOffice = deletedUserOffice;
+          }
+          if (!finalOffice) {
+            finalOffice = 'ไม่ระบุสาขา';
+          }
           return {
             ...issueObj,
             firstName: deletedUser.firstName || issueObj.firstName,
             lastName: deletedUser.lastName || issueObj.lastName,
             nickname: deletedUser.nickname || issueObj.nickname,
             department: deletedUser.department || issueObj.department,
-            office: deletedUserOffice || issueObj.office || '-',
+            office: finalOffice,
+            officeName: finalOffice,
             phone: deletedUser.phone || issueObj.phone,
             email: deletedUser.email || issueObj.email,
           };
@@ -207,9 +227,44 @@ export async function populateRequesterInfo(issue: any) {
     // Branch User: Populate เฉพาะข้อมูลสาขา (ข้อมูลส่วนตัวใช้จากฟอร์ม)
     if (user.userType === 'branch') {
       console.log(`  - Branch user: Using form data (firstName: ${issueObj.firstName})`);
+      // 🆕 Populate office: สำหรับผู้ใช้สาขา
+      // - ถ้าสาขายังมีอยู่ (officeId ไม่ใช่ UNSPECIFIED_OFFICE) → ใช้ officeId เพื่อดึงชื่อสาขาล่าสุด
+      // - ถ้าสาขาถูกลบ (officeId เป็น UNSPECIFIED_OFFICE) → ใช้ snapshot จากฟอร์ม
+      let finalOffice = '';
+      
+      // ✅ Priority 1: ใช้ officeId จาก User collection ก่อน (ถ้าสาขายังมีอยู่)
+      if (user.officeId && user.officeId !== 'UNSPECIFIED_OFFICE') {
+        try {
+          finalOffice = await getOfficeNameById(user.officeId);
+        } catch (error) {
+          console.error('Error fetching office name from user.officeId:', error);
+        }
+      }
+      
+      // ✅ Priority 2: ถ้าไม่มี officeId ให้ใช้ officeName/office จาก User collection
+      if (!finalOffice) {
+        finalOffice = userOffice;
+      }
+      
+      // ✅ Priority 3: ถ้า officeId เป็น UNSPECIFIED_OFFICE (สาขาถูกลบ) → ใช้ snapshot จากฟอร์ม
+      if (!finalOffice) {
+        // ถ้า officeId เป็น UNSPECIFIED_OFFICE ให้ใช้ snapshot จากฟอร์ม
+        if (user.officeId === 'UNSPECIFIED_OFFICE' || !user.officeId) {
+          finalOffice = issueObj.officeName || issueObj.office || '';
+        } else {
+          // Fallback ปกติ
+          finalOffice = issueObj.officeName || issueObj.office || userOffice || '';
+        }
+      }
+      
+      if (!finalOffice) {
+        finalOffice = 'ไม่ระบุสาขา';
+      }
+      
       return {
         ...issueObj,
-        office: userOffice || issueObj.office || '-', // 🆕 ใช้ officeName ที่ populate แล้ว
+        office: finalOffice,
+        officeName: finalOffice,
         // ✅ firstName, lastName, nickname, department, phone, email → ใช้จากฟอร์มที่กรอก (issueObj)
         // ⚠️ ไม่ populate จาก User collection เพราะเป็นข้อมูลส่วนตัวที่เปลี่ยนไปตามคนที่มาแจ้งงาน
       };
@@ -218,13 +273,26 @@ export async function populateRequesterInfo(issue: any) {
     // Individual User: Populate ทุกฟิลด์จาก User collection (ข้อมูลล่าสุด)
     if (user.userType === 'individual') {
       console.log(`  - Individual user: Using User collection data (firstName: ${user.firstName})`);
+      // 🆕 Populate office: ใช้ข้อมูลจาก User collection ก่อนเสมอ (เพื่อให้อัปเดตตามที่แอดมินแก้ไข)
+      // Priority 1: ใช้ officeId จาก User collection ก่อน (ข้อมูลล่าสุด)
+      let finalOffice = userOffice;
+      
+      // Priority 2: Fallback ไป snapshot (กรณีที่ User collection ไม่มีข้อมูล)
+      if (!finalOffice) {
+        finalOffice = issueObj.officeName || issueObj.office || '';
+      }
+      
+      if (!finalOffice) {
+        finalOffice = 'ไม่ระบุสาขา';
+      }
+      
       return {
         ...issueObj,
         firstName: user.firstName || issueObj.firstName,
         lastName: user.lastName || issueObj.lastName,
         nickname: user.nickname || issueObj.nickname,
         department: user.department || issueObj.department,
-        office: userOffice || issueObj.office || '-', // 🆕 ใช้ officeName ที่ populate แล้ว
+        office: finalOffice, // 🆕 ใช้ข้อมูลล่าสุดจาก User collection
         phone: user.phone || issueObj.phone,
         email: user.email || issueObj.email,
       };

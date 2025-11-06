@@ -14,12 +14,21 @@ const DEFAULT_OFFICE_NAME = 'ไม่ระบุสาขา';
 const officeCache = new Map<string, { name: string; cachedAt: number }>();
 const CACHE_TTL = 5 * 60 * 1000; // 5 นาที
 
+// Cache flag สำหรับ ensureDefaultOffice เพื่อไม่ให้เรียกบ่อยเกินไป
+let defaultOfficeCheckCache: { checked: boolean; timestamp: number } | null = null;
+const DEFAULT_OFFICE_CHECK_TTL = 10 * 60 * 1000; // 10 นาที
+
 /**
  * 🆕 ตรวจสอบและสร้าง Default Office อัตโนมัติ (ถ้ายังไม่มี)
  * @returns Promise<void>
  */
 export async function ensureDefaultOffice(): Promise<void> {
   try {
+    // Check cache first - ไม่ต้องเช็คบ่อยเกินไป
+    if (defaultOfficeCheckCache && Date.now() - defaultOfficeCheckCache.timestamp < DEFAULT_OFFICE_CHECK_TTL) {
+      return; // Skip check if recently checked
+    }
+
     await dbConnect();
     
     // ตรวจสอบว่ามี Default Office อยู่หรือไม่
@@ -42,6 +51,7 @@ export async function ensureDefaultOffice(): Promise<void> {
       
       // Clear cache
       officeCache.clear();
+      defaultOfficeCheckCache = { checked: true, timestamp: Date.now() };
     } else if (!defaultOffice.isSystemOffice || !defaultOffice.isActive || defaultOffice.deletedAt) {
       // อัพเดต Default Office ให้ถูกต้อง
       await Office.updateOne(
@@ -55,6 +65,10 @@ export async function ensureDefaultOffice(): Promise<void> {
         }
       );
       console.log('✅ Updated Default Office settings');
+      defaultOfficeCheckCache = { checked: true, timestamp: Date.now() };
+    } else {
+      // Office exists and is valid, cache the check
+      defaultOfficeCheckCache = { checked: true, timestamp: Date.now() };
     }
   } catch (error) {
     console.error('Error ensuring default office:', error);

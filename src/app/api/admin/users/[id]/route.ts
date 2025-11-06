@@ -289,7 +289,7 @@ export async function PUT(
       id,
       { $set: cleanedUpdateData }, // 🆕 ใช้ $set กับ cleaned data
       { new: true, runValidators: false }
-    ).select('-password');
+    ).select('-password').lean();
 
     if (!updatedUser) {
       return NextResponse.json(
@@ -297,6 +297,10 @@ export async function PUT(
         { status: 404 }
       );
     }
+
+    // Clear users cache
+    const { clearAllCaches } = await import('@/lib/cache-utils');
+    clearAllCaches(); // Clear all caches since user list changed
 
     return NextResponse.json(updatedUser);
   } catch (error) {
@@ -337,12 +341,24 @@ export async function DELETE(
     const { id } = await params;
 
     // ค้นหา user ที่จะลบ
-    const userToDelete = await User.findById(id);
+    const userToDelete = await User.findById(id).lean();
     if (!userToDelete) {
       return NextResponse.json(
         { error: 'ไม่พบผู้ใช้ที่ต้องการลบ' },
         { status: 404 }
       );
+    }
+
+    // 🆕 Populate officeName จาก officeId ถ้ายังไม่มี
+    let displayOfficeName = userToDelete.officeName || 'ไม่ระบุสาขา';
+    if (userToDelete.officeId && !userToDelete.officeName) {
+      try {
+        const { getOfficeMap } = await import('@/lib/office-helpers');
+        const officeMap = await getOfficeMap([userToDelete.officeId]);
+        displayOfficeName = officeMap.get(userToDelete.officeId) || 'ไม่ระบุสาขา';
+      } catch (err) {
+        console.error('Error fetching office name:', err);
+      }
     }
 
     // ป้องกันการลบ Main Admin
@@ -375,10 +391,10 @@ export async function DELETE(
       const userContact = {
         name: userToDelete.userType === 'individual' 
           ? `${userToDelete.firstName || ''} ${userToDelete.lastName || ''}`.trim()
-          : userToDelete.office,
+          : displayOfficeName,
         phone: userToDelete.phone || 'ไม่ระบุ',
         email: userToDelete.email || 'ไม่ระบุ',
-        office: userToDelete.office || 'ไม่ระบุ'
+        office: displayOfficeName
       };
 
       return NextResponse.json({ 
@@ -402,9 +418,9 @@ export async function DELETE(
           // สำหรับผู้ใช้ประเภทสาขา ไม่ snapshot ข้อมูลส่วนตัว เพราะใช้ข้อมูลจากฟอร์ม
           ...(userToDelete.userType === 'branch' ? {
             // เฉพาะข้อมูลสาขา
-            office: userToDelete.office || userToDelete.officeName, // 🆕 ใช้ officeName ถ้าไม่มี office
+            office: displayOfficeName, // 🆕 ใช้ displayOfficeName ที่ populate แล้ว
             officeId: userToDelete.officeId, // 🆕 Snapshot officeId
-            officeName: userToDelete.officeName || userToDelete.office, // 🆕 Snapshot officeName
+            officeName: displayOfficeName, // 🆕 ใช้ displayOfficeName ที่ populate แล้ว
             email: userToDelete.email,
             // ❌ ไม่ snapshot phone เพราะมาจากฟอร์มที่กรอกแต่ละครั้ง
           } : {
@@ -413,9 +429,9 @@ export async function DELETE(
             lastName: userToDelete.lastName,
             nickname: userToDelete.nickname,
             department: userToDelete.department,
-            office: userToDelete.office || userToDelete.officeName, // 🆕 ใช้ officeName ถ้าไม่มี office
+            office: displayOfficeName, // 🆕 ใช้ displayOfficeName ที่ populate แล้ว
             officeId: userToDelete.officeId, // 🆕 Snapshot officeId
-            officeName: userToDelete.officeName || userToDelete.office, // 🆕 Snapshot officeName
+            officeName: displayOfficeName, // 🆕 ใช้ displayOfficeName ที่ populate แล้ว
             phone: userToDelete.phone,
             email: userToDelete.email,
           }),
@@ -449,6 +465,10 @@ export async function DELETE(
 
       // ลบผู้ใช้จากฐานข้อมูล
       const deletedUser = await User.findByIdAndDelete(id);
+
+      // Clear users cache
+      const { clearAllCaches } = await import('@/lib/cache-utils');
+      clearAllCaches(); // Clear all caches since user list changed
 
       return NextResponse.json({ 
         message: 'ลบผู้ใช้เรียบร้อยแล้ว',

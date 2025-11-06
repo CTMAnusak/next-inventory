@@ -140,8 +140,10 @@ export default function EquipmentReturnPage() {
   const [conditionConfigs, setConditionConfigs] = useState<any[]>([]);
 
   useEffect(() => {
-    fetchUserItems();
-    fetchConfigs();
+    // ✅ Fetch both APIs in parallel for better performance
+    Promise.all([fetchUserItems(), fetchConfigs()]).catch(error => {
+      console.error('Error fetching initial data:', error);
+    });
   }, []);
 
   // Cleanup object URLs on component unmount

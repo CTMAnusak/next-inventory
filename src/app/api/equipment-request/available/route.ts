@@ -7,6 +7,8 @@ import InventoryConfig from '@/models/InventoryConfig';
 
 // GET - ดึงรายการอุปกรณ์ที่สามารถเบิกได้
 export async function GET(request: NextRequest) {
+  const startTime = Date.now();
+  
   try {
     await dbConnect();
     
@@ -16,8 +18,31 @@ export async function GET(request: NextRequest) {
     const page = parseInt(searchParams.get('page') || '1');
     const limit = parseInt(searchParams.get('limit') || '50');
     
-    // Load configs to get "มี" (available) status and "ใช้งานได้" (working) condition
-    const inventoryConfig = await InventoryConfig.findOne({});
+    // Check cache first
+    const { getCachedData, setCachedData } = await import('@/lib/cache-utils');
+    const cacheKey = `equipment_available_${categoryId || 'all'}_${search || ''}_${page}_${limit}`;
+    const cached = getCachedData(cacheKey);
+    if (cached) {
+      if (process.env.NODE_ENV === 'development') {
+        console.log(`✅ Equipment Available API - Cache hit (${Date.now() - startTime}ms)`);
+      }
+      return NextResponse.json(cached);
+    }
+    
+    // Load configs to get "มี" (available) status and "ใช้งานได้" (working) condition (with cache)
+    const { getCachedData: getConfigCache, setCachedData: setConfigCache } = await import('@/lib/cache-utils');
+    const configCacheKey = 'inventory_config_all';
+    let inventoryConfig = getConfigCache(configCacheKey);
+    
+    if (!inventoryConfig) {
+      inventoryConfig = await InventoryConfig.findOne({})
+        .select('statusConfigs conditionConfigs')
+        .lean();
+      if (inventoryConfig) {
+        setConfigCache(configCacheKey, inventoryConfig);
+      }
+    }
+    
     if (!inventoryConfig) {
       return NextResponse.json(
         { error: 'ไม่พบการตั้งค่าระบบ' },
@@ -32,13 +57,6 @@ export async function GET(request: NextRequest) {
   // Find the "ใช้งานได้" condition config (should be cond_working)
   const workingCondition = inventoryConfig.conditionConfigs?.find((c: any) => c.name === 'ใช้งานได้');
   const workingConditionId = workingCondition?.id || 'cond_working';
-
-    console.log('🔍 Equipment Request Filter:', {
-      availableStatusId,
-      workingConditionId,
-      availableStatusName: availableStatus?.name,
-      workingConditionName: workingCondition?.name
-    });
     
     // Build query for InventoryMaster (direct query - no ItemMaster needed)
     const query: any = {};
@@ -54,38 +72,52 @@ export async function GET(request: NextRequest) {
     // ✅ แก้ไข: ดึงอุปกรณ์ทั้งหมดในหมวดหมู่นี้ (รวมที่ availableQuantity = 0)
     // ไม่กรอง availableQuantity > 0 เพื่อให้แสดงอุปกรณ์ที่ไม่พร้อมเบิกด้วย
     
-    // Get InventoryMasters directly
+    // Get InventoryMasters directly with lean()
     const inventoryMasters = await InventoryMaster.find(query)
+      .select('_id itemName categoryId totalQuantity itemDetails')
       .sort({ itemName: 1 })
       .skip((page - 1) * limit)
-      .limit(limit);
+      .limit(limit)
+      .lean();
+    
+    // ✅ Optimize: Batch query all items at once instead of N+1 queries
+    const itemNames = inventoryMasters.map(m => m.itemName);
+    const categoryIds = [...new Set(inventoryMasters.map(m => m.categoryId))];
+    
+    // Get all matching items in one query
+    const allMatchingItems = await InventoryItem.find({
+      itemName: { $in: itemNames },
+      categoryId: { $in: categoryIds },
+      'currentOwnership.ownerType': 'admin_stock',
+      statusId: availableStatusId,
+      conditionId: workingConditionId,
+      deletedAt: { $exists: false }
+    })
+    .select('_id itemName categoryId serialNumber numberPhone statusId conditionId')
+    .lean();
+    
+    // Group items by itemName+categoryId and count
+    const itemsByMaster = new Map<string, { count: number; samples: typeof allMatchingItems }>();
+    allMatchingItems.forEach(item => {
+      const key = `${item.itemName}||${item.categoryId}`;
+      if (!itemsByMaster.has(key)) {
+        itemsByMaster.set(key, { count: 0, samples: [] });
+      }
+      const group = itemsByMaster.get(key)!;
+      group.count++;
+      if (group.samples.length < 3) {
+        group.samples.push(item);
+      }
+    });
     
     // Build available items list
     const availableItems = [];
     
     for (const inventoryMaster of inventoryMasters) {
-      // ✅ นับจำนวนอุปกรณ์ที่มีสถานะ "มี" และสภาพ "ใช้งานได้" เท่านั้น
-      const actualAvailableCount = await InventoryItem.countDocuments({
-        itemName: inventoryMaster.itemName,
-        categoryId: inventoryMaster.categoryId,
-        'currentOwnership.ownerType': 'admin_stock',
-        statusId: availableStatusId,
-        conditionId: workingConditionId,
-        deletedAt: { $exists: false }
-      });
-      
-      // ✅ แก้ไข: ไม่ข้ามรายการที่มี availableQuantity = 0 เพื่อให้แสดงอุปกรณ์ที่ไม่พร้อมเบิก
-      // แต่จะตั้งค่า availableQuantity เป็น 0 และ isAvailable เป็น false
-      
-      // Get sample available items for detailed info (ถ้ามี)
-      const sampleItems = actualAvailableCount > 0 ? await InventoryItem.find({
-        itemName: inventoryMaster.itemName,
-        categoryId: inventoryMaster.categoryId,
-        'currentOwnership.ownerType': 'admin_stock',
-        statusId: availableStatusId,
-        conditionId: workingConditionId,
-        deletedAt: { $exists: false }
-      }).limit(3) : [];
+      const key = `${inventoryMaster.itemName}||${inventoryMaster.categoryId}`;
+      const itemGroup = itemsByMaster.get(key) || { count: 0, samples: [] };
+      const actualAvailableCount = itemGroup.count;
+      const sampleItems = itemGroup.samples;
       
     availableItems.push({
       itemMasterId: String(inventoryMaster._id), // Legacy compatibility
@@ -109,9 +141,9 @@ export async function GET(request: NextRequest) {
     }
     
     // Get total count for pagination
-    const totalCount = availableItems.length;
+    const totalCount = await InventoryMaster.countDocuments(query);
     
-    return NextResponse.json({
+    const result = {
       availableItems,
       pagination: {
         page,
@@ -119,7 +151,16 @@ export async function GET(request: NextRequest) {
         totalCount,
         totalPages: Math.ceil(totalCount / limit)
       }
-    });
+    };
+    
+    // Cache the result
+    setCachedData(cacheKey, result);
+    
+    if (process.env.NODE_ENV === 'development') {
+      console.log(`✅ Equipment Available API - Fetched ${availableItems.length} items (${Date.now() - startTime}ms)`);
+    }
+    
+    return NextResponse.json(result);
     
   } catch (error) {
     console.error('Error fetching available equipment:', error);

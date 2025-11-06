@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { X, Plus, Edit, Trash2, Building, Loader2 } from 'lucide-react';
+import { X, Plus, Edit, Trash2, Building, Loader2, AlertTriangle } from 'lucide-react';
 import { toast } from 'react-hot-toast';
 import SearchableSelect from '@/components/SearchableSelect';
 
@@ -28,6 +28,11 @@ export default function OfficeManagementModal({ isOpen, onClose, onRefresh }: Of
   const [showEditModal, setShowEditModal] = useState(false);
   const [editingOffice, setEditingOffice] = useState<Office | null>(null);
   const [deletingOfficeId, setDeletingOfficeId] = useState<string | null>(null);
+  const [editingOfficeId, setEditingOfficeId] = useState<string | null>(null);
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
+  const [officeToDelete, setOfficeToDelete] = useState<Office | null>(null);
+  const [deleteConfirmText, setDeleteConfirmText] = useState('');
   
   const [formData, setFormData] = useState({
     name: '',
@@ -62,46 +67,83 @@ export default function OfficeManagementModal({ isOpen, onClose, onRefresh }: Of
     setShowAddModal(true);
   };
 
-  const handleEdit = (office: Office) => {
-    setEditingOffice(office);
-    setFormData({
-      name: office.name,
-      description: office.description || ''
-    });
-    setShowEditModal(true);
+  const handleEdit = async (office: Office) => {
+    setEditingOfficeId(office.office_id);
+    try {
+      // จำลองการโหลดเล็กน้อยเพื่อให้เห็นแอนิเมชัน
+      await new Promise(resolve => setTimeout(resolve, 100));
+      
+      setEditingOffice(office);
+      setFormData({
+        name: office.name,
+        description: office.description || ''
+      });
+      setShowEditModal(true);
+    } finally {
+      setEditingOfficeId(null);
+    }
   };
 
-  const handleDelete = async (officeId: string) => {
-    if (!confirm('คุณแน่ใจหรือไม่ที่จะลบสาขานี้?')) {
+  const handleDeleteClick = (office: Office) => {
+    setOfficeToDelete(office);
+    setDeleteConfirmText('');
+    setShowDeleteConfirm(true);
+  };
+
+  const handleDeleteConfirm = async () => {
+    if (!officeToDelete || deleteConfirmText !== 'delete') {
       return;
     }
 
-    setDeletingOfficeId(officeId);
+    setDeletingOfficeId(officeToDelete.office_id);
+    setShowDeleteConfirm(false);
     try {
-      const response = await fetch(`/api/admin/offices/${officeId}`, {
+      const response = await fetch(`/api/admin/offices/${officeToDelete.office_id}`, {
         method: 'DELETE'
       });
 
       const data = await response.json();
 
       if (response.ok) {
-        toast.success('ลบสาขาสำเร็จ');
+        // แสดงข้อมูล snapshot ถ้ามี
+        const snapshotInfo = data.snapshot;
+        if (snapshotInfo && snapshotInfo.completed) {
+          const totalSnapshotted = 
+            (snapshotInfo.updated?.users || 0) +
+            (snapshotInfo.updated?.requestLogs || 0) +
+            (snapshotInfo.updated?.returnLogs || 0) +
+            (snapshotInfo.updated?.issueLogs || 0) +
+            (snapshotInfo.updated?.inventoryItems || 0) +
+            (snapshotInfo.updated?.deletedUsers || 0);
+          
+          if (totalSnapshotted > 0) {
+            toast.success(`ลบสาขาสำเร็จ (ได้ snapshot ข้อมูล ${totalSnapshotted} รายการ)`, {
+              duration: 5000
+            });
+          } else {
+            toast.success('ลบสาขาสำเร็จ');
+          }
+        } else {
+          toast.success('ลบสาขาสำเร็จ');
+        }
         fetchOffices();
         if (onRefresh) onRefresh();
       } else {
-        if (data.usage) {
-          toast.error(`ไม่สามารถลบได้: มีการใช้งานอยู่ (ผู้ใช้: ${data.usage.users}, รายการเบิก: ${data.usage.requestLogs}, รายการคืน: ${data.usage.returnLogs})`, {
-            duration: 5000
-          });
-        } else {
-          toast.error(data.error || 'เกิดข้อผิดพลาดในการลบสาขา');
-        }
+        toast.error(data.error || 'เกิดข้อผิดพลาดในการลบสาขา');
       }
     } catch (error) {
       toast.error('เกิดข้อผิดพลาดในการเชื่อมต่อ');
     } finally {
       setDeletingOfficeId(null);
+      setOfficeToDelete(null);
+      setDeleteConfirmText('');
     }
+  };
+
+  const handleDeleteCancel = () => {
+    setShowDeleteConfirm(false);
+    setOfficeToDelete(null);
+    setDeleteConfirmText('');
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -116,6 +158,7 @@ export default function OfficeManagementModal({ isOpen, onClose, onRefresh }: Of
     const url = isEdit ? `/api/admin/offices/${editingOffice?.office_id}` : '/api/admin/offices';
     const method = isEdit ? 'PUT' : 'POST';
 
+    setIsSubmitting(true);
     try {
       const response = await fetch(url, {
         method,
@@ -140,6 +183,8 @@ export default function OfficeManagementModal({ isOpen, onClose, onRefresh }: Of
       }
     } catch (error) {
       toast.error('เกิดข้อผิดพลาดในการเชื่อมต่อ');
+    } finally {
+      setIsSubmitting(false);
     }
   };
 
@@ -219,15 +264,20 @@ export default function OfficeManagementModal({ isOpen, onClose, onRefresh }: Of
                             <div className="flex items-center gap-2">
                               <button
                                 onClick={() => handleEdit(office)}
-                                className="p-1.5 text-blue-600 hover:bg-blue-50 rounded transition-colors"
+                                disabled={editingOfficeId === office.office_id || deletingOfficeId === office.office_id}
+                                className="p-1.5 text-blue-600 hover:bg-blue-50 rounded transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
                                 title="แก้ไข"
                               >
-                                <Edit className="w-4 h-4" />
+                                {editingOfficeId === office.office_id ? (
+                                  <Loader2 className="w-4 h-4 animate-spin" />
+                                ) : (
+                                  <Edit className="w-4 h-4" />
+                                )}
                               </button>
                               <button
-                                onClick={() => handleDelete(office.office_id)}
-                                disabled={deletingOfficeId === office.office_id}
-                                className="p-1.5 text-red-600 hover:bg-red-50 rounded transition-colors disabled:opacity-50"
+                                onClick={() => handleDeleteClick(office)}
+                                disabled={editingOfficeId === office.office_id || deletingOfficeId === office.office_id}
+                                className="p-1.5 text-red-600 hover:bg-red-50 rounded transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
                                 title="ลบ"
                               >
                                 {deletingOfficeId === office.office_id ? (
@@ -363,12 +413,97 @@ export default function OfficeManagementModal({ isOpen, onClose, onRefresh }: Of
                 </button>
                 <button
                   type="submit"
-                  className="px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 transition-colors"
+                  disabled={isSubmitting}
+                  className="px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2"
                 >
+                  {isSubmitting && <Loader2 className="w-4 h-4 animate-spin" />}
                   บันทึก
                 </button>
               </div>
             </form>
+          </div>
+        </div>
+      )}
+
+      {/* Delete Confirmation Modal */}
+      {showDeleteConfirm && officeToDelete && (
+        <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-[70] p-4">
+          <div className="bg-white rounded-2xl shadow-2xl max-w-md w-full max-h-[90vh] overflow-y-auto">
+            {/* Header */}
+            <div className="flex justify-between items-center p-6 border-b border-gray-200">
+              <div className="flex items-center gap-2">
+                <span className="text-lg font-semibold text-gray-900">
+                  ยืนยันการลบสาขา
+                </span>
+              </div>
+              <button
+                onClick={handleDeleteCancel}
+                className="text-gray-400 hover:text-gray-600 transition-colors"
+                disabled={deletingOfficeId === officeToDelete.office_id}
+              >
+                <X className="w-6 h-6" />
+              </button>
+            </div>
+
+            {/* Content */}
+            <div className="p-6">
+              <div className="flex items-start gap-4">
+                <div className="flex-shrink-0">
+                  <AlertTriangle className="w-6 h-6 text-red-500" />
+                </div>
+                <div className="flex-1">
+                  <h3 className="text-lg font-medium text-gray-900 mb-2">
+                    คุณแน่ใจหรือไม่ที่จะลบสาขา "{officeToDelete.name}"?
+                  </h3>
+                  <div className="text-sm text-gray-600 space-y-2">
+                    <p>การดำเนินการนี้ไม่สามารถย้อนกลับได้</p>
+                    <p>สาขานี้จะถูกลบออกจากระบบอย่างถาวร</p>
+                  </div>
+                  
+                  <div className="mt-4">
+                    <label className="block text-sm font-medium text-gray-700 mb-2">
+                      พิมพ์ <span className="font-mono font-bold text-red-600">delete</span> เพื่อยืนยัน:
+                    </label>
+                    <input
+                      type="text"
+                      value={deleteConfirmText}
+                      onChange={(e) => setDeleteConfirmText(e.target.value)}
+                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-red-500 focus:border-red-500"
+                      placeholder="delete"
+                      disabled={deletingOfficeId === officeToDelete.office_id}
+                      autoFocus
+                    />
+                    {deleteConfirmText && deleteConfirmText !== 'delete' && (
+                      <p className="text-red-500 text-sm mt-1">กรุณาพิมพ์ "delete" ให้ถูกต้อง</p>
+                    )}
+                    {deleteConfirmText === 'delete' && (
+                      <p className="text-green-600 text-sm mt-1">✓ ยืนยันแล้ว</p>
+                    )}
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            {/* Actions */}
+            <div className="flex justify-end gap-3 p-6 border-t border-gray-200">
+              <button
+                onClick={handleDeleteCancel}
+                className="px-4 py-2 text-gray-700 bg-gray-100 hover:bg-gray-200 rounded-lg transition-colors"
+                disabled={deletingOfficeId === officeToDelete.office_id}
+              >
+                ยกเลิก
+              </button>
+              <button
+                onClick={handleDeleteConfirm}
+                disabled={deleteConfirmText !== 'delete' || deletingOfficeId === officeToDelete.office_id}
+                className="px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 disabled:bg-gray-300 disabled:cursor-not-allowed transition-colors flex items-center gap-2"
+              >
+                {deletingOfficeId === officeToDelete.office_id && (
+                  <Loader2 className="w-4 h-4 animate-spin" />
+                )}
+                ลบสาขา
+              </button>
+            </div>
           </div>
         </div>
       )}

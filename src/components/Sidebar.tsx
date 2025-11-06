@@ -214,6 +214,7 @@ export default function Sidebar({ isOpen, onClose }: SidebarProps) {
           <div className="p-6 border-b border-blue-500/30">
             <Link
               href="/dashboard"
+              prefetch={true}
               className="block"
               onClick={() => {
                 if (window.innerWidth < 1024) {
@@ -279,6 +280,7 @@ export default function Sidebar({ isOpen, onClose }: SidebarProps) {
                             <Link
                               key={subIndex}
                               href={subItem.href}
+                              prefetch={true}
                               className={`flex items-center px-4 py-2 text-sm rounded-lg transition-all duration-200 ml-5 w-full ${
                                 pathname === subItem.href
                                   ? 'bg-white/20 text-white shadow-md'
@@ -316,6 +318,7 @@ export default function Sidebar({ isOpen, onClose }: SidebarProps) {
                 ) : (
                   <Link
                     href={item.href!}
+                    prefetch={true}
                     className={`flex items-center px-4 py-3 rounded-xl transition-all duration-200 w-full ${
                       pathname === item.href
                         ? 'bg-white/20 text-white shadow-lg scale-105'

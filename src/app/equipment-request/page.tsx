@@ -113,64 +113,63 @@ export default function EquipmentRequestPage() {
   const fetchInventoryItems = async () => {
     try {
       setIsLoadingEquipment(true);
-      const configResponse = await fetch('/api/admin/inventory/config');
+      
+      // ✅ Fetch both APIs in parallel for better performance
+      const [configResponse, availableResponse] = await Promise.all([
+        fetch('/api/admin/inventory/config'),
+        fetch('/api/equipment-request/available')
+      ]);
       
       // ✅ จัดการ 401/403 error - เด้งออกจากระบบทันที
-      if (handleAuthError(configResponse)) {
+      if (handleAuthError(configResponse) || handleAuthError(availableResponse)) {
         return;
       }
       
+      // Process config response
       if (configResponse.ok) {
         const configData = await configResponse.json();
         setCategoryConfigs(configData.categoryConfigs || []);
+      }
+      
+      // Process available items response
+      if (availableResponse.ok) {
+        const availableData = await availableResponse.json();
+        const availableItems = availableData.availableItems || [];
         
-        // ✅ ดึงข้อมูลอุปกรณ์ที่สามารถเบิกได้จาก API ที่กรองตามสถานะและสภาพแล้ว
-        const availableResponse = await fetch('/api/equipment-request/available');
+        console.log('✅ Equipment Request - Loaded available items:', availableItems);
         
-        // ✅ จัดการ 401/403 error - เด้งออกจากระบบทันที
-        if (handleAuthError(availableResponse)) {
-          return;
-        }
+        // แปลงข้อมูลให้เป็นรูปแบบที่ UI ต้องการ
+        const items = availableItems.map((item: any) => ({
+          _id: item.itemMasterId,
+          itemName: item.itemName,
+          categoryId: item.categoryId,
+          category: item.categoryId, // For backward compatibility
+          quantity: item.availableQuantity,
+          price: 0,
+          serialNumber: item.sampleItems?.[0]?.serialNumber || '',
+          isAvailable: item.isAvailable === true // ✅ เก็บ flag isAvailable จาก API (ถ้าไม่มีค่าให้เป็น false)
+        }));
         
-        if (availableResponse.ok) {
-          const availableData = await availableResponse.json();
-          const availableItems = availableData.availableItems || [];
+        setInventoryItems(items);
+        
+        // Group items by categoryId - รวมอุปกรณ์ที่พร้อมเบิกและไม่พร้อมเบิก
+        const grouped: {[key: string]: string[]} = {};
+        availableItems.forEach((item: any) => {
+          const categoryId = item.categoryId;
           
-          console.log('✅ Equipment Request - Loaded available items:', availableItems);
-          
-          // แปลงข้อมูลให้เป็นรูปแบบที่ UI ต้องการ
-          const items = availableItems.map((item: any) => ({
-            _id: item.itemMasterId,
-            itemName: item.itemName,
-            categoryId: item.categoryId,
-            category: item.categoryId, // For backward compatibility
-            quantity: item.availableQuantity,
-            price: 0,
-            serialNumber: item.sampleItems?.[0]?.serialNumber || '',
-            isAvailable: item.isAvailable === true // ✅ เก็บ flag isAvailable จาก API (ถ้าไม่มีค่าให้เป็น false)
-          }));
-          
-          setInventoryItems(items);
-          
-          // Group items by categoryId - รวมอุปกรณ์ที่พร้อมเบิกและไม่พร้อมเบิก
-          const grouped: {[key: string]: string[]} = {};
-          availableItems.forEach((item: any) => {
-            const categoryId = item.categoryId;
-            
-            // ✅ แก้ไข: รวมอุปกรณ์ทั้งหมด (รวมที่ availableQuantity = 0)
-            if (categoryId) {
-              if (!grouped[categoryId]) {
-                grouped[categoryId] = [];
-              }
-              if (!grouped[categoryId].includes(item.itemName)) {
-                grouped[categoryId].push(item.itemName);
-              }
+          // ✅ แก้ไข: รวมอุปกรณ์ทั้งหมด (รวมที่ availableQuantity = 0)
+          if (categoryId) {
+            if (!grouped[categoryId]) {
+              grouped[categoryId] = [];
             }
-          });
-          
-          console.log('✅ Equipment Request - Grouped items by category:', grouped);
-          setItemsByCategory(grouped);
-        }
+            if (!grouped[categoryId].includes(item.itemName)) {
+              grouped[categoryId].push(item.itemName);
+            }
+          }
+        });
+        
+        console.log('✅ Equipment Request - Grouped items by category:', grouped);
+        setItemsByCategory(grouped);
       }
     } catch (error) {
       console.error('Error fetching inventory:', error);
