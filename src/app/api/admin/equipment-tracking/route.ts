@@ -45,17 +45,12 @@ export async function GET(request: NextRequest) {
     // Fetch all user-owned inventory items
     const ownedItems = await InventoryItem.find(itemFilter).lean();
     
-    console.log(`Found ${ownedItems.length} user-owned items`);
-    
     if (ownedItems.length === 0) {
-      console.log('⚠️ No user-owned items found');
       return NextResponse.json([]);
     }
     
     // Get unique user IDs from owned items
     const userIds = [...new Set(ownedItems.map(item => item.currentOwnership?.userId).filter(Boolean))];
-    
-    console.log(`Unique user IDs: ${userIds.length}`);
     
     // Fetch all users at once (using user_id field, not _id)
     const users = await User.find({ user_id: { $in: userIds } }).lean();
@@ -66,7 +61,6 @@ export async function GET(request: NextRequest) {
     const missingUserIds = userIds.filter(id => !foundUserIds.includes(id));
     
     if (missingUserIds.length > 0) {
-      console.log(`🔍 Looking for ${missingUserIds.length} deleted users...`);
       const deletedUsers = await DeletedUsers.find({ user_id: { $in: missingUserIds } }).lean();
       deletedUsers.forEach((deletedUser: any) => {
         userMap.set(deletedUser.user_id, {
@@ -74,7 +68,6 @@ export async function GET(request: NextRequest) {
           _isDeleted: true // Mark as deleted for special handling
         });
       });
-      console.log(`📸 Found ${deletedUsers.length} deleted users in DeletedUsers collection`);
     }
     
     // 🆕 ดึง InventoryMaster ทั้งหมดมาก่อน เพื่อหาชื่ออุปกรณ์ล่าสุด
@@ -128,15 +121,10 @@ export async function GET(request: NextRequest) {
         
         // Skip items without userId (shouldn't happen for user_owned, but safety check)
         if (!userId) {
-          console.warn(`⚠️ Item ${item._id} has no userId in currentOwnership`);
           continue;
         }
         
         const user = userMap.get(userId);
-        
-        if (!user) {
-          console.warn(`⚠️ User ${userId} not found for item ${item._id} (not in User or DeletedUsers)`);
-        }
         
         // ✅ ดึงข้อมูลจาก User collection หรือ DeletedUsers
         let firstName = user?.firstName || '';
@@ -157,18 +145,10 @@ export async function GET(request: NextRequest) {
           }
         }
         
-        // 🔍 Debug: Log item data
-        console.log(`\n📦 Processing item: ${item.itemName} (${item._id})`);
-        console.log(`   User Type: ${user?.userType}`);
-        console.log(`   User data:`, { firstName, lastName, nickname, userDepartment });
-        console.log(`   Item requesterInfo:`, (item as any).requesterInfo);
-        
         // ✅ สำหรับอุปกรณ์ที่เพิ่มเอง: ดึงข้อมูลจาก requesterInfo ใน InventoryItem
         // (ใช้สำหรับผู้ใช้สาขาที่กรอกข้อมูลเพิ่มเติมตอนเพิ่มอุปกรณ์)
         const itemRequesterInfo = (item as any).requesterInfo;
         if (itemRequesterInfo && (itemRequesterInfo.firstName || itemRequesterInfo.lastName)) {
-          console.log(`   ✅ Using requesterInfo from item`);
-          
           // ✅ สำหรับผู้ใช้สาขา: ข้อมูลส่วนตัวจาก requesterInfo, office จาก User Collection
           if (user?.userType === 'branch') {
             firstName = itemRequesterInfo.firstName || firstName;
@@ -186,8 +166,20 @@ export async function GET(request: NextRequest) {
             nickname = itemRequesterInfo.nickname || nickname;
             userDepartment = itemRequesterInfo.department || userDepartment;
             userPhone = itemRequesterInfo.phone || userPhone;
-            // 🆕 ใช้ officeName จาก requesterInfo ถ้ามี
-            userOffice = itemRequesterInfo.officeName || itemRequesterInfo.office || userOffice;
+            
+            // 🔧 Populate officeName จาก officeId (real-time lookup)
+            if (itemRequesterInfo.officeId) {
+              try {
+                userOffice = await getOfficeNameById(itemRequesterInfo.officeId);
+              } catch (error) {
+                console.error('Error fetching office name from officeId:', error);
+                // Fallback to stored officeName or office
+                userOffice = itemRequesterInfo.officeName || itemRequesterInfo.office || userOffice;
+              }
+            } else {
+              // ใช้ officeName หรือ office เดิม (backward compatible)
+              userOffice = itemRequesterInfo.officeName || itemRequesterInfo.office || userOffice;
+            }
           }
         } else if (isDeletedUser && user?.userType === 'branch') {
           // 🆕 สำหรับผู้ใช้สาขาที่ถูกลบ แต่ไม่มี requesterInfo:
@@ -209,8 +201,6 @@ export async function GET(request: NextRequest) {
         if (!userOffice) {
           userOffice = 'ไม่ระบุสาขา';
         }
-        
-        console.log(`   Final data:`, { firstName, lastName, nickname, userDepartment, userOffice });
         
         // Determine source: 'request' (เบิก) or 'user-owned' (เพิ่มเอง)
         let source = 'user-owned';
@@ -300,8 +290,8 @@ export async function GET(request: NextRequest) {
           reason: source === 'request' ? 'การเบิกอุปกรณ์' : 'อุปกรณ์ที่มีอยู่เดิม'
         });
       } catch (itemError: any) {
-        console.error(`❌ Error processing item ${item._id}:`, itemError.message);
-        // Continue with next item
+        console.error(`Error processing item ${item._id}:`, itemError);
+        // Continue with next item on error
       }
     }
     
@@ -311,8 +301,6 @@ export async function GET(request: NextRequest) {
       const dateB = new Date(b.dateAdded).getTime();
       return dateB - dateA;
     });
-    
-    console.log(`Returning ${trackingRecords.length} tracking records`);
     
     // Apply pagination
     const skip = (page - 1) * limit;
@@ -334,7 +322,6 @@ export async function GET(request: NextRequest) {
     
   } catch (error: any) {
     console.error('Error fetching equipment tracking data:', error);
-    console.error('Error details:', error.message, error.stack);
     return NextResponse.json(
       { error: 'เกิดข้อผิดพลาดในการดึงข้อมูลการติดตามอุปกรณ์', details: error.message },
       { status: 500 }

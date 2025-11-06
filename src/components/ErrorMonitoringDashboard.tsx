@@ -82,11 +82,6 @@ export default function ErrorMonitoringDashboard() {
   // ตรวจสอบสิทธิ์การแสดง Error Monitor
   const canViewErrorMonitor = user?.userRole === 'it_admin' || user?.userRole === 'admin';
   
-  // Debug: แสดงข้อมูลผู้ใช้ปัจจุบัน
-  console.log('ErrorMonitoringDashboard - Current user:', user);
-  console.log('ErrorMonitoringDashboard - User role:', user?.userRole);
-  console.log('ErrorMonitoringDashboard - Can view:', canViewErrorMonitor);
-  
   // ไม่แสดง Error Monitor หากไม่มีสิทธิ์
   if (!canViewErrorMonitor) {
     return null;

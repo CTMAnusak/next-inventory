@@ -91,7 +91,6 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         // ถ้า response ไม่ ok (เช่น 401) ให้ redirect ไป login ทันที
         // แต่ไม่แสดง error modal เมื่อเปิดโปรเจคครั้งแรก
         if (typeof window !== 'undefined' && window.location.pathname !== '/login') {
-          console.log('❌ AuthContext: Authentication failed, redirecting to login');
           // ใช้ window.location.href แทน handleAuthError เพื่อไม่แสดง error modal
           window.location.href = '/login';
         }
@@ -101,6 +100,8 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       // Only log errors that are not 401 (unauthorized)
       if (error instanceof Error && !error.message.includes('401')) {
         console.error('Auth check error:', error);
+      } else {
+        console.error('Auth error:', error);
       }
       setUser(null);
     } finally {

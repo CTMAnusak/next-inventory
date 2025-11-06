@@ -56,6 +56,14 @@ export async function authenticateUser(request: NextRequest) {
       };
     }
 
+    // 🔍 Debug: Log user from DB
+    console.log('🔍 authenticateUser - User from DB:', {
+      user_id: user.user_id,
+      officeId: user.officeId,
+      officeName: user.officeName,
+      office: user.office
+    });
+
     // 4. ส่งคืนข้อมูล user
     return {
       error: null,
@@ -68,7 +76,9 @@ export async function authenticateUser(request: NextRequest) {
         email: user.email,
         phone: user.phone,
         department: user.department,
-        office: user.office,
+        office: user.officeName || user.office,  // Backward compatible
+        officeId: user.officeId,               // 🆕 Office ID
+        officeName: user.officeName || user.office || 'ไม่ระบุสาขา',  // 🆕 Office Name
         userType: user.userType,
         userRole: user.userRole,
         isMainAdmin: user.isMainAdmin || false

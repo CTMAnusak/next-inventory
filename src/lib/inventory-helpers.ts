@@ -32,7 +32,9 @@ export interface CreateItemParams {
     nickname?: string;
     department?: string;
     phone?: string;
-    office?: string;
+    officeId?: string;      // 🆕 Office ID สำหรับ lookup
+    officeName?: string;    // 🆕 Office Name (cache)
+    office?: string;        // Deprecated: backward compatibility
   };
 }
 
@@ -54,7 +56,9 @@ export interface TransferItemParams {
     nickname?: string;
     department?: string;
     phone?: string;
-    office?: string;
+    officeId?: string;      // 🆕 Office ID สำหรับ lookup
+    officeName?: string;    // 🆕 Office Name (cache)
+    office?: string;        // Deprecated: backward compatibility
   };
 }
 
@@ -63,6 +67,11 @@ export interface TransferItemParams {
  */
 export async function createInventoryItem(params: CreateItemParams) {
   const { itemName, categoryId, serialNumber } = params;
+  
+  // 🔍 Debug: Log params received
+  console.log('🔍 createInventoryItem - Params received:');
+  console.log('   itemName:', params.itemName);
+  console.log('   requesterInfo:', JSON.stringify(params.requesterInfo, null, 2));
   
   try {
     await dbConnect();
@@ -83,6 +92,10 @@ export async function createInventoryItem(params: CreateItemParams) {
     notes,
     requesterInfo
   } = params;
+  
+  // 🔍 Debug: Log requesterInfo after destructuring
+  console.log('🔍 createInventoryItem - requesterInfo after destructuring:');
+  console.log('   requesterInfo:', JSON.stringify(requesterInfo, null, 2));
 
   // Validate categoryId exists
   const config = await InventoryConfig.findOne({ 'categoryConfigs.id': categoryId });
@@ -236,16 +249,32 @@ export async function createInventoryItem(params: CreateItemParams) {
   };
   
   // ✅ เพิ่มข้อมูลผู้ใช้สาขา (เฉพาะเมื่อมีข้อมูล)
+  // 🔍 Debug: Log before saving requesterInfo
+  console.log('🔍 createInventoryItem - Before saving requesterInfo:');
+  console.log('   requesterInfo exists?', !!requesterInfo);
+  console.log('   requesterInfo:', JSON.stringify(requesterInfo, null, 2));
+  console.log('   itemData.requesterInfo before:', JSON.stringify(itemData.requesterInfo, null, 2));
+  
   if (requesterInfo) {
     console.log('💾 Saving requesterInfo:', requesterInfo);
     itemData.requesterInfo = requesterInfo;
+    console.log('💾 itemData.requesterInfo after assignment:', JSON.stringify(itemData.requesterInfo, null, 2));
+  } else {
+    console.log('⚠️  WARNING: requesterInfo is empty/null/undefined!');
   }
   
   const newItem = new InventoryItem(itemData);
   
+  // 🔍 Debug: Log itemData before save
+  console.log('🔍 createInventoryItem - itemData before save:');
+  console.log('   itemData.requesterInfo:', JSON.stringify(itemData.requesterInfo, null, 2));
 
   try {
     const savedItem = await newItem.save();
+    
+    // 🔍 Debug: Log saved item
+    console.log('🔍 createInventoryItem - Saved item requesterInfo:');
+    console.log('   savedItem.requesterInfo:', JSON.stringify((savedItem as any).requesterInfo, null, 2));
 
     // Update InventoryMaster immediately and ensure it completes
     try {

@@ -29,7 +29,8 @@
     "migrate-office-to-id": "tsx scripts/migrate-office-to-id.ts",
     "merge-duplicate-offices": "tsx scripts/merge-duplicate-offices.ts",
     "create-default-office": "tsx scripts/create-default-office.ts",
-    "migrate-office-to-officename": "tsx scripts/migrate-office-to-officename.ts"
+    "migrate-office-to-officename": "tsx scripts/migrate-office-to-officename.ts",
+    "migrate-inventoryitems-office": "tsx scripts/migrate-inventoryitems-office-to-id.ts"
   },
   "dependencies": {
     "@dnd-kit/core": "^6.3.1",

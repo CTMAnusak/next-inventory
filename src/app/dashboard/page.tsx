@@ -135,29 +135,16 @@ export default function DashboardPage() {
       const responseData = ownedRes.ok ? await ownedRes.json() : { items: [] };
       const ownedEquipment = responseData.items || [];
       
-      // 🔍 Debug: Log delivery location for each item
-      console.log('================================');
-      console.log('📦 Dashboard - Owned Equipment Data:');
-      console.log(`🔑 Current User ID: ${user?.id}`);
-      console.log(`👤 User Info: ${user?.firstName} ${user?.lastName}`);
-      console.log('--------------------------------');
-      ownedEquipment.forEach((item: any, idx: number) => {
-        console.log(`  ${idx + 1}. ${item.itemName} (ID: ${item._id})`);
-        console.log(`     📍 deliveryLocation: "${item.deliveryLocation || 'empty'}"`);
-        console.log(`     👤 userId: ${item.currentOwnership?.userId || 'N/A'}`);
-      });
-      console.log('================================');
-      
       // Show each owned item as an individual row (no grouping/combining)
       setOwnedItems(ownedEquipment);
       setDataLoaded(true); // Mark as loaded to prevent duplicate calls
     } catch (error) {
       if (error instanceof Error && error.name === 'AbortError') {
+        console.error('Dashboard - fetchOwned timeout:', error);
         toast.error('การโหลดข้อมูลใช้เวลานานเกินไป กรุณาลองใหม่');
-        console.error('❌ Dashboard - fetchOwned timeout');
         trackAction('fetch_owned_timeout', 'Dashboard', { error: 'timeout' });
       } else {
-        console.error('❌ Dashboard - fetchOwned error:', error);
+        console.error('Dashboard - fetchOwned error:', error);
         toast.error('เกิดข้อผิดพลาดในการโหลดข้อมูล');
         trackAction('fetch_owned_error', 'Dashboard', { error: error instanceof Error ? error.message : String(error) });
       }
@@ -169,7 +156,6 @@ export default function DashboardPage() {
   // ✅ โหลดข้อมูลอุปกรณ์เมื่อ user โหลดเสร็จ (ยกเว้นเมื่อกำลัง manual refresh)
   useEffect(() => {
     if (user && !loading && !dataLoaded && !isManualRefresh) {
-      console.log('🔄 Dashboard - User loaded, fetching owned equipment...');
       fetchOwned();
     }
   }, [user, loading, dataLoaded, isManualRefresh, fetchOwned]);
@@ -182,8 +168,6 @@ export default function DashboardPage() {
       setDataLoaded(false); // Reset loaded flag
       
       // 🧹 ขั้นตอนที่ 1: เคลียร์แคชทั้งหมดก่อน
-      console.log('🧹 Step 1: Clearing all caches...');
-      
       // เคลียร์แคชเบราว์เซอร์ (ถ้าเป็นไปได้)
       if ('caches' in window) {
         try {
@@ -191,9 +175,8 @@ export default function DashboardPage() {
           await Promise.all(
             cacheNames.map(cacheName => caches.delete(cacheName))
           );
-          console.log('✅ Browser caches cleared');
         } catch (error) {
-          console.log('⚠️ Could not clear browser caches:', error);
+          console.error('Could not clear browser caches:', error);
         }
       }
       
@@ -201,25 +184,19 @@ export default function DashboardPage() {
       await new Promise(resolve => setTimeout(resolve, 100));
       
       // 🔄 ขั้นตอนที่ 2: รีเฟรชข้อมูลทีละขั้นตอน
-      console.log('🔄 Step 2: Refreshing data...');
-      
       // 2.1 ดึงข้อมูลผู้ใช้ใหม่เพื่อให้ข้อมูลสาขาอัปเดต
-      console.log('👤 Refreshing user data...');
       await checkAuth();
       
       // 2.2 ดึง category configs ใหม่เพื่อให้ชื่อหมวดหมู่อัปเดต
-      console.log('📂 Refreshing category configs...');
       await fetchCategories();
       
       // 2.3 ดึงข้อมูลอุปกรณ์ใหม่
-      console.log('📦 Refreshing equipment data...');
       await fetchOwned();
       
-      console.log('✅ All data refreshed successfully!');
       toast.success('รีเฟรชข้อมูลเรียบร้อย');
       
     } catch (error) {
-      console.error('❌ Error during refresh:', error);
+      console.error('Error during refresh:', error);
       toast.error('เกิดข้อผิดพลาดในการรีเฟรชข้อมูล');
     } finally {
       setOwnedLoading(false);
@@ -316,8 +293,6 @@ export default function DashboardPage() {
         
         // ✅ ไม่ตั้งค่า status และ condition อัตโนมัติ ให้ผู้ใช้เลือกเอง
         // เพื่อให้ผู้ใช้สามารถเลือกสถานะและสภาพที่ตรงกับอุปกรณ์จริงของตัวเอง
-        
-        console.log(`✅ Dashboard - Loaded ${itemNames.length} available items from stock (status: ${data.filters?.statusName}, condition: ${data.filters?.conditionName})`);
       }
     } catch (error) {
       console.error('Failed to load category items:', error);
@@ -399,9 +374,6 @@ export default function DashboardPage() {
     // Handle edit mode
     if (editItemId) {
       try {
-        console.log('🔍 Editing item with ID:', editItemId);
-        console.log('🔍 Form data:', form);
-        
         // Call API to update the item
         const updateData = {
           statusId: form.status || 'status_available',
@@ -439,7 +411,6 @@ export default function DashboardPage() {
         }
         
         const result = await response.json();
-        console.log('✅ Edit successful:', result);
         
         toast.success('แก้ไขข้อมูลอุปกรณ์เรียบร้อย');
         setShowAddOwned(false);
@@ -585,13 +556,7 @@ export default function DashboardPage() {
         
         if (!inventoryRes.ok) {
           const errorData = await inventoryRes.json();
-          console.error('❌ Inventory creation failed:', {
-            status: inventoryRes.status,
-            statusText: inventoryRes.statusText,
-            error: errorData.error,
-            details: errorData.details,
-            payload: newInventoryPayload
-          });
+          console.error('Inventory creation failed:', errorData);
           // Show error in popup modal instead of toast
           setSimpleErrorMessage(`ไม่สามารถสร้างอุปกรณ์ใหม่ได้: ${errorData.error || 'Unknown error'}`);
           setShowSimpleError(true);
@@ -603,7 +568,7 @@ export default function DashboardPage() {
         
         // Check if the response has the expected structure
         if (!newInventoryData.items || !Array.isArray(newInventoryData.items) || newInventoryData.items.length === 0) {
-          console.error('❌ Invalid response structure:', newInventoryData);
+          console.error('Invalid response structure:', newInventoryData);
           // Show error in popup modal instead of toast
           setSimpleErrorMessage('ไม่สามารถสร้างอุปกรณ์ใหม่ได้ - โครงสร้างข้อมูลไม่ถูกต้อง');
           setShowSimpleError(true);
@@ -628,7 +593,6 @@ export default function DashboardPage() {
         const itemExists = categoryItemsData.items && categoryItemsData.items.includes(form.itemName);
         
         if (!itemExists) {
-          console.log('❌ Item not found in category items:', { itemName: form.itemName, categoryId: selectedCategoryId });
           toast.error('ไม่พบรายการอุปกรณ์ในคลังสินค้า');
           return;
         }
@@ -647,13 +611,11 @@ export default function DashboardPage() {
         );
         
         if (!inventoryItem) {
-          console.log('❌ Item not found in inventory details:', { itemName: form.itemName, categoryId: selectedCategoryId });
           toast.error('ไม่พบรายการอุปกรณ์ในคลังสินค้า');
           return;
         }
         
         if (!inventoryItem._id) {
-          console.error('❌ Inventory item missing _id:', inventoryItem);
           toast.error('ข้อมูลอุปกรณ์ไม่สมบูรณ์');
           return;
         }
@@ -1134,7 +1096,6 @@ export default function DashboardPage() {
                                     const response = await fetch(`/api/inventory/${itemId}`);
                                     if (response.ok) {
                                       const itemData = await response.json();
-                                      console.log('🔍 Fetched item data for edit:', itemData);
                                       
                                       // สำหรับซิมการ์ด ใช้ numberPhone แทน serialNumber
                                       const categoryId = itemData.categoryId || row.categoryId;
@@ -1157,7 +1118,6 @@ export default function DashboardPage() {
                                         condition: itemData.conditionId || row.conditionId || '',
                                         notes: itemData.notes || row.notes || ''
                                       };
-                                      console.log('🔍 Setting form data:', formData);
                                       
                                       setForm(formData);
                                       setSelectedCategoryId(categoryId || '');

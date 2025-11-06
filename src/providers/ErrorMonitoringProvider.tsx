@@ -3,6 +3,7 @@
 import React, { useEffect } from 'react';
 import { EnhancedErrorBoundary, setupGlobalErrorHandling } from '@/components/EnhancedErrorBoundary';
 import ErrorMonitoringDashboard from '@/components/ErrorMonitoringDashboard';
+import { useAuth } from '@/contexts/AuthContext';
 
 interface ErrorMonitoringProviderProps {
   children: React.ReactNode;
@@ -54,10 +55,10 @@ export function ErrorMonitoringProvider({
       }}
       recoveryOptions={{
         retry: () => {
-          console.log('🔄 Retrying after error...');
+          // Retry logic
         },
         reset: () => {
-          console.log('🔄 Resetting after error...');
+          // Reset logic
         }
       }}
     >
@@ -121,6 +122,8 @@ export function usePerformanceMonitoring() {
  * Hook for tracking user actions
  */
 export function useUserActionTracking() {
+  const { user } = useAuth();
+  
   const trackAction = (action: string, component: string, metadata?: any) => {
     fetch('/api/error-monitoring', {
       method: 'POST',
@@ -133,6 +136,7 @@ export function useUserActionTracking() {
           action,
           component,
           url: window.location.href,
+          userId: user?.id || user?.user_id || undefined,  // ✅ เพิ่ม userId จาก auth context
           timestamp: new Date(),
           metadata
         }

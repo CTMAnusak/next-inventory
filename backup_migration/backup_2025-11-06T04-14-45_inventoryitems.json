@@ -1,0 +1,638 @@
+[
+  {
+    "_id": "68f31c310912c159c75f7d3b",
+    "itemName": "HP one 1",
+    "categoryId": "cat_1759892564454_9ecqeg0yg",
+    "serialNumber": "2121",
+    "statusId": "status_available",
+    "conditionId": "cond_working",
+    "currentOwnership": {
+      "ownerType": "admin_stock",
+      "ownedSince": "2025-10-20T09:54:09.578Z"
+    },
+    "sourceInfo": {
+      "addedBy": "admin",
+      "dateAdded": "2025-10-18T04:48:49.089Z",
+      "initialOwnerType": "admin_stock",
+      "acquisitionMethod": "transferred",
+      "notes": "Added by admin via inventory management"
+    },
+    "createdAt": "2025-10-18T04:48:49.091Z",
+    "updatedAt": "2025-10-20T09:54:09.579Z",
+    "__v": 0,
+    "requesterInfo": {
+      "firstName": "riei",
+      "lastName": "ei",
+      "nickname": "re",
+      "department": "Marketing",
+      "phone": "0845641647",
+      "office": "One BKK"
+    },
+    "transferInfo": {
+      "transferredFrom": "user_owned",
+      "transferDate": "2025-10-20T09:54:09.579Z",
+      "approvedBy": "ADMIN1756103604440",
+      "returnId": "68f6065017b78be5848ead20"
+    }
+  },
+  {
+    "_id": "68f31c860912c159c75f7e62",
+    "itemName": "AIS",
+    "categoryId": "cat_sim_card",
+    "numberPhone": "0845465456",
+    "statusId": "status_available",
+    "conditionId": "cond_working",
+    "currentOwnership": {
+      "ownerType": "admin_stock",
+      "ownedSince": "2025-10-21T02:47:10.440Z"
+    },
+    "sourceInfo": {
+      "addedBy": "admin",
+      "dateAdded": "2025-10-18T04:50:14.447Z",
+      "initialOwnerType": "admin_stock",
+      "acquisitionMethod": "transferred",
+      "notes": "Added by admin via inventory management (SIM card)"
+    },
+    "createdAt": "2025-10-18T04:50:14.448Z",
+    "updatedAt": "2025-10-21T02:47:10.442Z",
+    "__v": 0,
+    "requesterInfo": {
+      "firstName": "ญาญ่า",
+      "lastName": "อุรัศยา",
+      "nickname": "เบอร์รี่",
+      "department": "ดารา",
+      "phone": "0888832596",
+      "office": "Rasa One"
+    },
+    "transferInfo": {
+      "transferredFrom": "user_owned",
+      "transferDate": "2025-10-21T02:47:10.440Z",
+      "approvedBy": "ADMIN1756103604440",
+      "returnId": "68f6f2c0e53d1e6b74cfda62"
+    }
+  },
+  {
+    "_id": "68f47d37ac1f22caccc31cbf",
+    "itemName": "Dell N01",
+    "categoryId": "cat_1759892569577_t7f8qim2z",
+    "statusId": "status_available",
+    "conditionId": "cond_working",
+    "currentOwnership": {
+      "ownerType": "admin_stock",
+      "ownedSince": "2025-10-19T05:55:03.055Z"
+    },
+    "sourceInfo": {
+      "addedBy": "admin",
+      "dateAdded": "2025-10-19T05:55:03.055Z",
+      "initialOwnerType": "admin_stock",
+      "acquisitionMethod": "admin_purchased",
+      "notes": "Added by admin via inventory management (1/2)"
+    },
+    "createdAt": "2025-10-19T05:55:03.064Z",
+    "updatedAt": "2025-10-19T05:55:03.064Z",
+    "__v": 0
+  },
+  {
+    "_id": "68f47d37ac1f22caccc31cea",
+    "itemName": "Dell N01",
+    "categoryId": "cat_1759892569577_t7f8qim2z",
+    "statusId": "status_available",
+    "conditionId": "cond_working",
+    "currentOwnership": {
+      "ownerType": "admin_stock",
+      "ownedSince": "2025-10-20T09:54:12.945Z"
+    },
+    "sourceInfo": {
+      "addedBy": "admin",
+      "dateAdded": "2025-10-19T05:55:03.649Z",
+      "initialOwnerType": "admin_stock",
+      "acquisitionMethod": "transferred",
+      "notes": "Added by admin via inventory management (2/2)"
+    },
+    "createdAt": "2025-10-19T05:55:03.650Z",
+    "updatedAt": "2025-10-20T09:54:12.946Z",
+    "__v": 0,
+    "requesterInfo": {
+      "firstName": "riei",
+      "lastName": "ei",
+      "nickname": "re",
+      "department": "Marketing",
+      "phone": "0845641647",
+      "office": "One BKK"
+    },
+    "transferInfo": {
+      "transferredFrom": "user_owned",
+      "transferDate": "2025-10-20T09:54:12.945Z",
+      "approvedBy": "ADMIN1756103604440",
+      "returnId": "68f6065017b78be5848ead20"
+    }
+  },
+  {
+    "_id": "68f48d5d9b2d52e046e7c452",
+    "itemName": "AIS",
+    "categoryId": "cat_sim_card",
+    "numberPhone": "0851561651",
+    "statusId": "status_available",
+    "conditionId": "cond_working",
+    "currentOwnership": {
+      "ownerType": "admin_stock",
+      "ownedSince": "2025-10-19T07:46:47.203Z"
+    },
+    "sourceInfo": {
+      "addedBy": "user",
+      "addedByUserId": "U004",
+      "dateAdded": "2025-10-19T07:03:57.906Z",
+      "initialOwnerType": "user_owned",
+      "acquisitionMethod": "self_reported"
+    },
+    "requesterInfo": {
+      "firstName": "asdg",
+      "lastName": "gdsa",
+      "nickname": "ad",
+      "department": "Marketing",
+      "phone": "0815161656",
+      "office": "CTW1"
+    },
+    "createdAt": "2025-10-19T07:03:57.908Z",
+    "updatedAt": "2025-10-19T07:46:47.204Z",
+    "__v": 0,
+    "transferInfo": {
+      "transferredFrom": "user_owned",
+      "transferDate": "2025-10-19T07:46:47.204Z",
+      "approvedBy": "U002",
+      "returnId": "68f496a39b2d52e046e7d747"
+    }
+  },
+  {
+    "_id": "68f494619b2d52e046e7cf36",
+    "itemName": "MU",
+    "categoryId": "cat_1760691997815_ye8xinpu7",
+    "serialNumber": "01",
+    "statusId": "status_available",
+    "conditionId": "cond_working",
+    "currentOwnership": {
+      "ownerType": "admin_stock",
+      "ownedSince": "2025-10-19T07:46:44.908Z"
+    },
+    "sourceInfo": {
+      "addedBy": "user",
+      "addedByUserId": "U004",
+      "dateAdded": "2025-10-19T07:33:53.000Z",
+      "initialOwnerType": "user_owned",
+      "acquisitionMethod": "self_reported",
+      "notes": "Added by user via dashboard"
+    },
+    "requesterInfo": {
+      "firstName": "a2",
+      "lastName": "b2",
+      "nickname": "c2",
+      "department": "Web",
+      "phone": "0845616656",
+      "office": "CTW"
+    },
+    "createdAt": "2025-10-19T07:33:53.004Z",
+    "updatedAt": "2025-10-19T07:46:44.909Z",
+    "__v": 0,
+    "transferInfo": {
+      "transferredFrom": "user_owned",
+      "transferDate": "2025-10-19T07:46:44.908Z",
+      "approvedBy": "U002",
+      "returnId": "68f496a39b2d52e046e7d747"
+    }
+  },
+  {
+    "_id": "68f4948d9b2d52e046e7cfe9",
+    "itemName": "HP one 1",
+    "categoryId": "cat_1759892564454_9ecqeg0yg",
+    "statusId": "status_available",
+    "conditionId": "cond_working",
+    "currentOwnership": {
+      "ownerType": "admin_stock",
+      "ownedSince": "2025-10-19T07:46:31.929Z"
+    },
+    "sourceInfo": {
+      "addedBy": "user",
+      "addedByUserId": "U004",
+      "dateAdded": "2025-10-19T07:34:37.219Z",
+      "initialOwnerType": "user_owned",
+      "acquisitionMethod": "self_reported"
+    },
+    "requesterInfo": {
+      "firstName": "a3",
+      "lastName": "b3",
+      "nickname": "c3",
+      "department": "IT",
+      "phone": "0845641656",
+      "office": "CTW"
+    },
+    "createdAt": "2025-10-19T07:34:37.224Z",
+    "updatedAt": "2025-10-19T07:46:31.930Z",
+    "__v": 0,
+    "transferInfo": {
+      "transferredFrom": "user_owned",
+      "transferDate": "2025-10-19T07:46:31.929Z",
+      "approvedBy": "U002",
+      "returnId": "68f495379b2d52e046e7d433"
+    }
+  },
+  {
+    "_id": "68f5d6b394d719acbaa94903",
+    "itemName": "Dell NO2",
+    "categoryId": "cat_1759892569577_t7f8qim2z",
+    "serialNumber": "01",
+    "statusId": "status_available",
+    "conditionId": "cond_working",
+    "currentOwnership": {
+      "ownerType": "admin_stock",
+      "ownedSince": "2025-10-21T02:46:47.215Z"
+    },
+    "sourceInfo": {
+      "addedBy": "user",
+      "addedByUserId": "USER1760941679483263",
+      "dateAdded": "2025-10-20T06:29:07.746Z",
+      "initialOwnerType": "user_owned",
+      "acquisitionMethod": "transferred",
+      "notes": "Added by user via dashboard"
+    },
+    "createdAt": "2025-10-20T06:29:07.754Z",
+    "updatedAt": "2025-10-21T02:46:47.218Z",
+    "__v": 0,
+    "transferInfo": {
+      "transferredFrom": "user_owned",
+      "transferDate": "2025-10-21T02:46:47.216Z",
+      "approvedBy": "ADMIN1756103604440",
+      "returnId": "68f6f405e53d1e6b74cfe6a2"
+    },
+    "requesterInfo": {
+      "firstName": "ญาญ่า",
+      "lastName": "อุรัศยา",
+      "nickname": "เบอร์รี่",
+      "department": "ดารา",
+      "phone": "0888832596",
+      "office": "Rasa One"
+    }
+  },
+  {
+    "_id": "68f5d6c294d719acbaa9499a",
+    "itemName": "HP one 1",
+    "categoryId": "cat_1759892564454_9ecqeg0yg",
+    "statusId": "status_available",
+    "conditionId": "cond_working",
+    "currentOwnership": {
+      "ownerType": "admin_stock",
+      "ownedSince": "2025-10-20T12:48:49.583Z"
+    },
+    "sourceInfo": {
+      "addedBy": "user",
+      "addedByUserId": "USER1760941679483263",
+      "dateAdded": "2025-10-20T06:29:22.502Z",
+      "initialOwnerType": "user_owned",
+      "acquisitionMethod": "transferred"
+    },
+    "createdAt": "2025-10-20T06:29:22.504Z",
+    "updatedAt": "2025-10-20T12:48:49.584Z",
+    "__v": 0,
+    "transferInfo": {
+      "transferredFrom": "user_owned",
+      "transferDate": "2025-10-20T12:48:49.583Z",
+      "approvedBy": "ADMIN1756103604440",
+      "returnId": "68f62fa5439ccccb5890d13f"
+    },
+    "requesterInfo": {
+      "firstName": "a1",
+      "lastName": "b1",
+      "nickname": "c1",
+      "department": "d1",
+      "phone": "0825415656",
+      "office": "RPN"
+    }
+  },
+  {
+    "_id": "68f5d6d894d719acbaa94a1b",
+    "itemName": "True",
+    "categoryId": "cat_sim_card",
+    "numberPhone": "0879451256",
+    "statusId": "status_available",
+    "conditionId": "cond_working",
+    "currentOwnership": {
+      "ownerType": "admin_stock",
+      "ownedSince": "2025-10-20T08:05:50.108Z"
+    },
+    "sourceInfo": {
+      "addedBy": "user",
+      "addedByUserId": "USER1760941679483263",
+      "dateAdded": "2025-10-20T06:29:44.011Z",
+      "initialOwnerType": "user_owned",
+      "acquisitionMethod": "self_reported",
+      "notes": "Added by user via dashboard"
+    },
+    "createdAt": "2025-10-20T06:29:44.012Z",
+    "updatedAt": "2025-10-20T08:05:50.109Z",
+    "__v": 0,
+    "serialNumber": "",
+    "transferInfo": {
+      "transferredFrom": "user_owned",
+      "transferDate": "2025-10-20T08:05:50.108Z",
+      "approvedBy": "ADMIN1756103604440",
+      "returnId": "68f5ed2c94d719acbaa9626b"
+    }
+  },
+  {
+    "_id": "68f6048f17b78be5848e9fd1",
+    "itemName": "HP two 2",
+    "categoryId": "cat_1759892564454_9ecqeg0yg",
+    "serialNumber": "01",
+    "statusId": "status_available",
+    "conditionId": "cond_working",
+    "currentOwnership": {
+      "ownerType": "admin_stock",
+      "ownedSince": "2025-10-20T09:54:47.893Z"
+    },
+    "sourceInfo": {
+      "addedBy": "user",
+      "addedByUserId": "USER1760950407660617",
+      "dateAdded": "2025-10-20T09:44:47.997Z",
+      "initialOwnerType": "user_owned",
+      "acquisitionMethod": "self_reported",
+      "notes": "Added by user via dashboard"
+    },
+    "requesterInfo": {
+      "firstName": "misu",
+      "lastName": "shishi",
+      "nickname": "mishi",
+      "department": "Anime",
+      "phone": "0845184541",
+      "office": "One BKK"
+    },
+    "createdAt": "2025-10-20T09:44:48.005Z",
+    "updatedAt": "2025-10-20T09:54:47.894Z",
+    "__v": 0,
+    "transferInfo": {
+      "transferredFrom": "user_owned",
+      "transferDate": "2025-10-20T09:54:47.893Z",
+      "approvedBy": "ADMIN1756103604440",
+      "returnId": "68f6065017b78be5848ead20"
+    }
+  },
+  {
+    "_id": "68f604b917b78be5848ea18d",
+    "itemName": "Dell N01",
+    "categoryId": "cat_1759892569577_t7f8qim2z",
+    "statusId": "status_available",
+    "conditionId": "cond_working",
+    "currentOwnership": {
+      "ownerType": "admin_stock",
+      "ownedSince": "2025-10-20T11:37:29.176Z"
+    },
+    "sourceInfo": {
+      "addedBy": "user",
+      "addedByUserId": "USER1760950407660617",
+      "dateAdded": "2025-10-20T09:45:29.487Z",
+      "initialOwnerType": "user_owned",
+      "acquisitionMethod": "transferred"
+    },
+    "requesterInfo": {
+      "firstName": "a2",
+      "lastName": "b2",
+      "nickname": "c2",
+      "department": "d2",
+      "phone": "0845641646",
+      "office": "One BKK"
+    },
+    "createdAt": "2025-10-20T09:45:29.491Z",
+    "updatedAt": "2025-10-20T11:37:29.177Z",
+    "__v": 0,
+    "transferInfo": {
+      "transferredFrom": "user_owned",
+      "transferDate": "2025-10-20T11:37:29.176Z",
+      "approvedBy": "ADMIN1756103604440",
+      "returnId": "68f61eb45439ff1d70663980"
+    }
+  },
+  {
+    "_id": "68f604d617b78be5848ea214",
+    "itemName": "True",
+    "categoryId": "cat_sim_card",
+    "numberPhone": "0871515256",
+    "statusId": "status_available",
+    "conditionId": "cond_working",
+    "currentOwnership": {
+      "ownerType": "admin_stock",
+      "ownedSince": "2025-10-20T09:54:19.590Z"
+    },
+    "sourceInfo": {
+      "addedBy": "user",
+      "addedByUserId": "USER1760950407660617",
+      "dateAdded": "2025-10-20T09:45:58.119Z",
+      "initialOwnerType": "user_owned",
+      "acquisitionMethod": "self_reported"
+    },
+    "requesterInfo": {
+      "firstName": "mi",
+      "lastName": "ni",
+      "nickname": "munu",
+      "department": "an",
+      "phone": "0845184542",
+      "office": "One BKK"
+    },
+    "createdAt": "2025-10-20T09:45:58.122Z",
+    "updatedAt": "2025-10-20T09:54:19.591Z",
+    "__v": 0,
+    "transferInfo": {
+      "transferredFrom": "user_owned",
+      "transferDate": "2025-10-20T09:54:19.591Z",
+      "approvedBy": "ADMIN1756103604440",
+      "returnId": "68f6065017b78be5848ead20"
+    }
+  },
+  {
+    "_id": "68f62378acbf0224254d67c6",
+    "itemName": "Dell N01",
+    "categoryId": "cat_1759892569577_t7f8qim2z",
+    "statusId": "status_available",
+    "conditionId": "cond_working",
+    "currentOwnership": {
+      "ownerType": "admin_stock",
+      "ownedSince": "2025-10-20T12:17:31.178Z"
+    },
+    "sourceInfo": {
+      "addedBy": "user",
+      "addedByUserId": "USER1760950407660617",
+      "dateAdded": "2025-10-20T11:56:40.360Z",
+      "initialOwnerType": "user_owned",
+      "acquisitionMethod": "self_reported"
+    },
+    "requesterInfo": {
+      "firstName": "สวัสดี",
+      "lastName": "มีชัย",
+      "nickname": "โชคดีมาก",
+      "department": "เรื่องดี",
+      "phone": "0548816556",
+      "office": "One BKK"
+    },
+    "createdAt": "2025-10-20T11:56:40.364Z",
+    "updatedAt": "2025-10-20T12:17:31.180Z",
+    "__v": 0,
+    "transferInfo": {
+      "transferredFrom": "user_owned",
+      "transferDate": "2025-10-20T12:17:31.178Z",
+      "approvedBy": "ADMIN1756103604440",
+      "returnId": "68f62848439ccccb5890ae9f"
+    }
+  },
+  {
+    "_id": "68f62f7f439ccccb5890cde9",
+    "itemName": "Dell N01",
+    "categoryId": "cat_1759892569577_t7f8qim2z",
+    "statusId": "status_available",
+    "conditionId": "cond_working",
+    "currentOwnership": {
+      "ownerType": "admin_stock",
+      "ownedSince": "2025-10-20T12:57:14.092Z"
+    },
+    "sourceInfo": {
+      "addedBy": "user",
+      "addedByUserId": "USER1760963694511320",
+      "dateAdded": "2025-10-20T12:47:59.284Z",
+      "initialOwnerType": "user_owned",
+      "acquisitionMethod": "transferred"
+    },
+    "requesterInfo": {
+      "firstName": "a2",
+      "lastName": "b2",
+      "nickname": "c2",
+      "department": "d2",
+      "phone": "0565656556",
+      "office": "BMK"
+    },
+    "createdAt": "2025-10-20T12:47:59.287Z",
+    "updatedAt": "2025-10-20T12:57:14.093Z",
+    "__v": 0,
+    "transferInfo": {
+      "transferredFrom": "user_owned",
+      "transferDate": "2025-10-20T12:57:14.092Z",
+      "approvedBy": "ADMIN1756103604440",
+      "returnId": "68f6319b439ccccb5890e6f2"
+    }
+  },
+  {
+    "_id": "68f63123439ccccb5890e0d2",
+    "itemName": "HP one 1",
+    "categoryId": "cat_1759892564454_9ecqeg0yg",
+    "statusId": "status_available",
+    "conditionId": "cond_working",
+    "currentOwnership": {
+      "ownerType": "admin_stock",
+      "ownedSince": "2025-10-21T02:47:17.782Z"
+    },
+    "sourceInfo": {
+      "addedBy": "user",
+      "addedByUserId": "USER1760964858331901",
+      "dateAdded": "2025-10-20T12:54:59.820Z",
+      "initialOwnerType": "user_owned",
+      "acquisitionMethod": "transferred"
+    },
+    "requesterInfo": {
+      "firstName": "ญาญ่า",
+      "lastName": "อุรัศยา",
+      "nickname": "เบอร์รี่",
+      "department": "ดารา",
+      "phone": "0888832596",
+      "office": "Rasa One"
+    },
+    "createdAt": "2025-10-20T12:54:59.822Z",
+    "updatedAt": "2025-10-21T02:47:17.785Z",
+    "__v": 0,
+    "transferInfo": {
+      "transferredFrom": "user_owned",
+      "transferDate": "2025-10-21T02:47:17.783Z",
+      "approvedBy": "ADMIN1756103604440",
+      "returnId": "68f6f2c0e53d1e6b74cfda62"
+    }
+  },
+  {
+    "_id": "68f6f130e53d1e6b74cfd6aa",
+    "itemName": "Dell N01",
+    "categoryId": "cat_1759892569577_t7f8qim2z",
+    "statusId": "status_available",
+    "conditionId": "cond_working",
+    "currentOwnership": {
+      "ownerType": "admin_stock",
+      "ownedSince": "2025-10-21T02:47:07.059Z"
+    },
+    "sourceInfo": {
+      "addedBy": "user",
+      "addedByUserId": "USER1761013293331937",
+      "dateAdded": "2025-10-21T02:34:24.505Z",
+      "initialOwnerType": "user_owned",
+      "acquisitionMethod": "self_reported"
+    },
+    "createdAt": "2025-10-21T02:34:24.534Z",
+    "updatedAt": "2025-10-21T02:47:07.062Z",
+    "__v": 0,
+    "transferInfo": {
+      "transferredFrom": "user_owned",
+      "transferDate": "2025-10-21T02:47:07.060Z",
+      "approvedBy": "ADMIN1756103604440",
+      "returnId": "68f6f2c0e53d1e6b74cfda62"
+    }
+  },
+  {
+    "_id": "68f6f147e53d1e6b74cfd75d",
+    "itemName": "HP two 2",
+    "categoryId": "cat_1759892564454_9ecqeg0yg",
+    "serialNumber": "0011",
+    "statusId": "status_available",
+    "conditionId": "cond_working",
+    "currentOwnership": {
+      "ownerType": "admin_stock",
+      "ownedSince": "2025-10-21T02:46:43.138Z"
+    },
+    "sourceInfo": {
+      "addedBy": "user",
+      "addedByUserId": "USER1761013293331937",
+      "dateAdded": "2025-10-21T02:34:47.373Z",
+      "initialOwnerType": "user_owned",
+      "acquisitionMethod": "self_reported",
+      "notes": ""
+    },
+    "createdAt": "2025-10-21T02:34:47.378Z",
+    "updatedAt": "2025-10-21T02:46:43.141Z",
+    "__v": 0,
+    "numberPhone": "0888832596",
+    "transferInfo": {
+      "transferredFrom": "user_owned",
+      "transferDate": "2025-10-21T02:46:43.139Z",
+      "approvedBy": "ADMIN1756103604440",
+      "returnId": "68f6f405e53d1e6b74cfe6a2"
+    }
+  },
+  {
+    "_id": "68f6f16ae53d1e6b74cfd871",
+    "itemName": "AIS",
+    "categoryId": "cat_sim_card",
+    "numberPhone": "0841565656",
+    "statusId": "status_available",
+    "conditionId": "cond_working",
+    "currentOwnership": {
+      "ownerType": "admin_stock",
+      "ownedSince": "2025-10-21T02:47:03.334Z"
+    },
+    "sourceInfo": {
+      "addedBy": "user",
+      "addedByUserId": "USER1761013293331937",
+      "dateAdded": "2025-10-21T02:35:22.365Z",
+      "initialOwnerType": "user_owned",
+      "acquisitionMethod": "self_reported"
+    },
+    "createdAt": "2025-10-21T02:35:22.368Z",
+    "updatedAt": "2025-10-21T02:47:03.337Z",
+    "__v": 0,
+    "transferInfo": {
+      "transferredFrom": "user_owned",
+      "transferDate": "2025-10-21T02:47:03.334Z",
+      "approvedBy": "ADMIN1756103604440",
+      "returnId": "68f6f2c0e53d1e6b74cfda62"
+    }
+  }
+]

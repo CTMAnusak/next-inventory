@@ -25,13 +25,6 @@ export async function GET(request: NextRequest) {
       'currentOwnership.userId': userId,
       deletedAt: { $exists: false }
     }).sort({ 'currentOwnership.ownedSince': -1 });
-    
-    console.log(`\n📦 Found ${ownedItems.length} owned items for user ${userId}`);
-    ownedItems.forEach((item, idx) => {
-      console.log(`   ${idx + 1}. ${(item as any).itemName} (${item._id})`);
-      console.log(`      SN: ${item.serialNumber || 'ไม่มี'}`);
-      console.log(`      ownedSince: ${item.currentOwnership?.ownedSince}`);
-    });
 
     // Get all return logs (approved and pending)
     const ReturnLog = (await import('@/models/ReturnLog')).default;
@@ -119,9 +112,6 @@ export async function GET(request: NextRequest) {
     } | null = null;
     
     approvedRequests.forEach((req) => {
-      console.log(`\n📋 Processing RequestLog ID: ${req._id}`);
-      console.log(`   Status: ${req.status}, DeliveryLocation: ${req.deliveryLocation}`);
-      
       // Extract requester info from this request (for branch users)
       if ((req as any).requesterFirstName || (req as any).requesterLastName) {
         mostRecentRequesterInfo = {
@@ -134,15 +124,10 @@ export async function GET(request: NextRequest) {
         };
       }
       
-      req.items?.forEach((item: any, idx: number) => {
-        console.log(`   📦 Item ${idx}: ${item.itemName || 'unknown'}`);
-        console.log(`      assignedItemIds: ${item.assignedItemIds ? `[${item.assignedItemIds.join(', ')}]` : 'undefined/empty'}`);
-        console.log(`      assignedQuantity: ${item.assignedQuantity || 0}, itemApproved: ${item.itemApproved || false}`);
-        
+      req.items?.forEach((item: any) => {
         item.assignedItemIds?.forEach((itemId: string) => {
           // Map delivery location
           itemToDeliveryLocationMap.set(itemId, req.deliveryLocation || '');
-          console.log(`      ✅ Mapped itemId ${itemId} -> deliveryLocation: "${req.deliveryLocation}"`);
         });
       });
     });
@@ -152,6 +137,11 @@ export async function GET(request: NextRequest) {
     const statusConfigs = config?.statusConfigs || [];
     const conditionConfigs = config?.conditionConfigs || [];
     const categoryConfigs = config?.categoryConfigs || [];
+    
+    // 🆕 Load Office collection for real-time office name lookup
+    const Office = (await import('@/models/Office')).default;
+    const offices = await Office.find({ isActive: true }).lean();
+    const officeMap = new Map(offices.map(o => [o.office_id, o.name]));
     
     // ประกอบข้อมูลด้วยฟิลด์จาก InventoryItem โดยตรง + mapping จาก InventoryConfig
     const populatedItems = availableItems.map((item) => {
@@ -177,11 +167,28 @@ export async function GET(request: NextRequest) {
       const finalDepartment = itemRequesterInfo?.department || mostRecentRequesterInfo?.department || undefined;
       const finalPhone = itemRequesterInfo?.phone || mostRecentRequesterInfo?.phone || undefined;
       
-      // ⚠️ สำหรับผู้ใช้สาขา: office ต้องใช้จาก User Collection เสมอ (ไม่ใช้ snapshot เก่า)
-      // เพื่อให้แสดงชื่อสาขาล่าสุดที่แอดมินแก้ไข
-      const finalOffice = user?.userType === 'branch' 
-        ? user?.office 
-        : (itemRequesterInfo?.office || mostRecentRequesterInfo?.office || undefined);
+      // 🔧 Office Name Logic: Lookup แบบ real-time จาก Office collection
+      // 🆕 ถ้ามี officeId ใน requesterInfo → lookup จาก Office collection (real-time)
+      // 🆕 ถ้าไม่มี officeId แต่เป็น branch user → fallback ไป User Collection (real-time)
+      // 🆕 ถ้าไม่มีทั้งคู่ → ใช้ officeName หรือ office เดิม (backward compatible)
+      let finalOffice: string | undefined = undefined;
+      
+      // ลำดับความสำคัญ: requesterInfo.officeId → User.officeId → officeName/office เดิม
+      const itemOfficeId = itemRequesterInfo?.officeId;
+      
+      if (itemOfficeId && officeMap.has(itemOfficeId)) {
+        // ✅ Priority 1: Populate real-time จาก Office collection (ถ้ามี officeId ใน requesterInfo)
+        finalOffice = officeMap.get(itemOfficeId);
+      } else if (user?.userType === 'branch' && user?.officeId && officeMap.has(user.officeId)) {
+        // ✅ Priority 2: สำหรับ branch user → lookup จาก User.officeId (real-time)
+        finalOffice = officeMap.get(user.officeId);
+      } else if (user?.userType === 'branch') {
+        // ✅ Priority 3: Fallback สำหรับ branch user → ใช้จาก User Collection (backward compatible)
+        finalOffice = user?.officeName || user?.office;
+      } else {
+        // ✅ Priority 4: Fallback สำหรับ individual user → ใช้จาก requesterInfo หรือ RequestLog
+        finalOffice = itemRequesterInfo?.officeName || itemRequesterInfo?.office || mostRecentRequesterInfo?.office;
+      }
       
       // ✅ กำหนด source ตามการได้มาของอุปกรณ์
       // - self_reported = เพิ่มเองผ่าน "เพิ่มอุปกรณ์ที่มี" → แสดงปุ่มแก้ไข
@@ -301,16 +308,43 @@ export async function POST(request: NextRequest) {
         initialOwnerType: 'user_owned' as const,
         userId: user!.user_id,
         notes: notes || undefined,
-        // ✅ เพิ่มข้อมูลผู้ใช้สาขา (สำหรับผู้ใช้ประเภทสาขาเท่านั้น)
-        requesterInfo: (firstName || lastName || department) ? {
-          firstName: firstName || undefined,
-          lastName: lastName || undefined,
-          nickname: nickname || undefined,
-          department: department || undefined,
-          phone: phone || undefined,
-          office: currentUser?.office || undefined
-        } : undefined
+        // ✅ เพิ่มข้อมูลผู้ใช้และสาขา
+        // 🔧 เก็บ officeId แทน office string เพื่อให้เปลี่ยนชื่อสาขาได้
+        // 🆕 บันทึก requesterInfo เสมอเพื่อเก็บ officeId (แม้ไม่กรอกข้อมูลส่วนตัว)
+        requesterInfo: {
+          // เก็บข้อมูลส่วนตัวเฉพาะเมื่อมีการกรอก
+          ...(firstName && { firstName }),
+          ...(lastName && { lastName }),
+          ...(nickname && { nickname }),
+          ...(department && { department }),
+          ...(phone && { phone }),
+          // ✅ เก็บ officeId และ officeName เสมอ (เพื่อ real-time lookup)
+          ...(currentUser?.officeId && { officeId: currentUser.officeId }),
+          ...(currentUser?.officeName && { officeName: currentUser.officeName })
+        }
       };
+      
+      // 🔍 Debug: Log requesterInfo before saving
+      console.log('\n🔍 ========== POST /api/user/owned-equipment ==========');
+      console.log('🔍 Step 1: Current User Data:');
+      console.log('   user_id:', currentUser?.user_id);
+      console.log('   userType:', currentUser?.userType);
+      console.log('   officeId:', currentUser?.officeId);
+      console.log('   officeName:', currentUser?.officeName);
+      console.log('   office:', currentUser?.office);
+      console.log('   has officeId?', !!currentUser?.officeId);
+      console.log('   has officeName?', !!currentUser?.officeName);
+      
+      console.log('\n🔍 Step 2: Form Data:');
+      console.log('   firstName:', firstName);
+      console.log('   lastName:', lastName);
+      console.log('   department:', department);
+      
+      console.log('\n🔍 Step 3: requesterInfo Object Created:');
+      console.log('   requesterInfo:', JSON.stringify(itemData.requesterInfo, null, 2));
+      console.log('   requesterInfo.officeId:', itemData.requesterInfo?.officeId);
+      console.log('   requesterInfo.officeName:', itemData.requesterInfo?.officeName);
+      console.log('🔍 ====================================================\n');
       
       const newItem = await createInventoryItem(itemData);
       createdItems.push(newItem);
@@ -323,8 +357,7 @@ export async function POST(request: NextRequest) {
     });
     
   } catch (error) {
-    console.error('Add owned equipment error:', error);
-    
+    console.error('Error adding owned equipment:', error);
     // Handle specific error types
     if (error instanceof Error) {
       if (error.message.includes('Serial Number')) {

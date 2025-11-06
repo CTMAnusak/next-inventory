@@ -1,0 +1,1505 @@
+[
+  {
+    "_id": "68f20cc843073c71b8254b06",
+    "userId": "U004",
+    "requesterFirstName": "rokai",
+    "requesterLastName": "eusompa",
+    "requesterNickname": "sompa",
+    "requesterDepartment": "Marketing",
+    "requesterPhone": "0845641646",
+    "requesterOffice": "Rasa One",
+    "requestDate": "2025-10-17T09:30:48.457Z",
+    "urgency": "normal",
+    "deliveryLocation": "Rasa One 1",
+    "items": [
+      {
+        "masterId": "68f2073a43073c71b825489b",
+        "itemName": "Mouse SE1",
+        "categoryId": "cat_1760691997815_ye8xinpu7",
+        "quantity": 1,
+        "serialNumbers": [],
+        "assignedSerialNumbers": [],
+        "assignedItemIds": [
+          "68f2073c43073c71b82548f8"
+        ],
+        "assignedPhoneNumbers": [],
+        "availableItemIds": [
+          "68f2073943073c71b8254895"
+        ],
+        "statusOnRequest": "status_available",
+        "conditionOnRequest": "cond_working",
+        "assignedQuantity": 1,
+        "itemApproved": true,
+        "_id": "68f20cc843073c71b8254b07",
+        "assignedItemSnapshots": [
+          {
+            "itemId": "68f2073c43073c71b82548f8",
+            "itemName": "Mouse SE1",
+            "categoryId": "cat_1760691997815_ye8xinpu7",
+            "categoryName": "Mouse",
+            "statusId": "status_available",
+            "statusName": "พร้อมใช้งาน",
+            "conditionId": "cond_working",
+            "conditionName": "สภาพดี"
+          }
+        ],
+        "approvedAt": "2025-10-17T09:31:24.322Z",
+        "category": "Mouse",
+        "statusOnRequestName": "พร้อมใช้งาน",
+        "conditionOnRequestName": "สภาพดี"
+      }
+    ],
+    "status": "approved",
+    "requestType": "request",
+    "transferredItems": [],
+    "createdAt": "2025-10-17T09:30:48.460Z",
+    "updatedAt": "2025-10-21T03:21:59.534Z",
+    "__v": 2,
+    "approvedAt": "2025-10-17T09:31:24.322Z"
+  },
+  {
+    "_id": "68f320980912c159c75f7f5a",
+    "userId": "U004",
+    "requesterFirstName": "rokai",
+    "requesterLastName": "eusompa",
+    "requesterNickname": "sompa",
+    "requesterDepartment": "Marketing",
+    "requesterPhone": "0845641456",
+    "requesterOffice": "Rasa One",
+    "requestDate": "2025-10-18T05:07:36.548Z",
+    "urgency": "normal",
+    "deliveryLocation": "Rasa One 1",
+    "items": [
+      {
+        "masterId": "68f31c240912c159c75f7c9c",
+        "itemName": "MN01",
+        "categoryId": "cat_1760691997815_ye8xinpu7",
+        "quantity": 1,
+        "serialNumbers": [],
+        "assignedSerialNumbers": [],
+        "assignedItemIds": [
+          "68f31c250912c159c75f7cc9"
+        ],
+        "assignedPhoneNumbers": [],
+        "availableItemIds": [
+          "68f31c240912c159c75f7c96"
+        ],
+        "statusOnRequest": "status_available",
+        "conditionOnRequest": "cond_working",
+        "assignedQuantity": 1,
+        "itemApproved": true,
+        "_id": "68f320980912c159c75f7f5b",
+        "assignedItemSnapshots": [
+          {
+            "itemId": "68f31c250912c159c75f7cc9",
+            "itemName": "MN01",
+            "categoryId": "cat_1760691997815_ye8xinpu7",
+            "categoryName": "Mouse",
+            "statusId": "status_available",
+            "statusName": "พร้อมใช้งาน",
+            "conditionId": "cond_working",
+            "conditionName": "สภาพดี"
+          }
+        ],
+        "approvedAt": "2025-10-18T05:08:19.947Z",
+        "category": "Mouse",
+        "statusOnRequestName": "พร้อมใช้งาน",
+        "conditionOnRequestName": "สภาพดี"
+      },
+      {
+        "masterId": "68f31c310912c159c75f7d41",
+        "itemName": "HP one 1",
+        "categoryId": "cat_1759892564454_9ecqeg0yg",
+        "quantity": 1,
+        "serialNumbers": [
+          "2121"
+        ],
+        "assignedSerialNumbers": [
+          "2121"
+        ],
+        "assignedItemIds": [
+          "68f31c310912c159c75f7d3b"
+        ],
+        "assignedPhoneNumbers": [],
+        "availableItemIds": [
+          "68f31c310912c159c75f7d3b"
+        ],
+        "statusOnRequest": "status_available",
+        "conditionOnRequest": "cond_working",
+        "assignedQuantity": 1,
+        "itemApproved": true,
+        "_id": "68f320980912c159c75f7f5c",
+        "assignedItemSnapshots": [
+          {
+            "itemId": "68f31c310912c159c75f7d3b",
+            "itemName": "HP one",
+            "categoryId": "cat_1759892564454_9ecqeg0yg",
+            "categoryName": "Laptop",
+            "serialNumber": "2121",
+            "statusId": "status_available",
+            "statusName": "พร้อมใช้งาน",
+            "conditionId": "cond_working",
+            "conditionName": "สภาพดี"
+          }
+        ],
+        "approvedAt": "2025-10-18T05:08:27.046Z",
+        "statusOnRequestName": "พร้อมใช้งาน",
+        "conditionOnRequestName": "สภาพดี",
+        "category": "Laptop"
+      },
+      {
+        "masterId": "68f31c860912c159c75f7e66",
+        "itemName": "AIS",
+        "categoryId": "cat_sim_card",
+        "quantity": 1,
+        "serialNumbers": [
+          "0845465456"
+        ],
+        "assignedSerialNumbers": [],
+        "assignedItemIds": [
+          "68f31c860912c159c75f7e62"
+        ],
+        "assignedPhoneNumbers": [
+          "0845465456"
+        ],
+        "availableItemIds": [
+          "68f31c860912c159c75f7e62"
+        ],
+        "statusOnRequest": "status_available",
+        "conditionOnRequest": "cond_working",
+        "assignedQuantity": 1,
+        "itemApproved": true,
+        "_id": "68f320980912c159c75f7f5d",
+        "assignedItemSnapshots": [
+          {
+            "itemId": "68f31c860912c159c75f7e62",
+            "itemName": "AIS",
+            "categoryId": "cat_sim_card",
+            "categoryName": "ซิมการ์ด",
+            "numberPhone": "0845465456",
+            "statusId": "status_available",
+            "statusName": "พร้อมใช้งาน",
+            "conditionId": "cond_working",
+            "conditionName": "สภาพดี"
+          }
+        ],
+        "approvedAt": "2025-10-18T05:08:32.420Z",
+        "statusOnRequestName": "พร้อมใช้งาน",
+        "conditionOnRequestName": "สภาพดี"
+      }
+    ],
+    "status": "approved",
+    "requestType": "request",
+    "transferredItems": [],
+    "createdAt": "2025-10-18T05:07:36.553Z",
+    "updatedAt": "2025-10-21T03:21:59.534Z",
+    "__v": 4,
+    "approvedAt": "2025-10-18T05:08:19.947Z"
+  },
+  {
+    "_id": "68f380ed55b15b71b66081d9",
+    "userId": "U004",
+    "requesterFirstName": "rokaieu",
+    "requesterLastName": "eusompa",
+    "requesterNickname": "sompa",
+    "requesterDepartment": "Marketing",
+    "requesterPhone": "0845641647",
+    "requesterOffice": "Rasa One",
+    "requestDate": "2025-10-18T11:58:37.601Z",
+    "urgency": "normal",
+    "deliveryLocation": "Rasa One 1",
+    "items": [
+      {
+        "masterId": "68f31c310912c159c75f7d41",
+        "itemName": "HP one 1",
+        "categoryId": "cat_1759892564454_9ecqeg0yg",
+        "quantity": 1,
+        "serialNumbers": [
+          "2121"
+        ],
+        "assignedSerialNumbers": [
+          "2121"
+        ],
+        "assignedItemIds": [
+          "68f31c310912c159c75f7d3b"
+        ],
+        "assignedPhoneNumbers": [],
+        "availableItemIds": [
+          "68f31c310912c159c75f7d3b"
+        ],
+        "statusOnRequest": "status_available",
+        "conditionOnRequest": "cond_working",
+        "assignedQuantity": 1,
+        "itemApproved": true,
+        "_id": "68f380ed55b15b71b66081da",
+        "assignedItemSnapshots": [
+          {
+            "itemId": "68f31c310912c159c75f7d3b",
+            "itemName": "HP one",
+            "categoryId": "cat_1759892564454_9ecqeg0yg",
+            "categoryName": "Laptop",
+            "serialNumber": "2121",
+            "statusId": "status_available",
+            "statusName": "พร้อมใช้งาน",
+            "conditionId": "cond_working",
+            "conditionName": "สภาพดี"
+          }
+        ],
+        "approvedAt": "2025-10-18T11:59:15.242Z",
+        "category": "Laptop",
+        "statusOnRequestName": "พร้อมใช้งาน",
+        "conditionOnRequestName": "สภาพดี"
+      },
+      {
+        "masterId": "68f31c860912c159c75f7e66",
+        "itemName": "AIS",
+        "categoryId": "cat_sim_card",
+        "quantity": 1,
+        "serialNumbers": [
+          "0845465456"
+        ],
+        "assignedSerialNumbers": [],
+        "assignedItemIds": [
+          "68f31c860912c159c75f7e62"
+        ],
+        "assignedPhoneNumbers": [
+          "0845465456"
+        ],
+        "availableItemIds": [
+          "68f31c860912c159c75f7e62"
+        ],
+        "statusOnRequest": "status_available",
+        "conditionOnRequest": "cond_working",
+        "assignedQuantity": 1,
+        "itemApproved": true,
+        "_id": "68f380ed55b15b71b66081db",
+        "assignedItemSnapshots": [
+          {
+            "itemId": "68f31c860912c159c75f7e62",
+            "itemName": "AIS",
+            "categoryId": "cat_sim_card",
+            "categoryName": "ซิมการ์ด",
+            "numberPhone": "0845465456",
+            "statusId": "status_available",
+            "statusName": "พร้อมใช้งาน",
+            "conditionId": "cond_working",
+            "conditionName": "สภาพดี"
+          }
+        ],
+        "approvedAt": "2025-10-18T11:59:20.868Z",
+        "statusOnRequestName": "พร้อมใช้งาน",
+        "conditionOnRequestName": "สภาพดี"
+      }
+    ],
+    "status": "approved",
+    "requestType": "request",
+    "transferredItems": [],
+    "createdAt": "2025-10-18T11:58:37.609Z",
+    "updatedAt": "2025-10-21T03:21:59.534Z",
+    "__v": 2,
+    "approvedAt": "2025-10-18T11:59:15.242Z"
+  },
+  {
+    "_id": "68f4851613a5bc27ceaacd7c",
+    "userId": "U004",
+    "requesterFirstName": "aaaa",
+    "requesterLastName": "bbbb",
+    "requesterNickname": "cccc",
+    "requesterDepartment": "Marketing",
+    "requesterPhone": "0845641646",
+    "requesterOffice": "CTW",
+    "requestDate": "2025-10-19T06:28:38.774Z",
+    "urgency": "normal",
+    "deliveryLocation": "Rasa One 1",
+    "items": [
+      {
+        "masterId": "68f31c310912c159c75f7d41",
+        "itemName": "HP one 1",
+        "categoryId": "cat_1759892564454_9ecqeg0yg",
+        "quantity": 1,
+        "serialNumbers": [
+          "2121"
+        ],
+        "requestedPhoneNumbers": [],
+        "assignedSerialNumbers": [
+          "2121"
+        ],
+        "assignedItemIds": [
+          "68f31c310912c159c75f7d3b"
+        ],
+        "assignedPhoneNumbers": [],
+        "availableItemIds": [
+          "68f31c310912c159c75f7d3b"
+        ],
+        "itemNotes": "ไม่มี 1",
+        "statusOnRequest": "status_available",
+        "conditionOnRequest": "cond_working",
+        "assignedQuantity": 1,
+        "itemApproved": true,
+        "_id": "68f4851613a5bc27ceaacd7d",
+        "assignedItemSnapshots": [
+          {
+            "itemId": "68f31c310912c159c75f7d3b",
+            "itemName": "HP one 1",
+            "categoryId": "cat_1759892564454_9ecqeg0yg",
+            "categoryName": "Laptop",
+            "serialNumber": "2121",
+            "statusId": "status_available",
+            "statusName": "พร้อมใช้งาน",
+            "conditionId": "cond_working",
+            "conditionName": "สภาพดี"
+          }
+        ],
+        "approvedAt": "2025-10-19T06:30:53.840Z",
+        "category": "Laptop",
+        "statusOnRequestName": "พร้อมใช้งาน",
+        "conditionOnRequestName": "สภาพดี"
+      }
+    ],
+    "status": "approved",
+    "requestType": "request",
+    "transferredItems": [],
+    "createdAt": "2025-10-19T06:28:38.784Z",
+    "updatedAt": "2025-10-21T03:21:59.534Z",
+    "__v": 1,
+    "approvedAt": "2025-10-19T06:30:53.841Z"
+  },
+  {
+    "_id": "68f48b8a9b2d52e046e7b554",
+    "userId": "U004",
+    "requesterFirstName": "a1",
+    "requesterLastName": "b1",
+    "requesterNickname": "c1",
+    "requesterDepartment": "Marketing",
+    "requesterPhone": "0845641647",
+    "requesterOffice": "CTW",
+    "requestDate": "2025-10-19T06:56:10.641Z",
+    "urgency": "normal",
+    "deliveryLocation": "Rasa One 1",
+    "items": [
+      {
+        "masterId": "68f31c860912c159c75f7e66",
+        "itemName": "AIS",
+        "categoryId": "cat_sim_card",
+        "quantity": 1,
+        "serialNumbers": [],
+        "requestedPhoneNumbers": [
+          "0845465456"
+        ],
+        "assignedSerialNumbers": [],
+        "assignedItemIds": [
+          "68f31c860912c159c75f7e62"
+        ],
+        "assignedPhoneNumbers": [
+          "0845465456"
+        ],
+        "availableItemIds": [
+          "68f31c860912c159c75f7e62"
+        ],
+        "itemNotes": "ไม่มี 2",
+        "statusOnRequest": "status_available",
+        "conditionOnRequest": "cond_working",
+        "assignedQuantity": 1,
+        "itemApproved": true,
+        "_id": "68f48b8a9b2d52e046e7b555",
+        "assignedItemSnapshots": [
+          {
+            "itemId": "68f31c860912c159c75f7e62",
+            "itemName": "AIS",
+            "categoryId": "cat_sim_card",
+            "categoryName": "ซิมการ์ด",
+            "numberPhone": "0845465456",
+            "statusId": "status_available",
+            "statusName": "พร้อมใช้งาน",
+            "conditionId": "cond_working",
+            "conditionName": "สภาพดี"
+          }
+        ],
+        "approvedAt": "2025-10-19T06:57:29.825Z",
+        "statusOnRequestName": "พร้อมใช้งาน",
+        "conditionOnRequestName": "สภาพดี"
+      },
+      {
+        "masterId": "68f47d37ac1f22caccc31cc3",
+        "itemName": "Dell N01",
+        "categoryId": "cat_1759892569577_t7f8qim2z",
+        "quantity": 1,
+        "serialNumbers": [],
+        "requestedPhoneNumbers": [],
+        "assignedSerialNumbers": [],
+        "assignedItemIds": [
+          "68f47d37ac1f22caccc31cea"
+        ],
+        "assignedPhoneNumbers": [],
+        "availableItemIds": [
+          "68f47d37ac1f22caccc31cbf"
+        ],
+        "itemNotes": "ไม่มี 3",
+        "statusOnRequest": "status_available",
+        "conditionOnRequest": "cond_working",
+        "assignedQuantity": 1,
+        "itemApproved": true,
+        "_id": "68f48b8a9b2d52e046e7b556",
+        "assignedItemSnapshots": [
+          {
+            "itemId": "68f47d37ac1f22caccc31cea",
+            "itemName": "Dell N01",
+            "categoryId": "cat_1759892569577_t7f8qim2z",
+            "categoryName": "Monitor",
+            "statusId": "status_available",
+            "statusName": "พร้อมใช้งาน",
+            "conditionId": "cond_working",
+            "conditionName": "สภาพดี"
+          }
+        ],
+        "approvedAt": "2025-10-19T06:57:45.634Z",
+        "category": "Monitor",
+        "statusOnRequestName": "พร้อมใช้งาน",
+        "conditionOnRequestName": "สภาพดี"
+      }
+    ],
+    "status": "approved",
+    "requestType": "request",
+    "transferredItems": [],
+    "createdAt": "2025-10-19T06:56:10.645Z",
+    "updatedAt": "2025-10-21T03:21:59.534Z",
+    "__v": 2,
+    "approvedAt": "2025-10-19T06:57:29.825Z"
+  },
+  {
+    "_id": "68f4f6beacbf4c9c4d1ad291",
+    "userId": "U003",
+    "requesterFirstName": "สวัสดี",
+    "requesterLastName": "สวัสใจ",
+    "requesterNickname": "สวัดิการดี",
+    "requesterDepartment": "ข้อความ",
+    "requesterPhone": "0845611556",
+    "requesterOffice": "Asoke",
+    "requestDate": "2025-10-19T14:33:34.197Z",
+    "urgency": "normal",
+    "deliveryLocation": "Rasa One 1",
+    "items": [
+      {
+        "masterId": "68f31c310912c159c75f7d41",
+        "itemName": "HP one 1",
+        "categoryId": "cat_1759892564454_9ecqeg0yg",
+        "quantity": 1,
+        "serialNumbers": [
+          "2121"
+        ],
+        "requestedPhoneNumbers": [],
+        "assignedSerialNumbers": [
+          "2121"
+        ],
+        "assignedItemIds": [
+          "68f31c310912c159c75f7d3b"
+        ],
+        "assignedPhoneNumbers": [],
+        "availableItemIds": [
+          "68f31c310912c159c75f7d3b"
+        ],
+        "itemNotes": "ไม่มี",
+        "statusOnRequest": "status_available",
+        "conditionOnRequest": "cond_working",
+        "assignedQuantity": 1,
+        "itemApproved": true,
+        "_id": "68f4f6beacbf4c9c4d1ad292",
+        "assignedItemSnapshots": [
+          {
+            "itemId": "68f31c310912c159c75f7d3b",
+            "itemName": "HP one 1",
+            "categoryId": "cat_1759892564454_9ecqeg0yg",
+            "categoryName": "Laptop3",
+            "serialNumber": "2121",
+            "statusId": "status_available",
+            "statusName": "พร้อมใช้งาน3",
+            "conditionId": "cond_working",
+            "conditionName": "สภาพดี3"
+          }
+        ],
+        "approvedAt": "2025-10-19T14:33:49.817Z",
+        "category": "Laptop",
+        "statusOnRequestName": "พร้อมใช้งาน",
+        "conditionOnRequestName": "สภาพดี"
+      }
+    ],
+    "status": "approved",
+    "requestType": "request",
+    "transferredItems": [],
+    "createdAt": "2025-10-19T14:33:34.210Z",
+    "updatedAt": "2025-10-21T03:21:59.534Z",
+    "__v": 1,
+    "approvedAt": "2025-10-19T14:33:49.818Z"
+  },
+  {
+    "_id": "68f4fcc9acbf4c9c4d1ae017",
+    "userId": "G1760885824637569",
+    "requesterFirstName": "iyaya",
+    "requesterLastName": "nadar",
+    "requesterNickname": "mily",
+    "requesterDepartment": "Marketing",
+    "requesterPhone": "0854789656",
+    "requesterOffice": "CTWS",
+    "requestDate": "2025-10-19T14:59:21.719Z",
+    "urgency": "normal",
+    "deliveryLocation": "Rasa One 1",
+    "items": [
+      {
+        "masterId": "68f31c860912c159c75f7e66",
+        "itemName": "AIS",
+        "categoryId": "cat_sim_card",
+        "quantity": 1,
+        "serialNumbers": [],
+        "requestedPhoneNumbers": [
+          "0845465456"
+        ],
+        "assignedSerialNumbers": [],
+        "assignedItemIds": [
+          "68f31c860912c159c75f7e62"
+        ],
+        "assignedPhoneNumbers": [
+          "0845465456"
+        ],
+        "availableItemIds": [
+          "68f31c860912c159c75f7e62"
+        ],
+        "itemNotes": "ไม่มี",
+        "statusOnRequest": "status_available",
+        "conditionOnRequest": "cond_working",
+        "assignedQuantity": 1,
+        "itemApproved": true,
+        "_id": "68f4fcc9acbf4c9c4d1ae018",
+        "assignedItemSnapshots": [
+          {
+            "itemId": "68f31c860912c159c75f7e62",
+            "itemName": "AIS2",
+            "categoryId": "cat_sim_card",
+            "categoryName": "ซิมการ์ด",
+            "numberPhone": "0845465456",
+            "statusId": "status_available",
+            "statusName": "พร้อมใช้งาน",
+            "conditionId": "cond_working",
+            "conditionName": "สภาพดี"
+          }
+        ],
+        "approvedAt": "2025-10-19T15:00:41.694Z",
+        "statusOnRequestName": "พร้อมใช้งาน",
+        "conditionOnRequestName": "สภาพดี"
+      }
+    ],
+    "status": "approved",
+    "requestType": "request",
+    "transferredItems": [],
+    "createdAt": "2025-10-19T14:59:21.733Z",
+    "updatedAt": "2025-10-21T03:21:59.534Z",
+    "__v": 1,
+    "approvedAt": "2025-10-19T15:00:41.695Z"
+  },
+  {
+    "_id": "68f5e46494d719acbaa94af8",
+    "userId": "USER1760941679483263",
+    "requesterFirstName": "ชุติมณฑน์",
+    "requesterLastName": "อนุศักดิ์",
+    "requesterNickname": "แอมป์",
+    "requesterDepartment": "Web",
+    "requesterPhone": "0834294154",
+    "requesterOffice": "Rasa One",
+    "requestDate": "2025-10-20T07:27:32.180Z",
+    "urgency": "normal",
+    "deliveryLocation": "Rasa One",
+    "items": [
+      {
+        "masterId": "68f31c310912c159c75f7d41",
+        "itemName": "HP one 1",
+        "categoryId": "cat_1759892564454_9ecqeg0yg",
+        "quantity": 1,
+        "serialNumbers": [
+          "2121"
+        ],
+        "requestedPhoneNumbers": [],
+        "assignedSerialNumbers": [
+          "2121"
+        ],
+        "assignedItemIds": [
+          "68f31c310912c159c75f7d3b"
+        ],
+        "assignedPhoneNumbers": [],
+        "availableItemIds": [
+          "68f31c310912c159c75f7d3b"
+        ],
+        "statusOnRequest": "status_available",
+        "conditionOnRequest": "cond_working",
+        "assignedQuantity": 1,
+        "itemApproved": true,
+        "_id": "68f5e46494d719acbaa94af9",
+        "assignedItemSnapshots": [
+          {
+            "itemId": "68f31c310912c159c75f7d3b",
+            "itemName": "HP one 1",
+            "categoryId": "cat_1759892564454_9ecqeg0yg",
+            "categoryName": "Laptop",
+            "serialNumber": "2121",
+            "statusId": "status_available",
+            "statusName": "พร้อมใช้งาน",
+            "conditionId": "cond_working",
+            "conditionName": "สภาพดี"
+          }
+        ],
+        "approvedAt": "2025-10-20T07:32:28.261Z",
+        "category": "Laptop",
+        "statusOnRequestName": "พร้อมใช้งาน",
+        "conditionOnRequestName": "สภาพดี"
+      },
+      {
+        "masterId": "68f47d37ac1f22caccc31cc3",
+        "itemName": "Dell N01",
+        "categoryId": "cat_1759892569577_t7f8qim2z",
+        "quantity": 1,
+        "serialNumbers": [],
+        "requestedPhoneNumbers": [],
+        "assignedSerialNumbers": [],
+        "assignedItemIds": [
+          "68f47d37ac1f22caccc31cea"
+        ],
+        "assignedPhoneNumbers": [],
+        "availableItemIds": [
+          "68f47d37ac1f22caccc31cbf"
+        ],
+        "statusOnRequest": "status_available",
+        "conditionOnRequest": "cond_working",
+        "assignedQuantity": 1,
+        "itemApproved": true,
+        "_id": "68f5e46494d719acbaa94afa",
+        "assignedItemSnapshots": [
+          {
+            "itemId": "68f47d37ac1f22caccc31cea",
+            "itemName": "Dell N01",
+            "categoryId": "cat_1759892569577_t7f8qim2z",
+            "categoryName": "Monitor",
+            "statusId": "status_available",
+            "statusName": "พร้อมใช้งาน",
+            "conditionId": "cond_working",
+            "conditionName": "สภาพดี"
+          }
+        ],
+        "approvedAt": "2025-10-20T07:32:33.159Z",
+        "category": "Monitor",
+        "statusOnRequestName": "พร้อมใช้งาน",
+        "conditionOnRequestName": "สภาพดี"
+      },
+      {
+        "masterId": "68f31c860912c159c75f7e66",
+        "itemName": "AIS",
+        "categoryId": "cat_sim_card",
+        "quantity": 1,
+        "serialNumbers": [],
+        "requestedPhoneNumbers": [
+          "0845465456"
+        ],
+        "assignedSerialNumbers": [],
+        "assignedItemIds": [
+          "68f31c860912c159c75f7e62"
+        ],
+        "assignedPhoneNumbers": [
+          "0845465456"
+        ],
+        "availableItemIds": [
+          "68f31c860912c159c75f7e62"
+        ],
+        "statusOnRequest": "status_available",
+        "conditionOnRequest": "cond_working",
+        "assignedQuantity": 1,
+        "itemApproved": true,
+        "_id": "68f5e46494d719acbaa94afb",
+        "assignedItemSnapshots": [
+          {
+            "itemId": "68f31c860912c159c75f7e62",
+            "itemName": "AIS",
+            "categoryId": "cat_sim_card",
+            "categoryName": "ซิมการ์ด",
+            "numberPhone": "0845465456",
+            "statusId": "status_available",
+            "statusName": "พร้อมใช้งาน",
+            "conditionId": "cond_working",
+            "conditionName": "สภาพดี"
+          }
+        ],
+        "approvedAt": "2025-10-20T07:40:25.728Z",
+        "statusOnRequestName": "พร้อมใช้งาน",
+        "conditionOnRequestName": "สภาพดี"
+      }
+    ],
+    "status": "approved",
+    "requestType": "request",
+    "transferredItems": [],
+    "createdAt": "2025-10-20T07:27:32.185Z",
+    "updatedAt": "2025-10-21T03:21:59.534Z",
+    "__v": 3,
+    "approvedAt": "2025-10-20T07:32:28.262Z"
+  },
+  {
+    "_id": "68f6057617b78be5848ea31e",
+    "userId": "USER1760950407660617",
+    "requesterFirstName": "riei",
+    "requesterLastName": "ei",
+    "requesterNickname": "re",
+    "requesterDepartment": "Marketing",
+    "requesterPhone": "0845641647",
+    "requesterOffice": "One BKK",
+    "requestDate": "2025-10-20T09:48:38.614Z",
+    "urgency": "normal",
+    "deliveryLocation": "Rasa One 1",
+    "items": [
+      {
+        "masterId": "68f47d37ac1f22caccc31cc3",
+        "itemName": "Dell N01",
+        "categoryId": "cat_1759892569577_t7f8qim2z",
+        "quantity": 1,
+        "serialNumbers": [],
+        "requestedPhoneNumbers": [],
+        "assignedSerialNumbers": [],
+        "assignedItemIds": [
+          "68f47d37ac1f22caccc31cea"
+        ],
+        "assignedPhoneNumbers": [],
+        "availableItemIds": [
+          "68f47d37ac1f22caccc31cbf"
+        ],
+        "statusOnRequest": "status_available",
+        "conditionOnRequest": "cond_working",
+        "assignedQuantity": 1,
+        "itemApproved": true,
+        "_id": "68f6057617b78be5848ea31f",
+        "assignedItemSnapshots": [
+          {
+            "itemId": "68f47d37ac1f22caccc31cea",
+            "itemName": "Dell N01",
+            "categoryId": "cat_1759892569577_t7f8qim2z",
+            "categoryName": "Monitor",
+            "statusId": "status_available",
+            "statusName": "พร้อมใช้งาน",
+            "conditionId": "cond_working",
+            "conditionName": "สภาพดี"
+          }
+        ],
+        "approvedAt": "2025-10-20T09:49:06.443Z",
+        "statusOnRequestName": "พร้อมใช้งาน",
+        "category": "Monitor",
+        "conditionOnRequestName": "สภาพดี"
+      },
+      {
+        "masterId": "68f31c310912c159c75f7d41",
+        "itemName": "HP one 1",
+        "categoryId": "cat_1759892564454_9ecqeg0yg",
+        "quantity": 1,
+        "serialNumbers": [
+          "2121"
+        ],
+        "requestedPhoneNumbers": [],
+        "assignedSerialNumbers": [
+          "2121"
+        ],
+        "assignedItemIds": [
+          "68f31c310912c159c75f7d3b"
+        ],
+        "assignedPhoneNumbers": [],
+        "availableItemIds": [
+          "68f31c310912c159c75f7d3b"
+        ],
+        "statusOnRequest": "status_available",
+        "conditionOnRequest": "cond_working",
+        "assignedQuantity": 1,
+        "itemApproved": true,
+        "_id": "68f6057617b78be5848ea320",
+        "assignedItemSnapshots": [
+          {
+            "itemId": "68f31c310912c159c75f7d3b",
+            "itemName": "HP one 1",
+            "categoryId": "cat_1759892564454_9ecqeg0yg",
+            "categoryName": "Laptop",
+            "serialNumber": "2121",
+            "statusId": "status_available",
+            "statusName": "พร้อมใช้งาน",
+            "conditionId": "cond_working",
+            "conditionName": "สภาพดี"
+          }
+        ],
+        "approvedAt": "2025-10-20T09:49:10.468Z",
+        "category": "Laptop",
+        "statusOnRequestName": "พร้อมใช้งาน",
+        "conditionOnRequestName": "สภาพดี"
+      },
+      {
+        "masterId": "68f31c860912c159c75f7e66",
+        "itemName": "AIS",
+        "categoryId": "cat_sim_card",
+        "quantity": 1,
+        "serialNumbers": [],
+        "requestedPhoneNumbers": [
+          "0845465456"
+        ],
+        "assignedSerialNumbers": [],
+        "assignedItemIds": [
+          "68f31c860912c159c75f7e62"
+        ],
+        "assignedPhoneNumbers": [
+          "0845465456"
+        ],
+        "availableItemIds": [
+          "68f31c860912c159c75f7e62"
+        ],
+        "statusOnRequest": "status_available",
+        "conditionOnRequest": "cond_working",
+        "assignedQuantity": 1,
+        "itemApproved": true,
+        "_id": "68f6057617b78be5848ea321",
+        "assignedItemSnapshots": [
+          {
+            "itemId": "68f31c860912c159c75f7e62",
+            "itemName": "AIS",
+            "categoryId": "cat_sim_card",
+            "categoryName": "ซิมการ์ด",
+            "numberPhone": "0845465456",
+            "statusId": "status_available",
+            "statusName": "พร้อมใช้งาน",
+            "conditionId": "cond_working",
+            "conditionName": "สภาพดี"
+          }
+        ],
+        "approvedAt": "2025-10-20T09:49:14.523Z",
+        "statusOnRequestName": "พร้อมใช้งาน",
+        "conditionOnRequestName": "สภาพดี"
+      }
+    ],
+    "status": "approved",
+    "requestType": "request",
+    "transferredItems": [],
+    "createdAt": "2025-10-20T09:48:38.621Z",
+    "updatedAt": "2025-10-21T03:21:59.534Z",
+    "__v": 3,
+    "approvedAt": "2025-10-20T09:49:06.444Z"
+  },
+  {
+    "_id": "68f6086017b78be5848eb981",
+    "userId": "USER1760950407660617",
+    "requesterFirstName": "ฟฟฟฟ",
+    "requesterLastName": "หหหห",
+    "requesterNickname": "กกกก",
+    "requesterDepartment": "Marketing",
+    "requesterPhone": "0845641647",
+    "requesterOffice": "One BKK",
+    "requestDate": "2025-10-20T10:01:04.855Z",
+    "urgency": "normal",
+    "deliveryLocation": "Rasa One 1",
+    "items": [
+      {
+        "masterId": "68f31c310912c159c75f7d41",
+        "itemName": "HP one 1",
+        "categoryId": "cat_1759892564454_9ecqeg0yg",
+        "quantity": 1,
+        "serialNumbers": [],
+        "requestedPhoneNumbers": [],
+        "assignedSerialNumbers": [],
+        "assignedItemIds": [
+          "68f5d6c294d719acbaa9499a"
+        ],
+        "assignedPhoneNumbers": [],
+        "availableItemIds": [
+          "68f31c310912c159c75f7d3b"
+        ],
+        "statusOnRequest": "status_available",
+        "conditionOnRequest": "cond_working",
+        "assignedQuantity": 1,
+        "itemApproved": true,
+        "_id": "68f6086017b78be5848eb982",
+        "assignedItemSnapshots": [
+          {
+            "itemId": "68f5d6c294d719acbaa9499a",
+            "itemName": "HP one 1",
+            "categoryId": "cat_1759892564454_9ecqeg0yg",
+            "categoryName": "Laptop1",
+            "statusId": "status_available",
+            "statusName": "พร้อมใช้งาน1",
+            "conditionId": "cond_working",
+            "conditionName": "สภาพดี"
+          }
+        ],
+        "approvedAt": "2025-10-20T10:05:48.938Z",
+        "statusOnRequestName": "พร้อมใช้งาน",
+        "category": "Laptop",
+        "conditionOnRequestName": "สภาพดี"
+      }
+    ],
+    "status": "approved",
+    "requestType": "request",
+    "transferredItems": [],
+    "createdAt": "2025-10-20T10:01:04.859Z",
+    "updatedAt": "2025-10-21T03:21:59.534Z",
+    "__v": 1,
+    "approvedAt": "2025-10-20T10:05:48.939Z"
+  },
+  {
+    "_id": "68f6088617b78be5848eb9eb",
+    "userId": "USER1760950407660617",
+    "requesterFirstName": "aaaa",
+    "requesterLastName": "bbbb",
+    "requesterNickname": "cccc",
+    "requesterDepartment": "demo",
+    "requesterPhone": "0285415656",
+    "requesterOffice": "One BKK",
+    "requestDate": "2025-10-20T10:01:42.716Z",
+    "urgency": "normal",
+    "deliveryLocation": "Rasa One 2",
+    "items": [
+      {
+        "masterId": "68f5d6b394d719acbaa9490f",
+        "itemName": "Dell NO2",
+        "categoryId": "cat_1759892569577_t7f8qim2z",
+        "quantity": 1,
+        "serialNumbers": [
+          "01"
+        ],
+        "requestedPhoneNumbers": [],
+        "assignedSerialNumbers": [
+          "01"
+        ],
+        "assignedItemIds": [
+          "68f5d6b394d719acbaa94903"
+        ],
+        "assignedPhoneNumbers": [],
+        "availableItemIds": [
+          "68f5d6b394d719acbaa94903"
+        ],
+        "statusOnRequest": "status_available",
+        "conditionOnRequest": "cond_working",
+        "assignedQuantity": 1,
+        "itemApproved": true,
+        "_id": "68f6088617b78be5848eb9ec",
+        "assignedItemSnapshots": [
+          {
+            "itemId": "68f5d6b394d719acbaa94903",
+            "itemName": "Dell NO2",
+            "categoryId": "cat_1759892569577_t7f8qim2z",
+            "categoryName": "Monitor",
+            "serialNumber": "01",
+            "statusId": "status_available",
+            "statusName": "พร้อมใช้งาน1",
+            "conditionId": "cond_working",
+            "conditionName": "สภาพดี"
+          }
+        ],
+        "approvedAt": "2025-10-20T10:05:44.496Z",
+        "statusOnRequestName": "พร้อมใช้งาน",
+        "category": "Monitor",
+        "conditionOnRequestName": "สภาพดี"
+      }
+    ],
+    "status": "approved",
+    "requestType": "request",
+    "transferredItems": [],
+    "createdAt": "2025-10-20T10:01:42.717Z",
+    "updatedAt": "2025-10-21T03:21:59.534Z",
+    "__v": 1,
+    "approvedAt": "2025-10-20T10:05:44.499Z"
+  },
+  {
+    "_id": "68f60dcc17b78be5848ed057",
+    "userId": "USER1760950407660617",
+    "requesterFirstName": "a1",
+    "requesterLastName": "b1",
+    "requesterNickname": "c1",
+    "requesterDepartment": "d1",
+    "requesterPhone": "0845641647",
+    "requesterOffice": "One BKK",
+    "requestDate": "2025-10-20T10:24:12.026Z",
+    "urgency": "normal",
+    "deliveryLocation": "Rasa One 1",
+    "items": [
+      {
+        "masterId": "68f31c310912c159c75f7d41",
+        "itemName": "HP one 1",
+        "categoryId": "cat_1759892564454_9ecqeg0yg",
+        "quantity": 1,
+        "serialNumbers": [],
+        "requestedPhoneNumbers": [],
+        "assignedSerialNumbers": [],
+        "assignedItemIds": [
+          "68f5d6c294d719acbaa9499a"
+        ],
+        "assignedPhoneNumbers": [],
+        "availableItemIds": [
+          "68f31c310912c159c75f7d3b"
+        ],
+        "statusOnRequest": "status_available",
+        "conditionOnRequest": "cond_working",
+        "assignedQuantity": 1,
+        "itemApproved": true,
+        "_id": "68f60dcc17b78be5848ed058",
+        "assignedItemSnapshots": [
+          {
+            "itemId": "68f5d6c294d719acbaa9499a",
+            "itemName": "HP one 1",
+            "categoryId": "cat_1759892564454_9ecqeg0yg",
+            "categoryName": "Laptop1",
+            "statusId": "status_available",
+            "statusName": "พร้อมใช้งาน1",
+            "conditionId": "cond_working",
+            "conditionName": "สภาพดี"
+          }
+        ],
+        "approvedAt": "2025-10-20T10:24:59.235Z",
+        "statusOnRequestName": "พร้อมใช้งาน",
+        "category": "Laptop",
+        "conditionOnRequestName": "สภาพดี"
+      }
+    ],
+    "status": "approved",
+    "requestType": "request",
+    "transferredItems": [],
+    "createdAt": "2025-10-20T10:24:12.032Z",
+    "updatedAt": "2025-10-21T03:21:59.534Z",
+    "__v": 1,
+    "approvedAt": "2025-10-20T10:24:59.235Z"
+  },
+  {
+    "_id": "68f60de417b78be5848ed0b7",
+    "userId": "USER1760950407660617",
+    "requesterFirstName": "a2",
+    "requesterLastName": "b2",
+    "requesterNickname": "c2",
+    "requesterDepartment": "d2",
+    "requesterPhone": "0845641646",
+    "requesterOffice": "One BKK",
+    "requestDate": "2025-10-20T10:24:36.646Z",
+    "urgency": "normal",
+    "deliveryLocation": "Rasa One 2",
+    "items": [
+      {
+        "masterId": "68f47d37ac1f22caccc31cc3",
+        "itemName": "Dell N01",
+        "categoryId": "cat_1759892569577_t7f8qim2z",
+        "quantity": 1,
+        "serialNumbers": [],
+        "requestedPhoneNumbers": [],
+        "assignedSerialNumbers": [],
+        "assignedItemIds": [
+          "68f604b917b78be5848ea18d"
+        ],
+        "assignedPhoneNumbers": [],
+        "availableItemIds": [
+          "68f47d37ac1f22caccc31cbf"
+        ],
+        "statusOnRequest": "status_available",
+        "conditionOnRequest": "cond_working",
+        "assignedQuantity": 1,
+        "itemApproved": true,
+        "_id": "68f60de417b78be5848ed0b8",
+        "assignedItemSnapshots": [
+          {
+            "itemId": "68f604b917b78be5848ea18d",
+            "itemName": "Dell N01",
+            "categoryId": "cat_1759892569577_t7f8qim2z",
+            "categoryName": "Monitor",
+            "statusId": "status_available",
+            "statusName": "พร้อมใช้งาน1",
+            "conditionId": "cond_working",
+            "conditionName": "สภาพดี"
+          }
+        ],
+        "approvedAt": "2025-10-20T10:24:55.841Z",
+        "statusOnRequestName": "พร้อมใช้งาน",
+        "category": "Monitor",
+        "conditionOnRequestName": "สภาพดี"
+      }
+    ],
+    "status": "approved",
+    "requestType": "request",
+    "transferredItems": [],
+    "createdAt": "2025-10-20T10:24:36.648Z",
+    "updatedAt": "2025-10-21T03:21:59.534Z",
+    "__v": 1,
+    "approvedAt": "2025-10-20T10:24:55.841Z"
+  },
+  {
+    "_id": "68f6214aacbf0224254d5fab",
+    "userId": "USER1760950407660617",
+    "requesterFirstName": "yaya",
+    "requesterLastName": "uras",
+    "requesterNickname": "yiyi",
+    "requesterDepartment": "Marketing",
+    "requesterPhone": "0845641646",
+    "requesterEmail": "rokaieusompa@gmail.com",
+    "requesterOffice": "One BKK",
+    "requestDate": "2025-10-20T11:47:22.251Z",
+    "urgency": "normal",
+    "deliveryLocation": "Rasa One 1",
+    "items": [
+      {
+        "masterId": "68f31c310912c159c75f7d41",
+        "itemName": "HP one 1",
+        "categoryId": "cat_1759892564454_9ecqeg0yg",
+        "quantity": 1,
+        "serialNumbers": [],
+        "requestedPhoneNumbers": [],
+        "assignedSerialNumbers": [],
+        "assignedItemIds": [
+          "68f5d6c294d719acbaa9499a"
+        ],
+        "assignedPhoneNumbers": [],
+        "availableItemIds": [
+          "68f31c310912c159c75f7d3b"
+        ],
+        "statusOnRequest": "status_available",
+        "conditionOnRequest": "cond_working",
+        "assignedQuantity": 1,
+        "itemApproved": true,
+        "_id": "68f6214aacbf0224254d5fac",
+        "assignedItemSnapshots": [
+          {
+            "itemId": "68f5d6c294d719acbaa9499a",
+            "itemName": "HP one 1",
+            "categoryId": "cat_1759892564454_9ecqeg0yg",
+            "categoryName": "Laptop1",
+            "statusId": "status_available",
+            "statusName": "พร้อมใช้งาน1",
+            "conditionId": "cond_working",
+            "conditionName": "สภาพดี"
+          }
+        ],
+        "approvedAt": "2025-10-20T11:47:42.324Z",
+        "statusOnRequestName": "พร้อมใช้งาน",
+        "category": "Laptop",
+        "conditionOnRequestName": "สภาพดี"
+      }
+    ],
+    "status": "approved",
+    "requestType": "request",
+    "transferredItems": [],
+    "createdAt": "2025-10-20T11:47:22.261Z",
+    "updatedAt": "2025-10-21T03:21:59.534Z",
+    "__v": 1,
+    "approvedAt": "2025-10-20T11:47:42.324Z"
+  },
+  {
+    "_id": "68f62f5c439ccccb5890cb05",
+    "userId": "USER1760963694511320",
+    "requesterFirstName": "",
+    "requesterLastName": "",
+    "requesterNickname": "",
+    "requesterDepartment": "",
+    "requesterPhone": "0247454548",
+    "requesterEmail": "rokaieusompa@gmail.com",
+    "requesterOffice": "RPN",
+    "requestDate": "2025-10-20T12:47:24.719Z",
+    "urgency": "normal",
+    "deliveryLocation": "Rasa One 1",
+    "items": [
+      {
+        "masterId": "68f31c310912c159c75f7d41",
+        "itemName": "HP one 1",
+        "categoryId": "cat_1759892564454_9ecqeg0yg",
+        "quantity": 1,
+        "serialNumbers": [],
+        "requestedPhoneNumbers": [],
+        "assignedSerialNumbers": [],
+        "assignedItemIds": [
+          "68f5d6c294d719acbaa9499a"
+        ],
+        "assignedPhoneNumbers": [],
+        "availableItemIds": [
+          "68f31c310912c159c75f7d3b"
+        ],
+        "statusOnRequest": "status_available",
+        "conditionOnRequest": "cond_working",
+        "assignedQuantity": 1,
+        "itemApproved": true,
+        "_id": "68f62f5c439ccccb5890cb06",
+        "assignedItemSnapshots": [
+          {
+            "itemId": "68f5d6c294d719acbaa9499a",
+            "itemName": "HP one 1",
+            "categoryId": "cat_1759892564454_9ecqeg0yg",
+            "categoryName": "Laptop1",
+            "statusId": "status_available",
+            "statusName": "พร้อมใช้งาน1",
+            "conditionId": "cond_working",
+            "conditionName": "สภาพดี"
+          }
+        ],
+        "approvedAt": "2025-10-20T12:48:12.613Z",
+        "statusOnRequestName": "พร้อมใช้งาน",
+        "category": "Laptop",
+        "conditionOnRequestName": "สภาพดี"
+      }
+    ],
+    "status": "approved",
+    "requestType": "request",
+    "transferredItems": [],
+    "createdAt": "2025-10-20T12:47:24.723Z",
+    "updatedAt": "2025-10-21T03:21:59.534Z",
+    "__v": 1,
+    "approvedAt": "2025-10-20T12:48:12.614Z"
+  },
+  {
+    "_id": "68f63156439ccccb5890e1f1",
+    "userId": "USER1760964858331901",
+    "requesterFirstName": "a2",
+    "requesterLastName": "b2",
+    "requesterNickname": "c2",
+    "requesterDepartment": "d2",
+    "requesterPhone": "0245487456",
+    "requesterEmail": "rokaieusompa@gmail.com",
+    "requesterOffice": "BMK",
+    "requestDate": "2025-10-20T12:55:50.767Z",
+    "urgency": "normal",
+    "deliveryLocation": "Rasa One 1",
+    "items": [
+      {
+        "masterId": "68f47d37ac1f22caccc31cc3",
+        "itemName": "Dell N01",
+        "categoryId": "cat_1759892569577_t7f8qim2z",
+        "quantity": 1,
+        "serialNumbers": [],
+        "requestedPhoneNumbers": [],
+        "assignedSerialNumbers": [],
+        "assignedItemIds": [
+          "68f62f7f439ccccb5890cde9"
+        ],
+        "assignedPhoneNumbers": [],
+        "availableItemIds": [
+          "68f47d37ac1f22caccc31cbf"
+        ],
+        "statusOnRequest": "status_available",
+        "conditionOnRequest": "cond_working",
+        "assignedQuantity": 1,
+        "itemApproved": true,
+        "_id": "68f63156439ccccb5890e1f2",
+        "assignedItemSnapshots": [
+          {
+            "itemId": "68f62f7f439ccccb5890cde9",
+            "itemName": "Dell N01",
+            "categoryId": "cat_1759892569577_t7f8qim2z",
+            "categoryName": "Monitor",
+            "statusId": "status_available",
+            "statusName": "พร้อมใช้งาน",
+            "conditionId": "cond_working",
+            "conditionName": "สภาพดี"
+          }
+        ],
+        "approvedAt": "2025-10-20T12:56:01.477Z",
+        "category": "Monitor",
+        "statusOnRequestName": "พร้อมใช้งาน",
+        "conditionOnRequestName": "สภาพดี"
+      }
+    ],
+    "status": "approved",
+    "requestType": "request",
+    "transferredItems": [],
+    "createdAt": "2025-10-20T12:55:50.772Z",
+    "updatedAt": "2025-10-21T03:21:59.534Z",
+    "__v": 1,
+    "approvedAt": "2025-10-20T12:56:01.478Z"
+  },
+  {
+    "_id": "68f63faa90289dcfd7266d24",
+    "userId": "ADMIN1756103604440",
+    "requesterFirstName": "Admin",
+    "requesterLastName": "AD",
+    "requesterNickname": "Admin",
+    "requesterDepartment": "Web",
+    "requesterPhone": "0834294155",
+    "requesterEmail": "admin@gmail.com",
+    "requesterOffice": "สำนักงานใหญ่",
+    "requestDate": "2025-10-20T13:56:58.562Z",
+    "urgency": "normal",
+    "deliveryLocation": "สำนักงานใหญ่",
+    "items": [
+      {
+        "masterId": "68f31c310912c159c75f7d41",
+        "itemName": "HP one 1",
+        "categoryId": "cat_1759892564454_9ecqeg0yg",
+        "quantity": 1,
+        "serialNumbers": [],
+        "requestedPhoneNumbers": [],
+        "assignedSerialNumbers": [],
+        "assignedItemIds": [
+          "68f63123439ccccb5890e0d2"
+        ],
+        "assignedPhoneNumbers": [],
+        "availableItemIds": [
+          "68f31c310912c159c75f7d3b"
+        ],
+        "statusOnRequest": "status_available",
+        "conditionOnRequest": "cond_working",
+        "assignedQuantity": 1,
+        "itemApproved": true,
+        "_id": "68f63faa90289dcfd7266d25",
+        "assignedItemSnapshots": [
+          {
+            "itemId": "68f63123439ccccb5890e0d2",
+            "itemName": "HP one 1",
+            "categoryId": "cat_1759892564454_9ecqeg0yg",
+            "categoryName": "Laptop",
+            "statusId": "status_available",
+            "statusName": "พร้อมใช้งาน",
+            "conditionId": "cond_working",
+            "conditionName": "สภาพดี"
+          }
+        ],
+        "approvedAt": "2025-10-20T13:57:26.913Z",
+        "category": "Laptop",
+        "statusOnRequestName": "พร้อมใช้งาน",
+        "conditionOnRequestName": "สภาพดี"
+      }
+    ],
+    "status": "approved",
+    "requestType": "request",
+    "transferredItems": [],
+    "createdAt": "2025-10-20T13:56:58.575Z",
+    "updatedAt": "2025-10-21T03:21:59.534Z",
+    "__v": 1,
+    "approvedAt": "2025-10-20T13:57:26.913Z"
+  },
+  {
+    "_id": "68f6ee9efbb256921d06f98d",
+    "userId": "USER1761013293331937",
+    "requesterFirstName": "ญาญ่า",
+    "requesterLastName": "อุรัศญา",
+    "requesterNickname": "เบอร์รี่",
+    "requesterDepartment": "ดารา",
+    "requesterPhone": "0888832596",
+    "requesterEmail": "chutimon.a@vsqclinic.com",
+    "requesterOffice": "Rasa One",
+    "requestDate": "2025-10-21T02:23:26.337Z",
+    "urgency": "normal",
+    "deliveryLocation": "สำนักงานใหญ่",
+    "items": [
+      {
+        "masterId": "68f31c310912c159c75f7d41",
+        "itemName": "HP one 1",
+        "categoryId": "cat_1759892564454_9ecqeg0yg",
+        "quantity": 1,
+        "serialNumbers": [],
+        "requestedPhoneNumbers": [],
+        "assignedSerialNumbers": [],
+        "assignedItemIds": [
+          "68f63123439ccccb5890e0d2"
+        ],
+        "assignedPhoneNumbers": [],
+        "availableItemIds": [
+          "68f31c310912c159c75f7d3b"
+        ],
+        "statusOnRequest": "status_available",
+        "conditionOnRequest": "cond_working",
+        "assignedQuantity": 1,
+        "itemApproved": true,
+        "_id": "68f6ee9efbb256921d06f98e",
+        "assignedItemSnapshots": [
+          {
+            "itemId": "68f63123439ccccb5890e0d2",
+            "itemName": "HP one 1",
+            "categoryId": "cat_1759892564454_9ecqeg0yg",
+            "categoryName": "Laptop",
+            "statusId": "status_available",
+            "statusName": "พร้อมใช้งาน",
+            "conditionId": "cond_working",
+            "conditionName": "สภาพดี"
+          }
+        ],
+        "approvedAt": "2025-10-21T02:25:45.028Z",
+        "category": "Laptop",
+        "statusOnRequestName": "พร้อมใช้งาน",
+        "conditionOnRequestName": "สภาพดี"
+      },
+      {
+        "masterId": "68f5d6b394d719acbaa9490f",
+        "itemName": "Dell NO2",
+        "categoryId": "cat_1759892569577_t7f8qim2z",
+        "quantity": 1,
+        "serialNumbers": [
+          "01"
+        ],
+        "requestedPhoneNumbers": [],
+        "assignedSerialNumbers": [
+          "01"
+        ],
+        "assignedItemIds": [
+          "68f5d6b394d719acbaa94903"
+        ],
+        "assignedPhoneNumbers": [],
+        "availableItemIds": [
+          "68f5d6b394d719acbaa94903"
+        ],
+        "statusOnRequest": "status_available",
+        "conditionOnRequest": "cond_working",
+        "assignedQuantity": 1,
+        "itemApproved": true,
+        "_id": "68f6ee9efbb256921d06f98f",
+        "assignedItemSnapshots": [
+          {
+            "itemId": "68f5d6b394d719acbaa94903",
+            "itemName": "Dell NO2",
+            "categoryId": "cat_1759892569577_t7f8qim2z",
+            "categoryName": "Monitor",
+            "serialNumber": "01",
+            "statusId": "status_available",
+            "statusName": "พร้อมใช้งาน",
+            "conditionId": "cond_working",
+            "conditionName": "สภาพดี"
+          }
+        ],
+        "approvedAt": "2025-10-21T02:25:49.948Z",
+        "statusOnRequestName": "พร้อมใช้งาน",
+        "conditionOnRequestName": "สภาพดี"
+      },
+      {
+        "masterId": "68f31c860912c159c75f7e66",
+        "itemName": "AIS",
+        "categoryId": "cat_sim_card",
+        "quantity": 1,
+        "serialNumbers": [],
+        "requestedPhoneNumbers": [
+          "0845465456"
+        ],
+        "assignedSerialNumbers": [],
+        "assignedItemIds": [
+          "68f31c860912c159c75f7e62"
+        ],
+        "assignedPhoneNumbers": [
+          "0845465456"
+        ],
+        "availableItemIds": [
+          "68f31c860912c159c75f7e62"
+        ],
+        "statusOnRequest": "status_available",
+        "conditionOnRequest": "cond_working",
+        "assignedQuantity": 1,
+        "itemApproved": true,
+        "_id": "68f6ee9efbb256921d06f990",
+        "assignedItemSnapshots": [
+          {
+            "itemId": "68f31c860912c159c75f7e62",
+            "itemName": "AIS",
+            "categoryId": "cat_sim_card",
+            "categoryName": "ซิมการ์ด",
+            "numberPhone": "0845465456",
+            "statusId": "status_available",
+            "statusName": "พร้อมใช้งาน",
+            "conditionId": "cond_working",
+            "conditionName": "สภาพดี"
+          }
+        ],
+        "approvedAt": "2025-10-21T02:25:55.620Z",
+        "statusOnRequestName": "พร้อมใช้งาน",
+        "conditionOnRequestName": "สภาพดี"
+      }
+    ],
+    "status": "approved",
+    "requestType": "request",
+    "transferredItems": [],
+    "createdAt": "2025-10-21T02:23:26.376Z",
+    "updatedAt": "2025-10-21T03:21:59.534Z",
+    "__v": 3,
+    "approvedAt": "2025-10-21T02:25:45.029Z"
+  }
+]

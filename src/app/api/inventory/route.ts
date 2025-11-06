@@ -193,7 +193,7 @@ export async function POST(request: NextRequest) {
     // Use new inventory system only - no more checking for existing items
     console.log('📝 Inventory API - Creating new items using new system:', {
       itemName: itemData.itemName,
-      category: itemData.category,
+      categoryId: itemData.categoryId,  // ✅ ใช้ categoryId แทน category
       serialNumber: itemData.serialNumber || undefined,
       quantity: itemData.quantity || 1
     });
@@ -208,16 +208,25 @@ export async function POST(request: NextRequest) {
     const hasPhoneNumber = itemData.numberPhone && itemData.numberPhone.trim() !== '';
     
     // ✅ เตรียม requesterInfo สำหรับผู้ใช้สาขา
-    const requesterInfo = (itemData.firstName || itemData.lastName || itemData.department) ? {
-      firstName: itemData.firstName || undefined,
-      lastName: itemData.lastName || undefined,
-      nickname: itemData.nickname || undefined,
-      department: itemData.department || undefined,
-      phone: itemData.phone || undefined,
-      office: currentUser.office || undefined
-    } : undefined;
+    // 🔧 เก็บ officeId และ officeName แทน office string เพื่อให้เปลี่ยนชื่อสาขาได้
+    // 🆕 บันทึก requesterInfo เสมอเพื่อเก็บ officeId (แม้ไม่กรอกข้อมูลส่วนตัว)
+    const requesterInfo = {
+      // เก็บข้อมูลส่วนตัวเฉพาะเมื่อมีการกรอก
+      ...(itemData.firstName && { firstName: itemData.firstName }),
+      ...(itemData.lastName && { lastName: itemData.lastName }),
+      ...(itemData.nickname && { nickname: itemData.nickname }),
+      ...(itemData.department && { department: itemData.department }),
+      ...(itemData.phone && { phone: itemData.phone }),
+      // ✅ เก็บ officeId และ officeName เสมอ (เพื่อ real-time lookup)
+      ...(currentUser.officeId && { officeId: currentUser.officeId }),
+      ...(currentUser.officeName && { officeName: currentUser.officeName })
+    };
     
-    console.log('📝 Inventory API - requesterInfo prepared:', requesterInfo);
+    // 🔍 Debug: Log requesterInfo
+    console.log('📝 Inventory API - requesterInfo prepared:');
+    console.log('   requesterInfo:', JSON.stringify(requesterInfo, null, 2));
+    console.log('   currentUser.officeId:', currentUser.officeId);
+    console.log('   currentUser.officeName:', currentUser.officeName);
     
     if (hasSerialNumber || hasPhoneNumber) {
       // Create single item with serial number or phone number

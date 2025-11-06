@@ -1,0 +1,874 @@
+[
+  {
+    "_id": "68ee1bc88041f16768b93074",
+    "issueId": "IT1760435144648441",
+    "requesterId": "U003",
+    "firstName": "aa",
+    "lastName": "bb",
+    "nickname": "cc",
+    "phone": "0834294154",
+    "email": "chutimon.vsqclinic@gmail.com",
+    "department": "Web",
+    "office": "สยาม",
+    "issueCategory": "ปัญหา Internet",
+    "urgency": "very_urgent",
+    "description": "ช้ามาก",
+    "images": [
+      "1760435144004_pbhzti9ucue.png"
+    ],
+    "status": "closed",
+    "reportDate": "2025-10-14T09:45:44.017Z",
+    "closeLink": "/close-issue/IT1760435144648441",
+    "userId": "U003",
+    "notesHistory": [
+      {
+        "note": "ส่งงาน",
+        "adminId": "unknown",
+        "adminName": "Admin",
+        "createdAt": "2025-10-14T10:13:55.022Z",
+        "_id": "68ee22638041f16768b94b89"
+      },
+      {
+        "note": "ส่งงาน",
+        "adminId": "unknown",
+        "adminName": "Admin",
+        "createdAt": "2025-10-14T10:25:51.041Z",
+        "_id": "68ee252f8041f16768b9526e"
+      },
+      {
+        "note": "เสร็จแล้ว",
+        "adminId": "unknown",
+        "adminName": "Admin",
+        "createdAt": "2025-10-14T10:27:20.123Z",
+        "_id": "68ee25888041f16768b952a2"
+      }
+    ],
+    "userFeedbackHistory": [
+      {
+        "action": "rejected",
+        "reason": "ไม่",
+        "submittedAt": "2025-10-14T10:25:11.064Z",
+        "_id": "68ee25078041f16768b9525a"
+      },
+      {
+        "action": "rejected",
+        "reason": "ยังไม่ได้",
+        "submittedAt": "2025-10-14T10:26:53.930Z",
+        "_id": "68ee256d8041f16768b95286"
+      },
+      {
+        "action": "approved",
+        "reason": "แก้ไขสำเร็จ",
+        "submittedAt": "2025-10-14T10:27:57.303Z",
+        "_id": "68ee25ad8041f16768b952c2"
+      }
+    ],
+    "createdAt": "2025-10-14T09:45:44.655Z",
+    "updatedAt": "2025-10-14T10:27:57.305Z",
+    "__v": 0,
+    "acceptedDate": "2025-10-14T10:11:16.225Z",
+    "assignedAdmin": {
+      "name": "แอม IT แอมแปร์",
+      "email": "ampanusak@gmail.com"
+    },
+    "assignedAdminId": "USER1757000398264115",
+    "completedDate": "2025-10-14T10:27:20.123Z",
+    "notes": "เสร็จแล้ว",
+    "closedDate": "2025-10-14T10:27:57.303Z",
+    "closedAt": "2025-10-14T10:27:57.303Z"
+  },
+  {
+    "_id": "68ee26408041f16768b952df",
+    "issueId": "IT1760437824980555",
+    "requesterId": "U002",
+    "firstName": "ชุติมณฑน์",
+    "lastName": "อนุศักดิ์",
+    "nickname": "แอมป์",
+    "phone": "0834294154",
+    "email": "chutimon.a@vsqclinic.com",
+    "department": "Web",
+    "office": "สำนักงานใหญ่",
+    "issueCategory": "อื่น ๆ (โปรดระบุ)",
+    "customCategory": "คอมอืด",
+    "urgency": "normal",
+    "description": "อืด",
+    "images": [
+      "1760437823709_r4cakf5x10b.jpg"
+    ],
+    "status": "closed",
+    "reportDate": "2025-10-14T10:30:23.728Z",
+    "closeLink": "/close-issue/IT1760437824980555",
+    "userId": "U002",
+    "notesHistory": [
+      {
+        "note": "ไม่อืดแล้ว",
+        "adminId": "unknown",
+        "adminName": "Admin",
+        "createdAt": "2025-10-14T10:32:16.807Z",
+        "_id": "68ee26b08041f16768b95300"
+      },
+      {
+        "note": "ตรวจสอบแล้วว่าไม่อืด",
+        "adminId": "unknown",
+        "adminName": "Admin",
+        "createdAt": "2025-10-14T10:33:39.626Z",
+        "_id": "68ee27038041f16768b95334"
+      },
+      {
+        "note": "ไม่อืดแล้ว",
+        "adminId": "unknown",
+        "adminName": "Admin",
+        "createdAt": "2025-10-14T10:44:13.901Z",
+        "_id": "68ee297d8041f16768b9611c"
+      }
+    ],
+    "userFeedbackHistory": [
+      {
+        "action": "rejected",
+        "reason": "ยังอืดอยู่",
+        "submittedAt": "2025-10-14T10:32:55.432Z",
+        "_id": "68ee26d78041f16768b95318"
+      },
+      {
+        "action": "rejected",
+        "reason": "ทดสอบแล้วอืด",
+        "submittedAt": "2025-10-14T10:42:55.772Z",
+        "_id": "68ee292f8041f16768b95a25"
+      },
+      {
+        "action": "approved",
+        "reason": "แก้ไขสำเร็จ",
+        "submittedAt": "2025-10-14T10:45:32.233Z",
+        "_id": "68ee29cc8041f16768b96144"
+      }
+    ],
+    "createdAt": "2025-10-14T10:30:25.000Z",
+    "updatedAt": "2025-10-14T10:45:32.234Z",
+    "__v": 0,
+    "acceptedDate": "2025-10-14T10:31:19.215Z",
+    "assignedAdmin": {
+      "name": "แอม IT แอมแปร์",
+      "email": "ampanusak@gmail.com"
+    },
+    "assignedAdminId": "USER1757000398264115",
+    "completedDate": "2025-10-14T10:44:13.901Z",
+    "notes": "ไม่อืดแล้ว",
+    "closedDate": "2025-10-14T10:45:32.233Z",
+    "closedAt": "2025-10-14T10:45:32.233Z"
+  },
+  {
+    "_id": "68f38c7555b15b71b66093ba",
+    "issueId": "IT1760791669562554",
+    "requesterType": "individual",
+    "requesterId": "U004",
+    "officeId": "Rasa One",
+    "firstName": "rokaieusompa",
+    "lastName": "ieusompa",
+    "nickname": "sompa",
+    "phone": "0845641646",
+    "email": "rokaieusompa@gmail.com",
+    "department": "Marketing",
+    "office": "Rasa One",
+    "issueCategory": "ปัญหา Internet",
+    "urgency": "very_urgent",
+    "description": "อินเทอร์เน็ตช้ามาก",
+    "images": [
+      "1760791669024_2maqyv9hcpo.png"
+    ],
+    "status": "closed",
+    "reportDate": "2025-10-18T12:47:49.033Z",
+    "closeLink": "/close-issue/IT1760791669562554",
+    "notesHistory": [
+      {
+        "note": "ไม่มีปัญหาแล้ว",
+        "adminId": "unknown",
+        "adminName": "Admin",
+        "createdAt": "2025-10-18T12:49:56.206Z",
+        "_id": "68f38cf455b15b71b660945e"
+      },
+      {
+        "note": "ไม่ช้าแล้วนะ",
+        "adminId": "unknown",
+        "adminName": "Admin",
+        "createdAt": "2025-10-18T12:52:19.448Z",
+        "_id": "68f38d8355b15b71b66094a8"
+      }
+    ],
+    "userFeedbackHistory": [
+      {
+        "action": "rejected",
+        "reason": "ยังช้าอยู่",
+        "submittedAt": "2025-10-18T12:50:41.297Z",
+        "_id": "68f38d2155b15b71b660947f"
+      },
+      {
+        "action": "approved",
+        "reason": "แก้ไขสำเร็จ",
+        "submittedAt": "2025-10-18T12:53:08.738Z",
+        "_id": "68f38db455b15b71b66094d1"
+      }
+    ],
+    "createdAt": "2025-10-18T12:47:49.567Z",
+    "updatedAt": "2025-10-18T12:53:08.739Z",
+    "__v": 0,
+    "acceptedDate": "2025-10-18T12:49:07.783Z",
+    "assignedAdmin": {
+      "name": "แอม IT แอมแปร์",
+      "email": "ampanusak@gmail.com"
+    },
+    "assignedAdminId": "USER1757000398264115",
+    "completedDate": "2025-10-18T12:52:19.448Z",
+    "notes": "ไม่ช้าแล้วนะ",
+    "closedDate": "2025-10-18T12:53:08.738Z",
+    "closedAt": "2025-10-18T12:53:08.738Z"
+  },
+  {
+    "_id": "68f4a0339b2d52e046e7e1ff",
+    "issueId": "IT1760862259137595",
+    "requesterType": "branch",
+    "requesterId": "U004",
+    "officeId": "CTW9",
+    "firstName": "a1",
+    "lastName": "b1",
+    "nickname": "c1",
+    "phone": "0845641646",
+    "email": "rokaieusompa@gmail.com",
+    "department": "Marketing",
+    "office": "CTW9",
+    "issueCategory": "ปัญหา Internet",
+    "urgency": "very_urgent",
+    "description": "เน็ตช้า",
+    "images": [
+      "1760862253574_qd0pyp11arg.png"
+    ],
+    "status": "closed",
+    "reportDate": "2025-10-19T08:24:13.586Z",
+    "closeLink": "/close-issue/IT1760862259137595",
+    "notesHistory": [
+      {
+        "note": "แก้ไขเรียบร้อย",
+        "adminId": "unknown",
+        "adminName": "Admin",
+        "createdAt": "2025-10-19T08:42:08.771Z",
+        "_id": "68f4a4609b2d52e046e7e4bc"
+      },
+      {
+        "note": "ไม่พบข้อผิดพลาด",
+        "adminId": "unknown",
+        "adminName": "Admin",
+        "createdAt": "2025-10-19T08:48:38.429Z",
+        "_id": "68f4a5e69b2d52e046e7e519"
+      }
+    ],
+    "userFeedbackHistory": [
+      {
+        "action": "rejected",
+        "reason": "ยังช้าอยู่",
+        "submittedAt": "2025-10-19T08:43:43.182Z",
+        "_id": "68f4a4bf9b2d52e046e7e4e9"
+      },
+      {
+        "action": "approved",
+        "reason": "แก้ไขสำเร็จ",
+        "submittedAt": "2025-10-19T08:49:39.290Z",
+        "_id": "68f4a6239b2d52e046e7e54e"
+      }
+    ],
+    "createdAt": "2025-10-19T08:24:19.140Z",
+    "updatedAt": "2025-10-19T08:49:39.292Z",
+    "__v": 0,
+    "acceptedDate": "2025-10-19T08:25:38.431Z",
+    "assignedAdmin": {
+      "name": "ชุติมณฑน์ อนุศักดิ์",
+      "email": "chutimon.a@vsqclinic.com"
+    },
+    "assignedAdminId": "U002",
+    "completedDate": "2025-10-19T08:48:38.429Z",
+    "notes": "ไม่พบข้อผิดพลาด",
+    "closedDate": "2025-10-19T08:49:39.291Z",
+    "closedAt": "2025-10-19T08:49:39.291Z"
+  },
+  {
+    "_id": "68f4b8c9391300d9f2e8aad7",
+    "issueId": "IT1760868553693653",
+    "requesterType": "branch",
+    "requesterId": "U004",
+    "officeId": "RDP",
+    "firstName": "aaaa",
+    "lastName": "bbbb",
+    "nickname": "cccc",
+    "phone": "0845641646",
+    "email": "rokaieusompa@gmail.com",
+    "department": "Marketing",
+    "office": "RDP",
+    "issueCategory": "ปัญหา Notebook/Computer",
+    "urgency": "very_urgent",
+    "description": "อืด",
+    "images": [
+      "1760868552019_sh5y6eohvkm.png"
+    ],
+    "status": "closed",
+    "reportDate": "2025-10-19T10:09:12.033Z",
+    "closeLink": "/close-issue/IT1760868553693653",
+    "notesHistory": [
+      {
+        "note": "ไม่อืดแล้ว",
+        "adminId": "unknown",
+        "adminName": "Admin",
+        "createdAt": "2025-10-19T10:09:53.538Z",
+        "_id": "68f4b8f1391300d9f2e8ab1e"
+      }
+    ],
+    "userFeedbackHistory": [
+      {
+        "action": "approved",
+        "reason": "แก้ไขสำเร็จ",
+        "submittedAt": "2025-10-19T10:10:31.687Z",
+        "_id": "68f4b917391300d9f2e8ac02"
+      }
+    ],
+    "createdAt": "2025-10-19T10:09:13.700Z",
+    "updatedAt": "2025-10-19T10:10:31.691Z",
+    "__v": 0,
+    "acceptedDate": "2025-10-19T10:09:35.915Z",
+    "assignedAdmin": {
+      "name": "ชุติมณฑน์ อนุศักดิ์",
+      "email": "chutimon.a@vsqclinic.com"
+    },
+    "assignedAdminId": "U002",
+    "completedDate": "2025-10-19T10:09:53.538Z",
+    "notes": "ไม่อืดแล้ว",
+    "closedAt": "2025-10-19T10:10:31.687Z",
+    "closedDate": "2025-10-19T10:10:31.687Z"
+  },
+  {
+    "_id": "68f4c3b3391300d9f2e8b1b2",
+    "issueId": "IT1760871347403355",
+    "requesterType": "branch",
+    "requesterId": "U004",
+    "officeId": "BKK",
+    "firstName": "amina",
+    "lastName": "rasra",
+    "nickname": "ruri",
+    "phone": "0845642556",
+    "email": "rokaieusompa@gmail.com",
+    "department": "Marketing",
+    "office": "BKK",
+    "issueCategory": "ปัญหา ปริ้นเตอร์ และ อุปกรณ์",
+    "urgency": "very_urgent",
+    "description": "กระดาษติด",
+    "images": [
+      "1760871345368_h8ufbj8d4ai.jpg"
+    ],
+    "status": "closed",
+    "reportDate": "2025-10-19T10:55:45.372Z",
+    "closeLink": "/close-issue/IT1760871347403355",
+    "notesHistory": [
+      {
+        "note": "เสร็จ",
+        "adminId": "unknown",
+        "adminName": "Admin",
+        "createdAt": "2025-10-19T10:58:19.123Z",
+        "_id": "68f4c44b391300d9f2e8b319"
+      }
+    ],
+    "userFeedbackHistory": [
+      {
+        "action": "approved",
+        "reason": "แก้ไขสำเร็จ",
+        "submittedAt": "2025-10-19T10:58:37.926Z",
+        "_id": "68f4c45d391300d9f2e8b35a"
+      }
+    ],
+    "createdAt": "2025-10-19T10:55:47.413Z",
+    "updatedAt": "2025-10-19T10:58:37.927Z",
+    "__v": 0,
+    "acceptedDate": "2025-10-19T10:57:53.611Z",
+    "assignedAdmin": {
+      "name": "ชุติมณฑน์ อนุศักดิ์",
+      "email": "chutimon.a@vsqclinic.com"
+    },
+    "assignedAdminId": "U002",
+    "completedDate": "2025-10-19T10:58:19.123Z",
+    "notes": "เสร็จ",
+    "closedAt": "2025-10-19T10:58:37.926Z",
+    "closedDate": "2025-10-19T10:58:37.926Z"
+  },
+  {
+    "_id": "68f4ca3c214583cacbc4fd9b",
+    "issueId": "IT1760873020076645",
+    "requesterType": "branch",
+    "requesterId": "U004",
+    "officeId": "ADD",
+    "firstName": "สวัสดี",
+    "lastName": "มีชัย",
+    "nickname": "ชนะชัย",
+    "phone": "0812458956",
+    "email": "rokaieusompa@gmail.com",
+    "department": "Contents",
+    "office": "ADD",
+    "issueCategory": "ขอ User Account Email ระบบงาน",
+    "urgency": "very_urgent",
+    "description": "งง",
+    "images": [
+      "1760873018220_fj7twzu6pem.jpg"
+    ],
+    "status": "closed",
+    "reportDate": "2025-10-19T11:23:38.238Z",
+    "closeLink": "/close-issue/IT1760873020076645",
+    "notesHistory": [
+      {
+        "note": "เสร็จ",
+        "adminId": "unknown",
+        "adminName": "Admin",
+        "createdAt": "2025-10-19T11:24:52.120Z",
+        "_id": "68f4ca84214583cacbc4fe7d"
+      }
+    ],
+    "userFeedbackHistory": [
+      {
+        "action": "approved",
+        "reason": "แก้ไขสำเร็จ",
+        "submittedAt": "2025-10-19T11:25:15.130Z",
+        "_id": "68f4ca9b214583cacbc4fede"
+      }
+    ],
+    "createdAt": "2025-10-19T11:23:40.107Z",
+    "updatedAt": "2025-10-19T11:25:15.133Z",
+    "__v": 0,
+    "acceptedDate": "2025-10-19T11:24:29.878Z",
+    "assignedAdmin": {
+      "name": "ชุติมณฑน์ อนุศักดิ์",
+      "email": "chutimon.a@vsqclinic.com"
+    },
+    "assignedAdminId": "U002",
+    "completedDate": "2025-10-19T11:24:52.120Z",
+    "notes": "เสร็จ",
+    "closedAt": "2025-10-19T11:25:15.131Z",
+    "closedDate": "2025-10-19T11:25:15.131Z"
+  },
+  {
+    "_id": "68f4f042acbf4c9c4d1ac9e4",
+    "issueId": "IT1760882754605221",
+    "requesterType": "branch",
+    "requesterId": "U003",
+    "officeId": "ODM",
+    "firstName": "รักเรียน",
+    "lastName": "เรียนสนุก",
+    "nickname": "เรียนดี",
+    "phone": "0845789612",
+    "email": "rokaieusompa@gmail.com",
+    "department": "เรียน",
+    "office": "ODM",
+    "issueCategory": "ปัญหา Notebook/Computer",
+    "urgency": "very_urgent",
+    "description": "เรียนง่วงมาก",
+    "images": [],
+    "status": "closed",
+    "reportDate": "2025-10-19T14:05:51.472Z",
+    "closeLink": "/close-issue/IT1760882754605221",
+    "notesHistory": [
+      {
+        "note": "-",
+        "adminId": "unknown",
+        "adminName": "Admin",
+        "createdAt": "2025-10-19T14:07:01.697Z",
+        "_id": "68f4f085acbf4c9c4d1aca7b"
+      }
+    ],
+    "userFeedbackHistory": [
+      {
+        "action": "approved",
+        "reason": "แก้ไขสำเร็จ",
+        "submittedAt": "2025-10-19T14:08:25.113Z",
+        "_id": "68f4f0d9acbf4c9c4d1acade"
+      }
+    ],
+    "createdAt": "2025-10-19T14:05:54.611Z",
+    "updatedAt": "2025-10-19T14:08:25.115Z",
+    "__v": 0,
+    "acceptedDate": "2025-10-19T14:06:46.080Z",
+    "assignedAdmin": {
+      "name": "ชุติมณฑน์ อนุศักดิ์",
+      "email": "chutimon.a@vsqclinic.com"
+    },
+    "assignedAdminId": "U002",
+    "completedDate": "2025-10-19T14:07:01.697Z",
+    "notes": "-",
+    "closedAt": "2025-10-19T14:08:25.113Z",
+    "closedDate": "2025-10-19T14:08:25.113Z"
+  },
+  {
+    "_id": "68f4fdc8acbf4c9c4d1ae513",
+    "issueId": "IT1760886216693993",
+    "requesterType": "branch",
+    "requesterId": "G1760885824637569",
+    "officeId": "CTWS",
+    "firstName": "iyaya",
+    "lastName": "ruki",
+    "nickname": "dara",
+    "phone": "0852479458",
+    "email": "rokaieusompa@gmail.com",
+    "department": "Marketing",
+    "office": "CTWS",
+    "issueCategory": "ปัญหา ตู้ฝากเงิน",
+    "urgency": "very_urgent",
+    "description": "ฝากเงินไม่เข้า",
+    "images": [],
+    "status": "closed",
+    "reportDate": "2025-10-19T15:03:32.940Z",
+    "closeLink": "/close-issue/IT1760886216693993",
+    "notesHistory": [
+      {
+        "note": "ไม่มีปัญหา",
+        "adminId": "unknown",
+        "adminName": "Admin",
+        "createdAt": "2025-10-19T15:05:13.696Z",
+        "_id": "68f4fe29acbf4c9c4d1ae703"
+      }
+    ],
+    "userFeedbackHistory": [
+      {
+        "action": "approved",
+        "reason": "แก้ไขสำเร็จ",
+        "submittedAt": "2025-10-19T15:05:26.756Z",
+        "_id": "68f4fe36acbf4c9c4d1ae76b"
+      }
+    ],
+    "createdAt": "2025-10-19T15:03:36.696Z",
+    "updatedAt": "2025-10-19T15:05:26.761Z",
+    "__v": 0,
+    "acceptedDate": "2025-10-19T15:03:51.918Z",
+    "assignedAdmin": {
+      "name": "ชุติมณฑน์ อนุศักดิ์",
+      "email": "chutimon.a@vsqclinic.com"
+    },
+    "assignedAdminId": "U002",
+    "completedDate": "2025-10-19T15:05:13.696Z",
+    "notes": "ไม่มีปัญหา",
+    "closedAt": "2025-10-19T15:05:26.756Z",
+    "closedDate": "2025-10-19T15:05:26.756Z"
+  },
+  {
+    "_id": "68f5ede694d719acbaa96926",
+    "issueId": "IT1760947686919998",
+    "requesterType": "individual",
+    "requesterId": "USER1760941679483263",
+    "officeId": "Rasa One",
+    "firstName": "ชุติมณฑน์",
+    "lastName": "อนุศักดิ์",
+    "nickname": "แอมป์",
+    "phone": "0834294154",
+    "email": "chutimon.a@vsqclinic.com",
+    "department": "Web",
+    "office": "Rasa One",
+    "issueCategory": "ปัญหา อุปกรณ์ มือถือและแท็บเลต",
+    "urgency": "normal",
+    "description": "ช้ามาก",
+    "images": [
+      "1760947684768_xjluauhulp.png"
+    ],
+    "status": "closed",
+    "reportDate": "2025-10-20T08:08:04.782Z",
+    "closeLink": "/close-issue/IT1760947686919998",
+    "notesHistory": [
+      {
+        "note": "ไม่อืด",
+        "adminId": "unknown",
+        "adminName": "Admin",
+        "createdAt": "2025-10-20T08:10:28.140Z",
+        "_id": "68f5ee7494d719acbaa96ab5"
+      }
+    ],
+    "userFeedbackHistory": [
+      {
+        "action": "approved",
+        "reason": "แก้ไขสำเร็จ",
+        "submittedAt": "2025-10-20T08:10:42.835Z",
+        "_id": "68f5ee8294d719acbaa96b10"
+      }
+    ],
+    "createdAt": "2025-10-20T08:08:06.926Z",
+    "updatedAt": "2025-10-20T08:10:42.836Z",
+    "__v": 0,
+    "acceptedDate": "2025-10-20T08:10:14.171Z",
+    "assignedAdmin": {
+      "name": "แอม IT แอมแปร์",
+      "email": "ampanusak@gmail.com"
+    },
+    "assignedAdminId": "USER1757000398264115",
+    "completedDate": "2025-10-20T08:10:28.140Z",
+    "notes": "ไม่อืด",
+    "closedAt": "2025-10-20T08:10:42.835Z",
+    "closedDate": "2025-10-20T08:10:42.835Z"
+  },
+  {
+    "_id": "68f628dc439ccccb5890b7c0",
+    "issueId": "IT1760962780909712",
+    "requesterType": "branch",
+    "requesterId": "USER1760950407660617",
+    "officeId": "One BKK",
+    "firstName": "สวัสดี",
+    "lastName": "ใจดี",
+    "nickname": "คนไทย",
+    "phone": "0845165656",
+    "email": "rokaieusompa@gmail.com",
+    "department": "คำคม",
+    "office": "One BKK",
+    "issueCategory": "ขอ User Account Email ระบบงาน",
+    "urgency": "very_urgent",
+    "description": "แก้ไขหน่อย",
+    "images": [
+      "1760962779516_6io91dqqftf.png"
+    ],
+    "status": "closed",
+    "reportDate": "2025-10-20T12:19:39.528Z",
+    "closeLink": "/close-issue/IT1760962780909712",
+    "notesHistory": [
+      {
+        "note": "เรียบร้อย",
+        "adminId": "unknown",
+        "adminName": "Admin",
+        "createdAt": "2025-10-20T12:20:25.415Z",
+        "_id": "68f62909439ccccb5890b8bb"
+      }
+    ],
+    "userFeedbackHistory": [
+      {
+        "action": "approved",
+        "reason": "แก้ไขสำเร็จ",
+        "submittedAt": "2025-10-20T12:20:48.176Z",
+        "_id": "68f62920439ccccb5890b9a2"
+      }
+    ],
+    "createdAt": "2025-10-20T12:19:40.925Z",
+    "updatedAt": "2025-10-20T12:20:48.177Z",
+    "__v": 0,
+    "acceptedDate": "2025-10-20T12:19:56.333Z",
+    "assignedAdmin": {
+      "name": "แอมป์ IT แอมแปร์",
+      "email": "ampanusak@gmail.com"
+    },
+    "assignedAdminId": "USER1757000398264115",
+    "completedDate": "2025-10-20T12:20:25.415Z",
+    "notes": "เรียบร้อย",
+    "closedAt": "2025-10-20T12:20:48.176Z",
+    "closedDate": "2025-10-20T12:20:48.176Z"
+  },
+  {
+    "_id": "68f6298f439ccccb5890ba70",
+    "issueId": "IT1760962959406852",
+    "requesterType": "branch",
+    "requesterId": "USER1760950407660617",
+    "officeId": "One BKK",
+    "firstName": "yaya",
+    "lastName": "uara",
+    "nickname": "dada",
+    "phone": "0845641647",
+    "email": "rokaieusompa@gmail.com",
+    "department": "การพิมพ์",
+    "office": "One BKK",
+    "issueCategory": "ปัญหา TV/VDO Conference",
+    "urgency": "normal",
+    "description": "ทีวีมีเส้นสั่น",
+    "images": [
+      "1760962958826_5dyheibcylt.png"
+    ],
+    "status": "closed",
+    "reportDate": "2025-10-20T12:22:38.831Z",
+    "closeLink": "/close-issue/IT1760962959406852",
+    "notesHistory": [
+      {
+        "note": "แก้ไขแล้ว",
+        "adminId": "unknown",
+        "adminName": "Admin",
+        "createdAt": "2025-10-20T12:23:15.138Z",
+        "_id": "68f629b3439ccccb5890bb49"
+      },
+      {
+        "note": "แก้ไขเรียบร้อย",
+        "adminId": "unknown",
+        "adminName": "Admin",
+        "createdAt": "2025-10-20T12:24:13.818Z",
+        "_id": "68f629ed439ccccb5890bc62"
+      }
+    ],
+    "userFeedbackHistory": [
+      {
+        "action": "rejected",
+        "reason": "ยังไม่หายเลย",
+        "submittedAt": "2025-10-20T12:23:35.783Z",
+        "_id": "68f629c7439ccccb5890bbd3"
+      },
+      {
+        "action": "approved",
+        "reason": "แก้ไขสำเร็จ",
+        "submittedAt": "2025-10-20T12:24:35.991Z",
+        "_id": "68f62a03439ccccb5890bcf4"
+      }
+    ],
+    "createdAt": "2025-10-20T12:22:39.413Z",
+    "updatedAt": "2025-10-20T12:24:35.992Z",
+    "__v": 0,
+    "acceptedDate": "2025-10-20T12:22:44.272Z",
+    "assignedAdmin": {
+      "name": "แอมป์ IT แอมแปร์",
+      "email": "ampanusak@gmail.com"
+    },
+    "assignedAdminId": "USER1757000398264115",
+    "completedDate": "2025-10-20T12:24:13.818Z",
+    "notes": "แก้ไขเรียบร้อย",
+    "closedDate": "2025-10-20T12:24:35.991Z",
+    "closedAt": "2025-10-20T12:24:35.991Z"
+  },
+  {
+    "_id": "68f631ed439ccccb5890ef12",
+    "issueId": "IT1760965101827922",
+    "requesterType": "branch",
+    "requesterId": "USER1760964858331901",
+    "officeId": "BMK",
+    "firstName": "a3",
+    "lastName": "b3",
+    "nickname": "c3",
+    "phone": "0845465456",
+    "email": "rokaieusompa@gmail.com",
+    "department": "d3",
+    "office": "BMK",
+    "issueCategory": "ปัญหา Nas เข้าไม่ได้ ใช้งานไม่ได้",
+    "urgency": "very_urgent",
+    "description": "ต้องการใช้",
+    "images": [
+      "1760965100395_4zh624553ho.jpg"
+    ],
+    "status": "closed",
+    "reportDate": "2025-10-20T12:58:20.400Z",
+    "closeLink": "/close-issue/IT1760965101827922",
+    "notesHistory": [
+      {
+        "note": "เสร็จเรียบร้อย",
+        "adminId": "unknown",
+        "adminName": "Admin",
+        "createdAt": "2025-10-20T12:59:26.245Z",
+        "_id": "68f6322e439ccccb5890f04d"
+      }
+    ],
+    "userFeedbackHistory": [
+      {
+        "action": "approved",
+        "reason": "แก้ไขสำเร็จ",
+        "submittedAt": "2025-10-20T13:00:26.480Z",
+        "_id": "68f6326a439ccccb5890f18e"
+      }
+    ],
+    "createdAt": "2025-10-20T12:58:21.832Z",
+    "updatedAt": "2025-10-20T13:00:26.482Z",
+    "__v": 0,
+    "acceptedDate": "2025-10-20T12:58:44.905Z",
+    "assignedAdmin": {
+      "name": "แอมป์ IT แอมแปร์",
+      "email": "ampanusak@gmail.com"
+    },
+    "assignedAdminId": "USER1757000398264115",
+    "completedDate": "2025-10-20T12:59:26.245Z",
+    "notes": "เสร็จเรียบร้อย",
+    "closedAt": "2025-10-20T13:00:26.480Z",
+    "closedDate": "2025-10-20T13:00:26.480Z"
+  },
+  {
+    "_id": "68f6f4d3e53d1e6b74cff0a8",
+    "issueId": "IT1761014995023987",
+    "requesterType": "individual",
+    "requesterId": "USER1761013293331937",
+    "officeId": "Rasa One",
+    "firstName": "ญาญ่า",
+    "lastName": "อุรัศยา",
+    "nickname": "เบอร์รี่",
+    "phone": "0888832596",
+    "email": "chutimon.a@vsqclinic.com",
+    "department": "ดารา",
+    "office": "Rasa One",
+    "issueCategory": "ปัญหา TV/VDO Conference",
+    "urgency": "normal",
+    "description": "TV เปิดไม่ติด",
+    "images": [
+      "1761014990750_adt242olwsa.jpg"
+    ],
+    "status": "closed",
+    "reportDate": "2025-10-21T02:49:50.765Z",
+    "closeLink": "/close-issue/IT1761014995023987",
+    "notesHistory": [
+      {
+        "note": "เปิดติดแล้ว",
+        "adminId": "unknown",
+        "adminName": "Admin",
+        "createdAt": "2025-10-21T02:51:35.203Z",
+        "_id": "68f6f537e53d1e6b74cff1ba"
+      }
+    ],
+    "userFeedbackHistory": [
+      {
+        "action": "approved",
+        "reason": "แก้ไขสำเร็จ",
+        "submittedAt": "2025-10-21T03:14:58.932Z",
+        "_id": "68f6fab290b143f34fab30b6"
+      }
+    ],
+    "createdAt": "2025-10-21T02:49:55.033Z",
+    "updatedAt": "2025-10-21T03:14:58.939Z",
+    "__v": 0,
+    "acceptedDate": "2025-10-21T02:50:48.216Z",
+    "assignedAdmin": {
+      "name": "แอมป์ IT แอมแปร์",
+      "email": "ampanusak@gmail.com"
+    },
+    "assignedAdminId": "USER1757000398264115",
+    "completedDate": "2025-10-21T02:51:35.203Z",
+    "notes": "เปิดติดแล้ว",
+    "closedAt": "2025-10-21T03:14:58.932Z",
+    "closedDate": "2025-10-21T03:14:58.932Z"
+  },
+  {
+    "_id": "68f6ff6c249e915e67a47ce1",
+    "issueId": "IT1761017708068764",
+    "requesterType": "individual",
+    "requesterId": "ADMIN1756103604440",
+    "officeId": "สำนักงานใหญ่",
+    "firstName": "Admin",
+    "lastName": "AD",
+    "nickname": "Admin",
+    "phone": "0834294155",
+    "email": "admin@gmail.com",
+    "department": "Web",
+    "office": "สำนักงานใหญ่",
+    "issueCategory": "ปัญหา TV/VDO Conference",
+    "urgency": "normal",
+    "description": "fgdg",
+    "images": [
+      "1761017707640_wnwxsygc4aa.png"
+    ],
+    "status": "closed",
+    "reportDate": "2025-10-21T03:35:07.646Z",
+    "closeLink": "/close-issue/IT1761017708068764",
+    "notesHistory": [],
+    "userFeedbackHistory": [
+      {
+        "action": "approved",
+        "reason": "แก้ไขสำเร็จ",
+        "submittedAt": "2025-10-21T03:39:47.099Z",
+        "_id": "68f70083249e915e67a47e76"
+      }
+    ],
+    "createdAt": "2025-10-21T03:35:08.078Z",
+    "updatedAt": "2025-10-21T03:39:47.101Z",
+    "__v": 0,
+    "acceptedDate": "2025-10-21T03:36:05.300Z",
+    "assignedAdmin": {
+      "name": "แอมแปร์ IT admin",
+      "email": "ampanusak@gmail.com"
+    },
+    "assignedAdminId": "USER1757000398264115",
+    "completedDate": "2025-10-21T03:36:29.880Z",
+    "closedAt": "2025-10-21T03:39:47.099Z",
+    "closedDate": "2025-10-21T03:39:47.099Z"
+  }
+]
