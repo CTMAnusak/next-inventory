@@ -334,11 +334,12 @@ export default function AdminUsersPage() {
 
       if (response.ok) {
         toast.success(editingUser ? 'อัพเดตข้อมูลเรียบร้อยแล้ว' : 'เพิ่มผู้ใช้เรียบร้อยแล้ว');
-        await fetchUsers();
         resetForm();
         setFieldErrors({}); // Clear field errors on success
         setShowAddModal(false);
         setShowEditModal(false);
+        // รีเฟรชข้อมูลหลังจากปิด modal
+        await fetchUsers();
       } else {
         const data = await response.json();
         

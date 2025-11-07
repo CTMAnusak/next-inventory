@@ -110,16 +110,8 @@ export async function populateRequesterInfo(issue: any) {
 
   const issueObj = issue.toObject ? issue.toObject() : issue;
   
-  console.log(`🔍 Populating requester info for issue ${issueObj.issueId}:`);
-  console.log(`  - Requester ID: ${issueObj.requesterId}`);
-  console.log(`  - Requester Type: ${issueObj.requesterType}`);
-  console.log(`  - Original firstName: ${issueObj.firstName}`);
-  console.log(`  - Original lastName: ${issueObj.lastName}`);
-  console.log(`  - Original phone: ${issueObj.phone}`);
-
   // ถ้าไม่มี requesterId = User ถูกลบแล้ว → ใช้ Snapshot
   if (!issue.requesterId) {
-    console.log(`  - No requesterId, using original data`);
     return issueObj;
   }
 
@@ -130,7 +122,6 @@ export async function populateRequesterInfo(issue: any) {
     );
 
     if (!user) {
-      console.log(`  - User not found in User collection, checking DeletedUsers...`);
       // ✅ User ไม่พบ → ค้นหาจาก DeletedUsers collection
       const DeletedUsers = (await import('@/models/DeletedUser')).default;
       const deletedUser = await DeletedUsers.findOne({ user_id: issue.requesterId }).select(
@@ -138,7 +129,6 @@ export async function populateRequesterInfo(issue: any) {
       );
       
       if (deletedUser) {
-        console.log(`  - Found in DeletedUsers, userType: ${deletedUser.userType}`);
         // ✅ แยกการจัดการตามประเภทผู้ใช้
         // 🆕 Populate office name จาก officeId หรือ officeName
         let deletedUserOffice = deletedUser.officeName || deletedUser.office || '';
@@ -154,7 +144,6 @@ export async function populateRequesterInfo(issue: any) {
         }
         
         if (deletedUser.userType === 'branch') {
-          console.log(`  - Branch user: Using form data (firstName: ${issueObj.firstName})`);
           // ผู้ใช้สาขา: ข้อมูลส่วนตัวจากฟอร์ม, เฉพาะสาขาจาก snapshot
           // 🆕 Populate office: ใช้ snapshot จากฟอร์มก่อน (office/officeName)
           // แล้วค่อย fallback ไป DeletedUsers แล้วค่อย lookup จาก Office collection
@@ -178,7 +167,6 @@ export async function populateRequesterInfo(issue: any) {
             officeName: finalOffice,
           };
         } else {
-          console.log(`  - Individual user: Using DeletedUsers data (firstName: ${deletedUser.firstName})`);
           // ผู้ใช้บุคคล: ใช้ข้อมูลจาก DeletedUsers เป็นหลัก (ข้อมูลล่าสุดก่อนลบ)
           // 🆕 Populate office: ใช้ snapshot จากฟอร์มก่อน (office/officeName)
           // แล้วค่อย fallback ไป DeletedUsers แล้วค่อย lookup จาก Office collection
@@ -203,12 +191,9 @@ export async function populateRequesterInfo(issue: any) {
         }
       }
       
-      console.log(`  - Not found in DeletedUsers, using original data`);
       // ✅ ถ้าไม่มีใน DeletedUsers → ใช้ข้อมูลที่เก็บไว้ใน IssueLog
       return issueObj;
     }
-
-    console.log(`  - User found in User collection, userType: ${user.userType}`);
     
     // 🆕 Populate office name จาก officeId หรือ officeName
     let userOffice = user.officeName || user.office || '';
@@ -224,15 +209,14 @@ export async function populateRequesterInfo(issue: any) {
     }
     
     // ✅ ตรวจสอบประเภทผู้ใช้จาก User collection ก่อน (ข้อมูลล่าสุด)
-    // Branch User: Populate เฉพาะข้อมูลสาขา (ข้อมูลส่วนตัวใช้จากฟอร์ม)
+    // Branch User: แสดงสาขาปัจจุบันของผู้ใช้ (ไม่ใช่สาขาตอนแจ้งงาน)
     if (user.userType === 'branch') {
-      console.log(`  - Branch user: Using form data (firstName: ${issueObj.firstName})`);
-      // 🆕 Populate office: สำหรับผู้ใช้สาขา
-      // - ถ้าสาขายังมีอยู่ (officeId ไม่ใช่ UNSPECIFIED_OFFICE) → ใช้ officeId เพื่อดึงชื่อสาขาล่าสุด
-      // - ถ้าสาขาถูกลบ (officeId เป็น UNSPECIFIED_OFFICE) → ใช้ snapshot จากฟอร์ม
+      // 🆕 Populate office: สำหรับผู้ใช้สาขา แสดงสาขาปัจจุบัน (real-time)
+      // ⚠️ สำคัญ: ผู้ใช้สาขา = แสดงสาขาปัจจุบันที่ผู้ใช้อยู่ (ไม่ใช่สาขาตอนแจ้งงาน)
+      // เพราะ User สาขาเดียวกันมีหลายคนใช้ ต้องแสดงสาขาปัจจุบันเสมอ
       let finalOffice = '';
       
-      // ✅ Priority 1: ใช้ officeId จาก User collection ก่อน (ถ้าสาขายังมีอยู่)
+      // ✅ Priority 1: ใช้สาขาปัจจุบันจาก User collection (real-time)
       if (user.officeId && user.officeId !== 'UNSPECIFIED_OFFICE') {
         try {
           finalOffice = await getOfficeNameById(user.officeId);
@@ -241,24 +225,14 @@ export async function populateRequesterInfo(issue: any) {
         }
       }
       
-      // ✅ Priority 2: ถ้าไม่มี officeId ให้ใช้ officeName/office จาก User collection
+      // ✅ Priority 2: ถ้าไม่เจอจาก officeId ให้ใช้ officeName/office จาก User
       if (!finalOffice) {
-        finalOffice = userOffice;
+        finalOffice = user.officeName || user.office || '';
       }
       
-      // ✅ Priority 3: ถ้า officeId เป็น UNSPECIFIED_OFFICE (สาขาถูกลบ) → ใช้ snapshot จากฟอร์ม
+      // ✅ Priority 3: Fallback ไป snapshot (กรณีสาขาถูกลบแล้ว)
       if (!finalOffice) {
-        // ถ้า officeId เป็น UNSPECIFIED_OFFICE ให้ใช้ snapshot จากฟอร์ม
-        if (user.officeId === 'UNSPECIFIED_OFFICE' || !user.officeId) {
-          finalOffice = issueObj.officeName || issueObj.office || '';
-        } else {
-          // Fallback ปกติ
-          finalOffice = issueObj.officeName || issueObj.office || userOffice || '';
-        }
-      }
-      
-      if (!finalOffice) {
-        finalOffice = 'ไม่ระบุสาขา';
+        finalOffice = issueObj.officeName || issueObj.office || 'ไม่ระบุสาขา';
       }
       
       return {
@@ -272,12 +246,42 @@ export async function populateRequesterInfo(issue: any) {
     
     // Individual User: Populate ทุกฟิลด์จาก User collection (ข้อมูลล่าสุด)
     if (user.userType === 'individual') {
-      console.log(`  - Individual user: Using User collection data (firstName: ${user.firstName})`);
-      // 🆕 Populate office: ใช้ข้อมูลจาก User collection ก่อนเสมอ (เพื่อให้อัปเดตตามที่แอดมินแก้ไข)
-      // Priority 1: ใช้ officeId จาก User collection ก่อน (ข้อมูลล่าสุด)
-      let finalOffice = userOffice;
+      // 🆕 Populate office: สำหรับประวัติ (IssueLog) ต้องตรวจสอบ officeId ใน IssueLog ก่อน
+      // ⚠️ สำคัญ: ถ้า officeId ใน IssueLog เป็น UNSPECIFIED_OFFICE → สาขาถูกลบแล้ว ต้องใช้ snapshot
+      // ถ้า officeId ไม่ใช่ UNSPECIFIED_OFFICE → ใช้ officeId เพื่อดึงชื่อสาขาล่าสุด
+      let finalOffice = '';
       
-      // Priority 2: Fallback ไป snapshot (กรณีที่ User collection ไม่มีข้อมูล)
+      // ✅ Priority 1: ตรวจสอบ officeId ใน IssueLog ก่อน
+      // ถ้าเป็น UNSPECIFIED_OFFICE แสดงว่าสาขาถูกลบแล้ว → ใช้ snapshot
+      if (issueObj.officeId === 'UNSPECIFIED_OFFICE') {
+        // สาขาถูกลบแล้ว → ใช้ snapshot จากฟอร์ม
+        finalOffice = issueObj.officeName || issueObj.office || '';
+      }
+      
+      // ✅ Priority 2: ถ้า officeId ไม่ใช่ UNSPECIFIED_OFFICE → ใช้ officeId เพื่อดึงชื่อสาขาล่าสุด
+      if (!finalOffice && issueObj.officeId && issueObj.officeId !== 'UNSPECIFIED_OFFICE') {
+        try {
+          finalOffice = await getOfficeNameById(issueObj.officeId);
+        } catch (error) {
+          console.error('Error fetching office name from issueObj.officeId:', error);
+        }
+      }
+      
+      // ✅ Priority 3: ถ้าไม่มี officeId ใน IssueLog ให้ใช้ officeId จาก User collection (ข้อมูลล่าสุด)
+      if (!finalOffice && user.officeId && user.officeId !== 'UNSPECIFIED_OFFICE') {
+        try {
+          finalOffice = await getOfficeNameById(user.officeId);
+        } catch (error) {
+          console.error('Error fetching office name from user.officeId:', error);
+        }
+      }
+      
+      // ✅ Priority 4: Fallback ไป User collection
+      if (!finalOffice) {
+        finalOffice = userOffice;
+      }
+      
+      // ✅ Priority 5: Fallback สุดท้าย ไป snapshot
       if (!finalOffice) {
         finalOffice = issueObj.officeName || issueObj.office || '';
       }
@@ -299,7 +303,6 @@ export async function populateRequesterInfo(issue: any) {
     }
 
     // ถ้าไม่รู้ว่าเป็นประเภทไหน ให้ใช้ข้อมูลจากฟอร์ม (สำหรับกรณีที่ userType ไม่ถูกตั้งค่า)
-    console.log(`  - Unknown user type, using form data (firstName: ${issueObj.firstName})`);
     return {
       ...issueObj,
       office: userOffice || issueObj.office || '-', // 🆕 ใช้ officeName ที่ populate แล้ว

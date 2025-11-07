@@ -33,6 +33,7 @@ export async function GET(request: NextRequest) {
     }
     
     // Get user's owned items with lean() and select only needed fields
+    const queryStart = Date.now();
     const ownedItems = await InventoryItem.find({
       'currentOwnership.ownerType': 'user_owned',
       'currentOwnership.userId': userId,
@@ -41,15 +42,29 @@ export async function GET(request: NextRequest) {
     .select('_id itemMasterId itemName categoryId serialNumber numberPhone statusId conditionId currentOwnership sourceInfo createdAt updatedAt requesterInfo')
     .sort({ 'currentOwnership.ownedSince': -1 })
     .lean();
+    
+    if (process.env.NODE_ENV === 'development') {
+      console.log(`⏱️  InventoryItem query: ${Date.now() - queryStart}ms (${ownedItems.length} items)`);
+    }
 
     // ✅ Optimize: Only fetch return logs if we need to filter pending returns
     // For dashboard, we don't need to filter, so skip this expensive query
     const ReturnLog = (await import('@/models/ReturnLog')).default;
+    const returnLogStart = Date.now();
     const allReturns = excludePendingReturns 
-      ? await ReturnLog.find({ userId: userId })
+      ? await ReturnLog.find({ 
+          userId: userId,
+          'items.approvalStatus': { $in: ['pending', 'approved'] } // Only get relevant statuses
+        })
         .select('items userId status')
+        .sort({ createdAt: -1 }) // Get recent first
+        .limit(100) // Limit to recent 100 returns
         .lean()
       : [];
+    
+    if (process.env.NODE_ENV === 'development' && excludePendingReturns) {
+      console.log(`⏱️  ReturnLog query: ${Date.now() - returnLogStart}ms (${allReturns.length} logs)`);
+    }
 
     // ✅ Optimize: Only process return logs if we fetched them
     const returnedItemsMap = new Map();
@@ -113,6 +128,7 @@ export async function GET(request: NextRequest) {
     const RequestLog = (await import('@/models/RequestLog')).default;
     
     // Only fetch if we have items that might need delivery location
+    const requestLogStart = Date.now();
     const approvedRequests = availableItems.length > 0
       ? await RequestLog.find({
           userId: userId,
@@ -120,9 +136,14 @@ export async function GET(request: NextRequest) {
           requestType: 'request'
         })
         .select('items deliveryLocation requesterFirstName requesterLastName requesterNickname requesterDepartment requesterPhone requesterOffice')
-        .limit(100) // ✅ Limit to recent requests only
+        .sort({ createdAt: -1 }) // Get recent first
+        .limit(50) // ✅ Reduce to 50 for faster query
         .lean()
       : [];
+    
+    if (process.env.NODE_ENV === 'development' && availableItems.length > 0) {
+      console.log(`⏱️  RequestLog query: ${Date.now() - requestLogStart}ms (${approvedRequests.length} logs)`);
+    }
     
     // Build maps of itemId -> deliveryLocation and find most recent requester info for branch users
     const itemToDeliveryLocationMap = new Map();
@@ -179,11 +200,19 @@ export async function GET(request: NextRequest) {
     // 🆕 Load Office collection for real-time office name lookup (with cache)
     const { getOfficeMap } = await import('@/lib/office-helpers');
     const officeIds = new Set<string>();
-    ownedItems.forEach((item: any) => {
+    availableItems.forEach((item: any) => { // Use availableItems instead of ownedItems (smaller set)
       if (item.requesterInfo?.officeId) officeIds.add(item.requesterInfo.officeId);
-      if (user?.officeId) officeIds.add(user.officeId);
     });
-    const officeMap = await getOfficeMap(Array.from(officeIds));
+    if (user?.officeId) officeIds.add(user.officeId);
+    
+    const officeMapStart = Date.now();
+    const officeMap = officeIds.size > 0 
+      ? await getOfficeMap(Array.from(officeIds))
+      : new Map<string, string>(); // Skip query if no office IDs
+    
+    if (process.env.NODE_ENV === 'development') {
+      console.log(`⏱️  Office lookup: ${Date.now() - officeMapStart}ms (${officeIds.size} offices)`);
+    }
     
     // ประกอบข้อมูลด้วยฟิลด์จาก InventoryItem โดยตรง + mapping จาก InventoryConfig
     const populatedItems = availableItems.map((item) => {
@@ -289,11 +318,17 @@ export async function GET(request: NextRequest) {
       totalCount: populatedItems.length
     };
     
-    // Cache the result
+    // Cache the result (TTL is determined by cache-utils based on key pattern)
     setCachedData(cacheKey, result);
     
-    if (process.env.NODE_ENV === 'development') {
-      console.log(`✅ Owned Equipment API - Fetched ${populatedItems.length} items (${Date.now() - startTime}ms)`);
+    const totalTime = Date.now() - startTime;
+    
+    // Always log performance for monitoring
+    console.log(`✅ Owned Equipment API - ${populatedItems.length} items in ${totalTime}ms`);
+    
+    // Add warning if slow
+    if (totalTime > 2000) {
+      console.warn(`⚠️ Slow query detected: ${totalTime}ms for user ${userId}`);
     }
     
     return NextResponse.json(result);

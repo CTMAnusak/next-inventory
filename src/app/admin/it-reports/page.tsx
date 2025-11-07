@@ -141,7 +141,18 @@ export default function AdminITReportsPage() {
   // So we keep the hardcoded categories array for IT issues
 
   useEffect(() => {
-    fetchIssues();
+    fetchIssues(1); // Reset to page 1 when tab or search changes
+  }, [activeTab, searchTerm]);
+
+  // Fetch when page changes (but not on initial load)
+  useEffect(() => {
+    if (currentPage > 1) {
+      fetchIssues(currentPage);
+    }
+  }, [currentPage]);
+
+  // Fetch IT admins once on mount
+  useEffect(() => {
     fetchItAdmins();
   }, []);
 
@@ -156,7 +167,7 @@ export default function AdminITReportsPage() {
 
   useEffect(() => {
     applyFilters();
-  }, [issues, activeTab, searchTerm, nameFilter, emailFilter, phoneFilter, urgencyFilter, categoryFilter, adminFilter, dateFilter, monthFilter, yearFilter]);
+  }, [issues, nameFilter, emailFilter, phoneFilter, urgencyFilter, categoryFilter, adminFilter, dateFilter, monthFilter, yearFilter]);
 
   // Handle escape key to close image modal
   useEffect(() => {
@@ -178,19 +189,30 @@ export default function AdminITReportsPage() {
     };
   }, [showImageModal]);
 
-  const fetchIssues = async () => {
+  // 🚀 Server-side pagination with filters
+  const [totalPages, setTotalPages] = useState(1);
+  const [totalItems, setTotalItems] = useState(0);
+
+  const fetchIssues = async (page = 1) => {
     setLoading(true);
     try {
-      const response = await fetch('/api/admin/it-reports');
+      // Build query params
+      const params = new URLSearchParams({
+        page: page.toString(),
+        limit: itemsPerPage.toString(),
+        status: activeTab,
+      });
+
+      // Add search filters if present
+      if (searchTerm) params.append('search', searchTerm);
+
+      const response = await fetch(`/api/admin/it-reports?${params.toString()}`);
       if (response.ok) {
         const data = await response.json();
-        console.log('Admin IT Reports - Data fetched:', data);
-        // Check if any issue has userFeedback
-        const issuesWithFeedback = data.filter((issue: any) => issue.userFeedback);
-        if (issuesWithFeedback.length > 0) {
-          console.log('Issues with userFeedback:', issuesWithFeedback);
-        }
-        setIssues(data);
+        setIssues(data.issues || []);
+        setTotalPages(data.pagination?.pages || 1);
+        setTotalItems(data.pagination?.total || 0);
+        setCurrentPage(page);
       } else {
         toast.error('เกิดข้อผิดพลาดในการโหลดข้อมูล');
       }
@@ -203,12 +225,6 @@ export default function AdminITReportsPage() {
 
   const applyFilters = () => {
     let filtered = issues.filter(issue => {
-      // Filter by tab
-      if (issue.status !== activeTab) return false;
-
-      // Filter by Issue ID only
-      const matchesSearch = !searchTerm || 
-        issue.issueId.toLowerCase().includes(searchTerm.toLowerCase());
 
       // Filter by name (ชื่อ, นามสกุล, ชื่อเล่น)
       const matchesName = !nameFilter || 
@@ -253,52 +269,11 @@ export default function AdminITReportsPage() {
         }
       }
 
-      return matchesSearch && matchesName && matchesEmail && matchesPhone && matchesUrgency && matchesCategory && matchesAdmin && matchesDate && matchesMonthYear;
+      return matchesName && matchesEmail && matchesPhone && matchesUrgency && matchesCategory && matchesAdmin && matchesDate && matchesMonthYear;
     });
 
-    // Sort by urgency and date
-    filtered.sort((a, b) => {
-      // For closed tab, skip urgency sorting and sort by closed date only
-      if (activeTab === 'closed') {
-        const dateA = new Date(a.closedDate || a.completedDate || a.reportDate);
-        const dateB = new Date(b.closedDate || b.completedDate || b.reportDate);
-        return dateB.getTime() - dateA.getTime();
-      }
-
-      // For other tabs, sort by urgency first
-      if (a.urgency === 'very_urgent' && b.urgency === 'normal') return -1;
-      if (a.urgency === 'normal' && b.urgency === 'very_urgent') return 1;
-      
-      // Then by date based on status (newest first)
-      let dateA: Date;
-      let dateB: Date;
-
-      switch (activeTab) {
-        case 'pending':
-          // Sort by report date for pending
-          dateA = new Date(a.reportDate);
-          dateB = new Date(b.reportDate);
-          break;
-        case 'in_progress':
-          // Sort by accepted date (or report date if not accepted yet)
-          dateA = new Date(a.acceptedDate || a.reportDate);
-          dateB = new Date(b.acceptedDate || b.reportDate);
-          break;
-        case 'completed':
-          // Sort by completed date (or report date if not completed yet)
-          dateA = new Date(a.completedDate || a.reportDate);
-          dateB = new Date(b.completedDate || b.reportDate);
-          break;
-        default:
-          dateA = new Date(a.reportDate);
-          dateB = new Date(b.reportDate);
-      }
-
-      return dateB.getTime() - dateA.getTime();
-    });
-
+    // Server already sorts by urgency and date
     setFilteredIssues(filtered);
-    setCurrentPage(1);
   };
 
   const fetchItAdmins = async () => {
@@ -419,16 +394,31 @@ export default function AdminITReportsPage() {
   };
 
   const handleViewDetails = (issue: ITIssue) => {
-    console.log('Viewing issue details:', issue);
-    console.log('Issue userFeedback:', issue.userFeedback);
     setSelectedIssue(issue);
     setShowDetailModal(true);
   };
 
   const exportToExcel = async () => {
     try {
-      if (filteredIssues.length === 0) {
-        toast.error('ไม่มีข้อมูลให้ Export');
+      toast.loading('กำลังโหลดข้อมูลทั้งหมด...', { id: 'export-loading' });
+
+      // Fetch all data for export (bypass pagination)
+      const params = new URLSearchParams({
+        all: 'true',
+        status: activeTab,
+      });
+      if (searchTerm) params.append('search', searchTerm);
+
+      const response = await fetch(`/api/admin/it-reports?${params.toString()}`);
+      if (!response.ok) {
+        throw new Error('Failed to fetch data');
+      }
+
+      const data = await response.json();
+      const allIssues = data.issues || [];
+
+      if (allIssues.length === 0) {
+        toast.error('ไม่มีข้อมูลให้ Export', { id: 'export-loading' });
         return;
       }
 
@@ -463,8 +453,8 @@ export default function AdminITReportsPage() {
       ];
 
       // เพิ่มข้อมูลและรูปภาพ
-      for (let index = 0; index < filteredIssues.length; index++) {
-        const issue = filteredIssues[index];
+      for (let index = 0; index < allIssues.length; index++) {
+        const issue = allIssues[index];
         
         // สร้างชื่อ-นามสกุลพร้อมชื่อเล่น
         const fullName = issue.firstName && issue.lastName 
@@ -474,9 +464,9 @@ export default function AdminITReportsPage() {
         // หาหมายเหตุล่าสุดจาก admin (ต้องเป็น admin เท่านั้น ไม่ใช่ user)
         const latestAdminNote = issue.notesHistory && issue.notesHistory.length > 0
           ? issue.notesHistory
-              .filter(note => note.adminId && note.adminName) // กรองเฉพาะหมายเหตุจาก admin
-              .sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()) // เรียงตามวันที่ล่าสุด
-              .map(note => note.note)[0] || '-'
+              .filter((note: any) => note.adminId && note.adminName) // กรองเฉพาะหมายเหตุจาก admin
+              .sort((a: any, b: any) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()) // เรียงตามวันที่ล่าสุด
+              .map((note: any) => note.note)[0] || '-'
           : (issue.notes || '-');
 
         // หาหมายเหตุล่าสุดจากผู้แจ้ง
@@ -484,7 +474,7 @@ export default function AdminITReportsPage() {
         if (issue.userFeedbackHistory && issue.userFeedbackHistory.length > 0) {
           // เรียงตามวันที่ล่าสุดและเอาหมายเหตุล่าสุด
           const latestFeedback = issue.userFeedbackHistory
-            .sort((a, b) => new Date(b.submittedAt).getTime() - new Date(a.submittedAt).getTime())[0];
+            .sort((a: any, b: any) => new Date(b.submittedAt).getTime() - new Date(a.submittedAt).getTime())[0];
           latestUserNote = latestFeedback.reason;
         } else if (issue.userFeedback) {
           // Fallback สำหรับข้อมูลเก่า
@@ -622,7 +612,7 @@ export default function AdminITReportsPage() {
       window.URL.revokeObjectURL(url);
       
       toast.dismiss('export-loading');
-      toast.success(`ส่งออกข้อมูล ${filteredIssues.length} รายการสำเร็จ`);
+      toast.success(`ส่งออกข้อมูล ${allIssues.length} รายการสำเร็จ`);
     } catch (error) {
       console.error('Export error:', error);
       toast.dismiss('export-loading');
@@ -733,11 +723,10 @@ export default function AdminITReportsPage() {
     return years;
   }, []);
 
-  // Pagination
-  const totalPages = Math.ceil(filteredIssues.length / itemsPerPage);
+  // Client-side display (server already handles pagination)
+  const currentItems = filteredIssues;
   const startIndex = (currentPage - 1) * itemsPerPage;
-  const endIndex = startIndex + itemsPerPage;
-  const currentItems = filteredIssues.slice(startIndex, endIndex);
+  const endIndex = Math.min(startIndex + itemsPerPage, totalItems);
 
   const getNoDataColSpan = () => {
     return activeTab === 'completed' ? 11 : 10;
@@ -759,7 +748,7 @@ export default function AdminITReportsPage() {
                 <span>ฟิลเตอร์</span>
               </button>
               <button
-                onClick={fetchIssues}
+                onClick={() => fetchIssues(currentPage)}
                 disabled={loading}
                 className="w-full min-[400px]:w-3/5 min-[481px]:w-auto flex items-center justify-center space-x-2 px-4 py-2 bg-blue-100 text-blue-700 rounded-lg hover:bg-blue-200 transition-colors disabled:opacity-50"
               >
@@ -769,9 +758,9 @@ export default function AdminITReportsPage() {
 
               <button
                 onClick={exportToExcel}
-                disabled={loading || filteredIssues.length === 0}
+                disabled={loading || totalItems === 0}
                 className="w-full min-[400px]:w-3/5 min-[481px]:w-auto flex items-center justify-center space-x-2 px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
-                title={filteredIssues.length === 0 ? 'ไม่มีข้อมูลให้ Export' : 'Export ข้อมูลเป็น Excel'}
+                title={totalItems === 0 ? 'ไม่มีข้อมูลให้ Export' : 'Export ข้อมูลเป็น Excel'}
               >
                 <Download className="w-4 h-4" />
                 <span>Export Excel</span>
@@ -1152,10 +1141,10 @@ export default function AdminITReportsPage() {
           </div>
 
           {/* Total Count Display */}
-          {!loading && filteredIssues.length > 0 && (
+          {!loading && totalItems > 0 && (
             <div className="mt-4">
               <span className="text-sm text-gray-700">
-                แสดงทั้งหมด {filteredIssues.length} รายการ
+                แสดงทั้งหมด {totalItems} รายการ (หน้า {currentPage}/{totalPages})
               </span>
             </div>
           )}
@@ -1165,7 +1154,7 @@ export default function AdminITReportsPage() {
             <div className="flex items-center justify-between mt-6">
               <div className="flex items-center text-sm text-gray-700">
                 <span>
-                  แสดง {startIndex + 1} ถึง {Math.min(endIndex, filteredIssues.length)} จาก {filteredIssues.length} รายการ
+                  แสดง {startIndex + 1} ถึง {endIndex} จาก {totalItems} รายการ
                 </span>
               </div>
               <div className="flex items-center space-x-2">

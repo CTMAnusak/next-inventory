@@ -141,9 +141,26 @@ export default function EquipmentReturnPage() {
 
   useEffect(() => {
     // ✅ Fetch both APIs in parallel for better performance
-    Promise.all([fetchUserItems(), fetchConfigs()]).catch(error => {
-      console.error('Error fetching initial data:', error);
-    });
+    const fetchData = async () => {
+      const startTime = Date.now();
+      console.log('🔄 Starting to fetch equipment data...');
+      
+      try {
+        await Promise.all([fetchUserItems(), fetchConfigs()]);
+        const loadTime = Date.now() - startTime;
+        console.log(`✅ Data loaded in ${loadTime}ms`);
+        
+        // Warn if loading takes too long
+        if (loadTime > 3000) {
+          toast('โหลดข้อมูลช้ากว่าปกติ กรุณารอสักครู่...', { icon: '⏱️' });
+        }
+      } catch (error) {
+        console.error('Error fetching initial data:', error);
+        toast.error('เกิดข้อผิดพลาดในการโหลดข้อมูล กรุณารีเฟรชหน้าใหม่');
+      }
+    };
+    
+    fetchData();
   }, []);
 
   // Cleanup object URLs on component unmount
@@ -341,6 +358,8 @@ export default function EquipmentReturnPage() {
   const fetchUserItems = async () => {
     try {
       setIsLoadingEquipment(true);
+      const fetchStartTime = Date.now();
+      
       // Use appropriate data based on user type
       const firstName = user?.userType === 'individual' ? user.firstName : formData.firstName;
       const lastName = user?.userType === 'individual' ? user.lastName : formData.lastName;
@@ -360,6 +379,9 @@ export default function EquipmentReturnPage() {
       }
       
       const res = await fetch(`/api/user/owned-equipment?${params.toString()}`);
+      
+      const fetchTime = Date.now() - fetchStartTime;
+      console.log(`⏱️ API call took ${fetchTime}ms`);
       
       // ✅ จัดการ 401/403 error - เด้งออกจากระบบทันที
       if (handleAuthError(res)) {
@@ -428,11 +450,19 @@ export default function EquipmentReturnPage() {
         setFilteredEquipment(availableEquipment);
       } else {
         console.error('❌ API Error:', res.status, res.statusText);
+        toast.error('ไม่สามารถโหลดข้อมูลอุปกรณ์ได้');
       }
     } catch (e) {
       console.error('Error fetching owned equipment:', e);
       setOwnedEquipment([]);
       setFilteredEquipment([]);
+      
+      // Show user-friendly error message
+      if (e instanceof Error && e.name === 'TypeError') {
+        toast.error('ไม่สามารถเชื่อมต่อกับเซิร์ฟเวอร์ได้ กรุณาตรวจสอบการเชื่อมต่ออินเทอร์เน็ต');
+      } else {
+        toast.error('เกิดข้อผิดพลาดในการโหลดข้อมูล');
+      }
     } finally {
       setIsLoadingEquipment(false);
     }
@@ -1206,8 +1236,8 @@ export default function EquipmentReturnPage() {
               </h3>
               <ul className="text-sm text-blue-800 space-y-1">
                 <li>• เลือกอุปกรณ์ที่ต้องการคืน</li>
-                <li>• <strong>กรอกข้อมูลผู้คืนสำหรับแต่ละรายการ</strong> (ถ้าคนละคน ระบบจะแยกบันทึกอัตโนมัติ)</li>
-                <li>• กดเพิ่มรายการเพื่อเพิ่มเข้ารายการที่จะคืน</li>
+                <li>• กรอกข้อมูลผู้คืนสำหรับแต่ละรายการ</li>
+                <li>• กดปุ่ม "เพิ่มเข้ารายการ" เพื่อเพิ่มเข้ารายการที่จะคืน</li>
                 <li>• ส่งฟอร์มเมื่อเพิ่มรายการครบแล้ว</li>
               </ul>
             </div>
@@ -1288,10 +1318,15 @@ export default function EquipmentReturnPage() {
                           {/* Equipment List */}
                           <div className="max-h-48 overflow-auto">
                             {isLoadingEquipment ? (
-                              <div className="px-3 py-4 text-center text-gray-500">
-                                <div className="flex items-center justify-center gap-2">
-                                  <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-blue-600"></div>
-                                  <span>กำลังโหลดข้อมูลอุปกรณ์...</span>
+                              <div className="px-3 py-8 text-center">
+                                <div className="flex flex-col items-center justify-center gap-3">
+                                  <div className="relative">
+                                    <div className="animate-spin rounded-full h-10 w-10 border-4 border-blue-200 border-t-blue-600"></div>
+                                  </div>
+                                  <div className="space-y-1">
+                                    <p className="text-sm font-medium text-gray-700">กำลังโหลดข้อมูลอุปกรณ์...</p>
+                                    <p className="text-xs text-gray-500">โปรดรอสักครู่</p>
+                                  </div>
                                 </div>
                               </div>
                             ) : filteredEquipment.length > 0 ? (

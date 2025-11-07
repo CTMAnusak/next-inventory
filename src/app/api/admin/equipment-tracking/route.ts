@@ -176,21 +176,39 @@ export async function GET(request: NextRequest) {
             nickname = itemRequesterInfo.nickname || nickname;
             userDepartment = itemRequesterInfo.department || userDepartment;
             userPhone = itemRequesterInfo.phone || userPhone;
-            // ⚠️ สำคัญ: สำหรับผู้ใช้สาขา office ต้องใช้จาก User Collection เสมอ (ใช้ officeId เพื่อดึงชื่อสาขาล่าสุด)
-            // ไม่ใช้ snapshot จาก requesterInfo เพื่อให้อัปเดตตามที่แอดมินแก้ไข
-            if (user?.officeId) {
+            // 🆕 Populate office: สำหรับประวัติ (InventoryItem) ต้องตรวจสอบ requesterInfo.officeId ก่อน
+            // ⚠️ สำคัญ: ถ้า requesterInfo.officeId เป็น UNSPECIFIED_OFFICE → สาขาถูกลบแล้ว ต้องใช้ snapshot
+            // ถ้า requesterInfo.officeId ไม่ใช่ UNSPECIFIED_OFFICE → ใช้ officeId เพื่อดึงชื่อสาขาล่าสุด
+            
+            // ✅ Priority 1: ตรวจสอบ requesterInfo.officeId ก่อน
+            // ถ้าเป็น UNSPECIFIED_OFFICE แสดงว่าสาขาถูกลบแล้ว → ใช้ snapshot
+            if (itemRequesterInfo.officeId === 'UNSPECIFIED_OFFICE') {
+              // สาขาถูกลบแล้ว → ใช้ snapshot จาก requesterInfo
+              userOffice = itemRequesterInfo.officeName || itemRequesterInfo.office || '';
+            }
+            
+            // ✅ Priority 2: ถ้า requesterInfo.officeId ไม่ใช่ UNSPECIFIED_OFFICE → ใช้ officeId เพื่อดึงชื่อสาขาล่าสุด
+            if (!userOffice && itemRequesterInfo.officeId && itemRequesterInfo.officeId !== 'UNSPECIFIED_OFFICE') {
+              try {
+                userOffice = await getOfficeNameById(itemRequesterInfo.officeId);
+              } catch (error) {
+                console.error('Error fetching office name from requesterInfo.officeId:', error);
+              }
+            }
+            
+            // ✅ Priority 3: ถ้าไม่มี requesterInfo.officeId ให้ใช้ officeId จาก User collection (ถ้าสาขายังมีอยู่)
+            if (!userOffice && user?.officeId && user.officeId !== 'UNSPECIFIED_OFFICE') {
               try {
                 userOffice = await getOfficeNameById(user.officeId);
               } catch (error) {
-                console.error('Error fetching office name for branch user (requesterInfo case):', error);
-                // Fallback: ถ้าไม่สามารถดึงได้ ให้ใช้ค่าที่มีอยู่แล้ว (ไม่ใช้ snapshot)
-                if (!userOffice) {
-                  userOffice = user?.officeName || user?.office || 'ไม่ระบุสาขา';
-                }
+                console.error('Error fetching office name from user.officeId:', error);
               }
-            } else {
-              // ถ้าไม่มี officeId ให้ใช้ค่าจาก User collection (ไม่ใช้ snapshot)
-              userOffice = user?.officeName || user?.office || 'ไม่ระบุสาขา';
+            }
+            
+            // ✅ Priority 4: Fallback ไป snapshot/User collection
+            if (!userOffice) {
+              userOffice = itemRequesterInfo.officeName || itemRequesterInfo.office || 
+                          user?.officeName || user?.office || '';
             }
           } else {
             // ผู้ใช้ individual: ใช้ข้อมูลส่วนตัวจาก requesterInfo แต่ office ใช้จาก User collection (ข้อมูลล่าสุด)
@@ -200,31 +218,43 @@ export async function GET(request: NextRequest) {
             userDepartment = itemRequesterInfo.department || userDepartment;
             userPhone = itemRequesterInfo.phone || userPhone;
             
-            // ⚠️ สำคัญ: สำหรับผู้ใช้บุคคล office ต้องใช้จาก User collection เสมอ (เพื่อให้อัปเดตตามที่แอดมินแก้ไข)
-            // Priority 1: ใช้ officeId จาก User collection ก่อน (ข้อมูลล่าสุด)
-            if (user?.officeId && user.officeId !== 'UNSPECIFIED_OFFICE') {
+            // 🆕 Populate office: สำหรับประวัติ (InventoryItem) ต้องตรวจสอบ requesterInfo.officeId ก่อน
+            // ⚠️ สำคัญ: ถ้า requesterInfo.officeId เป็น UNSPECIFIED_OFFICE → สาขาถูกลบแล้ว ต้องใช้ snapshot
+            // ถ้า requesterInfo.officeId ไม่ใช่ UNSPECIFIED_OFFICE → ใช้ officeId เพื่อดึงชื่อสาขาล่าสุด
+            
+            // ✅ Priority 1: ตรวจสอบ requesterInfo.officeId ก่อน
+            // ถ้าเป็น UNSPECIFIED_OFFICE แสดงว่าสาขาถูกลบแล้ว → ใช้ snapshot
+            if (itemRequesterInfo.officeId === 'UNSPECIFIED_OFFICE') {
+              // สาขาถูกลบแล้ว → ใช้ snapshot จาก requesterInfo
+              userOffice = itemRequesterInfo.officeName || itemRequesterInfo.office || '';
+            }
+            
+            // ✅ Priority 2: ถ้า requesterInfo.officeId ไม่ใช่ UNSPECIFIED_OFFICE → ใช้ officeId เพื่อดึงชื่อสาขาล่าสุด
+            if (!userOffice && itemRequesterInfo.officeId && itemRequesterInfo.officeId !== 'UNSPECIFIED_OFFICE') {
               try {
-                userOffice = await getOfficeNameById(user.officeId);
+                userOffice = await getOfficeNameById(itemRequesterInfo.officeId);
               } catch (error) {
-                console.error('Error fetching office name for individual user:', error);
+                console.error('Error fetching office name from requesterInfo.officeId:', error);
               }
             }
             
-            // Priority 2: ถ้าไม่มี officeId ให้ใช้ officeName/office จาก User collection
+            // ✅ Priority 3: ถ้าไม่มี requesterInfo.officeId ให้ใช้ officeId จาก User collection (ข้อมูลล่าสุด)
+            if (!userOffice && user?.officeId && user.officeId !== 'UNSPECIFIED_OFFICE') {
+              try {
+                userOffice = await getOfficeNameById(user.officeId);
+              } catch (error) {
+                console.error('Error fetching office name from user.officeId:', error);
+              }
+            }
+            
+            // ✅ Priority 4: Fallback ไป User collection
             if (!userOffice) {
               userOffice = user?.officeName || user?.office || '';
             }
             
-            // Priority 3: Fallback ไป snapshot (กรณีที่ User collection ไม่มีข้อมูล)
+            // ✅ Priority 5: Fallback สุดท้าย ไป snapshot
             if (!userOffice) {
               userOffice = itemRequesterInfo.officeName || itemRequesterInfo.office || '';
-              if (!userOffice && itemRequesterInfo.officeId) {
-                try {
-                  userOffice = await getOfficeNameById(itemRequesterInfo.officeId);
-                } catch (error) {
-                  console.error('Error fetching office name from requesterInfo.officeId:', error);
-                }
-              }
             }
             
             if (!userOffice) {

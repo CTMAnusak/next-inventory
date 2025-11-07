@@ -50,13 +50,15 @@ export async function POST(request: NextRequest) {
     // Determine requester type and ID
     const requesterType = reportData.requesterType || user.userType;
     const requesterId = reportData.requesterId || user.user_id; // ✅ เก็บ ID สำหรับทั้ง individual และ branch
-    const officeId = user.office; // เก็บ office ID สำหรับ populate
+    const officeId = user.officeId; // ✅ เก็บ office ID สำหรับ populate (ไม่ใช่ชื่อสาขา)
+    const officeName = user.officeName || user.office || reportData.office; // ✅ เก็บชื่อสาขา
 
     const newIssue = new IssueLog({
       issueId,
       requesterType,
       requesterId,  // ✅ เก็บสำหรับทั้ง individual และ branch
-      officeId,     // ✅ เก็บ office ID
+      officeId,     // ✅ เก็บ office ID (จาก user.officeId)
+      officeName,   // ✅ เก็บชื่อสาขา (จาก user.officeName)
       firstName: reportData.firstName,
       lastName: reportData.lastName,
       nickname: reportData.nickname,
@@ -82,6 +84,9 @@ export async function POST(request: NextRequest) {
     console.log('💾 - email:', newIssue.email);
     console.log('💾 - requesterId:', newIssue.requesterId);
     console.log('💾 - requesterType:', newIssue.requesterType);
+    console.log('💾 - officeId:', newIssue.officeId);
+    console.log('💾 - officeName:', newIssue.officeName);
+    console.log('💾 - office:', newIssue.office);
 
     await newIssue.save();
     console.log('Issue saved successfully:', newIssue._id);

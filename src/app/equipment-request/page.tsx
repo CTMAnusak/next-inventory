@@ -28,6 +28,19 @@ interface InventoryItem {
   isAvailable?: boolean; // ✅ เพิ่ม flag เพื่อบอกว่าพร้อมเบิกหรือไม่
 }
 
+interface PendingRequestItem {
+  masterId: string;
+  quantity: number;
+  serialNumbers?: string[];
+  requestedPhoneNumbers?: string[];
+}
+
+interface PendingRequest {
+  _id: string;
+  status: string;
+  items: PendingRequestItem[];
+}
+
 interface ICategoryConfig {
   id: string;
   name: string;
@@ -45,6 +58,7 @@ export default function EquipmentRequestPage() {
   const [inventoryItems, setInventoryItems] = useState<InventoryItem[]>([]);
   const [categoryConfigs, setCategoryConfigs] = useState<ICategoryConfig[]>([]);
   const [isLoadingEquipment, setIsLoadingEquipment] = useState(false);
+  const [pendingRequests, setPendingRequests] = useState<PendingRequest[]>([]);
   
   // Form data including personal info for branch users
   const [formData, setFormData] = useState({
@@ -70,6 +84,7 @@ export default function EquipmentRequestPage() {
   const [availableSerialNumbers, setAvailableSerialNumbers] = useState<string[]>([]);
   const [selectedSerialNumber, setSelectedSerialNumber] = useState<string>('');
   const [isLoadingSerialNumbers, setIsLoadingSerialNumbers] = useState<boolean>(false);
+  const [loadingItemId, setLoadingItemId] = useState<string | null>(null);
 
   // Multiple items support (prevent duplicates by itemId)
   const [requestItems, setRequestItems] = useState<RequestItem[]>([]);
@@ -114,14 +129,15 @@ export default function EquipmentRequestPage() {
     try {
       setIsLoadingEquipment(true);
       
-      // ✅ Fetch both APIs in parallel for better performance
-      const [configResponse, availableResponse] = await Promise.all([
+      // ✅ Fetch all APIs in parallel for better performance
+      const [configResponse, availableResponse, pendingResponse] = await Promise.all([
         fetch('/api/admin/inventory/config'),
-        fetch('/api/equipment-request/available')
+        fetch('/api/equipment-request/available'),
+        fetch('/api/admin/equipment-reports/requests')
       ]);
       
       // ✅ จัดการ 401/403 error - เด้งออกจากระบบทันที
-      if (handleAuthError(configResponse) || handleAuthError(availableResponse)) {
+      if (handleAuthError(configResponse) || handleAuthError(availableResponse) || handleAuthError(pendingResponse)) {
         return;
       }
       
@@ -129,6 +145,15 @@ export default function EquipmentRequestPage() {
       if (configResponse.ok) {
         const configData = await configResponse.json();
         setCategoryConfigs(configData.categoryConfigs || []);
+      }
+      
+      // Process pending requests response
+      if (pendingResponse.ok) {
+        const allRequests = await pendingResponse.json();
+        // กรองเฉพาะคำขอเบิกที่รออนุมัติ
+        const pending = allRequests.filter((req: PendingRequest) => req.status === 'pending');
+        setPendingRequests(pending);
+        console.log('✅ Equipment Request - Loaded pending requests:', pending.length);
       }
       
       // Process available items response
@@ -205,11 +230,15 @@ export default function EquipmentRequestPage() {
 
   // Function to handle item selection from category
   const handleItemSelect = async (itemId: string) => {
+    setLoadingItemId(itemId); // เริ่มแสดงการโหลด
     handleItemChange('itemId', itemId);
-    setShowCategorySelector(false);
     
     // ✅ ดึง Serial Numbers หรือเบอร์โทรศัพท์ที่พร้อมใช้งาน
     await fetchAvailableSerialNumbers(itemId);
+    
+    // เมื่อโหลดเสร็จแล้วจึงปิด dropdown
+    setShowItemSelector(false);
+    setLoadingItemId(null); // หยุดแสดงการโหลด
   };
   
   // ✅ ฟังก์ชันดึง Serial Numbers หรือเบอร์โทรศัพท์ที่พร้อมใช้งาน
@@ -295,6 +324,133 @@ export default function EquipmentRequestPage() {
     return inventoryItem?.itemName || '';
   };
 
+  // ✅ ฟังก์ชันเช็คว่าอุปกรณ์อยู่ในรายการรออนุมัติหรือไม่ (เฉพาะ SN)
+  const isItemPendingApproval = (itemId: string, serialNumber?: string): boolean => {
+    if (!itemId) return false;
+    
+    const selectedItem = inventoryItems.find(i => String(i._id) === itemId);
+    const isSIMCard = selectedItem?.categoryId === 'cat_sim_card';
+    
+    // เช็คทุก pending request
+    for (const request of pendingRequests) {
+      for (const item of request.items) {
+        // เช็คว่า masterId ตรงกัน
+        if (item.masterId === itemId) {
+          // ถ้ามี serial number หรือ phone number
+          if (serialNumber) {
+            // สำหรับซิมการ์ด ให้เช็ค requestedPhoneNumbers
+            if (isSIMCard && item.requestedPhoneNumbers && item.requestedPhoneNumbers.length > 0) {
+              if (item.requestedPhoneNumbers.includes(serialNumber)) {
+                return true;
+              }
+            }
+            // สำหรับอุปกรณ์ทั่วไป ให้เช็ค serialNumbers
+            else if (!isSIMCard && item.serialNumbers && item.serialNumbers.length > 0) {
+              if (item.serialNumbers.includes(serialNumber)) {
+                return true;
+              }
+            }
+          }
+          // ถ้าไม่มี serial number (อุปกรณ์ที่ไม่มี SN)
+          else {
+            // ถ้า item ใน pending request ไม่มี serialNumbers/requestedPhoneNumbers หรือเป็น array ว่าง
+            // แสดงว่ารออนุมัติอุปกรณ์ที่ไม่มี SN
+            if (isSIMCard) {
+              if (!item.requestedPhoneNumbers || item.requestedPhoneNumbers.length === 0) {
+                return true;
+              }
+            } else {
+              if (!item.serialNumbers || item.serialNumbers.length === 0) {
+                return true;
+              }
+            }
+          }
+        }
+      }
+    }
+    
+    return false;
+  };
+
+  // ✅ ฟังก์ชันนับจำนวนอุปกรณ์ที่รออนุมัติ (สำหรับอุปกรณ์ที่ไม่มี SN)
+  const getPendingQuantity = (itemId: string): number => {
+    if (!itemId) return 0;
+    
+    const selectedItem = inventoryItems.find(i => String(i._id) === itemId);
+    const isSIMCard = selectedItem?.categoryId === 'cat_sim_card';
+    
+    let pendingCount = 0;
+    
+    // เช็คทุก pending request
+    for (const request of pendingRequests) {
+      for (const item of request.items) {
+        // เช็คว่า masterId ตรงกัน
+        if (item.masterId === itemId) {
+          // นับเฉพาะอุปกรณ์ที่ไม่มี SN
+          if (isSIMCard) {
+            if (!item.requestedPhoneNumbers || item.requestedPhoneNumbers.length === 0) {
+              pendingCount += item.quantity || 1;
+            }
+          } else {
+            if (!item.serialNumbers || item.serialNumbers.length === 0) {
+              pendingCount += item.quantity || 1;
+            }
+          }
+        }
+      }
+    }
+    
+    return pendingCount;
+  };
+
+  // ✅ ฟังก์ชันนับจำนวน Serial Numbers ที่รออนุมัติ
+  const getPendingSerialNumbers = (itemId: string): string[] => {
+    if (!itemId) return [];
+    
+    const selectedItem = inventoryItems.find(i => String(i._id) === itemId);
+    const isSIMCard = selectedItem?.categoryId === 'cat_sim_card';
+    
+    const pendingSNs: string[] = [];
+    
+    // เช็คทุก pending request
+    for (const request of pendingRequests) {
+      for (const item of request.items) {
+        if (item.masterId === itemId) {
+          // สำหรับซิมการ์ด ให้ดึง requestedPhoneNumbers
+          if (isSIMCard && item.requestedPhoneNumbers && item.requestedPhoneNumbers.length > 0) {
+            pendingSNs.push(...item.requestedPhoneNumbers);
+          }
+          // สำหรับอุปกรณ์ทั่วไป ให้ดึง serialNumbers
+          else if (!isSIMCard && item.serialNumbers && item.serialNumbers.length > 0) {
+            pendingSNs.push(...item.serialNumbers);
+          }
+        }
+      }
+    }
+    
+    return pendingSNs;
+  };
+
+  // ✅ ฟังก์ชันเช็คว่าอุปกรณ์ไหนที่รออนุมัติทั้งหมด (ทุกชิ้นรออนุมัติหมด)
+  const isAllItemsPending = (itemId: string): boolean => {
+    if (!itemId) return false;
+    
+    const selectedItem = inventoryItems.find(i => String(i._id) === itemId);
+    if (!selectedItem) return false;
+    
+    const availableQty = selectedItem.quantity || 0;
+    const pendingQty = getPendingQuantity(itemId);
+    const pendingSNs = getPendingSerialNumbers(itemId);
+    
+    // ถ้าจำนวนที่รออนุมัติ >= จำนวนที่มีอยู่ แสดงว่าไม่สามารถเบิกเพิ่มได้
+    // หรือถ้ามี Serial Numbers และ SN ทั้งหมดรออนุมัติหมด
+    if (pendingSNs.length > 0 && pendingSNs.length >= availableQty) {
+      return true;
+    }
+    
+    return pendingQty >= availableQty;
+  };
+
 
   // Add current selected item into list with duplicate prevention
   const addRequestItem = () => {
@@ -304,6 +460,13 @@ export default function EquipmentRequestPage() {
     }
     if (requestItems.some(it => it.itemId === requestItem.itemId)) {
       toast.error('ไม่สามารถเลือกอุปกรณ์ซ้ำได้');
+      return;
+    }
+    
+    // ✅ ตรวจสอบว่าอุปกรณ์นี้รออนุมัติหรือไม่
+    const isPending = isItemPendingApproval(requestItem.itemId, requestItem.serialNumber);
+    if (isPending) {
+      toast.error('อุปกรณ์นี้อยู่ในรายการรออนุมัติการเบิกอยู่แล้ว');
       return;
     }
     
@@ -319,6 +482,10 @@ export default function EquipmentRequestPage() {
     setSelectedCategoryId('');
     setShowCategorySelector(false);
     setEditingItemId(null);
+    // Reset serial number states
+    setAvailableSerialNumbers([]);
+    setSelectedSerialNumber('');
+    setLoadingItemId(null);
   };
 
   const removeRequestItem = (itemId: string) => {
@@ -359,6 +526,7 @@ export default function EquipmentRequestPage() {
     setEditingItemId(null);
     setAvailableSerialNumbers([]);
     setSelectedSerialNumber('');
+    setLoadingItemId(null);
     toast.success('รีเซทรายการอุปกรณ์เรียบร้อยแล้ว');
   };
 
@@ -738,38 +906,79 @@ export default function EquipmentRequestPage() {
                                       const availableQty = selectedItem?.quantity || 0;
                                       
                                       const itemId = selectedItem ? String(selectedItem._id) : '';
+                                      const isLoadingThisItem = loadingItemId === itemId;
+                                      
+                                      // ✅ เช็คว่าอุปกรณ์นี้รออนุมัติทั้งหมดหรือไม่ (ทุกชิ้นรออนุมัติหมด)
+                                      const allPending = itemId ? isAllItemsPending(itemId) : false;
+                                      const pendingQty = itemId ? getPendingQuantity(itemId) : 0;
+                                      const pendingSNs = itemId ? getPendingSerialNumbers(itemId) : [];
+                                      const availableAfterPending = availableQty - pendingQty;
+                                      const hasPendingSNs = pendingSNs.length > 0;
+                                      const availableSNs = availableQty - pendingSNs.length;
+                                      
+                                      // ✅ สามารถคลิกได้เฉพาะเมื่อไม่รออนุมัติทั้งหมดและพร้อมเบิก
+                                      const canClick = isAvailable && !allPending && !isLoadingThisItem;
                                       
                                       return (
                                         <div
                                           key={itemName}
                                           onClick={async () => {
-                                            // ✅ ไม่อนุญาตให้เลือกอุปกรณ์ที่ไม่พร้อมเบิก
-                                            if (itemId && isAvailable) {
-                                              await handleItemSelect(itemId);
-                                              setShowItemSelector(false);
-                                              setItemSearchTerm('');
-                                            } else {
-                                              toast.error('อุปกรณ์นี้ยังไม่พร้อมเบิก กรุณารอสั่งซื้อ');
+                                            // ✅ เช็คก่อนว่าสามารถคลิกได้หรือไม่
+                                            if (!canClick) {
+                                              if (isLoadingThisItem) {
+                                                return; // กำลังโหลดอยู่
+                                              }
+                                              if (allPending) {
+                                                toast.error('อุปกรณ์นี้มีรายการรออนุมัติการเบิกทั้งหมดแล้ว');
+                                              } else if (!isAvailable) {
+                                                toast.error('อุปกรณ์นี้ยังไม่พร้อมเบิก กรุณารอสั่งซื้อ');
+                                              }
+                                              return;
                                             }
+                                            
+                                            // ✅ คลิกได้ - เลือกอุปกรณ์
+                                            setItemSearchTerm('');
+                                            await handleItemSelect(itemId);
                                           }}
                                           className={`px-3 py-2 border-b border-gray-100 ${
-                                            isAvailable 
-                                              ? 'hover:bg-blue-50 cursor-pointer text-gray-900' 
-                                              : 'cursor-not-allowed text-gray-900'
+                                            isLoadingThisItem
+                                              ? 'bg-blue-50 cursor-wait'
+                                              : canClick
+                                              ? 'hover:bg-blue-50 cursor-pointer text-gray-900'
+                                              : 'cursor-not-allowed text-gray-500 bg-gray-50'
                                           }`}
                                         >
-                                          {isAvailable ? (
-                                            // ✅ อุปกรณ์ที่พร้อมเบิก - แสดงปกติ
-                                            <span>{itemName} (คงเหลือ: {availableQty} ชิ้น)</span>
-                                          ) : (
-                                            // ✅ อุปกรณ์ที่ไม่พร้อมเบิก - แยกสีข้อความ
-                                            <span>
-                                              {itemName} (คงเหลือ: 0 ชิ้น) 
-                                              <span className="ml-2 px-2 py-0.5 text-xs font-medium text-orange-600 bg-yellow-100 rounded-md">
-                                                รอสั่งซื้อ
-                                              </span>
+                                          <div className="flex items-center justify-between">
+                                            <span className={canClick ? 'text-gray-900' : 'text-gray-500'}>
+                                              {itemName} (คงเหลือ: {availableQty} ชิ้น
+                                              {/* แสดงจำนวนที่พร้อมเบิกหลังหักที่รออนุมัติ */}
+                                              {hasPendingSNs && availableSNs < availableQty && `, พร้อมเบิก: ${availableSNs} ชิ้น`}
+                                              {pendingQty > 0 && !hasPendingSNs && `, พร้อมเบิก: ${availableAfterPending} ชิ้น`})
                                             </span>
-                                          )}
+                                            <div className="flex items-center gap-2">
+                                              {isLoadingThisItem && (
+                                                <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-blue-600"></div>
+                                              )}
+                                              {!isLoadingThisItem && allPending && isAvailable && (
+                                                // ✅ รออนุมัติทั้งหมด (ทั้ง SN และไม่มี SN)
+                                                <span className="ml-2 px-2 py-0.5 text-xs font-medium text-blue-600 bg-blue-100 rounded-md whitespace-nowrap">
+                                                  รออนุมัติเบิก
+                                                </span>
+                                              )}
+                                              {!isLoadingThisItem && !allPending && isAvailable && (hasPendingSNs || pendingQty > 0) && (
+                                                // ✅ รออนุมัติบางส่วน (แสดงจำนวนที่รออนุมัติ)
+                                                <span className="ml-2 px-2 py-0.5 text-xs font-medium text-blue-600 bg-blue-50 rounded-md whitespace-nowrap">
+                                                  {hasPendingSNs ? `${pendingSNs.length} ชิ้นรออนุมัติ` : `${pendingQty} ชิ้นรออนุมัติ`}
+                                                </span>
+                                              )}
+                                              {!isLoadingThisItem && !isAvailable && (
+                                                // ✅ ไม่พร้อมเบิก
+                                                <span className="ml-2 px-2 py-0.5 text-xs font-medium text-orange-600 bg-yellow-100 rounded-md whitespace-nowrap">
+                                                  รอสั่งซื้อ
+                                                </span>
+                                              )}
+                                            </div>
+                                          </div>
                                         </div>
                                       );
                                     })
@@ -857,22 +1066,56 @@ export default function EquipmentRequestPage() {
                                 return isSIMCard ? '-- เลือกเบอร์โทรศัพท์ --' : '-- เลือกอุปกรณ์ที่มีหรือไม่มี Serial Number --';
                               })()}
                             </option>
-                            {availableSerialNumbers.map((sn) => (
-                              <option key={sn} value={sn}>
-                                {sn}
-                              </option>
-                            ))}
+                            {availableSerialNumbers
+                              .filter(sn => {
+                                // ✅ กรอง SN ที่รออนุมัติออก (เว้น option "ไม่มี SN")
+                                if (sn.includes('ไม่มี')) {
+                                  // ถ้าเป็น option "ไม่มี SN" ให้เช็คว่ายังมีจำนวนพอเบิกหรือไม่
+                                  const isPending = isItemPendingApproval(requestItem.itemId, '');
+                                  return !isPending;
+                                }
+                                // สำหรับ SN ปกติ ให้เช็คว่า SN นี้รออนุมัติหรือไม่
+                                return !isItemPendingApproval(requestItem.itemId, sn);
+                              })
+                              .map((sn) => (
+                                <option key={sn} value={sn}>
+                                  {sn}
+                                </option>
+                              ))}
                           </select>
-                          <p className="text-xs text-green-600 mt-1">
-                            ✅ พบตัวเลือกที่พร้อมใช้งาน {availableSerialNumbers.length} รายการ
-                            {(() => {
-                              const hasNoSNOption = availableSerialNumbers.some(sn => sn.includes('ไม่มี'));
-                              if (hasNoSNOption) {
-                                return ' (รวมอุปกรณ์ที่ไม่มี SN)';
+                          {(() => {
+                            // ✅ แสดงจำนวน SN ที่พร้อมใช้งาน (หลังกรองแล้ว)
+                            const filteredCount = availableSerialNumbers.filter(sn => {
+                              if (sn.includes('ไม่มี')) {
+                                return !isItemPendingApproval(requestItem.itemId, '');
                               }
-                              return '';
-                            })()}
-                          </p>
+                              return !isItemPendingApproval(requestItem.itemId, sn);
+                            }).length;
+                            
+                            const pendingCount = availableSerialNumbers.length - filteredCount;
+                            
+                            if (filteredCount > 0) {
+                              return (
+                                <p className="text-xs text-green-600 mt-1">
+                                  ✅ พบตัวเลือกที่พร้อมใช้งาน {filteredCount} รายการ
+                                  {pendingCount > 0 && ` (${pendingCount} รายการรออนุมัติเบิก)`}
+                                  {(() => {
+                                    const hasNoSNOption = availableSerialNumbers.some(sn => sn.includes('ไม่มี') && !isItemPendingApproval(requestItem.itemId, ''));
+                                    if (hasNoSNOption) {
+                                      return ' (รวมอุปกรณ์ที่ไม่มี SN)';
+                                    }
+                                    return '';
+                                  })()}
+                                </p>
+                              );
+                            } else {
+                              return (
+                                <p className="text-xs text-orange-600 mt-1">
+                                  ⚠️ ตัวเลือกทั้งหมดกำลังรออนุมัติการเบิก
+                                </p>
+                              );
+                            }
+                          })()}
                         </>
                       ) : (
                         <>

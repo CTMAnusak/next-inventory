@@ -74,52 +74,142 @@ export async function snapshotOfficeBeforeDelete(officeId: string): Promise<{
     );
     updatedCounts.users = userResult.modifiedCount;
     
+    // 🆕 หา userId ทั้งหมดที่ใช้สาขานี้ (เพื่อ snapshot ประวัติทั้งหมดของผู้ใช้)
+    const usersWithOffice = await User.find({ officeId: officeId }).select('user_id');
+    const userIds = usersWithOffice.map((u: any) => u.user_id);
+    
+    console.log(`📸 Found ${userIds.length} users with office "${officeName}"`);
+    
     // 2. Snapshot ใน RequestLog
-    const requestLogResult = await RequestLog.updateMany(
-      { requesterOfficeId: officeId },
-      {
-        $set: {
-          requesterOffice: officeName,
-          requesterOfficeName: officeName
+    // ⚠️ สำคัญ: Snapshot ทั้งประวัติที่มี requesterOfficeId = officeId 
+    // และประวัติทั้งหมดของผู้ใช้ที่อยู่สาขานี้ (ไม่ว่า requesterOfficeId จะเป็นอะไร)
+    let requestLogResult;
+    if (userIds.length > 0) {
+      requestLogResult = await RequestLog.updateMany(
+        {
+          $or: [
+            { requesterOfficeId: officeId },
+            { userId: { $in: userIds } }
+          ]
+        },
+        {
+          $set: {
+            requesterOffice: officeName,
+            requesterOfficeName: officeName
+          }
         }
-      }
-    );
+      );
+    } else {
+      // ถ้าไม่มี user ให้ snapshot เฉพาะที่มี requesterOfficeId = officeId
+      requestLogResult = await RequestLog.updateMany(
+        { requesterOfficeId: officeId },
+        {
+          $set: {
+            requesterOffice: officeName,
+            requesterOfficeName: officeName
+          }
+        }
+      );
+    }
     updatedCounts.requestLogs = requestLogResult.modifiedCount;
     
     // 3. Snapshot ใน ReturnLog
-    const returnLogResult = await ReturnLog.updateMany(
-      { returnerOfficeId: officeId },
-      {
-        $set: {
-          returnerOffice: officeName,
-          returnerOfficeName: officeName
+    // ⚠️ สำคัญ: Snapshot ทั้งประวัติที่มี returnerOfficeId = officeId 
+    // และประวัติทั้งหมดของผู้ใช้ที่อยู่สาขานี้ (ไม่ว่า returnerOfficeId จะเป็นอะไร)
+    let returnLogResult;
+    if (userIds.length > 0) {
+      returnLogResult = await ReturnLog.updateMany(
+        {
+          $or: [
+            { returnerOfficeId: officeId },
+            { userId: { $in: userIds } }
+          ]
+        },
+        {
+          $set: {
+            returnerOffice: officeName,
+            returnerOfficeName: officeName
+          }
         }
-      }
-    );
+      );
+    } else {
+      // ถ้าไม่มี user ให้ snapshot เฉพาะที่มี returnerOfficeId = officeId
+      returnLogResult = await ReturnLog.updateMany(
+        { returnerOfficeId: officeId },
+        {
+          $set: {
+            returnerOffice: officeName,
+            returnerOfficeName: officeName
+          }
+        }
+      );
+    }
     updatedCounts.returnLogs = returnLogResult.modifiedCount;
     
     // 4. Snapshot ใน IssueLog
-    const issueLogResult = await IssueLog.updateMany(
-      { officeId: officeId },
-      {
-        $set: {
-          office: officeName,
-          officeName: officeName
+    // ⚠️ สำคัญ: Snapshot ทั้งประวัติที่มี officeId = officeId 
+    // และประวัติทั้งหมดของผู้ใช้ที่อยู่สาขานี้ (ไม่ว่า officeId จะเป็นอะไร)
+    let issueLogResult;
+    if (userIds.length > 0) {
+      issueLogResult = await IssueLog.updateMany(
+        {
+          $or: [
+            { officeId: officeId },
+            { userId: { $in: userIds } }
+          ]
+        },
+        {
+          $set: {
+            office: officeName,
+            officeName: officeName
+          }
         }
-      }
-    );
+      );
+    } else {
+      // ถ้าไม่มี user ให้ snapshot เฉพาะที่มี officeId = officeId
+      issueLogResult = await IssueLog.updateMany(
+        { officeId: officeId },
+        {
+          $set: {
+            office: officeName,
+            officeName: officeName
+          }
+        }
+      );
+    }
     updatedCounts.issueLogs = issueLogResult.modifiedCount;
     
     // 5. Snapshot ใน InventoryItem (requesterInfo)
-    const inventoryItemResult = await InventoryItem.updateMany(
-      { 'requesterInfo.officeId': officeId },
-      {
-        $set: {
-          'requesterInfo.office': officeName,
-          'requesterInfo.officeName': officeName
+    // ⚠️ สำคัญ: Snapshot ทั้งอุปกรณ์ที่มี requesterInfo.officeId = officeId 
+    // และอุปกรณ์ทั้งหมดของผู้ใช้ที่อยู่สาขานี้ (ไม่ว่า requesterInfo.officeId จะเป็นอะไร)
+    let inventoryItemResult;
+    if (userIds.length > 0) {
+      inventoryItemResult = await InventoryItem.updateMany(
+        {
+          $or: [
+            { 'requesterInfo.officeId': officeId },
+            { 'currentOwnership.userId': { $in: userIds } }
+          ]
+        },
+        {
+          $set: {
+            'requesterInfo.office': officeName,
+            'requesterInfo.officeName': officeName
+          }
         }
-      }
-    );
+      );
+    } else {
+      // ถ้าไม่มี user ให้ snapshot เฉพาะที่มี requesterInfo.officeId = officeId
+      inventoryItemResult = await InventoryItem.updateMany(
+        { 'requesterInfo.officeId': officeId },
+        {
+          $set: {
+            'requesterInfo.office': officeName,
+            'requesterInfo.officeName': officeName
+          }
+        }
+      );
+    }
     updatedCounts.inventoryItems = inventoryItemResult.modifiedCount;
     
     // 6. Snapshot ใน DeletedUser
