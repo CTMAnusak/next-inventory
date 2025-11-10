@@ -3,6 +3,9 @@ import dbConnect from '@/lib/mongodb';
 import User from '@/models/User';
 import { sendNewUserRegistrationNotification } from '@/lib/email';
 
+const DEFAULT_OFFICE_ID = 'UNSPECIFIED_OFFICE';
+const DEFAULT_OFFICE_NAME = 'ไม่ระบุสาขา';
+
 interface GoogleProfile {
   id: string;
   email: string;
@@ -14,7 +17,9 @@ interface ProfileData {
   lastName: string;
   nickname: string;
   department: string;
-  office: string;
+  officeId?: string;
+  officeName?: string;
+  office?: string;
   phone: string;
   userType: 'individual' | 'branch';
   requestMessage?: string;
@@ -103,16 +108,19 @@ export async function POST(request: NextRequest) {
     }
 
     // Validate form data based on user type
+    const trimmedOfficeId = profileData.officeId?.trim();
+    const trimmedLegacyOffice = profileData.office?.trim();
+
     if (profileData.userType === 'individual') {
       if (!profileData.firstName || !profileData.lastName || !profileData.nickname || 
-          !profileData.department || !profileData.office || !profileData.phone) {
+          !profileData.department || (!trimmedOfficeId && !trimmedLegacyOffice) || !profileData.phone) {
         return NextResponse.json(
           { error: 'กรุณากรอกข้อมูลให้ครบถ้วน' },
           { status: 400 }
         );
       }
     } else {
-      if (!profileData.office || !profileData.phone) {
+      if ((!trimmedOfficeId && !trimmedLegacyOffice) || !profileData.phone) {
         return NextResponse.json(
           { error: 'กรุณากรอกข้อมูลให้ครบถ้วน' },
           { status: 400 }
@@ -155,6 +163,28 @@ export async function POST(request: NextRequest) {
       );
     }
 
+    // Resolve office information
+    let finalOfficeId = trimmedOfficeId || DEFAULT_OFFICE_ID;
+    let finalOfficeName = profileData.officeName?.trim() || '';
+
+    if (trimmedOfficeId) {
+      try {
+        const { getOfficeNameById } = await import('@/lib/office-helpers');
+        finalOfficeName = await getOfficeNameById(trimmedOfficeId);
+      } catch (error) {
+        console.error('Failed to resolve office name from officeId:', error);
+      }
+    }
+
+    if (!finalOfficeName) {
+      finalOfficeName = trimmedLegacyOffice || DEFAULT_OFFICE_NAME;
+    }
+
+    if (!finalOfficeName) {
+      finalOfficeName = DEFAULT_OFFICE_NAME;
+      finalOfficeId = DEFAULT_OFFICE_ID;
+    }
+
     // Create new user
     const newUser = new User({
       user_id: user_id,
@@ -162,7 +192,8 @@ export async function POST(request: NextRequest) {
       lastName: profileData.userType === 'individual' ? profileData.lastName : undefined,
       nickname: profileData.userType === 'individual' ? profileData.nickname : undefined,
       department: profileData.userType === 'individual' ? profileData.department : undefined,
-      office: profileData.office,
+      officeId: finalOfficeId,
+      officeName: finalOfficeName,
       phone: profileData.phone,
       email: googleProfile.email,
       userType: profileData.userType,
@@ -184,7 +215,7 @@ export async function POST(request: NextRequest) {
         lastName: profileData.lastName,
         nickname: profileData.nickname,
         email: googleProfile.email,
-        office: profileData.office,
+        office: finalOfficeName,
         phone: profileData.phone,
         department: profileData.department,
         requestMessage: profileData.requestMessage,

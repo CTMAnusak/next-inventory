@@ -17,10 +17,16 @@ interface ProfileCompletionForm {
   lastName: string;
   nickname: string;
   department: string;
-  office: string;
+  officeId: string;
+  officeName: string;
   phone: string;
   userType: 'individual' | 'branch';
   requestMessage?: string;
+}
+
+interface OfficeOption {
+  value: string;
+  label: string;
 }
 
 export default function GoogleRegisterPage() {
@@ -28,13 +34,16 @@ export default function GoogleRegisterPage() {
   const searchParams = useSearchParams();
   const [loading, setLoading] = useState(false);
   const [googleProfile, setGoogleProfile] = useState<GoogleProfile | null>(null);
+  const [officeOptions, setOfficeOptions] = useState<OfficeOption[]>([]);
+  const [loadingOffices, setLoadingOffices] = useState(true);
   
   const [formData, setFormData] = useState<ProfileCompletionForm>({
     firstName: '',
     lastName: '',
     nickname: '',
     department: '',
-    office: '',
+    officeId: '',
+    officeName: '',
     phone: '',
     userType: 'individual',
     requestMessage: ''
@@ -66,6 +75,33 @@ export default function GoogleRegisterPage() {
     }
   }, [searchParams, router]);
 
+  useEffect(() => {
+    const fetchOffices = async () => {
+      setLoadingOffices(true);
+      try {
+        const response = await fetch('/api/admin/offices');
+        if (!response.ok) {
+          throw new Error('Failed to fetch offices');
+        }
+        const data = await response.json();
+        const options = data
+          .filter((office: any) => office.isActive !== false)
+          .map((office: any) => ({
+            value: office.office_id,
+            label: office.name
+          }));
+        setOfficeOptions(options);
+      } catch (error) {
+        console.error('Error fetching offices:', error);
+        toast.error('ไม่สามารถโหลดข้อมูลสาขาได้ กรุณาลองใหม่อีกครั้ง');
+      } finally {
+        setLoadingOffices(false);
+      }
+    };
+
+    fetchOffices();
+  }, []);
+
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement>) => {
     const { name, value } = e.target;
     
@@ -82,6 +118,16 @@ export default function GoogleRegisterPage() {
     }
     
     // Clear firstName/lastName when switching to branch user type
+    if (name === 'officeId') {
+      const selectedOption = officeOptions.find(option => option.value === value);
+      setFormData(prev => ({
+        ...prev,
+        officeId: value,
+        officeName: selectedOption?.label || ''
+      }));
+      return;
+    }
+
     if (name === 'userType' && value === 'branch') {
       setFormData(prev => ({
         ...prev,
@@ -113,14 +159,19 @@ export default function GoogleRegisterPage() {
   };
 
   const validateForm = () => {
+    if (loadingOffices) {
+      toast.error('ระบบกำลังโหลดข้อมูลสาขา กรุณารอสักครู่');
+      return false;
+    }
+
     if (formData.userType === 'individual') {
       if (!formData.firstName || !formData.lastName || !formData.nickname || 
-          !formData.department || !formData.office || !formData.phone) {
+          !formData.department || !formData.officeId || !formData.phone) {
         toast.error('กรุณากรอกข้อมูลให้ครบถ้วน');
         return false;
       }
     } else {
-      if (!formData.office || !formData.phone) {
+      if (!formData.officeId || !formData.phone) {
         toast.error('กรุณากรอกข้อมูลให้ครบถ้วน');
         return false;
       }
@@ -142,6 +193,8 @@ export default function GoogleRegisterPage() {
 
     setLoading(true);
     try {
+      const selectedOffice = officeOptions.find(option => option.value === formData.officeId);
+
       const response = await fetch('/api/auth/google-register', {
         method: 'POST',
         headers: {
@@ -149,7 +202,10 @@ export default function GoogleRegisterPage() {
         },
         body: JSON.stringify({
           googleProfile,
-          profileData: formData
+          profileData: {
+            ...formData,
+            officeName: selectedOffice?.label || formData.officeName
+          }
         }),
       });
 
@@ -328,15 +384,28 @@ export default function GoogleRegisterPage() {
                 <MapPin className="w-4 h-4 inline mr-1" />
                 ออฟฟิศ/สาขา *
               </label>
-              <input
-                type="text"
-                name="office"
-                value={formData.office}
+              <select
+                name="officeId"
+                value={formData.officeId}
                 onChange={handleInputChange}
                 className="w-full px-4 py-3 border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500 text-gray-900"
-                placeholder="เช่น สำนักงานใหญ่, สาขาสีลม, สาขาอโศก"
                 required
-              />
+                disabled={loadingOffices || officeOptions.length === 0}
+              >
+                <option value="" disabled>
+                  {loadingOffices ? 'กำลังโหลดข้อมูลสาขา...' : 'เลือกออฟฟิศ/สาขา'}
+                </option>
+                {officeOptions.map(option => (
+                  <option key={option.value} value={option.value}>
+                    {option.label}
+                  </option>
+                ))}
+              </select>
+              {formData.officeId && formData.officeName && (
+                <p className="mt-2 text-sm text-gray-500">
+                  สาขาที่เลือก: {formData.officeName}
+                </p>
+              )}
             </div>
             
             <div>

@@ -4,6 +4,7 @@ import User from '@/models/User';
 import DeletedUsers from '@/models/DeletedUser';
 import { InventoryItem } from '@/models/InventoryItem';
 import ReturnLog from '@/models/ReturnLog';
+import IssueLog from '@/models/IssueLog';
 import { hashPassword } from '@/lib/auth';
 import jwt from 'jsonwebtoken';
 import { createAutoReturnForUser, checkUserEquipment } from '@/lib/user-deletion-helpers';
@@ -366,6 +367,65 @@ export async function DELETE(
       return NextResponse.json(
         { error: 'ไม่สามารถลบ Admin หลักได้' },
         { status: 403 }
+      );
+    }
+
+    // ตรวจสอบงานแจ้ง IT ที่ยังไม่ปิด ซึ่งผู้ใช้รายนี้เกี่ยวข้อง
+    const openIssueFilter = { status: { $ne: 'closed' } };
+
+    const [requesterIssues, assignedIssues] = await Promise.all([
+      IssueLog.find({
+        requesterId: userToDelete.user_id,
+        ...openIssueFilter
+      })
+        .select('issueId status issueCategory')
+        .lean(),
+      IssueLog.find({
+        assignedAdminId: userToDelete.user_id,
+        ...openIssueFilter
+      })
+        .select('issueId status issueCategory')
+        .lean()
+    ]);
+
+    const totalOpenIssues = requesterIssues.length + assignedIssues.length;
+
+    if (totalOpenIssues > 0) {
+      const formatIssues = (issues: Array<{ issueId: string; status: string; issueCategory?: string }>) =>
+        issues.slice(0, 10).map(issue => ({
+          issueId: issue.issueId,
+          status: issue.status,
+          issueCategory: issue.issueCategory
+        }));
+
+      const messageParts: string[] = [];
+      if (requesterIssues.length > 0) {
+        messageParts.push(`• ผู้ใช้นี้เป็นผู้แจ้งงานจำนวน ${requesterIssues.length} รายการ`);
+      }
+      if (assignedIssues.length > 0) {
+        messageParts.push(`• ผู้ใช้นี้เป็นผู้รับผิดชอบงานจำนวน ${assignedIssues.length} รายการ`);
+      }
+
+      const detailedMessage = [
+        'ไม่สามารถลบผู้ใช้ได้ เนื่องจากยังมีงานแจ้ง IT ที่สถานะยังไม่ถูกปิด',
+        ...messageParts,
+        'กรุณาปิดงานทั้งหมดให้เรียบร้อยก่อนดำเนินการลบอีกครั้ง'
+      ].join('\n');
+
+      return NextResponse.json(
+        {
+          error: 'ไม่สามารถลบผู้ใช้ได้',
+          message: detailedMessage,
+          hasOpenIssues: true,
+          openIssues: {
+            total: totalOpenIssues,
+            asRequester: requesterIssues.length,
+            asAssignee: assignedIssues.length,
+            requesterIssues: formatIssues(requesterIssues),
+            assigneeIssues: formatIssues(assignedIssues)
+          }
+        },
+        { status: 400 }
       );
     }
 

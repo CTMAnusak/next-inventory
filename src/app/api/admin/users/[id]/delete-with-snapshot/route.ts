@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import dbConnect from '@/lib/mongodb';
 import User from '@/models/User';
+import IssueLog from '@/models/IssueLog';
 import { verifyToken } from '@/lib/auth';
 import { snapshotUserBeforeDelete, checkUserRelatedIssues } from '@/lib/snapshot-helpers';
 
@@ -43,14 +44,73 @@ export async function DELETE(
       );
     }
 
-    // 2. ตรวจสอบว่ามีข้อมูลที่เกี่ยวข้องใน IssueLog หรือไม่
+    // 2. ตรวจสอบงานแจ้ง IT ที่ยังไม่ปิด
+    const openIssueFilter = { status: { $ne: 'closed' } };
+
+    const [requesterIssues, assigneeIssues] = await Promise.all([
+      IssueLog.find({
+        requesterId: id,
+        ...openIssueFilter
+      })
+        .select('issueId status issueCategory')
+        .lean(),
+      IssueLog.find({
+        assignedAdminId: id,
+        ...openIssueFilter
+      })
+        .select('issueId status issueCategory')
+        .lean()
+    ]);
+
+    const totalOpenIssues = requesterIssues.length + assigneeIssues.length;
+
+    if (totalOpenIssues > 0) {
+      const formatIssues = (issues: Array<{ issueId: string; status: string; issueCategory?: string }>) =>
+        issues.slice(0, 10).map(issue => ({
+          issueId: issue.issueId,
+          status: issue.status,
+          issueCategory: issue.issueCategory
+        }));
+
+      const messageParts: string[] = [];
+      if (requesterIssues.length > 0) {
+        messageParts.push(`• ผู้ใช้นี้เป็นผู้แจ้งงานจำนวน ${requesterIssues.length} รายการ`);
+      }
+      if (assigneeIssues.length > 0) {
+        messageParts.push(`• ผู้ใช้นี้เป็นผู้รับผิดชอบงานจำนวน ${assigneeIssues.length} รายการ`);
+      }
+
+      const detailedMessage = [
+        'ไม่สามารถลบผู้ใช้ได้ เนื่องจากยังมีงานแจ้ง IT ที่สถานะยังไม่ถูกปิด',
+        ...messageParts,
+        'กรุณาปิดงานทั้งหมดให้เรียบร้อยก่อนดำเนินการลบอีกครั้ง'
+      ].join('\n');
+
+      return NextResponse.json(
+        {
+          error: 'ไม่สามารถลบผู้ใช้ได้',
+          message: detailedMessage,
+          hasOpenIssues: true,
+          openIssues: {
+            total: totalOpenIssues,
+            asRequester: requesterIssues.length,
+            asAssignee: assigneeIssues.length,
+            requesterIssues: formatIssues(requesterIssues),
+            assigneeIssues: formatIssues(assigneeIssues)
+          }
+        },
+        { status: 400 }
+      );
+    }
+
+    // 3. ตรวจสอบว่ามีข้อมูลที่เกี่ยวข้องใน IssueLog หรือไม่ (รวมงานทั้งหมด เพื่อสร้าง snapshot)
     const relatedIssues = await checkUserRelatedIssues(id);
     
     console.log(`📊 User ${id} has ${relatedIssues.total} related issues`);
     console.log(`   - As Requester: ${relatedIssues.asRequester}`);
     console.log(`   - As Admin: ${relatedIssues.asAdmin}`);
 
-    // 3. Snapshot ข้อมูลล่าสุดก่อนลบ (ถ้ามีข้อมูลที่เกี่ยวข้อง)
+    // 4. Snapshot ข้อมูลล่าสุดก่อนลบ (ถ้ามีข้อมูลที่เกี่ยวข้อง)
     if (relatedIssues.hasRelatedIssues) {
       console.log(`📸 Creating snapshots for user ${id}...`);
       
@@ -64,7 +124,7 @@ export async function DELETE(
       console.log(`ℹ️ No related issues found, skipping snapshot`);
     }
 
-    // 4. ลบ User
+    // 5. ลบ User
     await User.deleteOne({ user_id: id });
     
     console.log(`✅ User ${id} deleted successfully`);

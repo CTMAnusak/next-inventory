@@ -72,6 +72,16 @@ interface UserFormData {
   userRole: 'user' | 'admin' | 'it_admin';
 }
 
+const ISSUE_STATUS_LABELS: Record<string, string> = {
+  pending: 'รอดำเนินการ',
+  in_progress: 'กำลังดำเนินการ',
+  completed: 'รอผู้ใช้งานตรวจสอบ',
+  closed: 'ปิดงาน'
+};
+
+const getIssueStatusLabel = (status?: string) =>
+  status ? ISSUE_STATUS_LABELS[status] || status : 'ไม่ทราบสถานะ';
+
 export default function AdminUsersPage() {
   const [users, setUsers] = useState<User[]>([]);
   const [pendingUsers, setPendingUsers] = useState<User[]>([]);
@@ -463,8 +473,65 @@ export default function AdminUsersPage() {
         }
         await fetchUsers();
       } else {
-        // ตรวจสอบว่ามีอุปกรณ์ครอบครองหรือไม่
-        if (data.hasEquipment && data.equipmentList) {
+        if (data.hasOpenIssues && data.openIssues) {
+          const {
+            total,
+            asRequester,
+            asAssignee,
+            requesterIssues = [],
+            assigneeIssues = []
+          } = data.openIssues as {
+            total: number;
+            asRequester: number;
+            asAssignee: number;
+            requesterIssues?: Array<{ issueId: string; status: string; issueCategory?: string }>;
+            assigneeIssues?: Array<{ issueId: string; status: string; issueCategory?: string }>;
+          };
+
+          const issueLines: string[] = [];
+
+          if (asRequester > 0) {
+            issueLines.push(`• ผู้ใช้เป็นผู้แจ้งงาน ${asRequester} รายการ`);
+          }
+          if (asAssignee > 0) {
+            issueLines.push(`• ผู้ใช้เป็นผู้รับผิดชอบงาน ${asAssignee} รายการ`);
+          }
+
+          const sampleIssues = [...requesterIssues, ...assigneeIssues]
+            .slice(0, 5)
+            .map((issue, index) => {
+              const label = getIssueStatusLabel(issue.status);
+              const category = issue.issueCategory ? ` (${issue.issueCategory})` : '';
+              return `  ${index + 1}. ${issue.issueId} - ${label}${category}`;
+            });
+
+          let issueMessage = `❌ ไม่สามารถลบผู้ใช้ได้\n\n🔴 ผู้ใช้นี้ยังมีงานแจ้ง IT ที่ยังไม่ปิดจำนวน ${total} รายการ\n`;
+          if (issueLines.length > 0) {
+            issueMessage += `${issueLines.join('\n')}\n`;
+          }
+          if (sampleIssues.length > 0) {
+            issueMessage += `\n📄 ตัวอย่างงานค้าง:\n${sampleIssues.join('\n')}\n`;
+          }
+          issueMessage += `\nกรุณาปิดงานทั้งหมดให้เรียบร้อยก่อนลองอีกครั้ง`;
+
+          customToast.error(issueMessage, {
+            duration: 15000,
+            style: {
+              maxWidth: '600px',
+              whiteSpace: 'pre-line',
+              textAlign: 'left',
+              fontSize: '14px',
+              lineHeight: '1.6',
+              padding: '20px',
+              borderRadius: '12px',
+              boxShadow: '0 10px 40px rgba(0, 0, 0, 0.2)',
+              position: 'fixed',
+              top: '0%',
+              right: '0%',
+              zIndex: '9999'
+            }
+          });
+        } else if (data.hasEquipment && data.equipmentList) {
           const equipmentCount = data.equipmentCount || 0;
           const equipmentItems = data.equipmentList.slice(0, 5); // แสดงแค่ 5 รายการแรก
           const remainingCount = equipmentCount - equipmentItems.length;
