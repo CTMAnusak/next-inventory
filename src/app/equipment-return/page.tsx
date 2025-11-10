@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { useAuth } from '@/contexts/AuthContext';
 import { useSearchParams, useRouter } from 'next/navigation';
 import Layout from '@/components/Layout';
@@ -132,6 +132,7 @@ export default function EquipmentReturnPage() {
   const [showOptionDropdown, setShowOptionDropdown] = useState<boolean>(false);
   const [searchTerm, setSearchTerm] = useState('');
   const [hasShownNotification, setHasShownNotification] = useState(false);
+  const hasShownSlowLoadToastRef = useRef(false);
   const [maxQuantity, setMaxQuantity] = useState<number>(0); // จำนวนสูงสุดที่คืนได้
   const [remainingQuantity, setRemainingQuantity] = useState<number>(0); // จำนวนที่เหลือ
   
@@ -151,8 +152,9 @@ export default function EquipmentReturnPage() {
         console.log(`✅ Data loaded in ${loadTime}ms`);
         
         // Warn if loading takes too long
-        if (loadTime > 3000) {
+        if (loadTime > 3000 && !hasShownSlowLoadToastRef.current) {
           toast('โหลดข้อมูลช้ากว่าปกติ กรุณารอสักครู่...', { icon: '⏱️' });
+          hasShownSlowLoadToastRef.current = true;
         }
       } catch (error) {
         console.error('Error fetching initial data:', error);

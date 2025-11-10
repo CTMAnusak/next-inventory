@@ -143,6 +143,36 @@ export default function ITTrackingPage() {
     };
   }, [isLoading, issues.length, activeTab]);
 
+  const clearAllFilters = () => {
+    setSearchTerm('');
+    setNameFilter('');
+    setEmailFilter('');
+    setPhoneFilter('');
+    setDateFilter('');
+    setUrgencyFilter('');
+    setCategoryFilter('');
+    setAdminFilter('');
+    setStatusFilter('');
+    setMonthFilter('');
+    setYearFilter('');
+  };
+
+  const resetViewState = () => {
+    clearAllFilters();
+    setActiveTab('open');
+    setCurrentPage(1);
+    setSelectedIssue(null);
+    setShowDetailModal(false);
+    setShowApprovalModal(false);
+    setApprovalAction(null);
+    setRejectionReason('');
+    setIssues([]);
+    setShowFilters(false);
+    if (tableContainerRef.current) {
+      tableContainerRef.current.scrollLeft = 0;
+    }
+  };
+
   const fetchUserIssues = async () => {
     setIsLoading(true);
     try {
@@ -229,6 +259,7 @@ export default function ITTrackingPage() {
   };
 
   const handleRefresh = () => {
+    resetViewState();
     fetchUserIssues();
   };
 
@@ -587,19 +618,7 @@ export default function ITTrackingPage() {
               {(searchTerm || nameFilter || emailFilter || phoneFilter || dateFilter || urgencyFilter || categoryFilter || adminFilter || statusFilter || monthFilter || yearFilter) && (
                 <div className="mt-4 flex justify-end">
                   <button
-                    onClick={() => {
-                      setSearchTerm('');
-                      setNameFilter('');
-                      setEmailFilter('');
-                      setPhoneFilter('');
-                      setDateFilter('');
-                      setUrgencyFilter('');
-                      setCategoryFilter('');
-                      setAdminFilter('');
-                      setStatusFilter('');
-                      setMonthFilter('');
-                      setYearFilter('');
-                    }}
+                    onClick={clearAllFilters}
                     className="inline-flex items-center px-3 py-1.5 text-sm text-gray-600 hover:text-gray-800 border border-gray-300 rounded-md hover:bg-gray-50"
                   >
                     <X className="w-4 h-4 mr-1" />

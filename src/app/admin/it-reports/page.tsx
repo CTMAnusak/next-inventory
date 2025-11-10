@@ -104,6 +104,12 @@ export default function AdminITReportsPage() {
   const [confirmAction, setConfirmAction] = useState<{ id: string; status: string; text: string } | null>(null);
   const [workNotes, setWorkNotes] = useState('');
   const [sendingWork, setSendingWork] = useState(false);
+  const [tabCounts, setTabCounts] = useState<Record<TabType, number>>({
+    pending: 0,
+    in_progress: 0,
+    completed: 0,
+    closed: 0
+  });
 
   // Search and filter states
   const [searchTerm, setSearchTerm] = useState(''); // Issue ID only
@@ -193,18 +199,24 @@ export default function AdminITReportsPage() {
   const [totalPages, setTotalPages] = useState(1);
   const [totalItems, setTotalItems] = useState(0);
 
-  const fetchIssues = async (page = 1) => {
+  useEffect(() => {
+    refreshAllTabCounts();
+  }, []);
+
+  const fetchIssues = async (page = 1, statusOverride?: TabType, searchOverride?: string) => {
     setLoading(true);
     try {
       // Build query params
+      const targetStatus = statusOverride ?? activeTab;
+      const searchValue = searchOverride !== undefined ? searchOverride : searchTerm;
       const params = new URLSearchParams({
         page: page.toString(),
         limit: itemsPerPage.toString(),
-        status: activeTab,
+        status: targetStatus,
       });
 
       // Add search filters if present
-      if (searchTerm) params.append('search', searchTerm);
+      if (searchValue) params.append('search', searchValue);
 
       const response = await fetch(`/api/admin/it-reports?${params.toString()}`);
       if (response.ok) {
@@ -213,6 +225,10 @@ export default function AdminITReportsPage() {
         setTotalPages(data.pagination?.pages || 1);
         setTotalItems(data.pagination?.total || 0);
         setCurrentPage(page);
+        setTabCounts(prev => ({
+          ...prev,
+          [targetStatus]: data.pagination?.total || 0
+        }));
       } else {
         toast.error('เกิดข้อผิดพลาดในการโหลดข้อมูล');
       }
@@ -221,6 +237,85 @@ export default function AdminITReportsPage() {
     } finally {
       setLoading(false);
     }
+  };
+
+  const clearAllFilters = () => {
+    setSearchTerm('');
+    setNameFilter('');
+    setEmailFilter('');
+    setPhoneFilter('');
+    setUrgencyFilter('');
+    setCategoryFilter('');
+    setAdminFilter('');
+    setDateFilter('');
+    setMonthFilter('');
+    setYearFilter('');
+  };
+
+  const fetchTabCount = async (status: TabType, searchOverride?: string) => {
+    try {
+      const params = new URLSearchParams({
+        page: '1',
+        limit: '1',
+        status,
+      });
+
+      const searchValue = searchOverride !== undefined ? searchOverride : searchTerm;
+      if (searchValue) {
+        params.append('search', searchValue);
+      }
+
+      const response = await fetch(`/api/admin/it-reports?${params.toString()}`);
+      if (response.ok) {
+        const data = await response.json();
+        const total = data.pagination?.total || 0;
+        setTabCounts(prev => ({
+          ...prev,
+          [status]: total
+        }));
+      }
+    } catch (error) {
+      console.error('Failed to fetch tab count:', error);
+    }
+  };
+
+  const refreshAllTabCounts = async (searchOverride?: string) => {
+    const statuses: TabType[] = ['pending', 'in_progress', 'completed', 'closed'];
+    await Promise.all(statuses.map((status) => fetchTabCount(status, searchOverride)));
+  };
+
+  const resetViewState = () => {
+    clearAllFilters();
+    setActiveTab('pending');
+    setCurrentPage(1);
+    setShowFilters(false);
+    setIssues([]);
+    setFilteredIssues([]);
+    setTotalPages(1);
+    setTotalItems(0);
+    setSelectedIssue(null);
+    setShowDetailModal(false);
+    setShowImageModal(false);
+    setSelectedImage('');
+    setShowAssignModal(false);
+    setSelectedIssueForAssign(null);
+    setAssigningAdminId(null);
+    setShowConfirmModal(false);
+    setConfirmAction(null);
+    setWorkNotes('');
+    setSendingWork(false);
+    if (tableContainerRef.current) {
+      tableContainerRef.current.scrollLeft = 0;
+    }
+  };
+
+  const handleRefresh = async () => {
+    resetViewState();
+    await Promise.all([
+      refreshAllTabCounts(''),
+      fetchIssues(1, 'pending', ''),
+      fetchItAdmins()
+    ]);
   };
 
   const applyFilters = () => {
@@ -748,7 +843,7 @@ export default function AdminITReportsPage() {
                 <span>ฟิลเตอร์</span>
               </button>
               <button
-                onClick={() => fetchIssues(currentPage)}
+                onClick={handleRefresh}
                 disabled={loading}
                 className="w-full min-[400px]:w-3/5 min-[481px]:w-auto flex items-center justify-center space-x-2 px-4 py-2 bg-blue-100 text-blue-700 rounded-lg hover:bg-blue-200 transition-colors disabled:opacity-50"
               >
@@ -927,18 +1022,7 @@ export default function AdminITReportsPage() {
               {(searchTerm || nameFilter || emailFilter || phoneFilter || urgencyFilter || categoryFilter || adminFilter || dateFilter || monthFilter || yearFilter) && (
                 <div className="flex justify-end">
                   <button
-                    onClick={() => {
-                      setSearchTerm('');
-                      setNameFilter('');
-                      setEmailFilter('');
-                      setPhoneFilter('');
-                      setUrgencyFilter('');
-                      setCategoryFilter('');
-                      setAdminFilter('');
-                      setDateFilter('');
-                      setMonthFilter('');
-                      setYearFilter('');
-                    }}
+                    onClick={clearAllFilters}
                     className="inline-flex items-center px-3 py-1.5 text-sm text-gray-600 hover:text-gray-800 border border-gray-300 rounded-md hover:bg-gray-50"
                   >
                     <X className="w-4 h-4 mr-1" />
@@ -953,10 +1037,10 @@ export default function AdminITReportsPage() {
           <div className="border-b border-gray-200 mb-6 overflow-x-auto overflow-y-hidden">
             <nav className="-mb-px flex space-x-8">
               {[
-                { key: 'pending', label: 'รอดำเนินการ', icon: Clock, count: issues.filter(i => i.status === 'pending').length },
-                { key: 'in_progress', label: 'กำลังดำเนินการ', icon: CheckCircle, count: issues.filter(i => i.status === 'in_progress').length },
-                { key: 'completed', label: 'รอผู้ใช้ตรวจสอบ', icon: AlertTriangle, count: issues.filter(i => i.status === 'completed').length },
-                { key: 'closed', label: 'ปิดงาน', icon: XCircle, count: issues.filter(i => i.status === 'closed').length },
+                { key: 'pending', label: 'รอดำเนินการ', icon: Clock, count: tabCounts.pending },
+                { key: 'in_progress', label: 'กำลังดำเนินการ', icon: CheckCircle, count: tabCounts.in_progress },
+                { key: 'completed', label: 'รอผู้ใช้ตรวจสอบ', icon: AlertTriangle, count: tabCounts.completed },
+                { key: 'closed', label: 'ปิดงาน', icon: XCircle, count: tabCounts.closed },
               ].map((tab) => {
                 const Icon = tab.icon;
                 return (
