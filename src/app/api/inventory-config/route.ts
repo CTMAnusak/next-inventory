@@ -20,15 +20,21 @@ export async function GET() {
     
     await dbConnect();
     
+    type LeanInventoryConfig = {
+      categoryConfigs?: Array<{ order?: number } & Record<string, any>>;
+      statusConfigs?: Array<{ order?: number } & Record<string, any>>;
+      conditionConfigs?: Array<{ order?: number } & Record<string, any>>;
+    };
+
     let config = await InventoryConfig.findOne({})
       .select('categoryConfigs statusConfigs conditionConfigs')
-      .lean();
+      .lean<LeanInventoryConfig>();
     
     // ✅ Only create default configs if config doesn't exist AND hasn't been created before
     // Use a flag to prevent repeated saves
     if (!config) {
       // Check if we need to create defaults (only once)
-      const existingConfig = await InventoryConfig.findOne({}).lean();
+      const existingConfig = await InventoryConfig.findOne({}).lean<LeanInventoryConfig>();
       if (!existingConfig) {
         // Create config with defaults only if truly doesn't exist
         const newConfig = new InventoryConfig({

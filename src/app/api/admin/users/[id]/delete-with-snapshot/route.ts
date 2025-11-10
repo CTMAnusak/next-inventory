@@ -47,30 +47,53 @@ export async function DELETE(
     // 2. ตรวจสอบงานแจ้ง IT ที่ยังไม่ปิด
     const openIssueFilter = { status: { $ne: 'closed' } };
 
-    const [requesterIssues, assigneeIssues] = await Promise.all([
+    type IssueSummary = { issueId: string; status: string; issueCategory?: string };
+
+    const [requesterIssuesRaw, assigneeIssuesRaw] = await Promise.all([
       IssueLog.find({
         requesterId: id,
         ...openIssueFilter
       })
         .select('issueId status issueCategory')
-        .lean(),
+        .lean<IssueSummary>(),
       IssueLog.find({
         assignedAdminId: id,
         ...openIssueFilter
       })
         .select('issueId status issueCategory')
-        .lean()
+        .lean<IssueSummary>()
     ]);
+
+    const normalizeIssues = (issues: unknown): IssueSummary[] => {
+      if (!Array.isArray(issues)) {
+        return [];
+      }
+
+      return issues
+        .filter(
+          (issue): issue is { issueId: unknown; status: unknown; issueCategory?: unknown } =>
+            typeof issue === 'object' &&
+            issue !== null &&
+            'issueId' in issue &&
+            'status' in issue
+        )
+        .map(issue => ({
+          issueId: String((issue as { issueId: unknown }).issueId),
+          status: String((issue as { status: unknown }).status),
+          issueCategory:
+            (issue as { issueCategory?: unknown }).issueCategory !== undefined
+              ? String((issue as { issueCategory?: unknown }).issueCategory)
+              : undefined
+        }));
+    };
+
+    const requesterIssues = normalizeIssues(requesterIssuesRaw);
+    const assigneeIssues = normalizeIssues(assigneeIssuesRaw);
 
     const totalOpenIssues = requesterIssues.length + assigneeIssues.length;
 
     if (totalOpenIssues > 0) {
-      const formatIssues = (issues: Array<{ issueId: string; status: string; issueCategory?: string }>) =>
-        issues.slice(0, 10).map(issue => ({
-          issueId: issue.issueId,
-          status: issue.status,
-          issueCategory: issue.issueCategory
-        }));
+      const formatIssues = (issues: IssueSummary[]) => issues.slice(0, 10);
 
       const messageParts: string[] = [];
       if (requesterIssues.length > 0) {

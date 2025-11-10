@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
+import mongoose from 'mongoose';
 import dbConnect from '@/lib/mongodb';
 import User from '@/models/User';
 import DeletedUsers from '@/models/DeletedUser';
@@ -342,7 +343,38 @@ export async function DELETE(
     const { id } = await params;
 
     // ค้นหา user ที่จะลบ
-    const userToDelete = await User.findById(id).lean();
+    type LeanUser = {
+      officeName?: string;
+      officeId?: string;
+      isMainAdmin?: boolean;
+      user_id?: string;
+      userType?: string;
+      firstName?: string;
+      lastName?: string;
+      nickname?: string;
+      department?: string;
+      phone?: string;
+      email?: string;
+      _id?: mongoose.Types.ObjectId | string;
+    };
+
+    const userToDeleteRaw = await User.findById(id).lean<LeanUser>();
+
+    if (!userToDeleteRaw) {
+      return NextResponse.json(
+        { error: 'ไม่พบผู้ใช้ที่ต้องการลบ' },
+        { status: 404 }
+      );
+    }
+
+    if (!userToDeleteRaw._id) {
+      return NextResponse.json(
+        { error: 'ข้อมูลผู้ใช้ไม่สมบูรณ์ ไม่พบรหัสผู้ใช้' },
+        { status: 500 }
+      );
+    }
+
+    const userToDelete = userToDeleteRaw as LeanUser & { _id: mongoose.Types.ObjectId | string };
     if (!userToDelete) {
       return NextResponse.json(
         { error: 'ไม่พบผู้ใช้ที่ต้องการลบ' },
@@ -373,7 +405,9 @@ export async function DELETE(
     // ตรวจสอบงานแจ้ง IT ที่ยังไม่ปิด ซึ่งผู้ใช้รายนี้เกี่ยวข้อง
     const openIssueFilter = { status: { $ne: 'closed' } };
 
-    const [requesterIssues, assignedIssues] = await Promise.all([
+    type IssueSummary = { issueId: string; status: string; issueCategory?: string };
+
+    const [requesterIssuesRaw, assignedIssuesRaw] = await Promise.all([
       IssueLog.find({
         requesterId: userToDelete.user_id,
         ...openIssueFilter
@@ -388,10 +422,36 @@ export async function DELETE(
         .lean()
     ]);
 
+    const normalizeIssues = (issues: unknown): IssueSummary[] => {
+      if (!Array.isArray(issues)) {
+        return [];
+      }
+
+      return issues
+        .filter(
+          (issue): issue is { issueId: unknown; status: unknown; issueCategory?: unknown } =>
+            typeof issue === 'object' &&
+            issue !== null &&
+            'issueId' in issue &&
+            'status' in issue
+        )
+        .map(issue => ({
+          issueId: String((issue as { issueId: unknown }).issueId),
+          status: String((issue as { status: unknown }).status),
+          issueCategory:
+            (issue as { issueCategory?: unknown }).issueCategory !== undefined
+              ? String((issue as { issueCategory?: unknown }).issueCategory)
+              : undefined
+        }));
+    };
+
+    const requesterIssues = normalizeIssues(requesterIssuesRaw);
+    const assignedIssues = normalizeIssues(assignedIssuesRaw);
+
     const totalOpenIssues = requesterIssues.length + assignedIssues.length;
 
     if (totalOpenIssues > 0) {
-      const formatIssues = (issues: Array<{ issueId: string; status: string; issueCategory?: string }>) =>
+      const formatIssues = (issues: IssueSummary[]) =>
         issues.slice(0, 10).map(issue => ({
           issueId: issue.issueId,
           status: issue.status,
@@ -510,6 +570,10 @@ export async function DELETE(
       // 🆕 2. Snapshot ข้อมูลใน IssueLog และ Equipment Logs
       try {
         const { snapshotUserBeforeDelete } = await import('@/lib/snapshot-helpers');
+        if (!userToDelete.user_id) {
+          throw new Error('ไม่พบรหัสผู้ใช้ (user_id) สำหรับการทำ snapshot');
+        }
+
         const snapshotResult = await snapshotUserBeforeDelete(userToDelete.user_id);
         console.log('📸 Snapshot user data in logs:', snapshotResult);
       } catch (e) {
