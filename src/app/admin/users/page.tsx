@@ -473,6 +473,8 @@ export default function AdminUsersPage() {
         }
         await fetchUsers();
       } else {
+        const sections: string[] = [];
+
         if (data.hasOpenIssues && data.openIssues) {
           const {
             total,
@@ -505,40 +507,101 @@ export default function AdminUsersPage() {
               return `  ${index + 1}. ${issue.issueId} - ${label}${category}`;
             });
 
-          let issueMessage = `❌ ไม่สามารถลบผู้ใช้ได้\n\n🔴 ผู้ใช้นี้ยังมีงานแจ้ง IT ที่ยังไม่ปิดจำนวน ${total} รายการ\n`;
+          let issueMessage = `🔴 ผู้ใช้นี้ยังมีงานแจ้ง IT ที่ยังไม่ปิดจำนวน ${total} รายการ\n`;
           if (issueLines.length > 0) {
             issueMessage += `${issueLines.join('\n')}\n`;
           }
           if (sampleIssues.length > 0) {
             issueMessage += `\n📄 ตัวอย่างงานค้าง:\n${sampleIssues.join('\n')}\n`;
           }
-          issueMessage += `\nกรุณาปิดงานทั้งหมดให้เรียบร้อยก่อนลองอีกครั้ง`;
+          issueMessage += `\nกรุณาปิดงานทั้งหมดให้เรียบร้อยก่อนลบผู้ใช้อีกครั้ง`;
 
-          customToast.error(issueMessage, {
-            duration: 15000,
-            style: {
-              maxWidth: '600px',
-              whiteSpace: 'pre-line',
-              textAlign: 'left',
-              fontSize: '14px',
-              lineHeight: '1.6',
-              padding: '20px',
-              borderRadius: '12px',
-              boxShadow: '0 10px 40px rgba(0, 0, 0, 0.2)',
-              position: 'fixed',
-              top: '0%',
-              right: '0%',
-              zIndex: '9999'
+          sections.push(issueMessage);
+        }
+
+        if (data.hasPendingEquipmentRequests && data.pendingEquipmentRequests) {
+          const { total, summaries = [] } = data.pendingEquipmentRequests as {
+            total: number;
+            summaries?: Array<{
+              requestId: string;
+              requestDate?: string;
+              itemCount: number;
+              equipmentName?: string;
+              categoryName?: string;
+              deliveryLocation?: string;
+              requesterDisplayName?: string;
+              office?: string;
+              officeId?: string;
+              requesterFirstName?: string;
+              requesterLastName?: string;
+              requesterDepartment?: string;
+              requesterPhone?: string;
+              requesterEmail?: string;
+            }>;
+          };
+
+          const requestLines = summaries.slice(0, 5).map((request, index) => {
+            const equipmentLabel = request.equipmentName
+              ? `อุปกรณ์: ${request.equipmentName}${request.itemCount && request.itemCount > 1 ? ` (รวม ${request.itemCount} รายการ)` : ''}`
+              : undefined;
+
+            const nameSegment =
+              request.requesterFirstName || request.requesterLastName
+                ? `ชื่อ: ${request.requesterFirstName || '-'} นามสกุล: ${request.requesterLastName || '-'}`
+                : undefined;
+
+            const departmentSegment = request.requesterDepartment
+              ? `แผนก: ${request.requesterDepartment}`
+              : undefined;
+
+            const officeSegment = request.office ? `ออฟฟิศ/สาขา: ${request.office}` : undefined;
+            const deliverySegment = request.deliveryLocation
+              ? `สถานที่จัดส่ง: ${request.deliveryLocation}`
+              : undefined;
+            const phoneSegment = request.requesterPhone ? `โทร: ${request.requesterPhone}` : undefined;
+            const emailSegment = request.requesterEmail ? `อีเมล: ${request.requesterEmail}` : undefined;
+
+            const segments = [
+              equipmentLabel,
+              nameSegment,
+              departmentSegment,
+              officeSegment,
+              deliverySegment,
+              phoneSegment,
+              emailSegment
+            ].filter(Boolean);
+
+            if (segments.length === 0) {
+              return `  ${index + 1}. รายละเอียดคำขอ\n       รายละเอียดไม่ครบถ้วน`;
             }
+
+            const [firstSegment, ...restSegments] = segments;
+            const firstLine = firstSegment
+              ? `  ${index + 1}. รายละเอียดคำขอ : ${firstSegment}`
+              : `  ${index + 1}. รายละเอียดคำขอ`;
+            const secondLine =
+              restSegments.length > 0
+                ? `     ${restSegments.map(segment => segment?.replace(/^•?\s*/, '')).join(' , ')}`
+                : undefined;
+
+            return [firstLine, secondLine].filter(Boolean).join('\n');
           });
-        } else if (data.hasEquipment && data.equipmentList) {
+
+          let requestMessage = `🔴 ผู้ใช้นี้ยังมีคำขอเบิกอุปกรณ์ที่รออนุมัติ ${total} รายการ\n`;
+          if (requestLines.length > 0) {
+            requestMessage += `\n📄 ตัวอย่างคำขอที่รออนุมัติ:\n${requestLines.join('\n')}\n`;
+          }
+          requestMessage += `\nกรุณาอนุมัติหรือยกเลิกคำขอทั้งหมดก่อนจึงจะลบผู้ใช้ได้`;
+
+          sections.push(requestMessage);
+        }
+
+        if (data.hasEquipment && data.equipmentList) {
           const equipmentCount = data.equipmentCount || 0;
           const equipmentItems = data.equipmentList.slice(0, 5); // แสดงแค่ 5 รายการแรก
           const remainingCount = equipmentCount - equipmentItems.length;
           
-          // สร้างข้อความแสดงรายการอุปกรณ์
-          let equipmentMessage = `❌ ไม่สามารถลบผู้ใช้ได้\n\n`;
-          equipmentMessage += `🔴 ผู้ใช้นี้ยังมีอุปกรณ์ครอบครองอยู่ ${equipmentCount} รายการ\n`;
+          let equipmentMessage = `🔴 ผู้ใช้นี้ยังมีอุปกรณ์ครอบครองอยู่ ${equipmentCount} รายการ\n`;
           equipmentMessage += `กรุณาให้ผู้ใช้คืนอุปกรณ์ทั้งหมดก่อนลบบัญชี\n\n`;
           equipmentMessage += `📦 อุปกรณ์ที่ต้องคืน:\n`;
           equipmentItems.forEach((item: string, index: number) => {
@@ -549,35 +612,57 @@ export default function AdminUsersPage() {
             equipmentMessage += `  ... และอีก ${remainingCount} รายการ\n`;
           }
           
-          // แสดง contact info ถ้ามี
           if (data.userContact) {
-            equipmentMessage += `\n📞 ข้อมูลติดต่อผู้ใช้:\n`;
-            equipmentMessage += `  • ชื่อ: ${data.userContact.name}\n`;
-            equipmentMessage += `  • สำนักงาน: ${data.userContact.office}\n`;
-            equipmentMessage += `  • โทร: ${data.userContact.phone}\n`;
-            equipmentMessage += `  • อีเมล: ${data.userContact.email}`;
+            const contactFirstName = data.userContact.firstName || data.userContact.name || '-';
+            const contactLastName = data.userContact.lastName || '-';
+            const contactDepartment =
+              data.userContact.department !== undefined && data.userContact.department !== null
+                ? data.userContact.department
+                : '-';
+            const contactOffice = data.userContact.office || '-';
+            const contactPhone = data.userContact.phone || '-';
+            const contactEmail = data.userContact.email || '-';
+
+            const contactSegments = [
+              `ชื่อ: ${contactFirstName} นามสกุล: ${contactLastName}`,
+              `แผนก: ${contactDepartment}`,
+              `ออฟฟิศ/สาขา: ${contactOffice}`,
+              `โทร: ${contactPhone}`,
+              `อีเมล: ${contactEmail}`
+            ];
+
+            equipmentMessage += `📞 ข้อมูลติดต่อผู้ใช้:\n`;
+            equipmentMessage += `     ${contactSegments.join(' , ')}`;
           }
-          
-          // แสดง custom toast แบบยาว ตรงกลางจอทั้งแนวตั้งและแนวนอน
-          customToast.error(equipmentMessage, {
-            duration: 15000, // แสดง 15 วินาที
+
+          sections.push(equipmentMessage);
+        }
+
+        if (sections.length > 0) {
+          const combinedMessage = ['❌ ไม่สามารถลบผู้ใช้ได้', ...sections].join('\n\n');
+
+          // ใช้ CSS media query สำหรับ responsive max-width (ไม่ต้องคำนวณด้วย JavaScript)
+          customToast.error(combinedMessage, {
+            duration: Number.POSITIVE_INFINITY,
             style: {
-              maxWidth: '600px',
               whiteSpace: 'pre-line',
               textAlign: 'left',
               fontSize: '14px',
               lineHeight: '1.6',
-              padding: '20px',
+              padding: '24px',
               borderRadius: '12px',
-              boxShadow: '0 10px 40px rgba(0, 0, 0, 0.2)',
+              boxShadow: '0 12px 48px rgba(0, 0, 0, 0.25)',
               position: 'fixed',
-              top: '0%',
-              right: '0%',
-              zIndex: '9999'
+              top: '10%',
+              right: '2%',
+              transform: 'translateY(0)',
+              zIndex: '9999',
+              overflow: 'auto',
+              maxHeight: '80vh'
+              // ไม่ต้องใส่ width, maxWidth, minWidth เพราะใช้ CSS class toast-responsive-width แทน
             }
           });
         } else {
-          // กรณีอื่นๆ ที่ไม่ใช่เรื่องอุปกรณ์
           const errorMessage = data.error || data.message || 'เกิดข้อผิดพลาดในการลบ';
           customToast.error(errorMessage);
         }

@@ -284,6 +284,13 @@ export default function AdminITReportsPage() {
     await Promise.all(statuses.map((status) => fetchTabCount(status, searchOverride)));
   };
 
+  const handleAutoRefresh = async () => {
+    await Promise.all([
+      refreshAllTabCounts(searchTerm),
+      fetchIssues(1)
+    ]);
+  };
+
   const resetViewState = () => {
     clearAllFilters();
     setActiveTab('pending');
@@ -427,7 +434,7 @@ export default function AdminITReportsPage() {
         toast.success(data.message);
         setShowAssignModal(false);
         setSelectedIssueForAssign(null);
-        await fetchIssues();
+        await handleAutoRefresh();
       } else {
         const data = await response.json();
         toast.error(data.error || 'เกิดข้อผิดพลาด');
@@ -473,7 +480,7 @@ export default function AdminITReportsPage() {
       if (response.ok) {
         const data = await response.json();
         toast.success(data.message);
-        await fetchIssues();
+        await handleAutoRefresh();
       } else {
         const data = await response.json();
         toast.error(data.error || 'เกิดข้อผิดพลาด');

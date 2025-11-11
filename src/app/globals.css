@@ -852,3 +852,30 @@ select.admin-inventory-dropdown * {
 .animate-leave {
   animation: toast-leave 0.4s cubic-bezier(0.06, 0.71, 0.55, 1) forwards;
 }
+
+/* Responsive toast max-width */
+.toast-responsive-width {
+  width: 100% !important;
+  min-width: 300px !important;
+}
+
+/* Mobile: <= 768px */
+@media (max-width: 768px) {
+  .toast-responsive-width {
+    max-width: 70vw !important;
+  }
+}
+
+/* Tablet: 769px - 1440px */
+@media (min-width: 769px) and (max-width: 1440px) {
+  .toast-responsive-width {
+    max-width: 50vw !important;
+  }
+}
+
+/* Desktop: > 1440px */
+@media (min-width: 1441px) {
+  .toast-responsive-width {
+    max-width: 40vw !important;
+  }
+}

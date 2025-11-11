@@ -14,7 +14,7 @@ export const customToast = {
         <div
           className={`${
             t.visible ? 'animate-enter' : 'animate-leave'
-          } max-w-md w-full bg-red-50 shadow-lg rounded-lg pointer-events-auto flex ring-1 ring-black ring-opacity-5 relative`}
+          } bg-red-50 shadow-lg rounded-lg pointer-events-auto flex ring-1 ring-black ring-opacity-5 relative toast-responsive-width`}
           style={{
             background: '#f8d7da',
             color: '#721c24',
@@ -25,24 +25,17 @@ export const customToast = {
             paddingRight: '40px',
             borderRadius: '8px',
             boxShadow: '0 4px 12px rgba(0, 0, 0, 0.15)',
-            maxWidth: options.style?.maxWidth || '500px',
             whiteSpace: options.style?.whiteSpace || 'normal',
             textAlign: options.style?.textAlign || 'left',
-            ...options.style,
+            ...(options.style?.maxWidth ? {} : {}), // ไม่ใส่ maxWidth ใน inline style ถ้ามี CSS class
+            ...Object.fromEntries(
+              Object.entries(options.style || {}).filter(([key]) => key !== 'maxWidth')
+            ),
           }}
         >
           <div className="flex-1">
-            <div className="flex items-start">
-              <div className="flex-shrink-0">
-                <svg className="h-5 w-5 text-red-400" viewBox="0 0 20 20" fill="currentColor">
-                  <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM8.707 7.293a1 1 0 00-1.414 1.414L8.586 10l-1.293 1.293a1 1 0 101.414 1.414L10 11.414l1.293 1.293a1 1 0 001.414-1.414L11.414 10l1.293-1.293a1 1 0 00-1.414-1.414L10 8.586 8.707 7.293z" clipRule="evenodd" />
-                </svg>
-              </div>
-              <div className="ml-3 w-0 flex-1">
-                <div style={{ whiteSpace: options.style?.whiteSpace || 'pre-line' }}>
-                  {message}
-                </div>
-              </div>
+            <div style={{ whiteSpace: options.style?.whiteSpace || 'pre-line' }}>
+              {message}
             </div>
           </div>
           {options.dismissible !== false && (

@@ -44,20 +44,33 @@ export async function DELETE(
       );
     }
 
-    // 2. ตรวจสอบงานแจ้ง IT ที่ยังไม่ปิด
+    // 2. สร้างรายการรหัสผู้ใช้ที่อาจถูกอ้างใน IssueLog (รองรับข้อมูลเก่า)
+    const identifierSet = new Set<string>();
+    if (typeof user.user_id === 'string' && user.user_id.trim() !== '') {
+      identifierSet.add(user.user_id.trim());
+    }
+
+    const mongoIdString = user._id ? user._id.toString() : undefined;
+    if (mongoIdString && mongoIdString.trim() !== '') {
+      identifierSet.add(mongoIdString.trim());
+    }
+
+    const userIdentifiers = Array.from(identifierSet);
+
+    // 3. ตรวจสอบงานแจ้ง IT ที่ยังไม่ปิด
     const openIssueFilter = { status: { $ne: 'closed' } };
 
     type IssueSummary = { issueId: string; status: string; issueCategory?: string };
 
     const [requesterIssuesRaw, assigneeIssuesRaw] = await Promise.all([
       IssueLog.find({
-        requesterId: id,
+        requesterId: { $in: userIdentifiers },
         ...openIssueFilter
       })
         .select('issueId status issueCategory')
         .lean<IssueSummary>(),
       IssueLog.find({
-        assignedAdminId: id,
+        assignedAdminId: { $in: userIdentifiers },
         ...openIssueFilter
       })
         .select('issueId status issueCategory')
@@ -126,14 +139,14 @@ export async function DELETE(
       );
     }
 
-    // 3. ตรวจสอบว่ามีข้อมูลที่เกี่ยวข้องใน IssueLog หรือไม่ (รวมงานทั้งหมด เพื่อสร้าง snapshot)
+    // 4. ตรวจสอบว่ามีข้อมูลที่เกี่ยวข้องใน IssueLog หรือไม่ (รวมงานทั้งหมด เพื่อสร้าง snapshot)
     const relatedIssues = await checkUserRelatedIssues(id);
     
     console.log(`📊 User ${id} has ${relatedIssues.total} related issues`);
     console.log(`   - As Requester: ${relatedIssues.asRequester}`);
     console.log(`   - As Admin: ${relatedIssues.asAdmin}`);
 
-    // 4. Snapshot ข้อมูลล่าสุดก่อนลบ (ถ้ามีข้อมูลที่เกี่ยวข้อง)
+    // 5. Snapshot ข้อมูลล่าสุดก่อนลบ (ถ้ามีข้อมูลที่เกี่ยวข้อง)
     if (relatedIssues.hasRelatedIssues) {
       console.log(`📸 Creating snapshots for user ${id}...`);
       
@@ -147,7 +160,7 @@ export async function DELETE(
       console.log(`ℹ️ No related issues found, skipping snapshot`);
     }
 
-    // 5. ลบ User
+    // 6. ลบ User
     await User.deleteOne({ user_id: id });
     
     console.log(`✅ User ${id} deleted successfully`);

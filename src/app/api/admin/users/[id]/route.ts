@@ -6,6 +6,7 @@ import DeletedUsers from '@/models/DeletedUser';
 import { InventoryItem } from '@/models/InventoryItem';
 import ReturnLog from '@/models/ReturnLog';
 import IssueLog from '@/models/IssueLog';
+import RequestLog from '@/models/RequestLog';
 import { hashPassword } from '@/lib/auth';
 import jwt from 'jsonwebtoken';
 import { createAutoReturnForUser, checkUserEquipment } from '@/lib/user-deletion-helpers';
@@ -402,6 +403,25 @@ export async function DELETE(
       );
     }
 
+    // สร้างรายการรหัสผู้ใช้ที่อาจถูกอ้างใน IssueLog (รองรับข้อมูลเก่า)
+    const identifierSet = new Set<string>();
+    if (typeof userToDelete.user_id === 'string' && userToDelete.user_id.trim() !== '') {
+      identifierSet.add(userToDelete.user_id.trim());
+    }
+
+    const mongoIdString =
+      userToDelete._id instanceof mongoose.Types.ObjectId
+        ? userToDelete._id.toHexString()
+        : typeof userToDelete._id === 'string'
+          ? userToDelete._id
+          : undefined;
+
+    if (mongoIdString && mongoIdString.trim() !== '') {
+      identifierSet.add(mongoIdString.trim());
+    }
+
+    const userIdentifiers = Array.from(identifierSet);
+
     // ตรวจสอบงานแจ้ง IT ที่ยังไม่ปิด ซึ่งผู้ใช้รายนี้เกี่ยวข้อง
     const openIssueFilter = { status: { $ne: 'closed' } };
 
@@ -409,13 +429,13 @@ export async function DELETE(
 
     const [requesterIssuesRaw, assignedIssuesRaw] = await Promise.all([
       IssueLog.find({
-        requesterId: userToDelete.user_id,
+        requesterId: { $in: userIdentifiers },
         ...openIssueFilter
       })
         .select('issueId status issueCategory')
         .lean(),
       IssueLog.find({
-        assignedAdminId: userToDelete.user_id,
+        assignedAdminId: { $in: userIdentifiers },
         ...openIssueFilter
       })
         .select('issueId status issueCategory')
@@ -450,14 +470,32 @@ export async function DELETE(
 
     const totalOpenIssues = requesterIssues.length + assignedIssues.length;
 
-    if (totalOpenIssues > 0) {
-      const formatIssues = (issues: IssueSummary[]) =>
+    type IssueListSummary = {
+      issueId: string;
+      status: string;
+      issueCategory?: string;
+    };
+
+    const formatIssues = (issues: IssueSummary[]): IssueListSummary[] =>
         issues.slice(0, 10).map(issue => ({
           issueId: issue.issueId,
           status: issue.status,
           issueCategory: issue.issueCategory
         }));
 
+    let openIssuesInfo: {
+      hasOpenIssues: boolean;
+      openIssues: {
+        total: number;
+        asRequester: number;
+        asAssignee: number;
+        requesterIssues: IssueListSummary[];
+        assigneeIssues: IssueListSummary[];
+      };
+      message: string;
+    } | null = null;
+
+    if (totalOpenIssues > 0) {
       const messageParts: string[] = [];
       if (requesterIssues.length > 0) {
         messageParts.push(`• ผู้ใช้นี้เป็นผู้แจ้งงานจำนวน ${requesterIssues.length} รายการ`);
@@ -472,10 +510,7 @@ export async function DELETE(
         'กรุณาปิดงานทั้งหมดให้เรียบร้อยก่อนดำเนินการลบอีกครั้ง'
       ].join('\n');
 
-      return NextResponse.json(
-        {
-          error: 'ไม่สามารถลบผู้ใช้ได้',
-          message: detailedMessage,
+      openIssuesInfo = {
           hasOpenIssues: true,
           openIssues: {
             total: totalOpenIssues,
@@ -483,49 +518,325 @@ export async function DELETE(
             asAssignee: assignedIssues.length,
             requesterIssues: formatIssues(requesterIssues),
             assigneeIssues: formatIssues(assignedIssues)
-          }
         },
-        { status: 400 }
-      );
+        message: detailedMessage
+      };
     }
 
+    // ตรวจสอบคำขอเบิกอุปกรณ์ที่ยังรออนุมัติ
+    const pendingRequests = await RequestLog.find({
+      userId: { $in: userIdentifiers },
+      status: 'pending',
+      requestType: 'request'
+    })
+      .select(
+        'requestDate items deliveryLocation requesterOfficeName requesterOfficeId requesterFirstName requesterLastName requesterNickname requesterDepartment requesterPhone requesterEmail'
+      )
+      .lean();
+
+    type PendingRequestSummary = {
+      requestId: string;
+      requestDate?: string;
+      itemCount: number;
+      equipmentName?: string;
+      categoryName?: string;
+      deliveryLocation?: string;
+      requesterDisplayName?: string;
+      requesterFirstName?: string;
+      requesterLastName?: string;
+      requesterDepartment?: string;
+      office?: string;
+      officeId?: string;
+      requesterPhone?: string;
+      requesterEmail?: string;
+    };
+
+    let pendingRequestsInfo: {
+      hasPendingEquipmentRequests: boolean;
+      pendingEquipmentRequests: {
+        total: number;
+        summaries: PendingRequestSummary[];
+      };
+      message: string;
+    } | null = null;
+
+    if (pendingRequests.length > 0) {
+      const formatRequestSummaries = pendingRequests.slice(0, 5).map((request: any) => {
+        const requestDate =
+          request.requestDate instanceof Date
+            ? request.requestDate.toISOString()
+            : request.requestDate
+              ? String(request.requestDate)
+              : undefined;
+
+        const itemsArray = Array.isArray(request.items) ? request.items : [];
+        const firstItem = itemsArray.length > 0 ? (itemsArray[0] as any) : undefined;
+        const equipmentName =
+          firstItem?.itemName || firstItem?.category || firstItem?.masterId || undefined;
+        const categoryName = firstItem?.category || undefined;
+
+        return {
+          requestId: String(request._id),
+          requestDate,
+          itemCount: itemsArray.length,
+          equipmentName,
+          categoryName,
+          deliveryLocation: request.deliveryLocation || undefined,
+          requesterDisplayName:
+            request.requesterNickname ||
+            [request.requesterFirstName, request.requesterLastName].filter(Boolean).join(' ') ||
+            undefined,
+          office: request.requesterOfficeName || displayOfficeName,
+          officeId: request.requesterOfficeId,
+          requesterFirstName: request.requesterFirstName || userToDelete.firstName || undefined,
+          requesterLastName: request.requesterLastName || userToDelete.lastName || undefined,
+          requesterDepartment: request.requesterDepartment || userToDelete.department || undefined,
+          requesterPhone: request.requesterPhone || userToDelete.phone || undefined,
+          requesterEmail: request.requesterEmail || userToDelete.email || undefined
+        };
+      });
+
+      const detailedMessage = [
+        'ไม่สามารถลบผู้ใช้ได้ เนื่องจากยังมีคำขอเบิกอุปกรณ์ที่รอการอนุมัติ',
+        `จำนวนคำขอที่รออนุมัติ: ${pendingRequests.length} รายการ`,
+        'กรุณาอนุมัติหรือยกเลิกคำขอทั้งหมดก่อนจึงจะลบผู้ใช้ได้'
+      ].join('\n');
+
+      pendingRequestsInfo = {
+        hasPendingEquipmentRequests: true,
+        pendingEquipmentRequests: {
+          total: pendingRequests.length,
+          summaries: formatRequestSummaries
+        },
+        message: detailedMessage
+      };
+    }
     // ตรวจสอบอุปกรณ์ที่ user เป็นเจ้าของ
     const userOwnedItems = await InventoryItem.find({
       'currentOwnership.ownerType': 'user_owned',
-      'currentOwnership.userId': userToDelete.user_id
+      'currentOwnership.userId': { $in: userIdentifiers }
     });
 
+    let equipmentInfo: {
+      hasEquipment: boolean;
+      equipmentCount: number;
+      equipmentList: string[];
+      userContact: {
+        name?: string;
+        firstName?: string;
+        lastName?: string;
+        nickname?: string;
+        department?: string;
+        office?: string;
+        officeId?: string;
+        phone?: string;
+        email?: string;
+      };
+      message: string;
+    } | null = null;
 
-    // หากมีอุปกรณ์ที่ user เป็นเจ้าของ - ไม่สามารถลบได้
     if (userOwnedItems.length > 0) {
-      
-      // สร้างรายการอุปกรณ์ที่ต้องคืน
       const equipmentList = userOwnedItems.map(item => {
         const displayName = item.itemName;
         const sn = item.serialNumber ? ` (S/N: ${item.serialNumber})` : '';
-        const phone = item.numberPhone ? ` (เบอร์: ${item.numberPhone})` : '';
-        return `${displayName}${sn}${phone}`;
+        const phoneNumber = item.numberPhone ? ` (เบอร์: ${item.numberPhone})` : '';
+        return `${displayName}${sn}${phoneNumber}`;
       });
-      
-      // เตรียมข้อมูลผู้ติดต่อ
-      const userContact = {
-        name: userToDelete.userType === 'individual' 
-          ? `${userToDelete.firstName || ''} ${userToDelete.lastName || ''}`.trim()
-          : displayOfficeName,
-        phone: userToDelete.phone || 'ไม่ระบุ',
-        email: userToDelete.email || 'ไม่ระบุ',
-        office: displayOfficeName
+
+      const isBranchUser = userToDelete.userType === 'branch';
+
+      const baseContact = {
+        firstName: userToDelete.firstName?.trim() || undefined,
+        lastName: userToDelete.lastName?.trim() || undefined,
+        nickname: userToDelete.nickname?.trim() || undefined,
+        department: userToDelete.department?.trim() || undefined,
+        office: displayOfficeName,
+        officeId: userToDelete.officeId || undefined,
+        phone: userToDelete.phone?.trim() || undefined,
+        email: userToDelete.email?.trim() || undefined
       };
 
-      return NextResponse.json({ 
-        error: 'ไม่สามารถลบผู้ใช้ได้',
-        message: `ผู้ใช้มีอุปกรณ์ ${userOwnedItems.length} รายการที่ต้องคืนก่อน กรุณาแจ้งให้ผู้ใช้คืนอุปกรณ์ผ่านหน้า "คืนอุปกรณ์" หรือติดต่อผู้ใช้โดยตรง`,
-        equipmentCount: userOwnedItems.length,
-        equipmentList: equipmentList,
-        userContact: userContact,
+      const candidateContacts: any[] = userOwnedItems
+        .map(item => item.requesterInfo || {})
+        .filter(info => info && typeof info === 'object');
+
+      // รวมข้อมูลจาก pending requests ที่ดึงมาก่อนหน้า
+      if (pendingRequests.length > 0) {
+        (pendingRequests as Array<Record<string, any>>).forEach(request => {
+          candidateContacts.push({
+            firstName: request.requesterFirstName,
+            lastName: request.requesterLastName,
+            nickname: request.requesterNickname,
+            department: request.requesterDepartment,
+            officeName: request.requesterOfficeName,
+            office: request.requesterOffice,
+            officeId: request.requesterOfficeId,
+            phone: request.requesterPhone,
+            email: request.requesterEmail
+          });
+        });
+      }
+
+      // ดึงข้อมูลคำขอล่าสุด (approved หรือ completed) เผื่อผู้ใช้เคยเบิกแล้ว
+      const latestRequestContact = await RequestLog.findOne({
+        userId: { $in: userIdentifiers }
+      })
+        .sort({ requestDate: -1, createdAt: -1 })
+        .select(
+          'requesterFirstName requesterLastName requesterNickname requesterDepartment requesterOfficeName requesterOffice requesterOfficeId requesterPhone requesterEmail'
+        )
+        .lean();
+
+      if (latestRequestContact) {
+        const latestRequestContactAny = latestRequestContact as Record<string, any>;
+        candidateContacts.push({
+          firstName: latestRequestContactAny.requesterFirstName,
+          lastName: latestRequestContactAny.requesterLastName,
+          nickname: latestRequestContactAny.requesterNickname,
+          department: latestRequestContactAny.requesterDepartment,
+          officeName: latestRequestContactAny.requesterOfficeName,
+          office: latestRequestContactAny.requesterOffice,
+          officeId: latestRequestContactAny.requesterOfficeId,
+          phone: latestRequestContactAny.requesterPhone,
+          email: latestRequestContactAny.requesterEmail
+        });
+      }
+
+      // ดึงข้อมูลการคืนล่าสุด (ถ้ามี) เพื่อใช้เป็น fallback
+      const latestReturnContact = await ReturnLog.findOne({
+        userId: { $in: userIdentifiers }
+      })
+        .sort({ returnDate: -1, createdAt: -1 })
+        .select(
+          'returnerFirstName returnerLastName returnerNickname returnerDepartment returnerOfficeName returnerOffice returnerOfficeId returnerPhone returnerEmail'
+        )
+        .lean();
+
+      if (latestReturnContact) {
+        const latestReturnContactAny = latestReturnContact as Record<string, any>;
+        candidateContacts.push({
+          firstName: latestReturnContactAny.returnerFirstName,
+          lastName: latestReturnContactAny.returnerLastName,
+          nickname: latestReturnContactAny.returnerNickname,
+          department: latestReturnContactAny.returnerDepartment,
+          officeName: latestReturnContactAny.returnerOfficeName,
+          office: latestReturnContactAny.returnerOffice,
+          officeId: latestReturnContactAny.returnerOfficeId,
+          phone: latestReturnContactAny.returnerPhone,
+          email: latestReturnContactAny.returnerEmail
+        });
+      }
+
+      const getFromCandidates = (field: keyof typeof baseContact) => {
+        for (const info of candidateContacts) {
+          const value =
+            field === 'office'
+              ? (info.officeName || info.office)
+              : (info as any)[field];
+          if (typeof value === 'string' && value.trim() !== '') {
+            return value.trim();
+          }
+        }
+        return undefined;
+      };
+
+      const resolveField = <T extends keyof typeof baseContact>(
+        field: T
+      ): (typeof baseContact)[T] | undefined => {
+        const baseValue =
+          baseContact[field] && String(baseContact[field]).trim() !== ''
+            ? baseContact[field]
+            : undefined;
+
+        if (isBranchUser) {
+          const candidateValue = getFromCandidates(field);
+          if (candidateValue !== undefined) {
+            return candidateValue as (typeof baseContact)[T];
+          }
+          return baseValue;
+        } else {
+          if (baseValue !== undefined) {
+            return baseValue;
+          }
+          const candidateValue = getFromCandidates(field);
+          if (candidateValue !== undefined) {
+            return candidateValue as (typeof baseContact)[T];
+          }
+          return baseValue;
+        }
+      };
+
+      const contactFirstName = resolveField('firstName');
+      const contactLastName = resolveField('lastName');
+      const userContact = {
+        firstName: contactFirstName,
+        lastName: contactLastName,
+        nickname: resolveField('nickname'),
+        department: resolveField('department'),
+        office: resolveField('office') || displayOfficeName,
+        officeId: resolveField('officeId') || userToDelete.officeId || undefined,
+        phone: resolveField('phone'),
+        email: resolveField('email'),
+        name:
+          contactFirstName || contactLastName
+            ? [contactFirstName, contactLastName].filter(Boolean).join(' ').trim()
+            : displayOfficeName
+      };
+
+      const message = [
+        `ผู้ใช้นี้ยังถือครองอุปกรณ์จำนวน ${userOwnedItems.length} รายการ`,
+        'กรุณาให้ผู้ใช้คืนอุปกรณ์ผ่านหน้า "คืนอุปกรณ์" และรอการอนุมัติให้เรียบร้อยก่อนลบผู้ใช้งาน'
+      ].join('\n');
+
+      equipmentInfo = {
         hasEquipment: true,
-        requiresUserAction: true // 🆕 Flag บอกว่าต้องให้ User ดำเนินการเอง
-      }, { status: 400 });
+        equipmentCount: userOwnedItems.length,
+        equipmentList,
+        userContact,
+        message
+      };
+    }
+
+    if (openIssuesInfo || pendingRequestsInfo || equipmentInfo) {
+      const blockerMessages: string[] = [];
+      if (openIssuesInfo?.message) {
+        blockerMessages.push(openIssuesInfo.message);
+      }
+      if (pendingRequestsInfo?.message) {
+        blockerMessages.push(pendingRequestsInfo.message);
+      }
+      if (equipmentInfo?.message) {
+        blockerMessages.push(equipmentInfo.message);
+      }
+
+      return NextResponse.json(
+        {
+          error: 'ไม่สามารถลบผู้ใช้ได้',
+          message: blockerMessages.join('\n\n'),
+          ...(openIssuesInfo
+            ? {
+                hasOpenIssues: openIssuesInfo.hasOpenIssues,
+                openIssues: openIssuesInfo.openIssues
+              }
+            : {}),
+          ...(pendingRequestsInfo
+            ? {
+                hasPendingEquipmentRequests: pendingRequestsInfo.hasPendingEquipmentRequests,
+                pendingEquipmentRequests: pendingRequestsInfo.pendingEquipmentRequests
+              }
+            : {}),
+          ...(equipmentInfo
+            ? {
+                hasEquipment: equipmentInfo.hasEquipment,
+                equipmentCount: equipmentInfo.equipmentCount,
+                equipmentList: equipmentInfo.equipmentList,
+                userContact: equipmentInfo.userContact,
+                requiresUserAction: true
+              }
+            : {})
+        },
+        { status: 400 }
+      );
     } else {
       // ไม่มีอุปกรณ์ - ลบ user ได้ทันที (snapshot ก่อน)
       
