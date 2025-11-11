@@ -50,3 +50,22 @@ next-env.d.ts
 *.swp
 *.swo
 *~
+
+# Backup and temporary files
+backup_env
+*.bak
+*.backup
+*.old
+*.tmp
+backup_migration/*.json
+backup_migration/*.txt
+!backup_migration/backup-script.js
+!backup_migration/create-indexes*.js
+!backup_migration/health-check.js
+
+# Temporary HTML files
+fix-*.html
+*.html.bak
+
+# Archive scripts (moved from root)
+scripts/archive/
