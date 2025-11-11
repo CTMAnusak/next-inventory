@@ -621,6 +621,20 @@ export async function DELETE(
       hasEquipment: boolean;
       equipmentCount: number;
       equipmentList: string[];
+      equipmentListWithContact?: Array<{
+        equipment: string;
+        contact: {
+          name?: string;
+          firstName?: string;
+          lastName?: string;
+          nickname?: string;
+          department?: string;
+          office?: string;
+          officeId?: string;
+          phone?: string;
+          email?: string;
+        };
+      }>;
       userContact: {
         name?: string;
         firstName?: string;
@@ -636,12 +650,36 @@ export async function DELETE(
     } | null = null;
 
     if (userOwnedItems.length > 0) {
-      const equipmentList = userOwnedItems.map(item => {
+      // สร้างรายการอุปกรณ์พร้อมข้อมูลติดต่อแยกตามแต่ละรายการ
+      const equipmentListWithContact = userOwnedItems.map(item => {
         const displayName = item.itemName;
         const sn = item.serialNumber ? ` (S/N: ${item.serialNumber})` : '';
         const phoneNumber = item.numberPhone ? ` (เบอร์: ${item.numberPhone})` : '';
-        return `${displayName}${sn}${phoneNumber}`;
+        const equipmentDisplay = `${displayName}${sn}${phoneNumber}`;
+        
+        // ดึงข้อมูลติดต่อจาก requesterInfo ของแต่ละรายการ
+        const itemRequesterInfo = item.requesterInfo || {};
+        const itemContact = {
+          firstName: itemRequesterInfo.firstName || userToDelete.firstName?.trim() || undefined,
+          lastName: itemRequesterInfo.lastName || userToDelete.lastName?.trim() || undefined,
+          nickname: itemRequesterInfo.nickname || userToDelete.nickname?.trim() || undefined,
+          department: itemRequesterInfo.department || userToDelete.department?.trim() || undefined,
+          office: itemRequesterInfo.officeName || itemRequesterInfo.office || displayOfficeName,
+          officeId: itemRequesterInfo.officeId || userToDelete.officeId || undefined,
+          phone: itemRequesterInfo.phone || userToDelete.phone?.trim() || undefined,
+          email: userToDelete.email?.trim() || undefined,
+          name: itemRequesterInfo.firstName || itemRequesterInfo.lastName
+            ? [itemRequesterInfo.firstName, itemRequesterInfo.lastName].filter(Boolean).join(' ').trim()
+            : displayOfficeName
+        };
+        
+        return {
+          equipment: equipmentDisplay,
+          contact: itemContact
+        };
       });
+      
+      const equipmentList = equipmentListWithContact.map(item => item.equipment);
 
       const isBranchUser = userToDelete.userType === 'branch';
 
@@ -792,7 +830,8 @@ export async function DELETE(
         hasEquipment: true,
         equipmentCount: userOwnedItems.length,
         equipmentList,
-        userContact,
+        equipmentListWithContact, // ส่งข้อมูลติดต่อแยกตามแต่ละรายการ
+        userContact, // เก็บไว้เพื่อ backward compatibility
         message
       };
     }
@@ -830,6 +869,7 @@ export async function DELETE(
                 hasEquipment: equipmentInfo.hasEquipment,
                 equipmentCount: equipmentInfo.equipmentCount,
                 equipmentList: equipmentInfo.equipmentList,
+                equipmentListWithContact: equipmentInfo.equipmentListWithContact,
                 userContact: equipmentInfo.userContact,
                 requiresUserAction: true
               }

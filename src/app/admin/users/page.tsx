@@ -490,31 +490,21 @@ export default function AdminUsersPage() {
             assigneeIssues?: Array<{ issueId: string; status: string; issueCategory?: string }>;
           };
 
-          const issueLines: string[] = [];
-
-          if (asRequester > 0) {
-            issueLines.push(`• ผู้ใช้เป็นผู้แจ้งงาน ${asRequester} รายการ`);
-          }
-          if (asAssignee > 0) {
-            issueLines.push(`• ผู้ใช้เป็นผู้รับผิดชอบงาน ${asAssignee} รายการ`);
-          }
-
           const sampleIssues = [...requesterIssues, ...assigneeIssues]
             .slice(0, 5)
             .map((issue, index) => {
               const label = getIssueStatusLabel(issue.status);
               const category = issue.issueCategory ? ` (${issue.issueCategory})` : '';
-              return `  ${index + 1}. ${issue.issueId} - ${label}${category}`;
+              return `${index + 1}. ${issue.issueId} - ${label}${category}`;
             });
 
-          let issueMessage = `🔴 ผู้ใช้นี้ยังมีงานแจ้ง IT ที่ยังไม่ปิดจำนวน ${total} รายการ\n`;
-          if (issueLines.length > 0) {
-            issueMessage += `${issueLines.join('\n')}\n`;
-          }
+          let issueMessage = `🔴 ผู้ใช้นี้ยังมีงานแจ้ง IT ที่ยังไม่ปิดจำนวน ${total} รายการ ดังนี้:\n`;
+          issueMessage += `(กรุณาปิดงานทั้งหมดให้เรียบร้อยก่อนลบผู้ใช้อีกครั้ง)\n\n`;
+          issueMessage += `รายการที่อยู่ในระหว่างการแจ้งงาน IT ดังนี้:\n`;
           if (sampleIssues.length > 0) {
-            issueMessage += `\n📄 ตัวอย่างงานค้าง:\n${sampleIssues.join('\n')}\n`;
+            issueMessage += `${sampleIssues.join('\n')}`;
           }
-          issueMessage += `\nกรุณาปิดงานทั้งหมดให้เรียบร้อยก่อนลบผู้ใช้อีกครั้ง`;
+          issueMessage += `\n`;
 
           sections.push(issueMessage);
         }
@@ -572,74 +562,124 @@ export default function AdminUsersPage() {
             ].filter(Boolean);
 
             if (segments.length === 0) {
-              return `  ${index + 1}. รายละเอียดคำขอ\n       รายละเอียดไม่ครบถ้วน`;
+              return `${index + 1}. รายละเอียดคำขอ\nรายละเอียดไม่ครบถ้วน`;
             }
 
             const [firstSegment, ...restSegments] = segments;
             const firstLine = firstSegment
-              ? `  ${index + 1}. รายละเอียดคำขอ : ${firstSegment}`
-              : `  ${index + 1}. รายละเอียดคำขอ`;
+              ? `${index + 1}. รายละเอียดคำขอ : ${firstSegment}`
+              : `${index + 1}. รายละเอียดคำขอ`;
             const secondLine =
               restSegments.length > 0
-                ? `     ${restSegments.map(segment => segment?.replace(/^•?\s*/, '')).join(' , ')}`
+                ? `${restSegments.map(segment => segment?.replace(/^•?\s*/, '')).join(' , ')}`
                 : undefined;
 
             return [firstLine, secondLine].filter(Boolean).join('\n');
           });
 
-          let requestMessage = `🔴 ผู้ใช้นี้ยังมีคำขอเบิกอุปกรณ์ที่รออนุมัติ ${total} รายการ\n`;
+          let requestMessage = `🔴 ผู้ใช้นี้ยังมีคำขอเบิกอุปกรณ์ที่รออนุมัติ ${total} รายการ ดังนี้:\n`;
+          requestMessage += `(กรุณาอนุมัติหรือยกเลิกคำขอทั้งหมดก่อนจึงจะลบผู้ใช้ได้)\n\n`;
+          requestMessage += `อุปกรณ์ที่อยู่ในระหว่างการเบิก ดังนี้:\n`;
           if (requestLines.length > 0) {
-            requestMessage += `\n📄 ตัวอย่างคำขอที่รออนุมัติ:\n${requestLines.join('\n')}\n`;
+            requestMessage += `${requestLines.join('\n')}`;
           }
-          requestMessage += `\nกรุณาอนุมัติหรือยกเลิกคำขอทั้งหมดก่อนจึงจะลบผู้ใช้ได้`;
+          requestMessage += `\n`;
 
           sections.push(requestMessage);
         }
 
         if (data.hasEquipment && data.equipmentList) {
           const equipmentCount = data.equipmentCount || 0;
+          const equipmentListWithContact = (data as any).equipmentListWithContact || [];
           const equipmentItems = data.equipmentList.slice(0, 5); // แสดงแค่ 5 รายการแรก
           const remainingCount = equipmentCount - equipmentItems.length;
           
           let equipmentMessage = `🔴 ผู้ใช้นี้ยังมีอุปกรณ์ครอบครองอยู่ ${equipmentCount} รายการ\n`;
-          equipmentMessage += `กรุณาให้ผู้ใช้คืนอุปกรณ์ทั้งหมดก่อนลบบัญชี\n\n`;
-          equipmentMessage += `📦 อุปกรณ์ที่ต้องคืน:\n`;
-          equipmentItems.forEach((item: string, index: number) => {
-            equipmentMessage += `  ${index + 1}. ${item}\n`;
-          });
+          equipmentMessage += `(กรุณาให้ผู้ใช้คืนอุปกรณ์ทั้งหมดก่อนลบบัญชี)\n\n`;
+          equipmentMessage += `📦 อุปกรณ์ที่ต้องคืน ดังนี้:\n`;
+          
+          // แสดงข้อมูลติดต่อแยกตามแต่ละรายการ (ถ้ามี equipmentListWithContact)
+          if (equipmentListWithContact.length > 0) {
+            equipmentListWithContact.slice(0, 5).forEach((item: any, index: number) => {
+              equipmentMessage += `${index + 1}. ${item.equipment}\n`;
+              
+              // แสดงข้อมูลติดต่อสำหรับรายการนี้
+              if (item.contact) {
+                const contact = item.contact;
+                const contactFirstName = contact.firstName || contact.name || '-';
+                const contactLastName = contact.lastName || '-';
+                const contactDepartment =
+                  contact.department !== undefined && contact.department !== null
+                    ? contact.department
+                    : '-';
+                const contactOffice = contact.office || '-';
+                const contactPhone = contact.phone || '-';
+                const contactEmail = contact.email || '-';
+
+                const contactSegments = [
+                  `ชื่อ: ${contactFirstName} นามสกุล: ${contactLastName}`,
+                  `แผนก: ${contactDepartment}`,
+                  `ออฟฟิศ/สาขา: ${contactOffice}`,
+                  `โทร: ${contactPhone}`,
+                  `อีเมล: ${contactEmail}`
+                ];
+
+                equipmentMessage += `📞 ข้อมูลติดต่อ: ${contactSegments.join(' , ')}\n`;
+              }
+            });
+          } else {
+            // Fallback: แสดงแค่รายการอุปกรณ์ (ไม่มีข้อมูลติดต่อแยก)
+            equipmentItems.forEach((item: string, index: number) => {
+              equipmentMessage += `${index + 1}. ${item}\n`;
+            });
+            
+            // แสดงข้อมูลติดต่อรวม (ถ้ามี)
+            if (data.userContact) {
+              const contactFirstName = data.userContact.firstName || data.userContact.name || '-';
+              const contactLastName = data.userContact.lastName || '-';
+              const contactDepartment =
+                data.userContact.department !== undefined && data.userContact.department !== null
+                  ? data.userContact.department
+                  : '-';
+              const contactOffice = data.userContact.office || '-';
+              const contactPhone = data.userContact.phone || '-';
+              const contactEmail = data.userContact.email || '-';
+
+              const contactSegments = [
+                `ชื่อ: ${contactFirstName} นามสกุล: ${contactLastName}`,
+                `แผนก: ${contactDepartment}`,
+                `ออฟฟิศ/สาขา: ${contactOffice}`,
+                `โทร: ${contactPhone}`,
+                `อีเมล: ${contactEmail}`
+              ];
+
+              equipmentMessage += `\n📞 ข้อมูลติดต่อผู้ใช้:\n`;
+              equipmentMessage += `     ${contactSegments.join(' , ')}`;
+            }
+          }
           
           if (remainingCount > 0) {
-            equipmentMessage += `  ... และอีก ${remainingCount} รายการ\n`;
+            equipmentMessage += `... และอีก ${remainingCount} รายการ\n`;
           }
           
-          if (data.userContact) {
-            const contactFirstName = data.userContact.firstName || data.userContact.name || '-';
-            const contactLastName = data.userContact.lastName || '-';
-            const contactDepartment =
-              data.userContact.department !== undefined && data.userContact.department !== null
-                ? data.userContact.department
-                : '-';
-            const contactOffice = data.userContact.office || '-';
-            const contactPhone = data.userContact.phone || '-';
-            const contactEmail = data.userContact.email || '-';
-
-            const contactSegments = [
-              `ชื่อ: ${contactFirstName} นามสกุล: ${contactLastName}`,
-              `แผนก: ${contactDepartment}`,
-              `ออฟฟิศ/สาขา: ${contactOffice}`,
-              `โทร: ${contactPhone}`,
-              `อีเมล: ${contactEmail}`
-            ];
-
-            equipmentMessage += `📞 ข้อมูลติดต่อผู้ใช้:\n`;
-            equipmentMessage += `     ${contactSegments.join(' , ')}`;
-          }
+          // เพิ่มช่องว่างหลังข้อมูลสุดท้าย
+          equipmentMessage += `\n`;
 
           sections.push(equipmentMessage);
         }
 
         if (sections.length > 0) {
-          const combinedMessage = ['❌ ไม่สามารถลบผู้ใช้ได้', ...sections].join('\n\n');
+          // เพิ่มเส้นขีดระหว่าง sections (แต่ section สุดท้ายไม่ต้องมี)
+          const separator = '────────────────────────────────────────';
+          const sectionsWithSeparator = sections.map((section, index) => {
+            // section สุดท้ายไม่ต้องมีเส้นขีด
+            if (index === sections.length - 1) {
+              return section;
+            }
+            return `${section}\n${separator}`;
+          });
+          
+          const combinedMessage = ['❌ ไม่สามารถลบผู้ใช้ได้', ...sectionsWithSeparator].join('\n\n');
 
           // ใช้ CSS media query สำหรับ responsive max-width (ไม่ต้องคำนวณด้วย JavaScript)
           customToast.error(combinedMessage, {
