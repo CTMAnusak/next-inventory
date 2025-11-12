@@ -74,7 +74,8 @@ export async function middleware(request: NextRequest) {
       if (pathname.startsWith('/admin')) {
         const isAdmin = payload.isMainAdmin || 
                        payload.userRole === 'admin' || 
-                       payload.userRole === 'it_admin';
+                       payload.userRole === 'it_admin' ||
+                       payload.userRole === 'super_admin';
         
         if (!isAdmin) {
           return NextResponse.redirect(new URL('/dashboard', request.url));

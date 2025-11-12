@@ -24,7 +24,7 @@ export async function GET(request: NextRequest) {
     }
 
     // ตรวจสอบว่าเป็น admin หรือไม่
-    if (!['admin', 'it_admin'].includes(payload.userRole)) {
+    if (!['admin', 'it_admin', 'super_admin'].includes(payload.userRole)) {
       return NextResponse.json(
         { error: 'ไม่มีสิทธิ์เข้าถึง' },
         { status: 403 }

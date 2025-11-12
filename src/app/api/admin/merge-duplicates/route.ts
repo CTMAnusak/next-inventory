@@ -12,7 +12,7 @@ export async function POST(request: NextRequest) {
     const token = request.cookies.get('auth-token')?.value;
     const payload: any = token ? verifyToken(token) : null;
     
-    if (!payload || (payload.userRole !== 'admin' && payload.userRole !== 'it_admin')) {
+    if (!payload || (payload.userRole !== 'admin' && payload.userRole !== 'it_admin' && payload.userRole !== 'super_admin')) {
       return NextResponse.json(
         { error: 'ไม่ได้รับอนุญาต' },
         { status: 401 }
@@ -34,7 +34,8 @@ export async function POST(request: NextRequest) {
           count: { $gt: 1 } // Only groups with more than 1 item
         }
       }
-    ]);
+    ]);
+
 
     const mergeResults = [];
 

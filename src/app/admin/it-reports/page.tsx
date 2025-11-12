@@ -383,10 +383,9 @@ export default function AdminITReportsPage() {
       const response = await fetch('/api/admin/users');
       if (response.ok) {
         const users = await response.json();
-        // กรองเฉพาะ users ที่มี userRole = 'it_admin' และไม่ใช่ Super Administrator
-        const superAdminEmail = process.env.NEXT_PUBLIC_SUPER_ADMIN_EMAIL || 'vexclusive.it@gmail.com';
+        // กรองเฉพาะ users ที่มี userRole = 'it_admin' เท่านั้น
         const itAdminUsers = users
-          .filter((user: any) => user.userRole === 'it_admin' && user.email !== superAdminEmail)
+          .filter((user: any) => user.userRole === 'it_admin')
           .map((user: any) => ({
             id: user._id,
             userId: user.user_id,

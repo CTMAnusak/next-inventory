@@ -2,6 +2,7 @@
 
 import { useState, useEffect, useRef } from 'react';
 import { enableDragScroll } from '@/lib/drag-scroll';
+import { useAuth } from '@/contexts/AuthContext';
 import Layout from '@/components/Layout';
 import { 
   Plus, 
@@ -40,7 +41,7 @@ interface User {
   email: string;
   userType: 'individual' | 'branch';
   isMainAdmin?: boolean;
-  userRole: 'user' | 'admin' | 'it_admin';
+  userRole: 'user' | 'admin' | 'it_admin' | 'super_admin';
   registrationMethod?: 'manual' | 'google';
   googleId?: string;
   profilePicture?: string;
@@ -69,7 +70,7 @@ interface UserFormData {
   email: string;
   password: string;
   userType: 'individual' | 'branch';
-  userRole: 'user' | 'admin' | 'it_admin';
+  userRole: 'user' | 'admin' | 'it_admin' | 'super_admin';
 }
 
 const ISSUE_STATUS_LABELS: Record<string, string> = {
@@ -83,6 +84,8 @@ const getIssueStatusLabel = (status?: string) =>
   status ? ISSUE_STATUS_LABELS[status] || status : 'ไม่ทราบสถานะ';
 
 export default function AdminUsersPage() {
+  const { user: currentUser, loading: authLoading } = useAuth(); // Get current logged-in user
+  const isSuperAdmin = currentUser?.userRole === 'super_admin' || currentUser?.isMainAdmin; // Check if current user is Super Admin
   const [users, setUsers] = useState<User[]>([]);
   const [pendingUsers, setPendingUsers] = useState<User[]>([]);
   const [filteredUsers, setFilteredUsers] = useState<User[]>([]);
@@ -95,7 +98,7 @@ export default function AdminUsersPage() {
   const [activeTab, setActiveTab] = useState<'approved' | 'pending'>('approved');
   const [showApprovalModal, setShowApprovalModal] = useState(false);
   const [approvingUser, setApprovingUser] = useState<User | null>(null);
-  const [selectedRole, setSelectedRole] = useState<'user' | 'admin' | 'it_admin'>('user');
+  const [selectedRole, setSelectedRole] = useState<'user' | 'admin' | 'it_admin' | 'super_admin'>('user');
   const [isApproving, setIsApproving] = useState(false);
   
   // States สำหรับ pending deletion popup
@@ -425,6 +428,13 @@ export default function AdminUsersPage() {
       }
       
       setEditingUser(user);
+      
+      // 🔒 Security: If editing a super_admin but current user is not super_admin, reset role
+      let userRole = user.userRole || 'user';
+      if (userRole === 'super_admin' && !isSuperAdmin) {
+        userRole = 'user'; // Reset to default role if not authorized
+      }
+      
       setFormData({
         firstName: user.firstName || '',
         lastName: user.lastName || '',
@@ -436,7 +446,7 @@ export default function AdminUsersPage() {
         email: user.email,
         password: '',
         userType: user.userType,
-        userRole: user.userRole
+        userRole: userRole // Use checked role instead of user.userRole
       });
       setFieldErrors({}); // Clear field errors when opening edit modal
       setShowEditModal(true);
@@ -883,7 +893,8 @@ export default function AdminUsersPage() {
             baseData['สถานะ'] = 
               user.userRole === 'user' ? 'ทั่วไป' : 
               user.userRole === 'admin' ? 'Admin' : 
-              user.userRole === 'it_admin' ? 'Admin ทีม IT' : 'ไม่ระบุ';
+              user.userRole === 'it_admin' ? 'Admin ทีม IT' :
+              user.userRole === 'super_admin' ? 'Super Admin' : 'ไม่ระบุ';
           }
         } else {
           baseData['สถานะ'] = 'รอการอนุมัติ';
@@ -1258,7 +1269,8 @@ export default function AdminUsersPage() {
                           }`}>
                             {user.userRole === 'user' ? 'ทั่วไป' : 
                              user.userRole === 'admin' ? 'Admin' : 
-                             user.userRole === 'it_admin' ? 'Admin ทีม IT' : 'ไม่ระบุ'}
+                             user.userRole === 'it_admin' ? 'Admin ทีม IT' :
+                             user.userRole === 'super_admin' ? 'Super Admin' : 'ไม่ระบุ'}
                           </span>
                         )}
                       </div>
@@ -1416,6 +1428,7 @@ export default function AdminUsersPage() {
                       <option value="user">ทั่วไป</option>
                       <option value="admin">Admin</option>
                       <option value="it_admin">Admin ทีม IT</option>
+                      {isSuperAdmin && <option value="super_admin">Super Admin</option>}
                     </select>
                   </div>
                 </div>
@@ -1663,6 +1676,7 @@ export default function AdminUsersPage() {
                       <option value="user">ทั่วไป</option>
                       <option value="admin">Admin</option>
                       <option value="it_admin">Admin ทีม IT</option>
+                      {isSuperAdmin && <option value="super_admin">Super Admin</option>}
                     </select>
                   </div>
                 </div>
@@ -1899,12 +1913,13 @@ export default function AdminUsersPage() {
                 </label>
                 <select
                   value={selectedRole}
-                  onChange={(e) => setSelectedRole(e.target.value as 'user' | 'admin' | 'it_admin')}
+                  onChange={(e) => setSelectedRole(e.target.value as 'user' | 'admin' | 'it_admin' | 'super_admin')}
                   className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 text-gray-900"
                 >
                   <option value="user">ผู้ใช้ทั่วไป</option>
                   <option value="admin">Admin</option>
                   <option value="it_admin">Admin ทีม IT</option>
+                  {isSuperAdmin && <option value="super_admin">Super Admin</option>}
                 </select>
               </div>
 

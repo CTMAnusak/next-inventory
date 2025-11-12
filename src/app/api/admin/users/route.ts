@@ -22,8 +22,8 @@ export async function GET(request: NextRequest) {
       return NextResponse.json({ error: 'Invalid token' }, { status: 401 });
     }
 
-    // Check if user is admin or it_admin
-    if (decoded.userRole !== 'admin' && decoded.userRole !== 'it_admin' && !decoded.isMainAdmin) {
+    // Check if user is admin or it_admin or super_admin
+    if (decoded.userRole !== 'admin' && decoded.userRole !== 'it_admin' && decoded.userRole !== 'super_admin' && !decoded.isMainAdmin) {
       return NextResponse.json({ error: 'Insufficient permissions' }, { status: 403 });
     }
 
@@ -121,8 +121,8 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'Invalid token' }, { status: 401 });
     }
 
-    // Check if user is admin or it_admin
-    if (decoded.userRole !== 'admin' && decoded.userRole !== 'it_admin' && !decoded.isMainAdmin) {
+    // Check if user is admin or it_admin or super_admin
+    if (decoded.userRole !== 'admin' && decoded.userRole !== 'it_admin' && decoded.userRole !== 'super_admin' && !decoded.isMainAdmin) {
       return NextResponse.json({ error: 'Insufficient permissions' }, { status: 403 });
     }
 
@@ -167,7 +167,8 @@ export async function POST(request: NextRequest) {
     }
 
     // ✅ Cross-validation: Check if phone number exists in SIM Card inventory
-    if (phone) {
+    // ✅ EXCEPTION: Allow 000-000-0000 for admin users (skip duplicate check)
+    if (phone && phone !== '000-000-0000') {
       const { InventoryItem } = await import('@/models/InventoryItem');
       const existingSIMCard = await InventoryItem.findOne({ 
         numberPhone: phone,
@@ -205,12 +206,15 @@ export async function POST(request: NextRequest) {
     }
 
     // Check phone number (ตรวจสอบทั้ง approved และ pending users)
-    const existingUserByPhone = await User.findOne({ phone });
-    if (existingUserByPhone) {
-      const statusText = existingUserByPhone.isApproved === false 
-        ? ' (รวมถึงที่รอการอนุมัติ)' 
-        : '';
-      duplicateErrors.push(`เบอร์โทรศัพท์นี้มีผู้ใช้งานในระบบแล้ว${statusText}`);
+    // ✅ EXCEPTION: Allow 000-000-0000 for admin users (skip duplicate check)
+    if (phone !== '000-000-0000') {
+      const existingUserByPhone = await User.findOne({ phone });
+      if (existingUserByPhone) {
+        const statusText = existingUserByPhone.isApproved === false 
+          ? ' (รวมถึงที่รอการอนุมัติ)' 
+          : '';
+        duplicateErrors.push(`เบอร์โทรศัพท์นี้มีผู้ใช้งานในระบบแล้ว${statusText}`);
+      }
     }
 
     // Check full name for individual users (ตรวจสอบทั้ง approved และ pending users)
@@ -240,6 +244,14 @@ export async function POST(request: NextRequest) {
           detailedError: 'ไม่สามารถสร้างผู้ใช้ได้ เนื่องจาก:\n• ' + duplicateErrors.join('\n• ')
         },
         { status: 400 }
+      );
+    }
+
+    // 🔒 Security: Only Super Admin can assign super_admin role
+    if (userRole === 'super_admin' && decoded.userRole !== 'super_admin' && !decoded.isMainAdmin) {
+      return NextResponse.json(
+        { error: 'ไม่มีสิทธิ์ในการมอบหมาย Super Admin Role - ต้องเป็น Super Admin เท่านั้น' },
+        { status: 403 }
       );
     }
 

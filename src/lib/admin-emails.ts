@@ -14,9 +14,9 @@ export async function getITAdminEmails(): Promise<string[]> {
   try {
     await dbConnect();
     
-    // ดึงผู้ใช้ที่เป็น Admin ทีม IT เท่านั้น (ไม่รวม Admin ทั่วไป)
+    // ดึงผู้ใช้ที่เป็น Admin ทีม IT และ Super Admin เท่านั้น (ไม่รวม Admin ทั่วไป)
     const adminUsers = await User.find({
-      userRole: 'it_admin'
+      userRole: { $in: ['it_admin', 'super_admin'] }
     }).select('email');
 
     const emails = adminUsers.map(user => user.email);
@@ -52,7 +52,7 @@ export async function isUserITAdmin(userId: string): Promise<boolean> {
   try {
     await dbConnect();
     const user = await User.findById(userId).select('userRole');
-    return user?.userRole === 'it_admin' || false;
+    return user?.userRole === 'it_admin' || user?.userRole === 'super_admin' || false;
   } catch (error) {
     console.error('Error checking user IT admin status:', error);
     return false;

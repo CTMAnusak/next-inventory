@@ -22,7 +22,7 @@ export async function POST(request: NextRequest) {
 
     // Check if user is admin
     const currentUser = await User.findOne({ user_id: payload.userId });
-    if (!currentUser || !['admin', 'it_admin'].includes(currentUser.userRole)) {
+    if (!currentUser || !['admin', 'it_admin', 'super_admin'].includes(currentUser.userRole)) {
       return NextResponse.json(
         { error: 'ไม่มีสิทธิ์เข้าถึง' },
         { status: 403 }

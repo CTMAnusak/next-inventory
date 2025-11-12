@@ -23,7 +23,7 @@ export async function GET(request: NextRequest) {
 
     // Check if user is admin or it_admin
     const currentUser = await User.findOne({ user_id: payload.userId });
-    if (!currentUser || !['admin', 'it_admin'].includes(currentUser.userRole)) {
+    if (!currentUser || !['admin', 'it_admin', 'super_admin'].includes(currentUser.userRole)) {
       return NextResponse.json(
         { error: 'คุณไม่มีสิทธิ์เข้าถึงถังขยะ' },
         { status: 403 }
@@ -118,7 +118,7 @@ export async function POST(request: NextRequest) {
 
     // Check if user is admin or it_admin
     const currentUser = await User.findOne({ user_id: payload.userId });
-    if (!currentUser || !['admin', 'it_admin'].includes(currentUser.userRole)) {
+    if (!currentUser || !['admin', 'it_admin', 'super_admin'].includes(currentUser.userRole)) {
       return NextResponse.json(
         { error: 'คุณไม่มีสิทธิ์ทำการ cleanup ถังขยะ' },
         { status: 403 }

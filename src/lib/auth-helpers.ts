@@ -103,7 +103,7 @@ export async function authenticateUser(request: NextRequest) {
  * @returns boolean
  */
 export function isAdmin(user: any): boolean {
-  return user?.isMainAdmin || user?.userRole === 'admin' || user?.userRole === 'it_admin';
+  return user?.isMainAdmin || user?.userRole === 'admin' || user?.userRole === 'it_admin' || user?.userRole === 'super_admin';
 }
 
 /**
@@ -112,6 +112,15 @@ export function isAdmin(user: any): boolean {
  * @returns boolean
  */
 export function isITAdmin(user: any): boolean {
-  return user?.isMainAdmin || user?.userRole === 'it_admin';
+  return user?.isMainAdmin || user?.userRole === 'it_admin' || user?.userRole === 'super_admin';
+}
+
+/**
+ * ตรวจสอบว่าเป็น Super Admin หรือไม่
+ * @param user - ข้อมูล user จาก authenticateUser
+ * @returns boolean
+ */
+export function isSuperAdmin(user: any): boolean {
+  return user?.userRole === 'super_admin';
 }
 

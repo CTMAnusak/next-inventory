@@ -169,7 +169,8 @@ export async function createInventoryItem(params: CreateItemParams) {
 
   // Enhanced Phone Number validation for SIM cards
   // ✅ FIX: เบอร์โทรศัพท์ต้องไม่ซ้ำในทุกหมวดหมู่ (ไม่ว่าจะเป็นซิมการ์ดชื่ออะไร)
-  if (numberPhone && numberPhone.trim() !== '') {
+  // ✅ EXCEPTION: Allow 000-000-0000 for admin users (skip duplicate check)
+  if (numberPhone && numberPhone.trim() !== '' && numberPhone.trim() !== '000-000-0000') {
     const trimmedNumberPhone = numberPhone.trim();
     
     // Check for duplicate phone number in ALL inventory items (not just same category)

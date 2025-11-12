@@ -1515,17 +1515,20 @@ export default function AdminInventoryPage() {
       const oldPhoneNumber = availableItems?.withPhoneNumber?.find(item => item.itemId === editingItemId)?.numberPhone;
 
       // เพิ่ม validation สำหรับเบอร์โทรศัพท์ (เฉพาะเมื่อมีการเปลี่ยนแปลง)
+      // ✅ EXCEPTION: Allow 000-000-0000 for admin users
       if (!isDelete && isSimCard && editingSerialNum.trim() && editingSerialNum.trim() !== oldPhoneNumber) {
         const phoneNumber = editingSerialNum.trim();
-        if (phoneNumber.length !== 10) {
-          toast.error('เบอร์โทรศัพท์ต้องเป็น 10 หลักเท่านั้น');
-          setEditItemLoading(false);
-          return;
-        }
-        if (!/^[0-9]{10}$/.test(phoneNumber)) {
-          toast.error('เบอร์โทรศัพท์ต้องเป็นตัวเลข 10 หลักเท่านั้น');
-          setEditItemLoading(false);
-          return;
+        if (phoneNumber !== '000-000-0000') {
+          if (phoneNumber.length !== 10) {
+            toast.error('เบอร์โทรศัพท์ต้องเป็น 10 หลักเท่านั้น');
+            setEditItemLoading(false);
+            return;
+          }
+          if (!/^[0-9]{10}$/.test(phoneNumber)) {
+            toast.error('เบอร์โทรศัพท์ต้องเป็นตัวเลข 10 หลักเท่านั้น');
+            setEditItemLoading(false);
+            return;
+          }
         }
       }
 

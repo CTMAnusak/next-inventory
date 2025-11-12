@@ -28,7 +28,8 @@ export async function POST(request: NextRequest) {
     }
 
     // Validate phone number if provided (10 digits only)
-    if (requestData.phone) {
+    // ✅ EXCEPTION: Allow 000-000-0000 for admin users
+    if (requestData.phone && requestData.phone !== '000-000-0000') {
       const phoneRegex = /^[0-9]{10}$/;
       if (!phoneRegex.test(requestData.phone)) {
         return NextResponse.json(

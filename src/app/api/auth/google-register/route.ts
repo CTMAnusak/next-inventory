@@ -129,7 +129,8 @@ export async function POST(request: NextRequest) {
     }
 
     // Validate phone number
-    if (profileData.phone && (profileData.phone.length !== 10 || !/^\d{10}$/.test(profileData.phone))) {
+    // ✅ EXCEPTION: Allow 000-000-0000 for admin users
+    if (profileData.phone && profileData.phone !== '000-000-0000' && (profileData.phone.length !== 10 || !/^\d{10}$/.test(profileData.phone))) {
       return NextResponse.json(
         { error: 'เบอร์โทรศัพท์ต้องเป็นตัวเลข 10 หลัก' },
         { status: 400 }

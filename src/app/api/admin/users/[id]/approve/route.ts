@@ -20,20 +20,28 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
       return NextResponse.json({ error: 'Invalid token' }, { status: 401 });
     }
 
-    // Check if user is admin or it_admin
-    if (decoded.userRole !== 'admin' && decoded.userRole !== 'it_admin' && !decoded.isMainAdmin) {
+    // Check if user is admin or it_admin or super_admin
+    if (decoded.userRole !== 'admin' && decoded.userRole !== 'it_admin' && decoded.userRole !== 'super_admin' && !decoded.isMainAdmin) {
       console.log('❌ Insufficient permissions:', {
         userRole: decoded.userRole,
         isMainAdmin: decoded.isMainAdmin,
-        required: 'userRole === "admin" OR userRole === "it_admin" OR isMainAdmin === true'
+        required: 'userRole === "admin" OR userRole === "it_admin" OR userRole === "super_admin" OR isMainAdmin === true'
       });
       return NextResponse.json({ error: 'Insufficient permissions' }, { status: 403 });
     }
 
     const { userRole } = await request.json();
 
-    if (!userRole || !['user', 'admin', 'it_admin'].includes(userRole)) {
+    if (!userRole || !['user', 'admin', 'it_admin', 'super_admin'].includes(userRole)) {
       return NextResponse.json({ error: 'Invalid user role' }, { status: 400 });
+    }
+
+    // 🔒 Security: Only Super Admin can assign super_admin role
+    if (userRole === 'super_admin' && decoded.userRole !== 'super_admin' && !decoded.isMainAdmin) {
+      return NextResponse.json(
+        { error: 'ไม่มีสิทธิ์ในการมอบหมาย Super Admin Role - ต้องเป็น Super Admin เท่านั้น' },
+        { status: 403 }
+      );
     }
 
     const { id } = await params;

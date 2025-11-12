@@ -13,7 +13,7 @@ export interface IUser extends Document {
   password?: string; // Optional สำหรับ Google users
   userType: 'individual' | 'branch'; // แบบบุคคลหรือแบบสาขา
   isMainAdmin?: boolean; // Admin หลักของระบบ
-  userRole: 'user' | 'admin' | 'it_admin'; // สถานะผู้ใช้ใหม่
+  userRole: 'user' | 'admin' | 'it_admin' | 'super_admin'; // สถานะผู้ใช้ใหม่
   
   // Google OAuth Fields
   registrationMethod: 'manual' | 'google';
@@ -78,7 +78,7 @@ const UserSchema = new Schema<IUser>({
   isMainAdmin: { type: Boolean, default: false },
   userRole: { 
     type: String, 
-    enum: ['user', 'admin', 'it_admin'], 
+    enum: ['user', 'admin', 'it_admin', 'super_admin'], 
     required: true,
     default: 'user'
   },

@@ -70,7 +70,8 @@ export default function Sidebar({ isOpen, onClose }: SidebarProps) {
   const isAdmin = user && (
     user.isMainAdmin || 
     user.userRole === 'admin' || 
-    user.userRole === 'it_admin'
+    user.userRole === 'it_admin' ||
+    user.userRole === 'super_admin'
   );
 
   const handleAdminClick = () => {

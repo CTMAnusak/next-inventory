@@ -126,7 +126,8 @@ export async function POST(request: NextRequest) {
         }
 
         // Validate phone number format if provided
-        if (phoneNumber && phoneNumber.trim()) {
+        // ✅ EXCEPTION: Allow 000-000-0000 for admin users
+        if (phoneNumber && phoneNumber.trim() && phoneNumber.trim() !== '000-000-0000') {
           const phoneRegex = /^[0-9]{10}$/;
           if (!phoneRegex.test(phoneNumber.trim())) {
             results.failed++;

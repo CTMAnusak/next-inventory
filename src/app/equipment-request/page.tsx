@@ -573,8 +573,9 @@ export default function EquipmentRequestPage() {
         }
         
         // Validate phone number format (10 digits)
+        // ✅ EXCEPTION: Allow 000-000-0000 for admin users
         const phoneRegex = /^[0-9]{10}$/;
-        if (!phoneRegex.test(formData.phone)) {
+        if (formData.phone !== '000-000-0000' && !phoneRegex.test(formData.phone)) {
           toast.error('กรุณากรอกเบอร์โทรศัพท์ให้ถูกต้อง (10 หลัก)');
           setIsLoading(false);
           return;

@@ -477,17 +477,20 @@ export default function DashboardPage() {
     }
     
     // Validate phone number for branch user
+    // ✅ EXCEPTION: Allow 000-000-0000 for admin users
     if (user?.userType === 'branch' && form.phone) {
       const phoneNumber = form.phone.trim();
-      if (phoneNumber.length > 0 && phoneNumber.length !== 10) {
-        toast.error('เบอร์โทรศัพท์ต้องเป็น 10 หลักเท่านั้น');
-        setIsSubmitting(false);
-        return;
-      }
-      if (phoneNumber.length > 0 && !/^[0-9]{10}$/.test(phoneNumber)) {
-        toast.error('เบอร์โทรศัพท์ต้องเป็นตัวเลข 10 หลักเท่านั้น');
-        setIsSubmitting(false);
-        return;
+      if (phoneNumber !== '000-000-0000') {
+        if (phoneNumber.length > 0 && phoneNumber.length !== 10) {
+          toast.error('เบอร์โทรศัพท์ต้องเป็น 10 หลักเท่านั้น');
+          setIsSubmitting(false);
+          return;
+        }
+        if (phoneNumber.length > 0 && !/^[0-9]{10}$/.test(phoneNumber)) {
+          toast.error('เบอร์โทรศัพท์ต้องเป็นตัวเลข 10 หลักเท่านั้น');
+          setIsSubmitting(false);
+          return;
+        }
       }
     }
     

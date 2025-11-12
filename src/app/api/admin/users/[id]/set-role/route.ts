@@ -22,8 +22,8 @@ export async function POST(
       return NextResponse.json({ error: 'Invalid token' }, { status: 401 });
     }
 
-    // Check if user is admin or it_admin
-    if (decoded.userRole !== 'admin' && decoded.userRole !== 'it_admin' && !decoded.isMainAdmin) {
+    // Check if user is admin or it_admin or super_admin
+    if (decoded.userRole !== 'admin' && decoded.userRole !== 'it_admin' && decoded.userRole !== 'super_admin' && !decoded.isMainAdmin) {
       return NextResponse.json({ error: 'Insufficient permissions' }, { status: 403 });
     }
 
@@ -33,10 +33,18 @@ export async function POST(
   const { userRole } = await request.json();
 
     // Validate role
-    if (!['user', 'admin', 'it_admin'].includes(userRole)) {
+    if (!['user', 'admin', 'it_admin', 'super_admin'].includes(userRole)) {
       return NextResponse.json(
         { error: 'สถานะไม่ถูกต้อง' },
         { status: 400 }
+      );
+    }
+
+    // 🔒 Security: Only Super Admin can assign super_admin role
+    if (userRole === 'super_admin' && decoded.userRole !== 'super_admin' && !decoded.isMainAdmin) {
+      return NextResponse.json(
+        { error: 'ไม่มีสิทธิ์ในการมอบหมาย Super Admin Role - ต้องเป็น Super Admin เท่านั้น' },
+        { status: 403 }
       );
     }
 
@@ -50,7 +58,7 @@ export async function POST(
     }
 
     // Prevent changing main admin role
-    if (user.isMainAdmin && userRole !== 'it_admin') {
+    if (user.isMainAdmin && userRole !== 'it_admin' && userRole !== 'super_admin') {
       return NextResponse.json(
         { error: 'ไม่สามารถเปลี่ยนสถานะของ Admin หลักได้' },
         { status: 400 }
@@ -67,7 +75,8 @@ export async function POST(
   const roleNames: any = {
     'user': 'ทั่วไป',
     'admin': 'Admin',
-    'it_admin': 'Admin ทีม IT'
+    'it_admin': 'Admin ทีม IT',
+    'super_admin': 'Super Admin'
   };
 
   return NextResponse.json({

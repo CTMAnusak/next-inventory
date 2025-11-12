@@ -26,6 +26,7 @@ export async function GET(request: NextRequest) {
       $or: [
         { userRole: 'admin' },
         { userRole: 'it_admin' },
+        { userRole: 'super_admin' },
         { isMainAdmin: true }
       ]
     });
@@ -94,7 +95,7 @@ export async function GET(request: NextRequest) {
           password: hashedPassword,
           userType: 'individual',
           isMainAdmin: true, // Super Admin is always Main Admin
-          userRole: 'it_admin', // IT Admin role for notifications
+          userRole: 'super_admin', // Super Admin role
           registrationMethod: 'manual',
           isApproved: true,
           profileCompleted: true

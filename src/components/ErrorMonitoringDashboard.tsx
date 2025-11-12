@@ -80,7 +80,7 @@ export default function ErrorMonitoringDashboard() {
   const summary = getErrorSummary();
 
   // ตรวจสอบสิทธิ์การแสดง Error Monitor
-  const canViewErrorMonitor = user?.userRole === 'it_admin' || user?.userRole === 'admin';
+  const canViewErrorMonitor = user?.userRole === 'it_admin' || user?.userRole === 'admin' || user?.userRole === 'super_admin';
   
   // ไม่แสดง Error Monitor หากไม่มีสิทธิ์
   if (!canViewErrorMonitor) {

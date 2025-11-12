@@ -211,7 +211,8 @@ export default function ITReportPage() {
       }
 
       // Validate phone number (must be exactly 10 digits) - only for branch users
-      if (user?.userType === 'branch' && formData.phone.length !== 10) {
+      // ✅ EXCEPTION: Allow 000-000-0000 for admin users
+      if (user?.userType === 'branch' && formData.phone !== '000-000-0000' && formData.phone.length !== 10) {
         toast.error('เบอร์โทรศัพท์ต้องเป็นตัวเลข 10 หลักเท่านั้น');
         setIsLoading(false);
         return;

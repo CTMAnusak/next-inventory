@@ -168,7 +168,8 @@ export async function POST(request: NextRequest) {
     
     // Check for duplicate phone number for all categories that use phone numbers
     // ✅ FIX: เบอร์โทรศัพท์ต้องไม่ซ้ำในทุกหมวดหมู่ (ไม่ว่าจะเป็นซิมการ์ดชื่ออะไร)
-    if (numberPhone) {
+    // ✅ EXCEPTION: Allow 000-000-0000 for admin users (skip duplicate check)
+    if (numberPhone && numberPhone !== '000-000-0000') {
       // Check if phone number already exists in ALL inventory items
       const existingItem = await InventoryItem.findOne({ 
         numberPhone: numberPhone,
@@ -358,7 +359,7 @@ export async function DELETE(request: NextRequest) {
 
     // Get user info and check admin permissions
     const currentUser = await User.findOne({ user_id: payload.userId });
-    if (!currentUser || !['admin', 'it_admin'].includes(currentUser.userRole)) {
+    if (!currentUser || !['admin', 'it_admin', 'super_admin'].includes(currentUser.userRole)) {
       return NextResponse.json(
         { error: 'คุณไม่มีสิทธิ์ในการลบรายการ' },
         { status: 403 }

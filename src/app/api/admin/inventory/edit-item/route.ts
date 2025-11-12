@@ -88,14 +88,16 @@ export async function POST(request: NextRequest) {
         // For SIM cards, update phone number (only if provided)
         if (newPhoneNumber && newPhoneNumber.trim()) {
 
-        // Check if new phone number already exists for SIM cards
-        const duplicateCheck = await InventoryItem.findOne({
-          itemName,
-          categoryId: category,
-          numberPhone: newPhoneNumber.trim(),
-          deletedAt: { $exists: false }, // Use deletedAt instead of status
-          _id: { $ne: itemId }
-        });
+        // ✅ EXCEPTION: Allow 000-000-0000 for admin users (skip duplicate check)
+        if (newPhoneNumber.trim() !== '000-000-0000') {
+          // Check if new phone number already exists for SIM cards
+          const duplicateCheck = await InventoryItem.findOne({
+            itemName,
+            categoryId: category,
+            numberPhone: newPhoneNumber.trim(),
+            deletedAt: { $exists: false }, // Use deletedAt instead of status
+            _id: { $ne: itemId }
+          });
 
           if (duplicateCheck) {
             return NextResponse.json({
@@ -120,6 +122,7 @@ export async function POST(request: NextRequest) {
               isDuplicate: true
             });
           }
+        }
 
           // Update the phone number
           existingItem.numberPhone = newPhoneNumber.trim();

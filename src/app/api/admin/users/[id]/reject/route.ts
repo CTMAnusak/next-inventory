@@ -20,12 +20,12 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
       return NextResponse.json({ error: 'Invalid token' }, { status: 401 });
     }
 
-    // Check if user is admin or it_admin
-    if (decoded.userRole !== 'admin' && decoded.userRole !== 'it_admin' && !decoded.isMainAdmin) {
+    // Check if user is admin or it_admin or super_admin
+    if (decoded.userRole !== 'admin' && decoded.userRole !== 'it_admin' && decoded.userRole !== 'super_admin' && !decoded.isMainAdmin) {
       console.log('❌ Insufficient permissions (reject):', {
         userRole: decoded.userRole,
         isMainAdmin: decoded.isMainAdmin,
-        required: 'userRole === "admin" OR userRole === "it_admin" OR isMainAdmin === true'
+        required: 'userRole === "admin" OR userRole === "it_admin" OR userRole === "super_admin" OR isMainAdmin === true'
       });
       return NextResponse.json({ error: 'Insufficient permissions' }, { status: 403 });
     }

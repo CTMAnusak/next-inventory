@@ -26,8 +26,8 @@ export async function DELETE(
       return NextResponse.json({ error: 'Invalid token' }, { status: 401 });
     }
 
-    // Check if user is admin
-    if (decoded.userRole !== 'admin' && !decoded.isMainAdmin) {
+    // Check if user is admin or super_admin
+    if (decoded.userRole !== 'admin' && decoded.userRole !== 'super_admin' && !decoded.isMainAdmin) {
       return NextResponse.json({ error: 'Insufficient permissions' }, { status: 403 });
     }
 

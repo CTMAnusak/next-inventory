@@ -178,7 +178,8 @@ export default function GoogleRegisterPage() {
     }
 
     // Validate phone number
-    if (formData.phone && formData.phone.length !== 10) {
+    // ✅ EXCEPTION: Allow 000-000-0000 for admin users
+    if (formData.phone && formData.phone !== '000-000-0000' && formData.phone.length !== 10) {
       toast.error('เบอร์โทรศัพท์ต้องเป็นตัวเลข 10 หลักเท่านั้น');
       return false;
     }

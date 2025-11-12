@@ -124,7 +124,9 @@ export default function PendingSummaryPage() {
       // Process IT Issues (pending only)
       if (itResponse.ok) {
         const itData = await itResponse.json();
-        const pending = itData.filter((issue: ITIssue) => issue.status === 'pending');
+        // API returns { issues: [...], pagination: {...} }
+        const issues = itData.issues || [];
+        const pending = issues.filter((issue: ITIssue) => issue.status === 'pending');
         setPendingITIssues(pending);
       }
 

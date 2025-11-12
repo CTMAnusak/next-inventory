@@ -19,7 +19,7 @@ interface User {
   officeId?: string; // 🆕 Office ID
   officeName: string; // 🆕 Office Name (primary field)
   isMainAdmin?: boolean;
-  userRole?: 'user' | 'admin' | 'it_admin';
+  userRole?: 'user' | 'admin' | 'it_admin' | 'super_admin';
   pendingDeletion?: boolean; // เพิ่ม pendingDeletion status
 }
 
