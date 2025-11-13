@@ -1,6 +1,7 @@
 'use client';
 
 import React, { useState, useEffect, useRef, useMemo } from 'react';
+import { usePathname } from 'next/navigation';
 import { enableDragScroll } from '@/lib/drag-scroll';
 import { isSIMCardSync } from '@/lib/sim-card-helpers';
 import { IConditionConfig } from '@/models/InventoryConfig';
@@ -105,6 +106,8 @@ interface InventoryFormData {
 }
 
 export default function AdminInventoryPage() {
+  const pathname = usePathname();
+  const dataLoadedRef = useRef(false);
   const [items, setItems] = useState<InventoryItem[]>([]);
   const [filteredItems, setFilteredItems] = useState<any[]>([]);
   const [loading, setLoading] = useState(false);
@@ -423,11 +426,19 @@ export default function AdminInventoryPage() {
   } | null>(null);
 
 
+  // ✅ Reset data loaded flag when pathname changes (navigation to this page)
+  useEffect(() => {
+    dataLoadedRef.current = false;
+  }, [pathname]);
+
   useEffect(() => {
     // ✅ Initial load - use cache
-    fetchInventory(1, '', '', false);
-    fetchConfig();
-  }, []);
+    if (!dataLoadedRef.current) {
+      dataLoadedRef.current = true;
+      fetchInventory(1, '', '', false);
+      fetchConfig();
+    }
+  }, [pathname]);
   
   // Set default status and condition values when configs are loaded
   useEffect(() => {

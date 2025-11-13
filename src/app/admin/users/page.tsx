@@ -1,6 +1,7 @@
 'use client';
 
 import { useState, useEffect, useRef } from 'react';
+import { usePathname } from 'next/navigation';
 import { enableDragScroll } from '@/lib/drag-scroll';
 import { useAuth } from '@/contexts/AuthContext';
 import Layout from '@/components/Layout';
@@ -84,6 +85,8 @@ const getIssueStatusLabel = (status?: string) =>
   status ? ISSUE_STATUS_LABELS[status] || status : 'ไม่ทราบสถานะ';
 
 export default function AdminUsersPage() {
+  const pathname = usePathname();
+  const dataLoadedRef = useRef(false);
   const { user: currentUser, loading: authLoading } = useAuth(); // Get current logged-in user
   const isSuperAdmin = currentUser?.userRole === 'super_admin' || currentUser?.isMainAdmin; // Check if current user is Super Admin
   const [users, setUsers] = useState<User[]>([]);
@@ -154,10 +157,18 @@ export default function AdminUsersPage() {
   // Drag scroll ref
   const tableContainerRef = useRef<HTMLDivElement>(null);
 
+  // ✅ Reset data loaded flag when pathname changes (navigation to this page)
   useEffect(() => {
-    fetchUsers();
-    fetchOfficeOptions(); // 🆕 ดึงรายการ Office
-  }, []);
+    dataLoadedRef.current = false;
+  }, [pathname]);
+
+  useEffect(() => {
+    if (!dataLoadedRef.current) {
+      dataLoadedRef.current = true;
+      fetchUsers();
+      fetchOfficeOptions(); // 🆕 ดึงรายการ Office
+    }
+  }, [pathname]);
 
   // 🆕 ดึงรายการ Office สำหรับ dropdown
   const fetchOfficeOptions = async () => {

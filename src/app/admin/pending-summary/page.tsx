@@ -1,6 +1,7 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
+import { usePathname } from 'next/navigation';
 import Layout from '@/components/Layout';
 import { 
   RefreshCw, 
@@ -85,6 +86,8 @@ interface User {
 
 export default function PendingSummaryPage() {
   const router = useRouter();
+  const pathname = usePathname();
+  const dataLoadedRef = useRef(false);
   const [loading, setLoading] = useState(false);
   
   // Data states
@@ -93,9 +96,17 @@ export default function PendingSummaryPage() {
   const [pendingReturns, setPendingReturns] = useState<ReturnLog[]>([]);
   const [pendingUsers, setPendingUsers] = useState<User[]>([]);
 
+  // ✅ Reset data loaded flag when pathname changes (navigation to this page)
   useEffect(() => {
-    // Initial fetch
-    fetchAllData();
+    dataLoadedRef.current = false;
+  }, [pathname]);
+
+  useEffect(() => {
+    if (!dataLoadedRef.current) {
+      dataLoadedRef.current = true;
+      // Initial fetch
+      fetchAllData();
+    }
 
     // Auto-refresh ทุก 10 นาที (600000 ms)
     const intervalId = setInterval(() => {
@@ -104,7 +115,7 @@ export default function PendingSummaryPage() {
 
     // Cleanup interval เมื่อออกจากหน้า
     return () => clearInterval(intervalId);
-  }, []);
+  }, [pathname]);
 
   const fetchAllData = async (silent: boolean = false) => {
     // ถ้าไม่ใช่ silent refresh ให้แสดง loading animation

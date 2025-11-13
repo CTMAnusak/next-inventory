@@ -1,6 +1,7 @@
 'use client';
 
 import { useState, useEffect, useRef, useMemo } from 'react';
+import { usePathname } from 'next/navigation';
 import Layout from '@/components/Layout';
 import { toast } from 'react-hot-toast';
 import { Clock, CheckCircle, XCircle, AlertCircle, RefreshCw, X, Search, Filter } from 'lucide-react';
@@ -57,6 +58,8 @@ interface IssueItem {
 }
 
 export default function ITTrackingPage() {
+  const pathname = usePathname();
+  const dataLoadedRef = useRef(false);
   const { user } = useAuth();
   const [issues, setIssues] = useState<IssueItem[]>([]);
   const [isLoading, setIsLoading] = useState(false);
@@ -116,11 +119,17 @@ export default function ITTrackingPage() {
     { value: 'closed', label: 'ปิดงานแล้ว' }
   ];
 
+  // ✅ Reset data loaded flag when pathname changes (navigation to this page)
   useEffect(() => {
-    if (user) {
+    dataLoadedRef.current = false;
+  }, [pathname]);
+
+  useEffect(() => {
+    if (user && !dataLoadedRef.current) {
+      dataLoadedRef.current = true;
       fetchUserIssues();
     }
-  }, [user]);
+  }, [user, pathname]);
 
   // Initialize drag scrolling - reinitialize when table is rendered or tab changes
   useEffect(() => {

@@ -1,6 +1,7 @@
 'use client';
 
 import { useState, useEffect, useRef, useMemo } from 'react';
+import { usePathname } from 'next/navigation';
 import { enableDragScroll } from '@/lib/drag-scroll';
 import Layout from '@/components/Layout';
 import { 
@@ -83,6 +84,8 @@ interface ITAdmin {
 type TabType = 'pending' | 'in_progress' | 'completed' | 'closed';
 
 export default function AdminITReportsPage() {
+  const pathname = usePathname();
+  const dataLoadedRef = useRef(false);
   const [issues, setIssues] = useState<ITIssue[]>([]);
   const [filteredIssues, setFilteredIssues] = useState<ITIssue[]>([]);
   const [loading, setLoading] = useState(false);
@@ -146,9 +149,20 @@ export default function AdminITReportsPage() {
   // Note: This component uses IT issue categories, not inventory categories
   // So we keep the hardcoded categories array for IT issues
 
+  // ✅ Reset data loaded flag when pathname changes (navigation to this page)
   useEffect(() => {
-    fetchIssues(1); // Reset to page 1 when tab or search changes
-  }, [activeTab, searchTerm]);
+    dataLoadedRef.current = false;
+  }, [pathname]);
+
+  useEffect(() => {
+    if (!dataLoadedRef.current) {
+      dataLoadedRef.current = true;
+      fetchIssues(1); // Initial fetch when navigating to this page
+    } else {
+      // Refetch when tab or search changes (but not on initial load)
+      fetchIssues(1); // Reset to page 1 when tab or search changes
+    }
+  }, [activeTab, searchTerm, pathname]);
 
   // Fetch when page changes (but not on initial load)
   useEffect(() => {
