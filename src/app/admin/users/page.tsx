@@ -1673,10 +1673,16 @@ export default function AdminUsersPage() {
                       className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 text-gray-900"
                       required
                     >
-                      <option value="user">ทั่วไป</option>
-                      <option value="admin">Admin</option>
-                      <option value="it_admin">Admin ทีม IT</option>
-                      {isSuperAdmin && <option value="super_admin">Super Admin</option>}
+                      {/* Show "Super Admin" ONLY if editing user is isMainAdmin = true */}
+                      {editingUser?.isMainAdmin ? (
+                        <option value="super_admin">Super Admin</option>
+                      ) : (
+                        <>
+                          <option value="user">ทั่วไป</option>
+                          <option value="admin">Admin</option>
+                          <option value="it_admin">Admin ทีม IT</option>
+                        </>
+                      )}
                     </select>
                   </div>
                 </div>
