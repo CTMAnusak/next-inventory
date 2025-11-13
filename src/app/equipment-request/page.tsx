@@ -1,6 +1,7 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
+import { usePathname } from 'next/navigation';
 import { useAuth } from '@/contexts/AuthContext';
 import Layout from '@/components/Layout';
 import { toast } from 'react-hot-toast';
@@ -51,6 +52,7 @@ interface ICategoryConfig {
 }
 
 export default function EquipmentRequestPage() {
+  const pathname = usePathname();
   const { user, loading } = useAuth();
   const [isLoading, setIsLoading] = useState(false);
   const [isSubmitted, setIsSubmitted] = useState(false);
@@ -59,6 +61,7 @@ export default function EquipmentRequestPage() {
   const [categoryConfigs, setCategoryConfigs] = useState<ICategoryConfig[]>([]);
   const [isLoadingEquipment, setIsLoadingEquipment] = useState(false);
   const [pendingRequests, setPendingRequests] = useState<PendingRequest[]>([]);
+  const dataLoadedRef = useRef(false);
   
   // Form data including personal info for branch users
   const [formData, setFormData] = useState({
@@ -99,9 +102,17 @@ export default function EquipmentRequestPage() {
   const [categorySearchTerm, setCategorySearchTerm] = useState<string>('');
   const [itemSearchTerm, setItemSearchTerm] = useState<string>('');
 
+  // ✅ Reset data loaded flag when pathname changes (navigation to this page)
   useEffect(() => {
-    fetchInventoryItems();
-  }, []);
+    dataLoadedRef.current = false;
+  }, [pathname]);
+
+  useEffect(() => {
+    if (!dataLoadedRef.current) {
+      dataLoadedRef.current = true;
+      fetchInventoryItems();
+    }
+  }, [pathname]);
 
   // Set office in formData when user data is available
   useEffect(() => {

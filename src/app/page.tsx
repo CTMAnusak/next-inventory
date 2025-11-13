@@ -78,7 +78,11 @@ export default function Home() {
           {quickActions.map((action, index) => (
             <div
               key={index}
-              onClick={() => router.push(action.href)}
+              onClick={() => {
+                router.push(action.href);
+                // ✅ Force refresh data when navigating
+                setTimeout(() => router.refresh(), 100);
+              }}
               className="bg-white rounded-lg shadow-md p-6 hover:shadow-lg transition-shadow cursor-pointer border border-gray-200"
             >
               <div className="flex items-center">

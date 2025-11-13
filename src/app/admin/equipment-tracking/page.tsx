@@ -1,6 +1,7 @@
 'use client';
 
 import React, { useState, useEffect, useRef, useMemo } from 'react';
+import { usePathname } from 'next/navigation';
 import { enableDragScroll } from '@/lib/drag-scroll';
 import Layout from '@/components/Layout';
 import { 
@@ -54,6 +55,8 @@ interface EquipmentTracking {
 }
 
 export default function AdminEquipmentTrackingPage() {
+  const pathname = usePathname();
+  const dataLoadedRef = useRef(false);
   const [trackingData, setTrackingData] = useState<EquipmentTracking[]>([]);
   const [filteredData, setFilteredData] = useState<EquipmentTracking[]>([]);
   const [loading, setLoading] = useState(false);
@@ -86,9 +89,17 @@ export default function AdminEquipmentTrackingPage() {
   const tableContainerRef = useRef<HTMLDivElement>(null);
 
 
+  // ✅ Reset data loaded flag when pathname changes (navigation to this page)
   useEffect(() => {
-    fetchTrackingData(1);
-  }, []);
+    dataLoadedRef.current = false;
+  }, [pathname]);
+
+  useEffect(() => {
+    if (!dataLoadedRef.current) {
+      dataLoadedRef.current = true;
+      fetchTrackingData(1);
+    }
+  }, [pathname]);
 
   // Initialize drag scrolling
   useEffect(() => {

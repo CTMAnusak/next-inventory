@@ -1,6 +1,6 @@
 'use client';
 
-import { useRouter } from 'next/navigation';
+import { useRouter, usePathname } from 'next/navigation';
 import Layout from '@/components/Layout';
 import { useEffect, useRef, useState, useCallback, useMemo } from 'react';
 import { toast } from 'react-hot-toast';
@@ -27,6 +27,7 @@ interface ICategoryConfig {
 
 export default function DashboardPage() {
   const router = useRouter();
+  const pathname = usePathname();
   const { user, loading, checkAuth } = useAuth();
   
   // Error monitoring hooks
@@ -150,12 +151,17 @@ export default function DashboardPage() {
     }
   }, [user?.firstName, user?.lastName, user?.office, user?.id]);
 
+  // ✅ Reset dataLoaded flag when pathname changes (navigation to this page)
+  useEffect(() => {
+    setDataLoaded(false);
+  }, [pathname]);
+
   // ✅ โหลดข้อมูลอุปกรณ์เมื่อ user โหลดเสร็จ (ยกเว้นเมื่อกำลัง manual refresh)
   useEffect(() => {
     if (user && !loading && !dataLoaded && !isManualRefresh) {
       fetchOwned();
     }
-  }, [user, loading, dataLoaded, isManualRefresh, fetchOwned]);
+  }, [user, loading, dataLoaded, isManualRefresh, fetchOwned, pathname]);
 
   // Force refresh function for manual refresh
   const refreshData = useCallback(async () => {
@@ -1266,6 +1272,8 @@ export default function DashboardPage() {
                                 
                                 // Navigate to equipment return page with all params
                                 router.push(`/equipment-return?${params.toString()}`);
+                                // ✅ Force refresh data when navigating
+                                setTimeout(() => router.refresh(), 100);
                                 
                                 // Reset loading state after a delay (in case navigation is slow)
                                 // This will be cleared by useEffect cleanup when navigation completes

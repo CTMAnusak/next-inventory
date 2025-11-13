@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useRef } from 'react';
 import { useAuth } from '@/contexts/AuthContext';
-import { useSearchParams, useRouter } from 'next/navigation';
+import { useSearchParams, useRouter, usePathname } from 'next/navigation';
 import Layout from '@/components/Layout';
 import { toast } from 'react-hot-toast';
 import { Search, Upload, ChevronDown, RefreshCw } from 'lucide-react';
@@ -82,6 +82,7 @@ export default function EquipmentReturnPage() {
   const { user } = useAuth();
   const searchParams = useSearchParams();
   const router = useRouter();
+  const pathname = usePathname();
   const [isLoading, setIsLoading] = useState(false);
   const [isSubmitted, setIsSubmitted] = useState(false);
   const [validationErrors, setValidationErrors] = useState<{[key: string]: string}>({});
@@ -89,6 +90,7 @@ export default function EquipmentReturnPage() {
   const [filteredEquipment, setFilteredEquipment] = useState<OwnedEquipment[]>([]);
   const [isLoadingEquipment, setIsLoadingEquipment] = useState(false);
   const [isLoadingConfigs, setIsLoadingConfigs] = useState(false);
+  const dataLoadedRef = useRef(false);
   
   // Form data including personal info for branch users
   const [formData, setFormData] = useState({
@@ -140,30 +142,38 @@ export default function EquipmentReturnPage() {
   const [statusConfigs, setStatusConfigs] = useState<any[]>([]);
   const [conditionConfigs, setConditionConfigs] = useState<any[]>([]);
 
+  // ✅ Reset data loaded flag when pathname changes (navigation to this page)
+  useEffect(() => {
+    dataLoadedRef.current = false;
+  }, [pathname]);
+
   useEffect(() => {
     // ✅ Fetch both APIs in parallel for better performance
-    const fetchData = async () => {
-      const startTime = Date.now();
-      console.log('🔄 Starting to fetch equipment data...');
-      
-      try {
-        await Promise.all([fetchUserItems(), fetchConfigs()]);
-        const loadTime = Date.now() - startTime;
-        console.log(`✅ Data loaded in ${loadTime}ms`);
+    if (!dataLoadedRef.current) {
+      dataLoadedRef.current = true;
+      const fetchData = async () => {
+        const startTime = Date.now();
+        console.log('🔄 Starting to fetch equipment data...');
         
-        // Warn if loading takes too long
-        if (loadTime > 3000 && !hasShownSlowLoadToastRef.current) {
-          toast('โหลดข้อมูลช้ากว่าปกติ กรุณารอสักครู่...', { icon: '⏱️' });
-          hasShownSlowLoadToastRef.current = true;
+        try {
+          await Promise.all([fetchUserItems(), fetchConfigs()]);
+          const loadTime = Date.now() - startTime;
+          console.log(`✅ Data loaded in ${loadTime}ms`);
+          
+          // Warn if loading takes too long
+          if (loadTime > 3000 && !hasShownSlowLoadToastRef.current) {
+            toast('โหลดข้อมูลช้ากว่าปกติ กรุณารอสักครู่...', { icon: '⏱️' });
+            hasShownSlowLoadToastRef.current = true;
+          }
+        } catch (error) {
+          console.error('Error fetching initial data:', error);
+          toast.error('เกิดข้อผิดพลาดในการโหลดข้อมูล กรุณารีเฟรชหน้าใหม่');
         }
-      } catch (error) {
-        console.error('Error fetching initial data:', error);
-        toast.error('เกิดข้อผิดพลาดในการโหลดข้อมูล กรุณารีเฟรชหน้าใหม่');
-      }
-    };
-    
-    fetchData();
-  }, []);
+      };
+      
+      fetchData();
+    }
+  }, [pathname]);
 
   // Cleanup object URLs on component unmount
   useEffect(() => {

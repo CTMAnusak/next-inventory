@@ -99,6 +99,9 @@ export default function Sidebar({ isOpen, onClose }: SidebarProps) {
       // ใช้ router.push แทน Link เพื่อให้สามารถจัดการ loading state ได้
       await router.push(href);
       
+      // ✅ Force refresh data when navigating to ensure fresh data
+      router.refresh();
+      
       // ปิด sidebar ในมือถือเท่านั้น
       if (window.innerWidth < 1024) {
         onClose();
@@ -218,6 +221,8 @@ export default function Sidebar({ isOpen, onClose }: SidebarProps) {
               prefetch={true}
               className="block"
               onClick={() => {
+                // ✅ Force refresh data when navigating
+                setTimeout(() => router.refresh(), 100);
                 if (window.innerWidth < 1024) {
                   onClose();
                 }
@@ -288,6 +293,8 @@ export default function Sidebar({ isOpen, onClose }: SidebarProps) {
                                   : 'text-white/70 hover:bg-white/10 hover:text-white hover:scale-105'
                               }`}
                               onClick={() => {
+                                // ✅ Force refresh data when navigating
+                                setTimeout(() => router.refresh(), 100);
                                 if (window.innerWidth < 1024) {
                                   onClose();
                                 }
@@ -326,6 +333,8 @@ export default function Sidebar({ isOpen, onClose }: SidebarProps) {
                         : 'text-white/90 hover:bg-white/10 hover:text-white hover:scale-105'
                     }`}
                     onClick={() => {
+                      // ✅ Force refresh data when navigating
+                      setTimeout(() => router.refresh(), 100);
                       if (window.innerWidth < 1024) {
                         onClose();
                       }

@@ -1,6 +1,7 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
+import { usePathname } from 'next/navigation';
 import Layout from '@/components/Layout';
 import { 
   BarChart3, 
@@ -48,14 +49,24 @@ interface DashboardStats {
 }
 
 export default function AdminDashboardPage() {
+  const pathname = usePathname();
+  const dataLoadedRef = useRef(false);
   const [stats, setStats] = useState<DashboardStats | null>(null);
   const [loading, setLoading] = useState(false);
   const [selectedMonth, setSelectedMonth] = useState<number | 'all'>(new Date().getMonth() + 1);
   const [selectedYear, setSelectedYear] = useState(new Date().getFullYear());
 
+  // ✅ Reset data loaded flag when pathname changes (navigation to this page)
   useEffect(() => {
-    fetchStats();
-  }, [selectedMonth, selectedYear]);
+    dataLoadedRef.current = false;
+  }, [pathname]);
+
+  useEffect(() => {
+    if (!dataLoadedRef.current) {
+      dataLoadedRef.current = true;
+      fetchStats();
+    }
+  }, [selectedMonth, selectedYear, pathname]);
 
   const fetchStats = async (forceRefresh: boolean = false) => {
     setLoading(true);

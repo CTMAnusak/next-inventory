@@ -1,6 +1,7 @@
 'use client';
 
 import React, { useState, useEffect, useCallback, useRef, useMemo } from 'react';
+import { usePathname } from 'next/navigation';
 import { enableDragScroll } from '@/lib/drag-scroll';
 import Layout from '@/components/Layout';
 import { 
@@ -101,6 +102,8 @@ interface ReturnLog {
 type TabType = 'request' | 'return';
 
 export default function AdminEquipmentReportsPage() {
+  const pathname = usePathname();
+  const dataLoadedRef = useRef(false);
   const [requestLogs, setRequestLogs] = useState<RequestLog[]>([]);
   const [returnLogs, setReturnLogs] = useState<ReturnLog[]>([]);
   const [filteredData, setFilteredData] = useState<(RequestLog | ReturnLog)[]>([]);
@@ -159,11 +162,19 @@ export default function AdminEquipmentReportsPage() {
   // Drag scroll ref
   const tableContainerRef = useRef<HTMLDivElement>(null);
 
+  // ✅ Reset data loaded flag when pathname changes (navigation to this page)
   useEffect(() => {
-    fetchData();
-    fetchInventoryData();
-    fetchConfigs();
-  }, []);
+    dataLoadedRef.current = false;
+  }, [pathname]);
+
+  useEffect(() => {
+    if (!dataLoadedRef.current) {
+      dataLoadedRef.current = true;
+      fetchData();
+      fetchInventoryData();
+      fetchConfigs();
+    }
+  }, [pathname]);
 
   // Initialize drag scrolling
   useEffect(() => {
