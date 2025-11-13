@@ -23,13 +23,13 @@ export default function ContactPage() {
               </h3>
               <p className="text-sm text-gray-600 mt-1">
                 <a 
-                  href="tel:0925919889" 
+                  href="tel:0811345646" 
                   className="text-blue-600 font-medium text-lg hover:text-blue-800 underline cursor-pointer block"
                 >
-                  092-591-9889
-                </a> <span className="text-blue-600 font-medium text-lg">(คุณเบลล์)</span>
+                  081-134-5646
+                </a> <span className="text-blue-600 font-medium text-lg">(เบอร์ทีม IT)</span>
                 </p>
-                <p className="text-sm text-gray-600 mt-1">(เวลาทำการ 08:00 - 17:00)</p>
+                <p className="text-sm text-gray-600 mt-1">(เวลาทำการ 09.00 - 20.00 น.)</p>
             </div>
 
             {/* Line */}
@@ -63,10 +63,10 @@ export default function ContactPage() {
                 อีเมล
               </h3>
               <a 
-                href="mailto:vexclusive.it@gmail.com" 
+                href="mailto:it@vsqclinic.com" 
                 className="text-purple-600 font-medium text-lg hover:text-purple-800 underline cursor-pointer block"
               >
-                vexclusive.it@gmail.com
+                it@vsqclinic.com
               </a>
               <p className="text-sm text-gray-600 mt-1">
                 สำหรับการติดต่ออย่างเป็นทางการ
@@ -135,11 +135,11 @@ export default function ContactPage() {
                 <p className="text-sm text-red-700">
                   หากเป็นปัญหาที่ส่งผลกระทบต่อการดำเนินงานอย่างร้ายแรง กรุณาโทรติดต่อโดยตรงที่{' '}
                   <a 
-                    href="tel:0925919889" 
+                    href="tel:0811345646" 
                     className="text-red-800 font-medium hover:text-red-900 underline cursor-pointer"
                   >
-                    092-591-9889
-                  </a> (คุณเบลล์)
+                    081-134-5646
+                  </a> (เบอร์ทีม IT)
                 </p>
               </div>
             </div>

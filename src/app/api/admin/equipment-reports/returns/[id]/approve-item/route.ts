@@ -160,6 +160,10 @@ export async function POST(
       const resolvedInfo = await getItemNameAndCategory((item as any).masterItemId, item.itemId);
       const resolvedItemName = resolvedInfo?.itemName || (item as any).itemName || 'อุปกรณ์';
       
+      // ✅ Clear cache to ensure dashboard shows updated data after approval
+      const { clearAllCaches } = await import('@/lib/cache-utils');
+      clearAllCaches();
+      
       return NextResponse.json({
         message: `อนุมัติการคืน ${resolvedItemName} เรียบร้อยแล้ว`,
         itemId: item.itemId,

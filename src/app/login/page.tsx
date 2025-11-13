@@ -206,7 +206,7 @@ export default function LoginPage() {
     // Split text and preserve separators
     const parts: (string | React.ReactElement)[] = [];
     
-    // Match phone number pattern: 092-591-9889
+    // Match phone number pattern: 081-134-5646
     const phoneRegex = /(\d{3}-\d{3}-\d{4})/g;
     let phoneMatch;
     
@@ -499,9 +499,9 @@ export default function LoginPage() {
             <div className="mb-2">ติดต่อ Support</div>
             <div className="text-blue-600">เบอร์ :
               {' '}
-              <a href="tel:0925919889" className="hover:text-blue-800 underline">092-591-9889</a>
+              <a href="tel:0811345646" className="hover:text-blue-800 underline">081-134-5646</a>
               {' '}
-              (คุณเบลล์)
+              (เบอร์ทีม IT)
             </div>
             <div className="mt-1 text-green-600 ">Line :
               {' '}
@@ -563,7 +563,7 @@ export default function LoginPage() {
                 {errorData.message}
               </p>
               <div className="text-sm text-gray-500 mb-6">
-                {errorData.details && (errorData.details.includes('092-591-9889') || errorData.details.includes('Line ID'))
+                {errorData.details && (errorData.details.includes('081-134-5646') || errorData.details.includes('Line ID'))
                   ? renderDetailsWithLinks(errorData.details)
                   : errorData.details
                 }

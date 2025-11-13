@@ -149,11 +149,16 @@ export async function POST(
           }
 
           // Transfer ownership using helper function
+          // ✅ ตรวจสอบว่า requestLog.userId มีค่าหรือไม่
+          if (!requestLog.userId) {
+            throw new Error(`RequestLog.userId is missing for request ${id}`);
+          }
+          
           const transferResult = await transferInventoryItem({
             itemId: (inventoryItem._id as any).toString(),
             fromOwnerType: 'admin_stock',
             toOwnerType: 'user_owned',
-            toUserId: requestLog.userId || 'unknown',
+            toUserId: requestLog.userId.toString(),
             transferType: 'request_approved',
             processedBy: adminId,
             requestId: id,
@@ -300,6 +305,9 @@ export async function POST(
       
       console.log('✅ RequestLog saved successfully');
 
+      // ✅ Clear cache to ensure dashboard shows updated data after approval
+      const { clearAllCaches } = await import('@/lib/cache-utils');
+      clearAllCaches();
 
       return NextResponse.json({
         message: 'อนุมัติและมอบหมายอุปกรณ์เรียบร้อยแล้ว',

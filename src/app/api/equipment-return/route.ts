@@ -192,6 +192,10 @@ export async function POST(request: NextRequest) {
     const newReturn = new ReturnLog(returnLogData);
     await newReturn.save();
 
+    // ✅ Clear cache to ensure dashboard shows updated pending return status
+    const { clearAllCaches } = await import('@/lib/cache-utils');
+    clearAllCaches();
+
     return NextResponse.json({
       message: 'บันทึกการคืนอุปกรณ์เรียบร้อยแล้ว',
       returnId: newReturn._id

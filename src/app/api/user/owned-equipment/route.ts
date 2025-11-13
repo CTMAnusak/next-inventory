@@ -73,7 +73,11 @@ export async function GET(request: NextRequest) {
         returnLog.items.forEach((item: any) => {
           // ✅ แปลง itemId เป็น string เสมอเพื่อให้ตรงกับ item._id ใน InventoryItem
           const itemIdStr = String(item.itemId);
-          const itemKey = item.serialNumber 
+          // ✅ รองรับทั้ง serialNumber และ numberPhone (สำหรับซิมการ์ด)
+          const isSIMCard = item.categoryId === 'cat_sim_card';
+          const itemKey = isSIMCard && item.numberPhone
+            ? `${itemIdStr}-${item.numberPhone}`
+            : item.serialNumber 
             ? `${itemIdStr}-${item.serialNumber}` 
             : itemIdStr;
           
@@ -106,10 +110,10 @@ export async function GET(request: NextRequest) {
       .filter((id: string | undefined): id is string => !!id);
     
     // ดึง RequestLog ทั้งหมดที่เกี่ยวข้อง (pending + approved)
+    // ✅ ไม่ต้องใช้ userId เป็นเงื่อนไข เพราะ requestId ควรจะ unique อยู่แล้ว
     const allRequestLogs = requestIds.length > 0
       ? await RequestLog.find({
           _id: { $in: requestIds },
-          userId: userId,
           requestType: 'request'
         })
         .select('_id status items deliveryLocation requesterFirstName requesterLastName requesterNickname requesterDepartment requesterPhone requesterOffice')
@@ -131,7 +135,13 @@ export async function GET(request: NextRequest) {
     // ✅ Also filter out items with pending returns (เฉพาะเมื่อ excludePendingReturns = true)
     // ✅ กรอง items ที่มี requestId แต่ RequestLog ยัง pending ออก (ไม่แสดงรายการรออนุมัติการเบิก)
     const availableItems = ownedItems.filter(item => {
-      const itemKey = item.serialNumber ? `${String(item._id)}-${item.serialNumber}` : String(item._id);
+      // ✅ รองรับทั้ง serialNumber และ numberPhone (สำหรับซิมการ์ด)
+      const isSIMCard = (item as any).categoryId === 'cat_sim_card';
+      const itemKey = isSIMCard && item.numberPhone
+        ? `${String(item._id)}-${item.numberPhone}`
+        : item.serialNumber 
+        ? `${String(item._id)}-${item.serialNumber}` 
+        : String(item._id);
       
       // ❌ กรอง items ที่มี requestId แต่ RequestLog ยัง pending ออก
       // (ไม่แสดงรายการรออนุมัติการเบิกในหน้า dashboard)
@@ -245,7 +255,13 @@ export async function GET(request: NextRequest) {
       const categoryConfig = categoryConfigs.find((c: any) => c.id === (item as any).categoryId);
 
       // Check if this item has pending return
-      const itemKey = item.serialNumber ? `${String(item._id)}-${item.serialNumber}` : String(item._id);
+      // ✅ รองรับทั้ง serialNumber และ numberPhone (สำหรับซิมการ์ด)
+      const isSIMCard = (item as any).categoryId === 'cat_sim_card';
+      const itemKey = isSIMCard && item.numberPhone
+        ? `${String(item._id)}-${item.numberPhone}`
+        : item.serialNumber 
+        ? `${String(item._id)}-${item.serialNumber}` 
+        : String(item._id);
       const hasPendingReturn = pendingReturnItems.has(itemKey);
       
       // Get delivery location from request log (if item came from request)
@@ -304,8 +320,7 @@ export async function GET(request: NextRequest) {
       // ✅ ถ้าเป็น self_reported → source: 'user-owned', นอกนั้น → source: 'request'
       const source = acquisitionMethod === 'self_reported' ? 'user-owned' : 'request';
       
-      // ✅ ตรวจสอบว่าเป็นซิมการ์ดหรือไม่
-      const isSIMCard = (item as any).categoryId === 'cat_sim_card';
+      // ✅ ใช้ isSIMCard ที่ประกาศไว้แล้วด้านบน (บรรทัด 259)
       
       return {
         _id: item._id,

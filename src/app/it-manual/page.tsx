@@ -93,12 +93,12 @@ export default function ITManualPage() {
               <div>
                 <strong className="font-medium">โทรศัพท์: </strong>
                 <a 
-                    href="tel:0925919889" 
+                    href="tel:0811345646" 
                     className="underline cursor-pointer"
-                  >092-591-9889
-                </a> (คุณเบลล์)
+                  >081-134-5646
+                </a> (เบอร์ทีม IT)
                 <br />
-                <span className="text-sm text-gray-500">(โปรดติดต่อในเวลาทำการ หรือติดต่อผ่าน Line)</span>
+                <span className="text-sm text-gray-500">(เวลาทำการ 09.00 - 20.00 น.)</span>
               </div>
               <div>
                 <strong className="font-medium">Line Id : </strong>
@@ -116,10 +116,10 @@ export default function ITManualPage() {
               <div>
                 <strong className="font-medium">อีเมล: </strong>
                 <a 
-                href="mailto:vexclusive.it@gmail.com" 
+                href="mailto:it@vsqclinic.com" 
                 className="underline cursor-pointer"
               >
-                vexclusive.it@gmail.com
+                it@vsqclinic.com
               </a>
               </div>
             </div>

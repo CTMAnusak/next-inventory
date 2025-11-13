@@ -128,6 +128,10 @@ export async function POST(request: NextRequest) {
     requestLog.transferredItems = transferredItems;
     await requestLog.save();
     
+    // ✅ Clear cache to ensure dashboard shows updated data after approval
+    const { clearAllCaches } = await import('@/lib/cache-utils');
+    clearAllCaches();
+    
     return NextResponse.json({
       message: 'อนุมัติการเบิกอุปกรณ์เรียบร้อยแล้ว',
       requestId,

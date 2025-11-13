@@ -415,6 +415,10 @@ export async function POST(
       message += ` (${alreadyReturnedCount} รายการอยู่ในคลังแล้ว)`;
     }
 
+    // ✅ Clear cache to ensure dashboard shows updated data after approval
+    const { clearAllCaches } = await import('@/lib/cache-utils');
+    clearAllCaches();
+
     return NextResponse.json({
       message,
       returnId: id,
