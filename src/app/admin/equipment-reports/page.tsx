@@ -580,43 +580,43 @@ export default function AdminEquipmentReportsPage() {
         (item.lastName && item.lastName.toLowerCase().includes(searchTerm.toLowerCase())) ||
         (item.nickname && item.nickname.toLowerCase().includes(searchTerm.toLowerCase()));
 
-      // Item Name filter
+      // Item Name filter - ใช้ exact match (case-insensitive)
       const matchesItemName = !itemNameFilter || 
         item.items.some(equip => {
           const currentItemName = getCurrentItemName(equip);
-          return currentItemName.toLowerCase().includes(itemNameFilter.toLowerCase());
+          return currentItemName.toLowerCase() === itemNameFilter.toLowerCase();
         });
 
-      // Category filter
+      // Category filter - ✅ แก้ไข: ใช้ exact match แทน substring
       const matchesCategory = !categoryFilter || 
         item.items.some(equip => {
           const category = (equip as any).category || '';
-          return category.toLowerCase().includes(categoryFilter.toLowerCase());
+          return category.toLowerCase() === categoryFilter.toLowerCase();
         });
 
-      // Status filter
+      // Status filter - ✅ แก้ไข: ใช้ exact match แทน substring
       const matchesStatus = !statusFilter || 
         item.items.some(equip => {
           const status = activeTab === 'request' 
             ? (equip as any).statusOnRequest 
             : (equip as any).statusOnReturn;
-          return status && status.toLowerCase().includes(statusFilter.toLowerCase());
+          return status && status.toLowerCase() === statusFilter.toLowerCase();
         });
 
-      // Condition filter
+      // Condition filter - ✅ แก้ไข: ใช้ exact match แทน substring
       const matchesCondition = !conditionFilter || 
         item.items.some(equip => {
           const condition = activeTab === 'request' 
             ? (equip as any).conditionOnRequest 
             : (equip as any).conditionOnReturn;
-          return condition && condition.toLowerCase().includes(conditionFilter.toLowerCase());
+          return condition && condition.toLowerCase() === conditionFilter.toLowerCase();
         });
 
-      // Department filter
-      const matchesDepartment = !departmentFilter || (item.department && item.department.toLowerCase().includes(departmentFilter.toLowerCase()));
+      // Department filter - ✅ แก้ไข: ใช้ exact match แทน substring
+      const matchesDepartment = !departmentFilter || (item.department && item.department.toLowerCase() === departmentFilter.toLowerCase());
 
-      // Office filter
-      const matchesOffice = !officeFilter || (item.office && item.office.toLowerCase().includes(officeFilter.toLowerCase()));
+      // Office filter - ✅ แก้ไข: ใช้ exact match แทน substring
+      const matchesOffice = !officeFilter || (item.office && item.office.toLowerCase() === officeFilter.toLowerCase());
 
       // Serial Number filter - กรองตามค่า Serial Number ที่แสดงในตาราง (ใช้ logic เดียวกับตาราง)
       const matchesSerialNumber = !serialNumberFilter || 
@@ -769,10 +769,10 @@ export default function AdminEquipmentReportsPage() {
           return false;
         });
 
-      // Delivery Location filter (for both request and return tabs)
+      // Delivery Location filter (for both request and return tabs) - ✅ แก้ไข: ใช้ exact match แทน substring
       const matchesDeliveryLocation = !deliveryLocationFilter || 
-        (activeTab === 'request' && (item as RequestLog).deliveryLocation?.toLowerCase().includes(deliveryLocationFilter.toLowerCase())) ||
-        (activeTab === 'return' && (item as ReturnLog as any).deliveryLocation?.toLowerCase().includes(deliveryLocationFilter.toLowerCase()));
+        (activeTab === 'request' && (item as RequestLog).deliveryLocation?.toLowerCase() === deliveryLocationFilter.toLowerCase()) ||
+        (activeTab === 'return' && (item as ReturnLog as any).deliveryLocation?.toLowerCase() === deliveryLocationFilter.toLowerCase());
 
       // Email filter
       const matchesEmail = !emailFilter || (item.email && item.email.toLowerCase().includes(emailFilter.toLowerCase()));
@@ -849,8 +849,40 @@ export default function AdminEquipmentReportsPage() {
     if (activeTab === 'request') {
       (filtered as RequestLog[]).forEach((log) => {
         log.items.forEach((item, index) => {
-          // ✅ กรองรายการย่อยตาม Serial Number และ Phone Number
+          // ✅ กรองรายการย่อยตาม Item Name, Category, Status, Condition, Serial Number และ Phone Number
           const shouldIncludeItem = (() => {
+            // ✅ Item Name filter - ตรวจสอบอีกครั้งที่ระดับ item
+            if (itemNameFilter) {
+              const currentItemName = getCurrentItemName(item);
+              if (currentItemName.toLowerCase() !== itemNameFilter.toLowerCase()) {
+                return false;
+              }
+            }
+
+            // ✅ Category filter - ตรวจสอบอีกครั้งที่ระดับ item
+            if (categoryFilter) {
+              const category = (item as any).category || '';
+              if (category.toLowerCase() !== categoryFilter.toLowerCase()) {
+                return false;
+              }
+            }
+
+            // ✅ Status filter - ตรวจสอบอีกครั้งที่ระดับ item
+            if (statusFilter) {
+              const status = (item as any).statusOnRequest || '';
+              if (status.toLowerCase() !== statusFilter.toLowerCase()) {
+                return false;
+              }
+            }
+
+            // ✅ Condition filter - ตรวจสอบอีกครั้งที่ระดับ item
+            if (conditionFilter) {
+              const condition = (item as any).conditionOnRequest || '';
+              if (condition.toLowerCase() !== conditionFilter.toLowerCase()) {
+                return false;
+              }
+            }
+
             // Serial Number filter
             if (serialNumberFilter) {
               const searchValue = serialNumberFilter.trim();
@@ -983,8 +1015,40 @@ export default function AdminEquipmentReportsPage() {
         }
         
         log.items.forEach((item: any, index: number) => {
-          // ✅ กรองรายการย่อยตาม Serial Number และ Phone Number
+          // ✅ กรองรายการย่อยตาม Item Name, Category, Status, Condition, Serial Number และ Phone Number
           const shouldIncludeItem = (() => {
+            // ✅ Item Name filter - ตรวจสอบอีกครั้งที่ระดับ item
+            if (itemNameFilter) {
+              const currentItemName = getCurrentItemName(item);
+              if (currentItemName.toLowerCase() !== itemNameFilter.toLowerCase()) {
+                return false;
+              }
+            }
+
+            // ✅ Category filter - ตรวจสอบอีกครั้งที่ระดับ item
+            if (categoryFilter) {
+              const category = item.category || '';
+              if (category.toLowerCase() !== categoryFilter.toLowerCase()) {
+                return false;
+              }
+            }
+
+            // ✅ Status filter - ตรวจสอบอีกครั้งที่ระดับ item
+            if (statusFilter) {
+              const status = item.statusOnReturn || '';
+              if (status.toLowerCase() !== statusFilter.toLowerCase()) {
+                return false;
+              }
+            }
+
+            // ✅ Condition filter - ตรวจสอบอีกครั้งที่ระดับ item
+            if (conditionFilter) {
+              const condition = item.conditionOnReturn || '';
+              if (condition.toLowerCase() !== conditionFilter.toLowerCase()) {
+                return false;
+              }
+            }
+
             // Serial Number filter
             if (serialNumberFilter) {
               const searchValue = serialNumberFilter.trim();
@@ -1441,13 +1505,18 @@ export default function AdminEquipmentReportsPage() {
     return uniqueNames.map(name => ({ value: name, label: name }));
   }, [requestLogs, returnLogs]);
 
-  // Get unique categories from all items (sorted alphabetically)
+  // Get unique categories from all items (sorted alphabetically) - ✅ แก้ไข: normalize case เพื่อป้องกันรายการซ้ำ
   const categoryOptions = useMemo(() => {
-    const uniqueCategories = [...new Set(
-      allLogs.flatMap(log => 
-        log.items.map(item => (item as any).category || '')
-      ).filter(cat => cat !== '')
-    )].sort((a, b) => a.localeCompare(b, 'th'));
+    const categoryMap = new Map<string, string>();
+    allLogs.flatMap(log => 
+      log.items.map(item => (item as any).category || '')
+    ).filter(cat => cat !== '').forEach(cat => {
+      const normalized = cat.toLowerCase();
+      if (!categoryMap.has(normalized)) {
+        categoryMap.set(normalized, cat); // เก็บค่าแรกที่พบ (original case)
+      }
+    });
+    const uniqueCategories = Array.from(categoryMap.values()).sort((a, b) => a.localeCompare(b, 'th'));
     return uniqueCategories.map(cat => ({ value: cat, label: cat }));
   }, [requestLogs, returnLogs]);
 
@@ -1489,26 +1558,53 @@ export default function AdminEquipmentReportsPage() {
     })).sort((a, b) => a.label.localeCompare(b.label, 'th'));
   }, [requestLogs, returnLogs, conditionConfigs]);
 
-  // Get unique departments (sorted alphabetically)
+  // Get unique departments (sorted alphabetically) - ✅ แก้ไข: normalize case เพื่อป้องกันรายการซ้ำ
   const departmentOptions = useMemo(() => {
-    const uniqueDepts = [...new Set(allLogs.map(item => item.department))].sort((a, b) => a.localeCompare(b, 'th'));
+    const deptMap = new Map<string, string>();
+    allLogs.map(item => item.department).forEach(dept => {
+      const normalized = dept.toLowerCase();
+      if (!deptMap.has(normalized)) {
+        deptMap.set(normalized, dept); // เก็บค่าแรกที่พบ (original case)
+      }
+    });
+    const uniqueDepts = Array.from(deptMap.values()).sort((a, b) => a.localeCompare(b, 'th'));
     return uniqueDepts.map(dept => ({ value: dept, label: dept }));
   }, [requestLogs, returnLogs]);
   
-  // Get unique offices (sorted alphabetically)
+  // Get unique offices (sorted alphabetically) - ✅ แก้ไข: normalize case เพื่อป้องกันรายการซ้ำ
   const officeOptions = useMemo(() => {
-    const uniqueOffices = [...new Set(allLogs.map(item => item.office))].sort((a, b) => a.localeCompare(b, 'th'));
+    const officeMap = new Map<string, string>();
+    allLogs.map(item => item.office).forEach(office => {
+      const normalized = office.toLowerCase();
+      if (!officeMap.has(normalized)) {
+        officeMap.set(normalized, office); // เก็บค่าแรกที่พบ (original case)
+      }
+    });
+    const uniqueOffices = Array.from(officeMap.values()).sort((a, b) => a.localeCompare(b, 'th'));
     return uniqueOffices.map(office => ({ value: office, label: office }));
   }, [requestLogs, returnLogs]);
 
-  // Get unique delivery locations from request logs and return logs (sorted alphabetically)
+  // Get unique delivery locations from request logs and return logs (sorted alphabetically) - ✅ แก้ไข: normalize case เพื่อป้องกันรายการซ้ำ
   const deliveryLocationOptions = useMemo(() => {
-    const uniqueLocations = [...new Set(
-      [
-        ...requestLogs.map(log => log.deliveryLocation).filter(Boolean),
-        ...returnLogs.map(log => (log as any).deliveryLocation).filter(Boolean)
-      ]
-  )].sort((a, b) => a.localeCompare(b, 'th'));
+    const locationMap = new Map<string, string>();
+    [
+      ...requestLogs.map(log => log.deliveryLocation).filter(Boolean),
+      ...returnLogs.map(log => (log as any).deliveryLocation).filter(Boolean)
+    ].forEach(location => {
+      const normalized = location.toLowerCase();
+      if (!locationMap.has(normalized)) {
+        // ✅ เก็บค่าที่ขึ้นต้นด้วยตัวพิมพ์ใหญ่ (prefer capitalized version)
+        locationMap.set(normalized, location);
+      } else {
+        // ✅ ถ้าค่าใหม่ขึ้นต้นด้วยตัวพิมพ์ใหญ่ ให้เปลี่ยนเป็นค่าใหม่
+        const existingValue = locationMap.get(normalized)!;
+        if (location.charAt(0) === location.charAt(0).toUpperCase() && 
+            existingValue.charAt(0) === existingValue.charAt(0).toLowerCase()) {
+          locationMap.set(normalized, location);
+        }
+      }
+    });
+    const uniqueLocations = Array.from(locationMap.values()).sort((a, b) => a.localeCompare(b, 'th'));
     return uniqueLocations.map(location => ({ value: location, label: location }));
   }, [requestLogs, returnLogs]);
 

@@ -151,13 +151,13 @@ export default function AdminEquipmentTrackingPage() {
         (record.lastName && record.lastName.toLowerCase().includes(searchTerm.toLowerCase())) ||
         (record.nickname && record.nickname.toLowerCase().includes(searchTerm.toLowerCase()));
 
-      // Item Name filter - ค้นหาชื่ออุปกรณ์
+      // Item Name filter - ✅ แก้ไข: ใช้ exact match แทน substring
       const matchesItemName = !itemNameFilter || 
-        record.currentItemName.toLowerCase().includes(itemNameFilter.toLowerCase());
+        record.currentItemName.toLowerCase() === itemNameFilter.toLowerCase();
 
-      // Item filter (เก่า - คงไว้เพื่อความเข้ากันได้)
+      // Item filter (เก่า - คงไว้เพื่อความเข้ากันได้) - ✅ แก้ไข: ใช้ exact match แทน substring
       const matchesItem = !itemFilter || 
-        record.currentItemName.toLowerCase().includes(itemFilter.toLowerCase());
+        record.currentItemName.toLowerCase() === itemFilter.toLowerCase();
 
       // Category filter
       const matchesCategory = !categoryFilter || record.category === categoryFilter;
@@ -173,11 +173,11 @@ export default function AdminEquipmentTrackingPage() {
       // Condition filter
       const matchesCondition = !conditionFilter || record.condition === conditionFilter;
 
-      // Department filter
-      const matchesDepartment = !departmentFilter || (record.department && record.department.includes(departmentFilter));
+      // Department filter - ✅ แก้ไข: ใช้ exact match แทน substring
+      const matchesDepartment = !departmentFilter || (record.department && record.department.toLowerCase() === departmentFilter.toLowerCase());
 
-      // Office filter
-      const matchesOffice = !officeFilter || (record.office && record.office.includes(officeFilter));
+      // Office filter - ✅ แก้ไข: ใช้ exact match แทน substring
+      const matchesOffice = !officeFilter || (record.office && record.office.toLowerCase() === officeFilter.toLowerCase());
 
       // Date filter (based on dateAdded)
       const recordDate = new Date(record.dateAdded || record.requestDate);
@@ -187,9 +187,9 @@ export default function AdminEquipmentTrackingPage() {
       // Source filter (request or user-owned)
       const matchesSource = !sourceFilter || record.source === sourceFilter;
 
-      // Delivery Location filter
+      // Delivery Location filter - ✅ แก้ไข: ใช้ exact match แทน substring
       const matchesDeliveryLocation = !deliveryLocationFilter || 
-        (record.deliveryLocation && record.deliveryLocation.toLowerCase().includes(deliveryLocationFilter.toLowerCase()));
+        (record.deliveryLocation && record.deliveryLocation.toLowerCase() === deliveryLocationFilter.toLowerCase());
 
       // Quantity filter
       const matchesQuantity = !quantityFilter || 
@@ -331,7 +331,15 @@ export default function AdminEquipmentTrackingPage() {
   // Get unique values for filters (formatted for SearchableSelect)
   const itemOptions = useMemo(() => {
     if (!Array.isArray(trackingData)) return [];
-    const uniqueItems = [...new Set(trackingData.map(record => record.currentItemName).filter(Boolean))];
+    // ✅ แก้ไข: normalize case เพื่อป้องกันรายการซ้ำ
+    const itemMap = new Map<string, string>();
+    trackingData.map(record => record.currentItemName).filter(Boolean).forEach(item => {
+      const normalized = item.toLowerCase();
+      if (!itemMap.has(normalized)) {
+        itemMap.set(normalized, item); // เก็บค่าแรกที่พบ (original case)
+      }
+    });
+    const uniqueItems = Array.from(itemMap.values()).sort((a, b) => a.localeCompare(b, 'th'));
     return uniqueItems.map(item => ({ value: item, label: item }));
   }, [trackingData]);
 
@@ -376,19 +384,50 @@ export default function AdminEquipmentTrackingPage() {
 
   const departmentOptions = useMemo(() => {
     if (!Array.isArray(trackingData)) return [];
-    const uniqueDepts = [...new Set(trackingData.map(record => record.department).filter(Boolean))];
+    // ✅ แก้ไข: normalize case เพื่อป้องกันรายการซ้ำ
+    const deptMap = new Map<string, string>();
+    trackingData.map(record => record.department).filter(Boolean).forEach(dept => {
+      const normalized = dept.toLowerCase();
+      if (!deptMap.has(normalized)) {
+        deptMap.set(normalized, dept); // เก็บค่าแรกที่พบ (original case)
+      }
+    });
+    const uniqueDepts = Array.from(deptMap.values()).sort((a, b) => a.localeCompare(b, 'th'));
     return uniqueDepts.map(dept => ({ value: dept, label: dept }));
   }, [trackingData]);
 
   const officeOptions = useMemo(() => {
     if (!Array.isArray(trackingData)) return [];
-    const uniqueOffices = [...new Set(trackingData.map(record => record.office).filter(Boolean))];
+    // ✅ แก้ไข: normalize case เพื่อป้องกันรายการซ้ำ
+    const officeMap = new Map<string, string>();
+    trackingData.map(record => record.office).filter(Boolean).forEach(office => {
+      const normalized = office.toLowerCase();
+      if (!officeMap.has(normalized)) {
+        officeMap.set(normalized, office); // เก็บค่าแรกที่พบ (original case)
+      }
+    });
+    const uniqueOffices = Array.from(officeMap.values()).sort((a, b) => a.localeCompare(b, 'th'));
     return uniqueOffices.map(office => ({ value: office, label: office }));
   }, [trackingData]);
 
   const deliveryLocationOptions = useMemo(() => {
     if (!Array.isArray(trackingData)) return [];
-    const uniqueLocations = [...new Set(trackingData.map(record => record.deliveryLocation).filter(Boolean))];
+    // ✅ แก้ไข: normalize case เพื่อป้องกันรายการซ้ำ
+    const locationMap = new Map<string, string>();
+    trackingData.map(record => record.deliveryLocation).filter(Boolean).forEach(location => {
+      const normalized = location.toLowerCase();
+      if (!locationMap.has(normalized)) {
+        locationMap.set(normalized, location); // เก็บค่าแรกที่พบ (original case)
+      } else {
+        // ✅ ถ้าค่าใหม่ขึ้นต้นด้วยตัวพิมพ์ใหญ่ ให้เปลี่ยนเป็นค่าใหม่
+        const existingValue = locationMap.get(normalized)!;
+        if (location.charAt(0) === location.charAt(0).toUpperCase() && 
+            existingValue.charAt(0) === existingValue.charAt(0).toLowerCase()) {
+          locationMap.set(normalized, location);
+        }
+      }
+    });
+    const uniqueLocations = Array.from(locationMap.values()).sort((a, b) => a.localeCompare(b, 'th'));
     return uniqueLocations.map(location => ({ value: location, label: location }));
   }, [trackingData]);
 
