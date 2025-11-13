@@ -1696,8 +1696,9 @@ export default function AdminEquipmentReportsPage() {
                 </button>
               </div>
               
-              {/* แถวที่ 1: ค้นหา, Serial Number, Phone Number, อุปกรณ์, หมวดหมู่, สถานะ, สภาพ */}
+              {/* ฟิลเตอร์ทั้งหมด: ค้นหา, แผนก, สาขา, สถานที่จัดส่ง, Serial Number, Phone Number, เลขทรัพย์สิน, E-mail, อุปกรณ์, หมวดหมู่, สถานะ, สภาพ, ความเร่งด่วน, วันที่เบิก, วันที่คืน, ช่วงเวลา */}
               <div className="grid max-[768px]:grid-cols-1 max-[1120px]:grid-cols-2 max-[1440px]:grid-cols-4 grid-cols-4 gap-4">
+                {/* 1. ค้นหา */}
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-1">
                     ค้นหา
@@ -1714,6 +1715,46 @@ export default function AdminEquipmentReportsPage() {
                   </div>
                 </div>
                 
+                {/* 2. แผนก */}
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">
+                    แผนก
+                  </label>
+                  <SearchableSelect
+                    options={departmentOptions}
+                    value={departmentFilter}
+                    onChange={setDepartmentFilter}
+                    placeholder="ทั้งหมด"
+                  />
+                </div>
+                
+                {/* 3. สาขา */}
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">
+                    สาขา
+                  </label>
+                  <SearchableSelect
+                    options={officeOptions}
+                    value={officeFilter}
+                    onChange={setOfficeFilter}
+                    placeholder="ทั้งหมด"
+                  />
+                </div>
+                
+                {/* 4. สถานที่จัดส่ง */}
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">
+                    สถานที่จัดส่ง
+                  </label>
+                  <SearchableSelect
+                    options={deliveryLocationOptions}
+                    value={deliveryLocationFilter}
+                    onChange={setDeliveryLocationFilter}
+                    placeholder="ทั้งหมด"
+                  />
+                </div>
+                
+                {/* 5. Serial Number */}
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-1">
                     Serial Number
@@ -1730,6 +1771,7 @@ export default function AdminEquipmentReportsPage() {
                   </div>
                 </div>
                 
+                {/* 6. Phone Number */}
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-1">
                     Phone Number
@@ -1746,6 +1788,24 @@ export default function AdminEquipmentReportsPage() {
                   </div>
                 </div>
                 
+                {/* 7. เลขทรัพย์สิน (ซ่อนเมื่อไม่ใช่แท็บ Return) */}
+                <div className={activeTab !== 'return' ? 'hidden' : ''}>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">
+                    เลขทรัพย์สิน
+                  </label>
+                  <div className="relative">
+                    <Search className="absolute left-3 top-2.5 h-4 w-4 text-gray-400" />
+                    <input
+                      type="text"
+                      value={assetNumberFilter}
+                      onChange={(e) => setAssetNumberFilter(e.target.value)}
+                      className="w-full pl-10 pr-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 text-gray-900"
+                      placeholder="ค้นหาเลขทรัพย์สิน"
+                    />
+                  </div>
+                </div>
+                
+                {/* 8. E-mail */}
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-1">
                     E-mail
@@ -1762,6 +1822,7 @@ export default function AdminEquipmentReportsPage() {
                   </div>
                 </div>
                 
+                {/* 9. อุปกรณ์ */}
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-1">
                     อุปกรณ์
@@ -1774,6 +1835,7 @@ export default function AdminEquipmentReportsPage() {
                   />
                 </div>
                 
+                {/* 10. หมวดหมู่ */}
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-1">
                     หมวดหมู่
@@ -1786,6 +1848,7 @@ export default function AdminEquipmentReportsPage() {
                   />
                 </div>
                 
+                {/* 11. สถานะ */}
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-1">
                     สถานะ
@@ -1798,6 +1861,7 @@ export default function AdminEquipmentReportsPage() {
                   />
                 </div>
                 
+                {/* 12. สภาพ */}
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-1">
                     สภาพ
@@ -1809,159 +1873,70 @@ export default function AdminEquipmentReportsPage() {
                     placeholder="ทั้งหมด"
                   />
                 </div>
-              </div>
-
-              {/* แถวที่ 2: เลขทรัพย์สิน, แผนก, สาขา, สถานที่จัดส่ง, ความเร่งด่วน, วันที่ */}
-              <div className="grid max-[768px]:grid-cols-1 max-[1120px]:grid-cols-2 max-[1440px]:grid-cols-4 grid-cols-4 gap-4">
-                {activeTab === 'return' && (
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">
-                      เลขทรัพย์สิน
-                  </label>
-                    <div className="relative">
-                      <Search className="absolute left-3 top-2.5 h-4 w-4 text-gray-400" />
-                  <input
-                        type="text"
-                        value={assetNumberFilter}
-                        onChange={(e) => setAssetNumberFilter(e.target.value)}
-                        className="w-full pl-10 pr-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 text-gray-900"
-                        placeholder="ค้นหาเลขทรัพย์สิน"
-                      />
-                    </div>
-                  </div>
-                )}
                 
-                
-                <div>
+                {/* 13. ความเร่งด่วน (ซ่อนเมื่อไม่ใช่แท็บ Request) */}
+                <div className={activeTab !== 'request' ? 'hidden' : ''}>
                   <label className="block text-sm font-medium text-gray-700 mb-1">
-                    แผนก
+                    ความเร่งด่วน
                   </label>
                   <SearchableSelect
-                    options={departmentOptions}
-                    value={departmentFilter}
-                    onChange={setDepartmentFilter}
+                    options={[
+                      { value: 'normal', label: 'ปกติ' },
+                      { value: 'very_urgent', label: 'ด่วนมาก' }
+                    ]}
+                    value={urgencyFilter}
+                    onChange={setUrgencyFilter}
                     placeholder="ทั้งหมด"
                   />
                 </div>
                 
-                <div>
+                {/* 14. วันที่เบิก (ซ่อนเมื่อไม่ใช่แท็บ Request) */}
+                <div className={activeTab !== 'request' ? 'hidden' : ''}>
                   <label className="block text-sm font-medium text-gray-700 mb-1">
-                    สาขา
+                    วันที่เบิก
                   </label>
-                  <SearchableSelect
-                    options={officeOptions}
-                    value={officeFilter}
-                    onChange={setOfficeFilter}
-                    placeholder="ทั้งหมด"
+                  <DatePicker
+                    value={dateFromFilter}
+                    onChange={(date) => setDateFromFilter(date)}
                   />
                 </div>
                 
-                    <div>
-                      <label className="block text-sm font-medium text-gray-700 mb-1">
-                        สถานที่จัดส่ง
-                      </label>
-                  <SearchableSelect
-                    options={deliveryLocationOptions}
-                        value={deliveryLocationFilter}
-                    onChange={setDeliveryLocationFilter}
-                    placeholder="ทั้งหมด"
+                {/* 15. วันที่คืน (ซ่อนเมื่อไม่ใช่แท็บ Return) */}
+                <div className={activeTab !== 'return' ? 'hidden' : ''}>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">
+                    วันที่คืน
+                  </label>
+                  <DatePicker
+                    value={dateToFilter}
+                    onChange={(date) => setDateToFilter(date)}
                   />
-                    </div>
-                    
-                {activeTab === 'request' && (
-                  <>
+                </div>
+                
+                {/* 16. ช่วงเวลา */}
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">
+                    ช่วงเวลา
+                  </label>
+                  <div className="grid grid-cols-2 gap-2">
                     <div>
-                      <label className="block text-sm font-medium text-gray-700 mb-1">
-                        ความเร่งด่วน
-                      </label>
                       <SearchableSelect
-                        options={[
-                          { value: 'normal', label: 'ปกติ' },
-                          { value: 'very_urgent', label: 'ด่วนมาก' }
-                        ]}
-                        value={urgencyFilter}
-                        onChange={setUrgencyFilter}
-                        placeholder="ทั้งหมด"
-                      />
-                    </div>
-                  </>
-                )}
-                
-                {activeTab === 'return' && (
-                  <>
-                    <div>
-                      <label className="block text-sm font-medium text-gray-700 mb-1">
-                        วันที่คืน
-                      </label>
-                      <DatePicker
-                        value={dateToFilter}
-                        onChange={(date) => setDateToFilter(date)}
+                        options={monthOptions}
+                        value={monthFilter}
+                        onChange={setMonthFilter}
+                        placeholder="เดือน"
                       />
                     </div>
                     <div>
-                      <label className="block text-sm font-medium text-gray-700 mb-1">
-                        ช่วงเวลา
-                      </label>
-                      <div className="grid grid-cols-2 gap-2">
-                        <div>
-                          <SearchableSelect
-                            options={monthOptions}
-                            value={monthFilter}
-                            onChange={setMonthFilter}
-                            placeholder="เดือน"
-                          />
-                        </div>
-                        <div>
-                          <SearchableSelect
-                            options={yearOptions}
-                            value={yearFilter}
-                            onChange={setYearFilter}
-                            placeholder="ปี พ.ศ."
-                          />
-                        </div>
-                      </div>
-                    </div>
-                  </>
-                )}
-              </div>
-
-              {/* แถวที่ 3: วันที่เบิก และ ช่วงเวลา (request tab เท่านั้น) */}
-              {activeTab === 'request' && (
-                <div className="grid max-[768px]:grid-cols-1 max-[1120px]:grid-cols-2 max-[1440px]:grid-cols-4 grid-cols-4 gap-4">
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">
-                      วันที่เบิก
-                    </label>
-                    <DatePicker
-                      value={dateFromFilter}
-                      onChange={(date) => setDateFromFilter(date)}
-                    />
-                  </div>
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">
-                      ช่วงเวลา
-                    </label>
-                    <div className="grid grid-cols-2 gap-2">
-                      <div>
-                        <SearchableSelect
-                          options={monthOptions}
-                          value={monthFilter}
-                          onChange={setMonthFilter}
-                          placeholder="เดือน"
-                        />
-                      </div>
-                      <div>
-                        <SearchableSelect
-                          options={yearOptions}
-                          value={yearFilter}
-                          onChange={setYearFilter}
-                          placeholder="ปี พ.ศ."
-                        />
-                      </div>
+                      <SearchableSelect
+                        options={yearOptions}
+                        value={yearFilter}
+                        onChange={setYearFilter}
+                        placeholder="ปี พ.ศ."
+                      />
                     </div>
                   </div>
                 </div>
-              )}
+              </div>
             </div>
           )}
 
