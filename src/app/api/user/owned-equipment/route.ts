@@ -39,7 +39,7 @@ export async function GET(request: NextRequest) {
       'currentOwnership.userId': userId,
       deletedAt: { $exists: false }
     })
-    .select('_id itemMasterId itemName categoryId serialNumber numberPhone statusId conditionId currentOwnership sourceInfo createdAt updatedAt requesterInfo')
+    .select('_id itemMasterId itemName categoryId serialNumber numberPhone statusId conditionId currentOwnership sourceInfo createdAt updatedAt requesterInfo transferInfo')
     .sort({ 'currentOwnership.ownedSince': -1 })
     .lean();
     
@@ -47,22 +47,20 @@ export async function GET(request: NextRequest) {
       console.log(`⏱️  InventoryItem query: ${Date.now() - queryStart}ms (${ownedItems.length} items)`);
     }
 
-    // ✅ Optimize: Only fetch return logs if we need to filter pending returns
-    // For dashboard, we don't need to filter, so skip this expensive query
+    // ✅ ดึง ReturnLog เสมอเพื่อตรวจสอบ items ที่ถูกคืนแล้ว (ไม่ใช่เฉพาะเมื่อ excludePendingReturns = true)
+    // เพื่อให้ dashboard และ equipment-tracking แสดงผลเหมือนกัน
     const ReturnLog = (await import('@/models/ReturnLog')).default;
     const returnLogStart = Date.now();
-    const allReturns = excludePendingReturns 
-      ? await ReturnLog.find({ 
-          userId: userId,
-          'items.approvalStatus': { $in: ['pending', 'approved'] } // Only get relevant statuses
-        })
-        .select('items userId status')
-        .sort({ createdAt: -1 }) // Get recent first
-        .limit(100) // Limit to recent 100 returns
-        .lean()
-      : [];
+    const allReturns = await ReturnLog.find({ 
+      userId: userId,
+      'items.approvalStatus': { $in: ['pending', 'approved'] } // Only get relevant statuses
+    })
+      .select('items userId status')
+      .sort({ createdAt: -1 }) // Get recent first
+      .limit(100) // Limit to recent 100 returns
+      .lean();
     
-    if (process.env.NODE_ENV === 'development' && excludePendingReturns) {
+    if (process.env.NODE_ENV === 'development') {
       console.log(`⏱️  ReturnLog query: ${Date.now() - returnLogStart}ms (${allReturns.length} logs)`);
     }
 
@@ -73,9 +71,11 @@ export async function GET(request: NextRequest) {
     if (allReturns.length > 0) {
       allReturns.forEach(returnLog => {
         returnLog.items.forEach((item: any) => {
+          // ✅ แปลง itemId เป็น string เสมอเพื่อให้ตรงกับ item._id ใน InventoryItem
+          const itemIdStr = String(item.itemId);
           const itemKey = item.serialNumber 
-            ? `${item.itemId}-${item.serialNumber}` 
-            : item.itemId;
+            ? `${itemIdStr}-${item.serialNumber}` 
+            : itemIdStr;
           
           // If approved, store the approval timestamp
           if (item.approvalStatus === 'approved' && item.approvedAt) {
@@ -95,11 +95,54 @@ export async function GET(request: NextRequest) {
       });
     }
 
+    // ✅ ดึง RequestLog ทั้งหมด (pending + approved) เพื่อตรวจสอบสถานะ request
+    // เพื่อกรอง items ที่มี requestId แต่ RequestLog ยัง pending ออก
+    const RequestLog = (await import('@/models/RequestLog')).default;
+    const requestLogStart = Date.now();
+    
+    // ดึง requestIds จาก ownedItems ที่มี transferInfo.requestId
+    const requestIds = ownedItems
+      .map((item: any) => item.transferInfo?.requestId)
+      .filter((id: string | undefined): id is string => !!id);
+    
+    // ดึง RequestLog ทั้งหมดที่เกี่ยวข้อง (pending + approved)
+    const allRequestLogs = requestIds.length > 0
+      ? await RequestLog.find({
+          _id: { $in: requestIds },
+          userId: userId,
+          requestType: 'request'
+        })
+        .select('_id status items deliveryLocation requesterFirstName requesterLastName requesterNickname requesterDepartment requesterPhone requesterOffice')
+        .lean()
+      : [];
+    
+    // สร้าง map ของ requestId -> status
+    const requestStatusMap = new Map<string, string>();
+    allRequestLogs.forEach((req: any) => {
+      requestStatusMap.set(String(req._id), req.status);
+    });
+    
+    if (process.env.NODE_ENV === 'development' && requestIds.length > 0) {
+      console.log(`⏱️  RequestLog query: ${Date.now() - requestLogStart}ms (${allRequestLogs.length} logs, ${requestIds.length} requestIds)`);
+    }
+    
     // ✅ Filter out items that have been approved for return AFTER they were owned
     // (i.e., only filter if return was approved AFTER the current ownership started)
     // ✅ Also filter out items with pending returns (เฉพาะเมื่อ excludePendingReturns = true)
+    // ✅ กรอง items ที่มี requestId แต่ RequestLog ยัง pending ออก (ไม่แสดงรายการรออนุมัติการเบิก)
     const availableItems = ownedItems.filter(item => {
       const itemKey = item.serialNumber ? `${String(item._id)}-${item.serialNumber}` : String(item._id);
+      
+      // ❌ กรอง items ที่มี requestId แต่ RequestLog ยัง pending ออก
+      // (ไม่แสดงรายการรออนุมัติการเบิกในหน้า dashboard)
+      const requestId = (item as any).transferInfo?.requestId;
+      if (requestId) {
+        const requestStatus = requestStatusMap.get(String(requestId));
+        if (requestStatus === 'pending') {
+          // Item นี้มาจาก request ที่ยัง pending → กรองออก
+          return false;
+        }
+      }
       
       // ❌ Filter out items with pending returns เฉพาะเมื่อ excludePendingReturns = true
       // (สำหรับหน้า equipment-return เท่านั้น, หน้า dashboard ยังแสดงได้)
@@ -123,27 +166,8 @@ export async function GET(request: NextRequest) {
       return returnApprovedAt < ownedSince;
     });
     
-    // ✅ Optimize: Only fetch request logs if we need delivery location
-    // For most cases, we can skip this expensive query
-    const RequestLog = (await import('@/models/RequestLog')).default;
-    
-    // Only fetch if we have items that might need delivery location
-    const requestLogStart = Date.now();
-    const approvedRequests = availableItems.length > 0
-      ? await RequestLog.find({
-          userId: userId,
-          status: 'approved',
-          requestType: 'request'
-        })
-        .select('items deliveryLocation requesterFirstName requesterLastName requesterNickname requesterDepartment requesterPhone requesterOffice')
-        .sort({ createdAt: -1 }) // Get recent first
-        .limit(50) // ✅ Reduce to 50 for faster query
-        .lean()
-      : [];
-    
-    if (process.env.NODE_ENV === 'development' && availableItems.length > 0) {
-      console.log(`⏱️  RequestLog query: ${Date.now() - requestLogStart}ms (${approvedRequests.length} logs)`);
-    }
+    // ✅ ดึงเฉพาะ approved requests สำหรับ delivery location (optimize)
+    const approvedRequests = allRequestLogs.filter((req: any) => req.status === 'approved');
     
     // Build maps of itemId -> deliveryLocation and find most recent requester info for branch users
     const itemToDeliveryLocationMap = new Map();
