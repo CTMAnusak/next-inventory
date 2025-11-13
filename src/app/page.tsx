@@ -9,16 +9,20 @@ import { Package, AlertTriangle, BarChart3, Users } from 'lucide-react';
 export default function Home() {
   const { user, loading } = useAuth();
   const router = useRouter();
+  const [isRedirecting, setIsRedirecting] = useState(false);
 
   useEffect(() => {
     if (!loading && !user) {
+      setIsRedirecting(true);
       router.push('/login');
     } else if (!loading && user) {
+      setIsRedirecting(true);
       router.push('/dashboard');
     }
   }, [user, loading, router]);
 
-  if (loading) {
+  // แสดง loading โดยไม่ใช้ Layout เมื่อกำลัง loading หรือ redirect
+  if (loading || isRedirecting) {
     return (
       <div className="min-h-screen flex items-center justify-center">
         <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600"></div>
