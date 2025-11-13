@@ -15,7 +15,7 @@ interface LayoutProps {
 
 export default function Layout({ children }: LayoutProps) {
   const [sidebarOpen, setSidebarOpen] = useState(false);
-  const { user, logout } = useAuth();
+  const { user, loading, logout } = useAuth();
   
   // เปิดใช้ระบบแจ้งเตือน token หมดอายุ
   const { timeToExpiry, showModal, showLogoutModal, handleCloseModal, handleLogoutConfirm } = useTokenWarning();
@@ -68,10 +68,14 @@ export default function Layout({ children }: LayoutProps) {
                   <div className="w-8 h-8 bg-blue-500 rounded-full flex items-center justify-center">
                     <User className="h-4 w-4 text-white" />
                   </div>
-                  <span className="text-sm font-medium text-blue-800">
-                    {user?.firstName} {user?.lastName}
-                    {user?.userType === 'branch' && ` สาขา ${user.office}`}
-                  </span>
+                  {loading ? (
+                    <div className="h-4 w-32 bg-gray-200 rounded animate-pulse"></div>
+                  ) : (
+                    <span className="text-sm font-medium text-blue-800">
+                      {user?.firstName} {user?.lastName}
+                      {user?.userType === 'branch' && ` สาขา ${user.office}`}
+                    </span>
+                  )}
                 </div>
                 <button
                   onClick={handleLogout}
