@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
+import { isValidObjectId } from 'mongoose';
 import dbConnect from '@/lib/mongodb';
 import RequestLog from '@/models/RequestLog';
 import InventoryItem from '@/models/InventoryItem';
@@ -38,7 +39,14 @@ export async function POST(
     }
 
     const adminId = payload.userId;
-    const adminUser = await User.findById(adminId).select('firstName lastName email');
+
+    let adminUser = null;
+    if (adminId && isValidObjectId(adminId)) {
+      adminUser = await User.findById(adminId).select('firstName lastName email user_id');
+    }
+    if (!adminUser && adminId) {
+      adminUser = await User.findOne({ user_id: adminId }).select('firstName lastName email user_id');
+    }
     const adminName = adminUser
       ? [adminUser.firstName, adminUser.lastName].filter(Boolean).join(' ').trim() || adminUser.email || 'Admin'
       : 'Admin';
