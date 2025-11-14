@@ -7,6 +7,7 @@ import InventoryItem from '@/models/InventoryItem';
 import InventoryConfig from '@/models/InventoryConfig';
 import { findAvailableItems } from '@/lib/inventory-helpers';
 import { createDatabaseDate } from '@/lib/thai-date-utils';
+import { sendEquipmentRequestNotification } from '@/lib/email';
 
 export async function POST(request: NextRequest) {
   try {
@@ -207,6 +208,22 @@ export async function POST(request: NextRequest) {
 
     // NOTE: ไม่ต้อง deduct inventory ที่นี่ เพราะจะ deduct เมื่อ Admin อนุมัติแล้วเท่านั้น
     // การ deduct จะเกิดขึ้นใน approve-with-selection API แทน
+
+    try {
+      const emailPayload = {
+        ...newRequest.toObject(),
+        firstName: user?.firstName || requestData.firstName,
+        lastName: user?.lastName || requestData.lastName,
+        nickname: user?.nickname || requestData.nickname,
+        department: user?.department || requestData.department,
+        office: user?.office || requestData.office,
+        phone: user?.phone || requestData.phone,
+        email: requestData.email || user?.email
+      };
+      await sendEquipmentRequestNotification(emailPayload);
+    } catch (emailError) {
+      console.error('Equipment request email notification error:', emailError);
+    }
 
     return NextResponse.json({
       message: 'บันทึกการเบิกอุปกรณ์เรียบร้อยแล้ว',

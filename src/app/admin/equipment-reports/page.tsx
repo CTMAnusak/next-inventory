@@ -144,6 +144,11 @@ export default function AdminEquipmentReportsPage() {
   const [isDeletingItem, setIsDeletingItem] = useState(false);
   const [approvingReturnIds, setApprovingReturnIds] = useState<Set<string>>(new Set()); // Track multiple return approvals
   
+  // Cancellation modal state
+  const [showCancellationModal, setShowCancellationModal] = useState(false);
+  const [cancellationReason, setCancellationReason] = useState('');
+  const [pendingDeleteRequestId, setPendingDeleteRequestId] = useState<string | null>(null);
+  
   
   // State for current inventory data
   const [inventoryItems, setInventoryItems] = useState<{[key: string]: string}>({});
@@ -467,24 +472,41 @@ export default function AdminEquipmentReportsPage() {
     }
   };
 
-  // ฟังก์ชันสำหรับลบคำขอ
-  const handleDeleteRequest = async (requestId: string) => {
+  // ฟังก์ชันสำหรับเปิด modal กรอกเหตุผลการยกเลิก
+  const handleOpenCancellationModal = (requestId: string) => {
+    setPendingDeleteRequestId(requestId);
+    setCancellationReason('');
+    setShowCancellationModal(true);
+  };
+
+  // ฟังก์ชันสำหรับลบคำขอ (หลังจากกรอกเหตุผลแล้ว)
+  const handleDeleteRequest = async () => {
+    if (!pendingDeleteRequestId) return;
+    
+    if (!cancellationReason || cancellationReason.trim() === '') {
+      toast.error('กรุณาระบุเหตุผลในการยกเลิก');
+      return;
+    }
+
     try {
       setIsDeletingRequest(true); // ✅ เริ่ม loading
       
       // หา requestId เดิมจาก requestLogs
       const originalRequestId = requestLogs.find(req => 
-        req._id === requestId || 
+        req._id === pendingDeleteRequestId || 
         (req.firstName === selectedRequest?.firstName && 
          req.lastName === selectedRequest?.lastName && 
          req.requestDate === selectedRequest?.requestDate)
-      )?._id || requestId;
+      )?._id || pendingDeleteRequestId;
 
       const response = await fetch(`/api/admin/equipment-reports/requests/${originalRequestId}/delete`, {
         method: 'DELETE',
         headers: {
           'Content-Type': 'application/json',
         },
+        body: JSON.stringify({
+          cancellationReason: cancellationReason.trim()
+        }),
       });
 
       const data = await response.json();
@@ -492,8 +514,11 @@ export default function AdminEquipmentReportsPage() {
       if (response.ok) {
         toast.success('ลบคำขอเรียบร้อยแล้ว');
         setShowSelectionModal(false);
+        setShowCancellationModal(false);
         setSelectedRequest(null);
         setItemSelections({});
+        setCancellationReason('');
+        setPendingDeleteRequestId(null);
         fetchData(); // Refresh data
       } else {
         toast.error(data.error || 'เกิดข้อผิดพลาดในการลบคำขอ');
@@ -2760,9 +2785,7 @@ export default function AdminEquipmentReportsPage() {
                              handleDeleteRequestItem();
                            }
                          } else {
-                           if (confirm('คุณแน่ใจหรือไม่ที่ต้องการลบคำขอนี้?')) {
-                             handleDeleteRequest(selectedRequest!._id);
-                           }
+                           handleOpenCancellationModal(selectedRequest!._id);
                          }
                        }}
                        disabled={isDeletingRequest || isDeletingItem}
@@ -2808,6 +2831,58 @@ export default function AdminEquipmentReportsPage() {
                      </button>
                    </div>
                 </div>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* Cancellation Reason Modal */}
+        {showCancellationModal && (
+          <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
+            <div className="bg-white rounded-lg shadow-xl max-w-md w-full mx-4">
+              {/* Modal Header */}
+              <div className="px-6 py-4 border-b border-gray-200">
+                <h3 className="text-lg font-semibold text-gray-900">ยกเลิกคำขอเบิกอุปกรณ์</h3>
+                <p className="text-sm text-gray-500 mt-1">กรุณาระบุเหตุผลในการยกเลิกคำขอ</p>
+              </div>
+
+              {/* Modal Body */}
+              <div className="px-6 py-4">
+                <label className="block text-sm font-medium text-gray-700 mb-2">
+                  เหตุผลการยกเลิก <span className="text-red-500">*</span>
+                </label>
+                <textarea
+                  value={cancellationReason}
+                  onChange={(e) => setCancellationReason(e.target.value)}
+                  placeholder="กรุณาระบุเหตุผลในการยกเลิกคำขอ..."
+                  rows={4}
+                  className="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                  required
+                />
+              </div>
+
+              {/* Modal Footer */}
+              <div className="px-6 py-4 border-t border-gray-200 flex justify-end space-x-3">
+                <button
+                  onClick={() => {
+                    setShowCancellationModal(false);
+                    setCancellationReason('');
+                    setPendingDeleteRequestId(null);
+                  }}
+                  className="px-4 py-2 border border-gray-300 rounded-md text-sm font-medium text-gray-700 hover:bg-gray-50"
+                >
+                  ยกเลิก
+                </button>
+                <button
+                  onClick={handleDeleteRequest}
+                  disabled={isDeletingRequest || !cancellationReason.trim()}
+                  className="px-4 py-2 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-red-600 hover:bg-red-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-red-500 disabled:opacity-50 disabled:cursor-not-allowed flex items-center space-x-2"
+                >
+                  {isDeletingRequest && (
+                    <RefreshCw className="w-4 h-4 animate-spin" />
+                  )}
+                  <span>{isDeletingRequest ? 'กำลังลบ...' : 'ยืนยันการยกเลิก'}</span>
+                </button>
               </div>
             </div>
           </div>

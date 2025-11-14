@@ -5,6 +5,8 @@ import { InventoryItem } from '@/models/InventoryItemNew';
 import { changeItemStatus, transferInventoryItem } from '@/lib/inventory-helpers';
 import { getItemNameAndCategory } from '@/lib/item-name-resolver';
 import { verifyToken } from '@/lib/auth';
+import User from '@/models/User';
+import { sendEquipmentReturnApprovalNotification } from '@/lib/email';
 
 // 🆕 Function to check if item becomes deletable after return
 async function checkAndNotifyItemBecomesDeletable(itemName: string, categoryId: string, approvedBy: string) {
@@ -64,6 +66,12 @@ export async function POST(
         { status: 400 }
       );
     }
+    
+    const adminId = payload.userId;
+    const adminUser = await User.findById(adminId).select('firstName lastName email');
+    const adminName = adminUser
+      ? [adminUser.firstName, adminUser.lastName].filter(Boolean).join(' ').trim() || adminUser.email || 'Admin'
+      : 'Admin';
     
     // Find the return log
     const returnLog = await ReturnLog.findById(id);
@@ -129,14 +137,27 @@ export async function POST(
       });
       
       // Update the specific item approval status
+      const approvedAt = new Date();
       returnLog.items[itemIndex].approvalStatus = 'approved';
-      returnLog.items[itemIndex].approvedAt = new Date();
+      returnLog.items[itemIndex].approvedAt = approvedAt;
       returnLog.items[itemIndex].approvedBy = payload.userId;
+      (returnLog.items[itemIndex] as any).approvedByName = adminName;
+
+      const allItemsApproved = returnLog.items.every((itm: any) => itm.approvalStatus === 'approved');
+      if (allItemsApproved) {
+        (returnLog as any).status = 'completed';
+        (returnLog as any).approvedAt = approvedAt;
+        (returnLog as any).approvedBy = payload.userId;
+        (returnLog as any).approvedByName = adminName;
+      } else {
+        (returnLog as any).status = 'pending';
+      }
 
       // Ensure Mongoose registers nested array mutation
       (returnLog as any).markModified?.('items');
 
       await returnLog.save();
+      const savedReturn = returnLog.toObject();
 
       // 🆕 Update InventoryMaster after return and check if item becomes deletable
       try {
@@ -163,6 +184,17 @@ export async function POST(
       // ✅ Clear cache to ensure dashboard shows updated data after approval
       const { clearAllCaches } = await import('@/lib/cache-utils');
       clearAllCaches();
+
+      try {
+        const itemPayload = savedReturn.items[itemIndex];
+        await sendEquipmentReturnApprovalNotification({
+          ...savedReturn,
+          items: [itemPayload],
+          approvedByName: adminName
+        });
+      } catch (emailError) {
+        console.error('Equipment return per-item approval email notification error:', emailError);
+      }
       
       return NextResponse.json({
         message: `อนุมัติการคืน ${resolvedItemName} เรียบร้อยแล้ว`,

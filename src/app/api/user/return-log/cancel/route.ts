@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import dbConnect from '@/lib/mongodb';
 import ReturnLog from '@/models/ReturnLog';
 import { verifyToken } from '@/lib/auth';
+import { sendEquipmentReturnCancellationNotification } from '@/lib/email';
 
 // POST - ยกเลิกการคืน (สำหรับรายการที่ pending เท่านั้น)
 export async function POST(request: NextRequest) {
@@ -57,6 +58,7 @@ export async function POST(request: NextRequest) {
     }
     
     const item = returnLog.items[itemIndex];
+    const originalLog = returnLog.toObject();
     
     // Check if item is still pending
     if (item.approvalStatus !== 'pending') {
@@ -71,6 +73,14 @@ export async function POST(request: NextRequest) {
     
     // If no items left, delete the entire return log
     if (returnLog.items.length === 0) {
+      try {
+        await sendEquipmentReturnCancellationNotification({
+          ...originalLog,
+          cancellationReason: 'ผู้ใช้ยกเลิกรายการคืนด้วยตนเอง'
+        });
+      } catch (emailError) {
+        console.error('Return cancellation email notification error:', emailError);
+      }
       await ReturnLog.findByIdAndDelete(returnLogId);
       return NextResponse.json({
         message: 'ยกเลิกการคืนเรียบร้อยแล้ว (ลบรายการคืนทั้งหมด)',

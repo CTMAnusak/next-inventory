@@ -5,6 +5,7 @@ import { authenticateUser } from '@/lib/auth-helpers';
 import InventoryItem from '@/models/InventoryItem';
 import { InventoryMaster } from '@/models/InventoryMasterNew';
 import { transferInventoryItem, updateInventoryMaster } from '@/lib/inventory-helpers';
+import { sendEquipmentReturnNotification } from '@/lib/email';
 
 export async function POST(request: NextRequest) {
   try {
@@ -191,6 +192,22 @@ export async function POST(request: NextRequest) {
 
     const newReturn = new ReturnLog(returnLogData);
     await newReturn.save();
+
+    try {
+      const emailPayload = {
+        ...newReturn.toObject(),
+        firstName: returnData.firstName || user?.firstName,
+        lastName: returnData.lastName || user?.lastName,
+        nickname: returnData.nickname || user?.nickname,
+        department: returnData.department || user?.department,
+        office: returnData.office || user?.office,
+        phone: returnData.phone || user?.phone,
+        email: returnData.email || user?.email
+      };
+      await sendEquipmentReturnNotification(emailPayload);
+    } catch (emailError) {
+      console.error('Equipment return email notification error:', emailError);
+    }
 
     // ✅ Clear cache to ensure dashboard shows updated pending return status
     const { clearAllCaches } = await import('@/lib/cache-utils');

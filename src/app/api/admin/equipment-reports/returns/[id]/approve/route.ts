@@ -7,6 +7,7 @@ import TransferLog from '@/models/TransferLog';
 import User from '@/models/User';
 import { verifyTokenFromRequest } from '@/lib/auth';
 import { transferInventoryItem } from '@/lib/inventory-helpers';
+import { sendEquipmentReturnApprovalNotification } from '@/lib/email';
 
 // Simple in-memory lock to prevent concurrent processing
 const processingLocks = new Set<string>();
@@ -42,6 +43,10 @@ export async function POST(
     }
 
     const adminId = payload.userId;
+    const adminUserInfo = await User.findById(adminId).select('firstName lastName email');
+    const adminName = adminUserInfo
+      ? [adminUserInfo.firstName, adminUserInfo.lastName].filter(Boolean).join(' ').trim() || adminUserInfo.email || 'Admin'
+      : 'Admin';
 
 
     // Find the return log
@@ -247,6 +252,9 @@ export async function POST(
 
     // Mark return log as completed
     (returnLog as any).status = 'completed';
+    (returnLog as any).approvedAt = new Date();
+    (returnLog as any).approvedBy = adminId;
+    (returnLog as any).approvedByName = adminName;
     await returnLog.save();
 
     // Verify that items were actually transferred
@@ -418,6 +426,26 @@ export async function POST(
     // ✅ Clear cache to ensure dashboard shows updated data after approval
     const { clearAllCaches } = await import('@/lib/cache-utils');
     clearAllCaches();
+
+    try {
+      const emailPayload = {
+        ...returnLog.toObject(),
+        firstName: (returnLog as any).firstName || returnLog.returnerFirstName,
+        lastName: (returnLog as any).lastName || returnLog.returnerLastName,
+        nickname: (returnLog as any).nickname || returnLog.returnerNickname,
+        department: (returnLog as any).department || returnLog.returnerDepartment,
+        office:
+          (returnLog as any).office ||
+          returnLog.returnerOfficeName ||
+          returnLog.returnerOffice,
+        phone: (returnLog as any).phone || returnLog.returnerPhone,
+        email: (returnLog as any).email || returnLog.returnerEmail,
+        approvedByName: adminName
+      };
+      await sendEquipmentReturnApprovalNotification(emailPayload);
+    } catch (emailError) {
+      console.error('Equipment return approval email notification error:', emailError);
+    }
 
     return NextResponse.json({
       message,

@@ -6,6 +6,8 @@ import InventoryMaster from '@/models/InventoryMaster';
 import TransferLog from '@/models/TransferLog';
 import { verifyTokenFromRequest } from '@/lib/auth';
 import { transferInventoryItem } from '@/lib/inventory-helpers';
+import User from '@/models/User';
+import { sendEquipmentRequestApprovalNotification } from '@/lib/email';
 
 interface ItemSelection {
   masterId?: string;
@@ -36,6 +38,10 @@ export async function POST(
     }
 
     const adminId = payload.userId;
+    const adminUser = await User.findById(adminId).select('firstName lastName email');
+    const adminName = adminUser
+      ? [adminUser.firstName, adminUser.lastName].filter(Boolean).join(' ').trim() || adminUser.email || 'Admin'
+      : 'Admin';
     const body = await request.json();
     const { selections }: { selections: ItemSelection[] } = body;
 
@@ -217,6 +223,8 @@ export async function POST(
         });
       }
 
+      const approvedItemsForEmail: any[] = [];
+
       // Update RequestLog with assigned items and status/condition
       for (const assignedItem of assignedItems) {
         const requestItemIndex = requestLog.items.findIndex((item: any) => {
@@ -274,6 +282,12 @@ export async function POST(
           // Mark this item as approved
           (requestLog.items[requestItemIndex] as any).itemApproved = true;
           (requestLog.items[requestItemIndex] as any).approvedAt = new Date();
+
+          const itemPayload =
+            typeof requestLog.items[requestItemIndex].toObject === 'function'
+              ? requestLog.items[requestItemIndex].toObject()
+              : requestLog.items[requestItemIndex];
+          approvedItemsForEmail.push(itemPayload);
           
           // Debug logging
           console.log(`🔧 Updated item ${assignedItem.itemName}: added ${assignedItem.assignedQuantity}, total assignedQuantity = ${(requestLog.items[requestItemIndex] as any).assignedQuantity}, requestedQuantity = ${requestLog.items[requestItemIndex].quantity}`);
@@ -288,6 +302,8 @@ export async function POST(
       if (!requestLog.approvedAt) {
         requestLog.approvedAt = new Date();
       }
+      (requestLog as any).approvedBy = adminId;
+      (requestLog as any).approvedByName = adminName;
       
       // 🔍 Debug: Log assignedItemIds before save
       console.log('\n🔍 DEBUG: Before saving RequestLog');
@@ -308,6 +324,27 @@ export async function POST(
       // ✅ Clear cache to ensure dashboard shows updated data after approval
       const { clearAllCaches } = await import('@/lib/cache-utils');
       clearAllCaches();
+
+      try {
+        const emailPayload = {
+          ...requestLog.toObject(),
+          items: approvedItemsForEmail,
+          firstName: (requestLog as any).firstName || requestLog.requesterFirstName,
+          lastName: (requestLog as any).lastName || requestLog.requesterLastName,
+          nickname: (requestLog as any).nickname || requestLog.requesterNickname,
+          department: (requestLog as any).department || requestLog.requesterDepartment,
+          office:
+            (requestLog as any).office ||
+            requestLog.requesterOfficeName ||
+            requestLog.requesterOffice,
+          phone: (requestLog as any).phone || requestLog.requesterPhone,
+          email: (requestLog as any).email || requestLog.requesterEmail,
+          approvedByName: adminName
+        };
+        await sendEquipmentRequestApprovalNotification(emailPayload);
+      } catch (emailError) {
+        console.error('Equipment request approval email notification error:', emailError);
+      }
 
       return NextResponse.json({
         message: 'อนุมัติและมอบหมายอุปกรณ์เรียบร้อยแล้ว',

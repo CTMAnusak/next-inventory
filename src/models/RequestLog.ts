@@ -64,6 +64,10 @@ export interface IRequestLog extends Document {
   rejectedBy?: string; // Admin userId
   rejectedByName?: string; // 🆕 Snapshot: ชื่อ Admin ผู้ปปฏิเสธ
   rejectionReason?: string;
+  cancelledAt?: Date; // วันที่ยกเลิก (เมื่อลบรายการ)
+  cancelledBy?: string; // Admin userId ที่ยกเลิก
+  cancelledByName?: string; // 🆕 Snapshot: ชื่อ Admin ที่ยกเลิก
+  cancellationReason?: string; // เหตุผลการยกเลิก (เมื่อลบรายการ)
   transferredItems?: any[]; // Items that were actually transferred
   
   createdAt: Date;
@@ -147,6 +151,10 @@ const RequestLogSchema = new Schema<IRequestLog>({
   rejectedBy: { type: String },
   rejectedByName: { type: String }, // 🆕 Snapshot: ชื่อ Admin ผู้ปฏิเสธ
   rejectionReason: { type: String },
+  cancelledAt: { type: Date }, // วันที่ยกเลิก (เมื่อลบรายการ)
+  cancelledBy: { type: String }, // Admin userId ที่ยกเลิก
+  cancelledByName: { type: String }, // 🆕 Snapshot: ชื่อ Admin ที่ยกเลิก
+  cancellationReason: { type: String }, // เหตุผลการยกเลิก (เมื่อลบรายการ)
   transferredItems: [{ type: Schema.Types.Mixed }]
 }, {
   timestamps: true
