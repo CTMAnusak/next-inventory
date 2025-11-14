@@ -95,11 +95,27 @@ interface ReturnLog {
     numberPhone?: string; // เพิ่ม numberPhone property
     itemNotes?: string; // หมายเหตุเฉพาะรายการ
     approvalStatus?: 'pending' | 'approved'; // สถานะการอนุมัติ
+    approvedAt?: string; // วันที่อนุมัติรายการนี้
   }>;
   submittedAt: string;
 }
 
 type TabType = 'request' | 'return';
+
+// Helper function to format date as dd/mm/yyyy with Buddhist Era
+const formatDateBE = (date: Date | string | null | undefined): string => {
+  if (!date) return '-';
+  try {
+    const dateObj = typeof date === 'string' ? new Date(date) : date;
+    if (isNaN(dateObj.getTime())) return '-';
+    const day = dateObj.getDate().toString().padStart(2, '0');
+    const month = (dateObj.getMonth() + 1).toString().padStart(2, '0');
+    const year = dateObj.getFullYear() + 543; // Convert to Buddhist Era
+    return `${day}/${month}/${year}`;
+  } catch {
+    return '-';
+  }
+};
 
 export default function AdminEquipmentReportsPage() {
   const pathname = usePathname();
@@ -1208,6 +1224,7 @@ export default function AdminEquipmentReportsPage() {
         worksheet.columns = [
           { header: 'ลำดับ', key: 'no', width: 8 },
           { header: 'วันที่เบิก', key: 'requestDate', width: 15 },
+          { header: 'วันที่อนุมัติ', key: 'approvedDate', width: 15 },
           { header: 'ความเร่งด่วน', key: 'urgency', width: 12 },
           { header: 'ชื่อผู้เบิก', key: 'requester', width: 20 },
           { header: 'ชื่อเล่น', key: 'nickname', width: 12 },
@@ -1256,6 +1273,7 @@ export default function AdminEquipmentReportsPage() {
           worksheet.addRow({
             no: index + 1,
             requestDate: log.requestDate ? new Date(log.requestDate).toLocaleDateString('th-TH', { timeZone: 'Asia/Bangkok' }) : '-',
+            approvedDate: formatDateBE((item as any).approvedAt),
             urgency: log.urgency === 'very_urgent' ? 'ด่วนมาก' : 'ปกติ',
             requester: log.firstName && log.lastName ? `${log.firstName} ${log.lastName}` : 'Unknown User',
             nickname: log.nickname || '-',
@@ -1280,6 +1298,7 @@ export default function AdminEquipmentReportsPage() {
         worksheet.columns = [
           { header: 'ลำดับ', key: 'no', width: 8 },
           { header: 'วันที่คืน', key: 'returnDate', width: 15 },
+          { header: 'วันที่อนุมัติ', key: 'approvedDate', width: 15 },
           { header: 'ชื่อผู้คืน', key: 'returner', width: 20 },
           { header: 'ชื่อเล่น', key: 'nickname', width: 12 },
           { header: 'แผนก', key: 'department', width: 20 },
@@ -1309,6 +1328,7 @@ export default function AdminEquipmentReportsPage() {
           const excelRow = worksheet.addRow({
             no: index + 1,
             returnDate: log.returnDate ? new Date(log.returnDate).toLocaleDateString('th-TH', { timeZone: 'Asia/Bangkok' }) : '-',
+            approvedDate: formatDateBE((item as any).approvedAt),
             returner: log.firstName && log.lastName ? `${log.firstName} ${log.lastName}` : 'Unknown User',
             nickname: log.nickname || '-',
             department: log.department || '-',
@@ -1354,7 +1374,7 @@ export default function AdminEquipmentReportsPage() {
                 const imageHeight = 90;
 
                 worksheet.addImage(imageId, {
-                  tl: { col: 17, row: index + 1 },
+                  tl: { col: 18, row: index + 1 },
                   ext: { width: imageWidth, height: imageHeight },
                   editAs: 'oneCell' // รูปจะย้ายตามแถว/คอลัมน์
                 });
@@ -2008,6 +2028,9 @@ export default function AdminEquipmentReportsPage() {
                       วันที่เบิก
                     </th>
                     <th className="px-6 py-3 text-center text-xs font-medium text-white uppercase tracking-wider">
+                      วันที่อนุมัติ
+                    </th>
+                    <th className="px-6 py-3 text-center text-xs font-medium text-white uppercase tracking-wider">
                       ความเร่งด่วน
                     </th>
                     <th className="px-6 py-3 text-center text-xs font-medium text-white uppercase tracking-wider">
@@ -2063,7 +2086,7 @@ export default function AdminEquipmentReportsPage() {
                 <tbody className="bg-white divide-y divide-gray-200">
                   {(loading || isTabSwitching) && (
                     <tr>
-                      <td colSpan={18} className="px-6 py-8 text-left text-gray-500">
+                      <td colSpan={19} className="px-6 py-8 text-left text-gray-500">
                         <RefreshCw className="inline-block w-4 h-4 mr-2 animate-spin text-gray-400" />
                         กำลังโหลดข้อมูล
                       </td>
@@ -2071,7 +2094,7 @@ export default function AdminEquipmentReportsPage() {
                   )}
                   {!loading && !isTabSwitching && currentItems.length === 0 && (
                     <tr>
-                      <td colSpan={18} className="px-6 py-8 text-left text-gray-500">ไม่พบข้อมูล</td>
+                      <td colSpan={19} className="px-6 py-8 text-left text-gray-500">ไม่พบข้อมูล</td>
                     </tr>
                   )}
                   {!isTabSwitching && currentItems.map((row, rowIndex) => {
@@ -2088,6 +2111,10 @@ export default function AdminEquipmentReportsPage() {
                         {/* วันที่เบิก */}
                         <td className="px-6 py-4 text-sm text-gray-500 text-center text-selectable">
                           {requestLog.requestDate ? new Date(requestLog.requestDate).toLocaleDateString('th-TH', { timeZone: 'Asia/Bangkok' }) : '-'}
+                        </td>
+                        {/* วันที่อนุมัติ */}
+                        <td className="px-6 py-4 text-sm text-gray-500 text-center text-selectable">
+                          {formatDateBE((item as any).approvedAt)}
                         </td>
                         {/* ความเร่งด่วน */}
                         <td className="px-6 py-4 whitespace-nowrap text-center">
@@ -2290,6 +2317,9 @@ export default function AdminEquipmentReportsPage() {
                       วันที่คืน
                     </th>
                     <th className="px-6 py-3 text-center text-xs font-medium text-white uppercase tracking-wider">
+                      วันที่อนุมัติ
+                    </th>
+                    <th className="px-6 py-3 text-center text-xs font-medium text-white uppercase tracking-wider">
                       ชื่อผู้คืน
                     </th>
                     <th className="px-6 py-3 text-center text-xs font-medium text-white uppercase tracking-wider">
@@ -2348,7 +2378,7 @@ export default function AdminEquipmentReportsPage() {
                 <tbody className="bg-white divide-y divide-gray-200">
                   {(loading || isTabSwitching) && (
                     <tr>
-                      <td colSpan={20} className="px-6 py-8 text-left text-gray-500">
+                      <td colSpan={21} className="px-6 py-8 text-left text-gray-500">
                         <RefreshCw className="inline-block w-4 h-4 mr-2 animate-spin text-gray-400" />
                         กำลังโหลดข้อมูล
                       </td>
@@ -2356,7 +2386,7 @@ export default function AdminEquipmentReportsPage() {
                   )}
                   {!loading && !isTabSwitching && currentItems.length === 0 && (
                     <tr>
-                      <td colSpan={20} className="px-6 py-8 text-left text-gray-500">ไม่พบข้อมูล</td>
+                      <td colSpan={21} className="px-6 py-8 text-left text-gray-500">ไม่พบข้อมูล</td>
                     </tr>
                   )}
                   {!isTabSwitching && currentItems.map((row, rowIndex) => {
@@ -2373,6 +2403,10 @@ export default function AdminEquipmentReportsPage() {
                         {/* วันที่คืน */}
                         <td className="px-6 py-4 text-sm text-gray-500 text-center text-selectable">
                           {returnLog.returnDate ? new Date(returnLog.returnDate).toLocaleDateString('th-TH', { timeZone: 'Asia/Bangkok' }) : '-'}
+                        </td>
+                        {/* วันที่อนุมัติ */}
+                        <td className="px-6 py-4 text-sm text-gray-500 text-center text-selectable">
+                          {formatDateBE((item as any).approvedAt)}
                         </td>
                         {/* ชื่อผู้คืน */}
                         <td className="px-6 py-4 text-sm text-center text-selectable">
