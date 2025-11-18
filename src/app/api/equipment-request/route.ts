@@ -214,8 +214,8 @@ export async function POST(request: NextRequest) {
       const { getCategoryNameById } = await import('@/lib/item-name-resolver');
       const itemsWithCategory = await Promise.all(
         validatedItems.map(async (item) => {
-          let category = item.category;
-          if (!category && item.categoryId) {
+          let category = 'ไม่ระบุ';
+          if (item.categoryId) {
             const categoryName = await getCategoryNameById(item.categoryId);
             if (categoryName) {
               category = categoryName;
@@ -223,7 +223,7 @@ export async function POST(request: NextRequest) {
           }
           return {
             ...item,
-            category: category || 'ไม่ระบุ'
+            category
           };
         })
       );

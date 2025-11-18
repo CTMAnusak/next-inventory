@@ -417,19 +417,19 @@ export default function EquipmentReturnPage() {
       
       // ✅ เพิ่ม timeout เพื่อป้องกันการค้าง (15 วินาที)
       const timeoutId = setTimeout(() => {
-        if (!controller.signal.aborted) {
+        if (controller && !controller.signal.aborted) {
           controller.abort();
         }
       }, 15000);
       
       const res = await fetch(`/api/user/owned-equipment?${params.toString()}`, {
-        signal: controller.signal
+        signal: controller?.signal
       });
       
       clearTimeout(timeoutId);
       
       // ✅ Check if request was aborted
-      if (controller.signal.aborted) {
+      if (controller?.signal.aborted) {
         return;
       }
       

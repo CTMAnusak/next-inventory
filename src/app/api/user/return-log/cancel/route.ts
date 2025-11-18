@@ -358,17 +358,20 @@ export async function POST(request: NextRequest) {
         itemName: item.itemName
       })));
       
-      // ลองลบอีกครั้งด้วย deleteOne ถ้า $pull ไม่ทำงาน
-      await ReturnLog.updateOne(
-        { _id: returnLogId },
-        { 
-          $pull: { 
-            items: { 
-              _id: item._id  // ลองใช้ _id แทน
+      // หาไอเท็มที่ยังคงอยู่และลองลบด้วย _id
+      const remainingItem = verifyReturnLog.items.find((item: any) => String(item.itemId) === normalizedItemId);
+      if (remainingItem && (remainingItem as any)._id) {
+        await ReturnLog.updateOne(
+          { _id: returnLogId },
+          { 
+            $pull: { 
+              items: { 
+                _id: (remainingItem as any)._id
+              } 
             } 
-          } 
-        }
-      );
+          }
+        );
+      }
       
       return NextResponse.json(
         { error: 'พบปัญหาในการลบรายการ กรุณาลองใหม่อีกครั้ง' },
