@@ -351,6 +351,12 @@ export default function AdminEquipmentReportsPage() {
   const handleApproveReturnItem = async (returnId: string, itemIndex: number) => {
     const trackingId = `${returnId}-${itemIndex}`;
     
+    // ✅ ป้องกันการ submit ซ้ำ
+    if (approvingReturnIds.has(trackingId)) {
+      console.log('⚠️ Already approving this return item, ignoring duplicate click');
+      return;
+    }
+    
     try {
       // ✅ เริ่ม loading
       setApprovingReturnIds(prev => new Set(prev).add(trackingId));
@@ -398,6 +404,12 @@ export default function AdminEquipmentReportsPage() {
 
   // ฟังก์ชันสำหรับอนุมัติด้วยการเลือก Serial Number
   const handleApproveWithSelection = async () => {
+    
+    // ✅ ป้องกันการ submit ซ้ำ
+    if (isApproving) {
+      console.log('⚠️ Already approving, ignoring duplicate click');
+      return;
+    }
     
     if (!selectedRequest) {
       return;
@@ -481,6 +493,12 @@ export default function AdminEquipmentReportsPage() {
 
   // ฟังก์ชันสำหรับลบคำขอ (หลังจากกรอกเหตุผลแล้ว)
   const handleDeleteRequest = async () => {
+    // ✅ ป้องกันการ submit ซ้ำ
+    if (isDeletingRequest) {
+      console.log('⚠️ Already deleting request, ignoring duplicate click');
+      return;
+    }
+    
     if (!pendingDeleteRequestId) return;
     
     if (!cancellationReason || cancellationReason.trim() === '') {
@@ -533,6 +551,12 @@ export default function AdminEquipmentReportsPage() {
 
   // ฟังก์ชันสำหรับลบ 'รายการเดียว' ในคำขอจาก popup
   const handleDeleteRequestItem = async () => {
+    // ✅ ป้องกันการ submit ซ้ำ
+    if (isDeletingItem) {
+      console.log('⚠️ Already deleting item, ignoring duplicate click');
+      return;
+    }
+    
     if (!selectedRequest || selectedItemIndex == null) return;
 
     try {

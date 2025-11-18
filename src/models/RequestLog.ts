@@ -165,6 +165,7 @@ RequestLogSchema.index({ requestDate: -1, createdAt: -1 });
 RequestLogSchema.index({ userId: 1 });
 RequestLogSchema.index({ status: 1 });
 RequestLogSchema.index({ 'items.masterId': 1 });
+RequestLogSchema.index({ _id: 1, requestType: 1 }); // ✅ Composite index สำหรับ owned equipment query (lookup by _id and requestType)
 
 // Force recompile model in dev/hot-reload to pick up schema changes
 if (mongoose.models.RequestLog) {

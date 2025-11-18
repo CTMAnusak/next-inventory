@@ -131,17 +131,31 @@ export async function POST(
         `คืนจาก ${(returnLog as any).requesterName || 'ผู้ใช้'}`
       );
       
-      // Transfer back to admin stock regardless of condition (both working and damaged items go back to admin stock)
-      await transferInventoryItem({
-        itemId: item.itemId,
-        fromOwnerType: 'user_owned',
-        fromUserId: returnLog.userId.toString(),
-        toOwnerType: 'admin_stock',
-        transferType: 'return_completed',
-        processedBy: payload.userId,
-        returnId: id,
-        reason: `Equipment returned with status: ${newStatusId}, condition: ${newConditionId}`
-      });
+      // ✅ ตรวจสอบสถานะของอุปกรณ์ก่อนโอนย้าย
+      // ถ้าอุปกรณ์อยู่ใน admin_stock อยู่แล้ว ให้ข้ามการโอนย้าย (อาจถูกคืนไปแล้วก่อนหน้านี้)
+      const currentOwnerType = inventoryItem.currentOwnership.ownerType;
+      const currentUserId = inventoryItem.currentOwnership.userId;
+      
+      if (currentOwnerType === 'admin_stock') {
+        // อุปกรณ์อยู่ใน admin_stock อยู่แล้ว - ไม่ต้องโอนย้าย แต่ยังคงอนุมัติการคืน
+        console.log(`ℹ️ Item ${item.itemId} is already in admin_stock, skipping transfer`);
+      } else if (currentOwnerType === 'user_owned' && currentUserId === returnLog.userId.toString()) {
+        // อุปกรณ์อยู่ใน user_owned และเป็นของ user ที่คืน - โอนย้ายไป admin_stock
+        await transferInventoryItem({
+          itemId: item.itemId,
+          fromOwnerType: 'user_owned',
+          fromUserId: returnLog.userId.toString(),
+          toOwnerType: 'admin_stock',
+          transferType: 'return_completed',
+          processedBy: payload.userId,
+          returnId: id,
+          reason: `Equipment returned with status: ${newStatusId}, condition: ${newConditionId}`
+        });
+      } else {
+        // อุปกรณ์อยู่ในสถานะอื่นหรือเป็นของ user อื่น - แจ้งเตือน
+        console.warn(`⚠️ Item ${item.itemId} ownership mismatch: Expected user_owned by ${returnLog.userId}, Actual: ${currentOwnerType} by ${currentUserId}`);
+        // ยังคงอนุมัติการคืน แต่ไม่โอนย้าย
+      }
       
       // Update the specific item approval status
       const approvedAt = new Date();
@@ -152,12 +166,13 @@ export async function POST(
 
       const allItemsApproved = returnLog.items.every((itm: any) => itm.approvalStatus === 'approved');
       if (allItemsApproved) {
-        (returnLog as any).status = 'completed';
-        (returnLog as any).approvedAt = approvedAt;
-        (returnLog as any).approvedBy = payload.userId;
+        // ✅ ใช้ 'approved' แทน 'completed' เพราะ schema รองรับแค่ 'pending' | 'approved' | 'rejected'
+        returnLog.status = 'approved';
+        returnLog.approvedAt = approvedAt;
+        returnLog.approvedBy = payload.userId;
         (returnLog as any).approvedByName = adminName;
       } else {
-        (returnLog as any).status = 'pending';
+        returnLog.status = 'pending';
       }
 
       // Ensure Mongoose registers nested array mutation

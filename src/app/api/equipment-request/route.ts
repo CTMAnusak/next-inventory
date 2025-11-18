@@ -210,8 +210,27 @@ export async function POST(request: NextRequest) {
     // การ deduct จะเกิดขึ้นใน approve-with-selection API แทน
 
     try {
+      // ✅ Populate category names for items before sending email
+      const { getCategoryNameById } = await import('@/lib/item-name-resolver');
+      const itemsWithCategory = await Promise.all(
+        validatedItems.map(async (item) => {
+          let category = item.category;
+          if (!category && item.categoryId) {
+            const categoryName = await getCategoryNameById(item.categoryId);
+            if (categoryName) {
+              category = categoryName;
+            }
+          }
+          return {
+            ...item,
+            category: category || 'ไม่ระบุ'
+          };
+        })
+      );
+
       const emailPayload = {
         ...newRequest.toObject(),
+        items: itemsWithCategory, // ใช้ items ที่มี category แล้ว
         firstName: user?.firstName || requestData.firstName,
         lastName: user?.lastName || requestData.lastName,
         nickname: user?.nickname || requestData.nickname,

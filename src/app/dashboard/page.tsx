@@ -75,8 +75,14 @@ export default function DashboardPage() {
   // Return loading state - track loading for return button for each item
   const [returnLoadingItems, setReturnLoadingItems] = useState<Set<string>>(new Set());
   
+  // Cancel loading state - track loading for cancel button for each item
+  const [cancelLoadingItems, setCancelLoadingItems] = useState<Set<string>>(new Set());
+  
   // Drag scroll ref
   const tableContainerRef = useRef<HTMLDivElement>(null);
+  
+  // ✅ AbortController ref สำหรับ cleanup
+  const fetchControllerRef = useRef<AbortController | null>(null);
 
   useEffect(() => {
     fetchCategories();
@@ -99,11 +105,31 @@ export default function DashboardPage() {
     return () => {
       // Cleanup: reset loading states when component unmounts (happens on navigation)
       setReturnLoadingItems(new Set());
+      setCancelLoadingItems(new Set());
+    };
+  }, []);
+
+  // ✅ Cleanup AbortController when component unmounts
+  useEffect(() => {
+    return () => {
+      if (fetchControllerRef.current) {
+        fetchControllerRef.current.abort();
+        fetchControllerRef.current = null;
+      }
     };
   }, []);
 
   const fetchOwned = useCallback(async () => {
     try {
+      // ✅ Abort previous request if exists
+      if (fetchControllerRef.current) {
+        fetchControllerRef.current.abort();
+      }
+      
+      // ✅ Create new AbortController and store in ref
+      const controller = new AbortController();
+      fetchControllerRef.current = controller;
+      
       setOwnedLoading(true);
       const params = new URLSearchParams({
         firstName: user?.firstName || '',
@@ -114,42 +140,69 @@ export default function DashboardPage() {
       const withUserId = new URLSearchParams(params);
       if (user?.id) withUserId.set('userId', String(user.id));
       
-      // Add timeout to prevent hanging
-      const controller = new AbortController();
-      const timeoutId = setTimeout(() => controller.abort(), 30000); // 30 second timeout
+      // Add timeout to prevent hanging (ลดจาก 30s เป็น 15s เพราะ API ควรเร็วขึ้นแล้ว)
+      const timeoutId = setTimeout(() => {
+        if (!controller.signal.aborted) {
+          controller.abort();
+        }
+      }, 15000); // 15 second timeout
       
-      // Remove cache-busting headers - let server-side cache handle it
-      const ownedRes = await fetch(`/api/user/owned-equipment?${withUserId.toString()}`, {
-        signal: controller.signal
+      // ✅ Add cache-busting parameter when manually refreshing
+      const cacheBuster = isManualRefresh ? `&_t=${Date.now()}` : '';
+      const ownedRes = await fetch(`/api/user/owned-equipment?${withUserId.toString()}${cacheBuster}`, {
+        signal: controller.signal,
+        // ✅ Force no-cache when manually refreshing
+        cache: isManualRefresh ? 'no-store' : 'default'
       });
       
       clearTimeout(timeoutId);
+      
+      // ✅ Check if request was aborted
+      if (controller.signal.aborted) {
+        return;
+      }
       
       // ✅ จัดการ 401/403 error - เด้งออกจากระบบทันที
       if (handleAuthError(ownedRes)) {
         return;
       }
       
+      // ✅ Check again before processing response
+      if (controller.signal.aborted) {
+        return;
+      }
+      
       const responseData = ownedRes.ok ? await ownedRes.json() : { items: [] };
       const ownedEquipment = responseData.items || [];
+      
+      // ✅ Final check before setState
+      if (controller.signal.aborted) {
+        return;
+      }
       
       // Show each owned item as an individual row (no grouping/combining)
       setOwnedItems(ownedEquipment);
       setDataLoaded(true); // Mark as loaded to prevent duplicate calls
     } catch (error) {
+      // ✅ Ignore AbortError silently (it's expected when component unmounts or new request starts)
       if (error instanceof Error && error.name === 'AbortError') {
-        console.error('Dashboard - fetchOwned timeout:', error);
-        toast.error('การโหลดข้อมูลใช้เวลานานเกินไป กรุณาลองใหม่');
-        trackAction('fetch_owned_timeout', 'Dashboard', { error: 'timeout' });
-      } else {
-        console.error('Dashboard - fetchOwned error:', error);
-        toast.error('เกิดข้อผิดพลาดในการโหลดข้อมูล');
-        trackAction('fetch_owned_error', 'Dashboard', { error: error instanceof Error ? error.message : String(error) });
+        console.log('🔄 Dashboard - Request aborted (expected behavior)');
+        return; // Don't show error or update state for aborted requests
       }
+      
+      console.error('Dashboard - fetchOwned error:', error);
+      toast.error('เกิดข้อผิดพลาดในการโหลดข้อมูล');
+      trackAction('fetch_owned_error', 'Dashboard', { error: error instanceof Error ? error.message : String(error) });
     } finally {
-      setOwnedLoading(false);
+      // ✅ Only update loading state if this request's controller wasn't aborted
+      if (fetchControllerRef.current && !fetchControllerRef.current.signal.aborted) {
+        setOwnedLoading(false);
+      } else if (!fetchControllerRef.current) {
+        // If ref was cleared (component unmounted), still update loading state
+        setOwnedLoading(false);
+      }
     }
-  }, [user?.firstName, user?.lastName, user?.office, user?.id]);
+  }, [user?.firstName, user?.lastName, user?.office, user?.id, isManualRefresh]);
 
   // ✅ Reset dataLoaded flag when pathname changes (navigation to this page)
   useEffect(() => {
@@ -210,6 +263,11 @@ export default function DashboardPage() {
 
   // Cancel return function - แสดง modal ยืนยัน
   const handleCancelReturn = async (returnLogId: string, itemId: string, equipmentName?: string) => {
+    // ✅ Log: ตรวจสอบว่าฟังก์ชันนี้ถูกเรียก (ไม่ควรส่งอีเมลที่นี่)
+    console.log('🔍 [handleCancelReturn] Called - Opening modal only, NO email will be sent');
+    
+    // หมายเหตุ: loading state ถูกตั้งค่าแล้วใน onClick handler ของปุ่มยกเลิก
+    
     // หาชื่ออุปกรณ์จาก ownedItems ถ้าไม่ได้ส่งมา
     const equipment = equipmentName || ownedItems.find(item => item._id === itemId)?.itemName || 'อุปกรณ์';
     
@@ -219,11 +277,33 @@ export default function DashboardPage() {
       equipmentName: equipment
     });
     setShowCancelReturnModal(true);
+    
+    // ✅ Log: ยืนยันว่าแค่เปิด modal
+    console.log('✅ [handleCancelReturn] Modal opened, waiting for user confirmation');
   };
 
   // ฟังก์ชันยืนยันการยกเลิกการคืน
   const confirmCancelReturn = async () => {
-    if (!cancelReturnData) return;
+    // ✅ Log: ตรวจสอบว่าฟังก์ชันนี้ถูกเรียก (จะส่งอีเมลที่นี่)
+    console.log('📧 [confirmCancelReturn] Called - This will trigger email sending');
+    
+    // ✅ ป้องกันการ submit ซ้ำ
+    if (cancelReturnLoading) {
+      console.log('⚠️ Already canceling return, ignoring duplicate click');
+      return;
+    }
+    
+    if (!cancelReturnData) {
+      console.warn('⚠️ [confirmCancelReturn] No cancelReturnData found');
+      return;
+    }
+
+    const itemIdToCancel = cancelReturnData.itemId;
+    console.log('📧 [confirmCancelReturn] Calling API to cancel return and send email:', {
+      returnLogId: cancelReturnData.returnLogId,
+      itemId: itemIdToCancel,
+      equipmentName: cancelReturnData.equipmentName
+    });
 
     setCancelReturnLoading(true);
     try {
@@ -234,7 +314,7 @@ export default function DashboardPage() {
         },
         body: JSON.stringify({ 
           returnLogId: cancelReturnData.returnLogId, 
-          itemId: cancelReturnData.itemId 
+          itemId: itemIdToCancel 
         })
       });
 
@@ -244,14 +324,101 @@ export default function DashboardPage() {
       }
 
       toast.success('ยกเลิกการคืนเรียบร้อยแล้ว');
+      
       // ปิด modal และรีเซ็ตข้อมูล
       setShowCancelReturnModal(false);
       setCancelReturnData(null);
-      // Refresh data
-      await refreshData();
+      
+      // ✅ เคลียร์ loading state ของ item ที่เกี่ยวข้องทันที
+      setCancelLoadingItems(prev => {
+        const newSet = new Set(prev);
+        newSet.delete(itemIdToCancel);
+        return newSet;
+      });
+      
+      // ✅ อัพเดต state ทันทีโดยลบ hasPendingReturn flag ออกจาก item ที่เกี่ยวข้อง
+      // เพื่อให้ UI อัพเดตทันทีโดยไม่ต้องรอ API response
+      setOwnedItems(prevItems => {
+        return prevItems.map(item => {
+          const itemId = item._id || (item as any).itemId;
+          if (String(itemId) === String(itemIdToCancel)) {
+            // ลบ hasPendingReturn flag เพื่อให้แสดงปุ่ม "แก้ไข", "คืน" แทน "รออนุมัติคืน", "ยกเลิก"
+            return { ...item, hasPendingReturn: false };
+          }
+          return item;
+        });
+      });
+      
+      // ✅ รอให้แน่ใจว่า database update และ server-side cache clear เสร็จสมบูรณ์ (เพิ่ม delay)
+      await new Promise(resolve => setTimeout(resolve, 1200));
+      
+      // ✅ Force clear browser cache before refresh
+      if ('caches' in window) {
+        try {
+          const cacheNames = await caches.keys();
+          await Promise.all(
+            cacheNames.map(cacheName => caches.delete(cacheName))
+          );
+          console.log('✅ [Dashboard] Browser cache cleared');
+        } catch (error) {
+          console.error('❌ [Dashboard] Could not clear browser caches:', error);
+        }
+      }
+      
+      // ✅ รออีกสักครู่เพื่อให้ server-side cache clear เสร็จ
+      await new Promise(resolve => setTimeout(resolve, 300));
+      
+      // ✅ Force refresh data โดยเรียก fetchOwned โดยตรงพร้อม cache-busting parameter
+      // เพื่อให้แน่ใจว่าดึงข้อมูลใหม่จาก database
+      try {
+        setIsManualRefresh(true);
+        setOwnedLoading(true);
+        
+        const params = new URLSearchParams({
+          firstName: user?.firstName || '',
+          lastName: user?.lastName || '',
+          office: user?.office || '',
+        });
+        if (user?.id) params.set('userId', String(user.id));
+        
+        // ✅ Force cache-busting parameter เพื่อให้แน่ใจว่าดึงข้อมูลใหม่
+        const cacheBuster = `&_t=${Date.now()}`;
+        const ownedRes = await fetch(`/api/user/owned-equipment?${params.toString()}${cacheBuster}`, {
+          cache: 'no-store',
+          headers: {
+            'Cache-Control': 'no-cache, no-store, must-revalidate',
+            'Pragma': 'no-cache',
+            'Expires': '0'
+          }
+        });
+        
+        if (ownedRes.ok) {
+          const responseData = await ownedRes.json();
+          const ownedEquipment = responseData.items || [];
+          
+          // ✅ อัพเดต state ด้วยข้อมูลใหม่
+          setOwnedItems(ownedEquipment);
+          console.log('✅ [Dashboard] Data refreshed after cancel return');
+        } else {
+          console.warn('⚠️ [Dashboard] Failed to refresh data, but UI already updated');
+        }
+      } catch (refreshError) {
+        console.error('❌ [Dashboard] Error refreshing data:', refreshError);
+        // ไม่แสดง error เพราะ UI ได้อัพเดตแล้ว
+      } finally {
+        setOwnedLoading(false);
+        setIsManualRefresh(false);
+        setDataLoaded(true);
+      }
     } catch (error) {
       console.error('Error canceling return:', error);
       toast.error(error instanceof Error ? error.message : 'เกิดข้อผิดพลาดในการยกเลิกการคืน');
+      // เคลียร์ loading state เมื่อเกิดข้อผิดพลาด
+      setCancelLoadingItems(prev => {
+        const newSet = new Set(prev);
+        newSet.delete(itemIdToCancel);
+        return newSet;
+      });
     } finally {
       setCancelReturnLoading(false);
     }
@@ -259,8 +426,20 @@ export default function DashboardPage() {
 
   // ฟังก์ชันปิด modal ยกเลิกการคืน
   const closeCancelReturnModal = () => {
-    if (cancelReturnLoading) return; // ป้องกันการปิดขณะกำลังโหลด
+    if (cancelReturnLoading) {
+      console.log('⚠️ [closeCancelReturnModal] Cannot close modal while canceling return');
+      return; // ป้องกันการปิดขณะกำลังโหลด
+    }
+    console.log('🔒 [closeCancelReturnModal] Closing modal');
     setShowCancelReturnModal(false);
+    // เคลียร์ loading state ของ item ที่เกี่ยวข้อง
+    if (cancelReturnData) {
+      setCancelLoadingItems(prev => {
+        const newSet = new Set(prev);
+        newSet.delete(cancelReturnData.itemId);
+        return newSet;
+      });
+    }
     setCancelReturnData(null);
   };
 
@@ -359,6 +538,12 @@ export default function DashboardPage() {
 
   const submitAddOwned = async (e: React.FormEvent) => {
     e.preventDefault();
+    
+    // ✅ ป้องกันการ submit ซ้ำ
+    if (isSubmitting) {
+      console.log('⚠️ Form is already submitting, ignoring duplicate submission');
+      return;
+    }
     
     // Set loading state
     setIsSubmitting(true);
@@ -1053,28 +1238,116 @@ export default function DashboardPage() {
                             </div>
                             <button
                               onClick={async () => {
-                                // Find the return log and item ID for this equipment
-                                const returnLogsRes = await fetch('/api/user/return-logs');
-                                if (returnLogsRes.ok) {
-                                  const data = await returnLogsRes.json();
-                                  const logs = data.returnLogs || [];
+                                const itemId = row._id || (row as any).itemId;
+                                
+                                // ✅ ป้องกันการกดซ้ำ - ตรวจสอบว่า item นี้กำลัง loading อยู่หรือไม่
+                                if (cancelLoadingItems.has(itemId)) {
+                                  console.log('⚠️ [Dashboard] Already processing cancel for item:', itemId);
+                                  return;
+                                }
+                                
+                                // ✅ ป้องกันการเปิด modal ซ้ำ - ตรวจสอบว่า modal เปิดอยู่หรือไม่
+                                if (showCancelReturnModal) {
+                                  console.log('⚠️ [Dashboard] Cancel return modal is already open');
+                                  return;
+                                }
+                                
+                                try {
+                                  // ตั้งค่า loading state ทันทีเมื่อกดปุ่ม
+                                  setCancelLoadingItems(prev => new Set(prev).add(itemId));
                                   
-                                  // Find the pending item
-                                  for (const log of logs) {
-                                    const pendingItem = log.items.find((item: any) => 
-                                      item.itemId === row._id && item.approvalStatus === 'pending'
-                                    );
+                                  // Find the return log and item ID for this equipment
+                                  const returnLogsRes = await fetch('/api/user/return-logs');
+                                  if (returnLogsRes.ok) {
+                                    const data = await returnLogsRes.json();
+                                    const logs = data.returnLogs || [];
                                     
-                                    if (pendingItem) {
-                                      await handleCancelReturn(log._id, pendingItem.itemId, row.itemName);
-                                      break;
+                                    // Find the pending item
+                                    let foundPending = false;
+                                    const normalizedItemId = String(itemId);
+                                    
+                                    console.log('🔍 [Dashboard] Looking for pending return:', {
+                                      itemId: normalizedItemId,
+                                      itemIdType: typeof normalizedItemId,
+                                      logsCount: logs.length
+                                    });
+                                    
+                                    for (const log of logs) {
+                                      // ✅ Normalize itemId for comparison
+                                      const pendingItem = log.items.find((item: any) => {
+                                        const itemItemId = String(item.itemId);
+                                        const matches = itemItemId === normalizedItemId && item.approvalStatus === 'pending';
+                                        if (matches) {
+                                          console.log('✅ [Dashboard] Found pending item:', {
+                                            logId: log._id,
+                                            itemItemId,
+                                            itemName: item.itemName,
+                                            approvalStatus: item.approvalStatus
+                                          });
+                                        }
+                                        return matches;
+                                      });
+                                      
+                                      if (pendingItem) {
+                                        const pendingItemId = String(pendingItem.itemId);
+                                        console.log('📧 [Dashboard] Calling handleCancelReturn with:', {
+                                          returnLogId: log._id,
+                                          itemId: pendingItemId,
+                                          equipmentName: row.itemName
+                                        });
+                                        await handleCancelReturn(log._id, pendingItemId, row.itemName);
+                                        foundPending = true;
+                                        break;
+                                      }
                                     }
+                                    
+                                    // ถ้าไม่พบ pending item ให้เคลียร์ loading state
+                                    if (!foundPending) {
+                                      setCancelLoadingItems(prev => {
+                                        const newSet = new Set(prev);
+                                        newSet.delete(itemId);
+                                        return newSet;
+                                      });
+                                      toast.error('ไม่พบรายการที่รอการคืน');
+                                    }
+                                  } else {
+                                    // ถ้า fetch ไม่สำเร็จ เคลียร์ loading state
+                                    setCancelLoadingItems(prev => {
+                                      const newSet = new Set(prev);
+                                      newSet.delete(itemId);
+                                      return newSet;
+                                    });
+                                    toast.error('ไม่สามารถโหลดข้อมูลได้');
                                   }
+                                } catch (error) {
+                                  // ถ้าเกิดข้อผิดพลาด เคลียร์ loading state
+                                  setCancelLoadingItems(prev => {
+                                    const newSet = new Set(prev);
+                                    newSet.delete(itemId);
+                                    return newSet;
+                                  });
+                                  console.error('Error fetching return logs:', error);
+                                  toast.error('เกิดข้อผิดพลาดในการโหลดข้อมูล');
                                 }
                               }}
-                              className="px-3 py-1 text-xs text-red-600 hover:text-red-800 hover:bg-red-50 border border-red-200 rounded"
+                              disabled={cancelLoadingItems.has(row._id || (row as any).itemId) || showCancelReturnModal}
+                              className={`px-3 py-1 text-xs border rounded transition-all duration-200 flex items-center justify-center ${
+                                cancelLoadingItems.has(row._id || (row as any).itemId) || showCancelReturnModal
+                                  ? 'bg-gray-100 text-gray-400 border-gray-200 cursor-not-allowed'
+                                  : 'text-red-600 hover:text-red-800 hover:bg-red-50 border-red-200'
+                              }`}
                             >
-                              ยกเลิก
+                              {cancelLoadingItems.has(row._id || (row as any).itemId) ? (
+                                <div className="flex items-center">
+                                  <svg className="animate-spin -ml-1 mr-1 h-3 w-3 text-gray-400" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                                    <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                                    <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                                  </svg>
+                                  กำลังโหลด...
+                                </div>
+                              ) : (
+                                'ยกเลิก'
+                              )}
                             </button>
                           </>
                         ) : (

@@ -65,7 +65,7 @@ export async function POST(
       );
     }
 
-    if ((returnLog as any).status === 'completed') {
+    if (returnLog.status === 'approved') {
       return NextResponse.json(
         { 
           message: 'คำขอคืนนี้ได้รับการอนุมัติแล้ว',
@@ -257,10 +257,11 @@ export async function POST(
       }
     }
 
-    // Mark return log as completed
-    (returnLog as any).status = 'completed';
-    (returnLog as any).approvedAt = new Date();
-    (returnLog as any).approvedBy = adminId;
+    // Mark return log as approved
+    // ✅ ใช้ 'approved' แทน 'completed' เพราะ schema รองรับแค่ 'pending' | 'approved' | 'rejected'
+    returnLog.status = 'approved';
+    returnLog.approvedAt = new Date();
+    returnLog.approvedBy = adminId;
     (returnLog as any).approvedByName = adminName;
     await returnLog.save();
 

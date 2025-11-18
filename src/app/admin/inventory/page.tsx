@@ -865,6 +865,13 @@ export default function AdminInventoryPage() {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    
+    // ✅ ป้องกันการ submit ซ้ำ
+    if (loading) {
+      console.log('⚠️ Form is already submitting, ignoring duplicate submission');
+      return;
+    }
+    
     setLoading(true);
 
     try {
@@ -1672,6 +1679,12 @@ export default function AdminInventoryPage() {
   };
 
   const handleConfirmDelete = async () => {
+    // ✅ ป้องกันการ submit ซ้ำ
+    if (deleteLoading) {
+      console.log('⚠️ Already deleting, ignoring duplicate click');
+      return;
+    }
+    
     if (!stockItem || deleteConfirmText !== 'DELETE') {
       toast.error('กรุณาพิมพ์ "DELETE" เพื่อยืนยันการลบ');
       return;

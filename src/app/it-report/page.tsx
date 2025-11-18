@@ -190,6 +190,13 @@ export default function ITReportPage() {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    
+    // ✅ ป้องกันการ submit ซ้ำ
+    if (isLoading) {
+      console.log('⚠️ Form is already submitting, ignoring duplicate submission');
+      return;
+    }
+    
     setIsLoading(true);
     setIsSubmitted(true);
 

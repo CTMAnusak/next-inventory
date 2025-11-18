@@ -217,7 +217,9 @@ const InventoryItemSchema = new Schema<IInventoryItem>({
 // Indexes สำหรับ performance
 InventoryItemSchema.index({ itemName: 1, categoryId: 1 });
 InventoryItemSchema.index({ 'currentOwnership.ownerType': 1, 'currentOwnership.userId': 1 });
+InventoryItemSchema.index({ 'currentOwnership.ownerType': 1, 'currentOwnership.userId': 1, deletedAt: 1 }); // ✅ Composite index สำหรับ owned equipment query
 InventoryItemSchema.index({ 'sourceInfo.addedBy': 1, 'sourceInfo.addedByUserId': 1 });
+InventoryItemSchema.index({ 'transferInfo.requestId': 1 }); // ✅ Index สำหรับ lookup requestId
 
 // Pre-save validation
 InventoryItemSchema.pre('save', function(next) {

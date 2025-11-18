@@ -91,6 +91,9 @@ export default function EquipmentReturnPage() {
   const [isLoadingEquipment, setIsLoadingEquipment] = useState(false);
   const [isLoadingConfigs, setIsLoadingConfigs] = useState(false);
   const dataLoadedRef = useRef(false);
+  const fetchControllerRef = useRef<AbortController | null>(null);
+  // ✅ เพิ่ม ref เพื่อป้องกันการ submit ซ้ำจาก React Strict Mode
+  const isSubmittingRef = useRef(false);
   
   // Form data including personal info for branch users
   const [formData, setFormData] = useState({
@@ -147,6 +150,16 @@ export default function EquipmentReturnPage() {
     dataLoadedRef.current = false;
   }, [pathname]);
 
+  // ✅ Cleanup AbortController when component unmounts
+  useEffect(() => {
+    return () => {
+      if (fetchControllerRef.current) {
+        fetchControllerRef.current.abort();
+        fetchControllerRef.current = null;
+      }
+    };
+  }, []);
+
   useEffect(() => {
     // ✅ Fetch both APIs in parallel for better performance
     if (!dataLoadedRef.current) {
@@ -160,8 +173,8 @@ export default function EquipmentReturnPage() {
           const loadTime = Date.now() - startTime;
           console.log(`✅ Data loaded in ${loadTime}ms`);
           
-          // Warn if loading takes too long
-          if (loadTime > 3000 && !hasShownSlowLoadToastRef.current) {
+          // Warn if loading takes too long (เพิ่ม threshold จาก 3s เป็น 5s เพราะ API เร็วขึ้นแล้ว)
+          if (loadTime > 5000 && !hasShownSlowLoadToastRef.current) {
             toast('โหลดข้อมูลช้ากว่าปกติ กรุณารอสักครู่...', { icon: '⏱️' });
             hasShownSlowLoadToastRef.current = true;
           }
@@ -368,7 +381,19 @@ export default function EquipmentReturnPage() {
   };
 
   const fetchUserItems = async () => {
+    // ✅ Create new AbortController and store in ref (declare outside try block)
+    let controller: AbortController | null = null;
+    
     try {
+      // ✅ Abort previous request if exists
+      if (fetchControllerRef.current) {
+        fetchControllerRef.current.abort();
+      }
+      
+      // ✅ Create new AbortController and store in ref
+      controller = new AbortController();
+      fetchControllerRef.current = controller;
+      
       setIsLoadingEquipment(true);
       const fetchStartTime = Date.now();
       
@@ -390,7 +415,23 @@ export default function EquipmentReturnPage() {
         params.set('userId', String(user.id));
       }
       
-      const res = await fetch(`/api/user/owned-equipment?${params.toString()}`);
+      // ✅ เพิ่ม timeout เพื่อป้องกันการค้าง (15 วินาที)
+      const timeoutId = setTimeout(() => {
+        if (!controller.signal.aborted) {
+          controller.abort();
+        }
+      }, 15000);
+      
+      const res = await fetch(`/api/user/owned-equipment?${params.toString()}`, {
+        signal: controller.signal
+      });
+      
+      clearTimeout(timeoutId);
+      
+      // ✅ Check if request was aborted
+      if (controller.signal.aborted) {
+        return;
+      }
       
       const fetchTime = Date.now() - fetchStartTime;
       console.log(`⏱️ API call took ${fetchTime}ms`);
@@ -401,7 +442,18 @@ export default function EquipmentReturnPage() {
       }
       
       if (res.ok) {
+        // ✅ Check again if request was aborted before processing response
+        if (controller.signal.aborted) {
+          return;
+        }
+        
         const data = await res.json();
+        
+        // ✅ Check again before setState
+        if (controller.signal.aborted) {
+          return;
+        }
+        
         console.log('🔍 API Response:', data);
         
         // ประมวลผลข้อมูลให้เป็นรูปแบบที่ UI ต้องการ
@@ -448,6 +500,11 @@ export default function EquipmentReturnPage() {
           };
         });
         
+        // ✅ Final check before setState
+        if (controller.signal.aborted) {
+          return;
+        }
+        
         console.log('🔍 Processed equipment:', processedEquipment);
         setOwnedEquipment(processedEquipment);
         
@@ -461,11 +518,28 @@ export default function EquipmentReturnPage() {
         });
         setFilteredEquipment(availableEquipment);
       } else {
+        // ✅ Check if request was aborted before showing error
+        if (controller.signal.aborted) {
+          return;
+        }
+        
         console.error('❌ API Error:', res.status, res.statusText);
         toast.error('ไม่สามารถโหลดข้อมูลอุปกรณ์ได้');
       }
     } catch (e) {
+      // ✅ Ignore AbortError silently (it's expected when component unmounts or new request starts)
+      if (e instanceof Error && e.name === 'AbortError') {
+        console.log('🔄 Request aborted (expected behavior)');
+        return; // Don't show error or update state for aborted requests
+      }
+      
       console.error('Error fetching owned equipment:', e);
+      
+      // ✅ Check if controller was aborted before setState
+      if (fetchControllerRef.current?.signal.aborted) {
+        return;
+      }
+      
       setOwnedEquipment([]);
       setFilteredEquipment([]);
       
@@ -476,7 +550,15 @@ export default function EquipmentReturnPage() {
         toast.error('เกิดข้อผิดพลาดในการโหลดข้อมูล');
       }
     } finally {
+      // ✅ Only update loading state if this request's controller wasn't aborted
+      // Use the controller variable from the function scope, not the ref
+      // (the ref might have been updated by a new request)
+      if (controller && !controller.signal.aborted) {
+        setIsLoadingEquipment(false);
+      } else if (!controller) {
+        // If controller was never created, still update loading state
       setIsLoadingEquipment(false);
+      }
     }
   };
 
@@ -870,8 +952,33 @@ export default function EquipmentReturnPage() {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    
+    // ✅ ป้องกันการ submit ซ้ำ (ใช้ ref เพื่อป้องกัน React Strict Mode)
+    if (isLoading || isSubmittingRef.current) {
+      console.log('⚠️ Form is already submitting, ignoring duplicate submission', {
+        isLoading,
+        isSubmittingRef: isSubmittingRef.current
+      });
+      return;
+    }
+    
+    // ✅ Set ref flag ทันทีเพื่อป้องกันการเรียกซ้ำ
+    isSubmittingRef.current = true;
+    
+    // ✅ เพิ่ม small delay เพื่อให้ ref update ทั่วทั้ง component tree
+    await new Promise(resolve => setTimeout(resolve, 50));
+    
+    // ✅ ตรวจสอบอีกครั้งหลัง delay
+    if (isLoading) {
+      console.log('⚠️ Already loading after delay check');
+      isSubmittingRef.current = false;
+      return;
+    }
+    
     setIsLoading(true);
     setIsSubmitted(true);
+    
+    console.log('📧 [handleSubmit] Starting form submission');
 
     try {
       // Clear previous validation errors
@@ -882,6 +989,7 @@ export default function EquipmentReturnPage() {
         setValidationErrors({ returnDate: 'กรุณาเลือกวันที่คืนอุปกรณ์' });
         toast.error('กรุณาเลือกวันที่คืนอุปกรณ์');
         setIsLoading(false);
+        isSubmittingRef.current = false; // ✅ Reset ref เมื่อ validation fail
         return;
       }
 
@@ -890,6 +998,7 @@ export default function EquipmentReturnPage() {
         if (!formData.firstName || !formData.lastName || !formData.nickname || !formData.department || !formData.phone) {
           toast.error('กรุณากรอกข้อมูลส่วนตัวให้ครบถ้วน');
           setIsLoading(false);
+          isSubmittingRef.current = false; // ✅ Reset ref เมื่อ validation fail
           return;
         }
       }
@@ -899,6 +1008,7 @@ export default function EquipmentReturnPage() {
       if (formData.phone && formData.phone !== '000-000-0000' && formData.phone.length !== 10) {
         toast.error('เบอร์โทรศัพท์ต้องเป็นตัวเลข 10 หลักเท่านั้น');
         setIsLoading(false);
+        isSubmittingRef.current = false; // ✅ Reset ref เมื่อ validation fail
         return;
       }
 
@@ -907,6 +1017,7 @@ export default function EquipmentReturnPage() {
         console.log('❌ No items in return list');
         toast.error('กรุณาเพิ่มรายการอุปกรณ์ที่ต้องการคืนในรายการด้านล่างก่อนกดบันทึก');
         setIsLoading(false);
+        isSubmittingRef.current = false; // ✅ Reset ref เมื่อ validation fail
         return;
       }
       
@@ -1040,6 +1151,14 @@ export default function EquipmentReturnPage() {
       // ✅ ส่ง API แยกตามจำนวน returnDataList (แต่ละกลุ่มผู้คืน)
       console.log(`\n📤 กำลังส่ง ${returnDataList.length} รายการคืนอุปกรณ์...`);
       
+      // ✅ Debug: Log returnDataList เพื่อตรวจสอบว่ามีกี่รายการ
+      console.log('📦 returnDataList details:', returnDataList.map((data, idx) => ({
+        index: idx,
+        firstName: data.firstName,
+        lastName: data.lastName,
+        itemsCount: data.items.length
+      })));
+      
       let allSuccess = true;
       let successCount = 0;
       
@@ -1052,14 +1171,15 @@ export default function EquipmentReturnPage() {
         });
         
         // Add timeout and retry logic
-        const controller = new AbortController();
-        const timeoutId = setTimeout(() => controller.abort(), 30000); // 30 second timeout
-        
         let response: Response | undefined;
         let retryCount = 0;
         const maxRetries = 2;
         
         while (retryCount <= maxRetries) {
+          // ✅ สร้าง AbortController ใหม่ทุกครั้งที่ retry
+          const controller = new AbortController();
+          const timeoutId = setTimeout(() => controller.abort(), 30000); // 30 second timeout
+          
           try {
             response = await fetch('/api/equipment-return', {
               method: 'POST',
@@ -1074,12 +1194,31 @@ export default function EquipmentReturnPage() {
             break; // Success, exit retry loop
             
           } catch (fetchError) {
+            clearTimeout(timeoutId);
+            
+            // ✅ จัดการ AbortError อย่างถูกต้อง
+            if (fetchError instanceof Error && fetchError.name === 'AbortError') {
+              console.warn(`⚠️ Request aborted (attempt ${retryCount + 1}):`, fetchError.message);
+              
+              if (retryCount >= maxRetries) {
+                // ถ้า retry ครบแล้วยัง abort อยู่ แสดง error
+                toast.error(`รายการที่ ${i + 1}: การเชื่อมต่อหมดเวลา กรุณาลองใหม่อีกครั้ง`);
+                allSuccess = false;
+                break; // ออกจาก loop
+              }
+              
+              // Retry ด้วย exponential backoff
+              retryCount++;
+              await new Promise(resolve => setTimeout(resolve, 1000 * retryCount));
+              continue; // ลองใหม่
+            }
+            
+            // สำหรับ error อื่นๆ
             retryCount++;
             const errorMessage = fetchError instanceof Error ? fetchError.message : 'Unknown error';
             console.warn(`⚠️ Fetch attempt ${retryCount} failed:`, errorMessage);
             
             if (retryCount > maxRetries) {
-              clearTimeout(timeoutId);
               throw fetchError; // Re-throw after max retries
             }
             
@@ -1215,7 +1354,10 @@ export default function EquipmentReturnPage() {
         toast.error('เกิดข้อผิดพลาดที่ไม่คาดคิด');
       }
     } finally {
+      // ✅ Reset ทั้ง state และ ref เพื่อให้สามารถ submit ใหม่ได้
       setIsLoading(false);
+      isSubmittingRef.current = false;
+      console.log('✅ [handleSubmit] Form submission completed, reset flags');
     }
   };
 

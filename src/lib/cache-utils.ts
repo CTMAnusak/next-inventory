@@ -6,6 +6,7 @@ const globalCache = new Map<string, { data: any; timestamp: number; accessCount:
 // Different cache durations for different data types - Optimized for performance
 const CACHE_DURATIONS = {
   holdings: 10 * 60 * 1000,      // 10 minutes - user holdings change less frequently
+  owned_equipment: 5 * 60 * 1000, // 5 minutes - owned equipment (เพิ่ม cache duration)
   inventory: 5 * 60 * 1000,      // 5 minutes - inventory changes moderately
   config: 30 * 60 * 1000,        // 30 minutes - config changes rarely
   dashboard: 2 * 60 * 1000,      // 2 minutes - dashboard stats need to be up-to-date
@@ -105,6 +106,7 @@ export function getCachedData(key: string) {
     // Determine cache duration based on key type
     let duration = CACHE_DURATIONS.default;
     if (key.startsWith('holdings_')) duration = CACHE_DURATIONS.holdings;
+    else if (key.startsWith('owned_equipment_')) duration = CACHE_DURATIONS.owned_equipment;
     else if (key.includes('inventory')) duration = CACHE_DURATIONS.inventory;
     else if (key.includes('config')) duration = CACHE_DURATIONS.config;
     else if (key.includes('dashboard')) duration = CACHE_DURATIONS.dashboard;
@@ -157,6 +159,7 @@ export function isCached(key: string): boolean {
     // Determine cache duration based on key type
     let duration = CACHE_DURATIONS.default;
     if (key.startsWith('holdings_')) duration = CACHE_DURATIONS.holdings;
+    else if (key.startsWith('owned_equipment_')) duration = CACHE_DURATIONS.owned_equipment;
     else if (key.includes('inventory')) duration = CACHE_DURATIONS.inventory;
     else if (key.includes('config')) duration = CACHE_DURATIONS.config;
     else if (key.includes('dashboard')) duration = CACHE_DURATIONS.dashboard;

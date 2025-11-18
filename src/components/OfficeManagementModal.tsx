@@ -148,6 +148,12 @@ export default function OfficeManagementModal({ isOpen, onClose, onRefresh }: Of
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    
+    // ✅ ป้องกันการ submit ซ้ำ
+    if (isSubmitting) {
+      console.log('⚠️ Form is already submitting, ignoring duplicate submission');
+      return;
+    }
 
     if (!formData.name.trim()) {
       toast.error('กรุณากรอกชื่อสาขา');

@@ -21,47 +21,58 @@ export async function GET(request: NextRequest) {
     const url = new URL(request.url);
     const excludePendingReturns = url.searchParams.get('excludePendingReturns') === 'true';
     
-    // Check cache first
+    // ✅ Check for cache-busting parameter
+    const cacheBuster = url.searchParams.get('_t');
+    const forceRefresh = cacheBuster !== null; // If _t parameter exists, force refresh
+    
+    // Check cache first (skip if force refresh)
     const { getCachedData, setCachedData } = await import('@/lib/cache-utils');
     const cacheKey = `owned_equipment_${userId}_${excludePendingReturns ? 'exclude' : 'include'}`;
-    const cached = getCachedData(cacheKey);
-    if (cached) {
-      if (process.env.NODE_ENV === 'development') {
-        console.log(`✅ Owned Equipment API - Cache hit (${Date.now() - startTime}ms)`);
+    
+    if (!forceRefresh) {
+      const cached = getCachedData(cacheKey);
+      if (cached) {
+        if (process.env.NODE_ENV === 'development') {
+          console.log(`✅ Owned Equipment API - Cache hit (${Date.now() - startTime}ms)`);
+        }
+        return NextResponse.json(cached);
       }
-      return NextResponse.json(cached);
+    } else {
+      if (process.env.NODE_ENV === 'development') {
+        console.log(`🔄 Owned Equipment API - Force refresh (cache-busting parameter: ${cacheBuster})`);
+      }
     }
     
-    // Get user's owned items with lean() and select only needed fields
+    // ✅ PERFORMANCE: ใช้ Promise.all เพื่อ query หลาย collections พร้อมกัน
     const queryStart = Date.now();
-    const ownedItems = await InventoryItem.find({
-      'currentOwnership.ownerType': 'user_owned',
-      'currentOwnership.userId': userId,
-      deletedAt: { $exists: false }
-    })
-    .select('_id itemMasterId itemName categoryId serialNumber numberPhone statusId conditionId currentOwnership sourceInfo createdAt updatedAt requesterInfo transferInfo')
-    .sort({ 'currentOwnership.ownedSince': -1 })
-    .lean();
-    
-    if (process.env.NODE_ENV === 'development') {
-      console.log(`⏱️  InventoryItem query: ${Date.now() - queryStart}ms (${ownedItems.length} items)`);
-    }
-
-    // ✅ ดึง ReturnLog เสมอเพื่อตรวจสอบ items ที่ถูกคืนแล้ว (ไม่ใช่เฉพาะเมื่อ excludePendingReturns = true)
-    // เพื่อให้ dashboard และ equipment-tracking แสดงผลเหมือนกัน
     const ReturnLog = (await import('@/models/ReturnLog')).default;
-    const returnLogStart = Date.now();
-    const allReturns = await ReturnLog.find({ 
-      userId: userId,
-      'items.approvalStatus': { $in: ['pending', 'approved'] } // Only get relevant statuses
-    })
+    const RequestLog = (await import('@/models/RequestLog')).default;
+    
+    // Query ทั้งหมดพร้อมกัน (ไม่ขึ้นต่อกัน)
+    const [ownedItems, allReturns] = await Promise.all([
+      // Query 1: Get user's owned items
+      InventoryItem.find({
+        'currentOwnership.ownerType': 'user_owned',
+        'currentOwnership.userId': userId,
+        deletedAt: { $exists: false }
+      })
+      .select('_id itemMasterId itemName categoryId serialNumber numberPhone statusId conditionId currentOwnership sourceInfo createdAt updatedAt requesterInfo transferInfo')
+      .sort({ 'currentOwnership.ownedSince': -1 })
+      .lean(),
+      
+      // Query 2: Get return logs (optimized - only get what we need)
+      ReturnLog.find({ 
+        userId: userId,
+        'items.approvalStatus': { $in: ['pending', 'approved'] }
+      })
       .select('items userId status')
-      .sort({ createdAt: -1 }) // Get recent first
-      .limit(100) // Limit to recent 100 returns
-      .lean();
+      .sort({ createdAt: -1 })
+      .limit(50) // ✅ ลดจาก 100 เป็น 50 เพื่อความเร็ว (return logs ล่าสุด 50 รายการควรเพียงพอ)
+      .lean()
+    ]);
     
     if (process.env.NODE_ENV === 'development') {
-      console.log(`⏱️  ReturnLog query: ${Date.now() - returnLogStart}ms (${allReturns.length} logs)`);
+      console.log(`⏱️  Parallel queries: ${Date.now() - queryStart}ms (${ownedItems.length} items, ${allReturns.length} returns)`);
     }
 
     // ✅ Optimize: Only process return logs if we fetched them
@@ -74,34 +85,48 @@ export async function GET(request: NextRequest) {
           // ✅ แปลง itemId เป็น string เสมอเพื่อให้ตรงกับ item._id ใน InventoryItem
           const itemIdStr = String(item.itemId);
           // ✅ รองรับทั้ง serialNumber และ numberPhone (สำหรับซิมการ์ด)
+          // 🔧 CRITICAL FIX: ใช้ itemId เป็น primary key แล้วค่อยจับคู่ด้วย serialNumber/numberPhone ถ้ามี
+          // เพื่อให้แน่ใจว่า itemKey สอดคล้องกันระหว่าง ReturnLog และ InventoryItem
           const isSIMCard = item.categoryId === 'cat_sim_card';
-          const itemKey = isSIMCard && item.numberPhone
+          // สร้าง itemKey ทั้งแบบมี serialNumber/numberPhone และไม่มี
+          // เพื่อให้จับคู่ได้ทั้งกรณีที่มีและไม่มี serialNumber/numberPhone
+          const itemKeyWithSN = isSIMCard && item.numberPhone
             ? `${itemIdStr}-${item.numberPhone}`
             : item.serialNumber 
             ? `${itemIdStr}-${item.serialNumber}` 
-            : itemIdStr;
+            : null;
+          const itemKey = itemKeyWithSN || itemIdStr; // Fallback to itemId if no serialNumber/numberPhone
           
           // If approved, store the approval timestamp
           if (item.approvalStatus === 'approved' && item.approvedAt) {
             // ✅ เก็บเฉพาะ Return Log ที่ใหม่ที่สุดสำหรับแต่ละ item
+            // 🔧 CRITICAL FIX: เก็บทั้ง itemKey และ itemId เพื่อให้จับคู่ได้ทั้งกรณีที่มีและไม่มี serialNumber
             const existingApprovedAt = returnedItemsMap.get(itemKey);
+            const existingApprovedAtById = returnedItemsMap.get(itemIdStr);
             const currentApprovedAt = new Date(item.approvedAt);
             
+            // เก็บด้วย itemKey (มี serialNumber/numberPhone ถ้ามี)
             if (!existingApprovedAt || currentApprovedAt > existingApprovedAt) {
               returnedItemsMap.set(itemKey, currentApprovedAt);
+            }
+            // เก็บด้วย itemId เพิ่มเติมเพื่อให้จับคู่ได้แม้ไม่มี serialNumber/numberPhone
+            if (!existingApprovedAtById || currentApprovedAt > existingApprovedAtById) {
+              returnedItemsMap.set(itemIdStr, currentApprovedAt);
             }
           }
           // If pending, add to pending items (to mark with badge)
           else if (item.approvalStatus === 'pending' || !item.approvalStatus) {
             pendingReturnItems.add(itemKey);
+            // 🔧 CRITICAL FIX: เพิ่ม itemId ด้วยเพื่อให้จับคู่ได้แม้ไม่มี serialNumber/numberPhone
+            if (itemKey !== itemIdStr) {
+              pendingReturnItems.add(itemIdStr);
+            }
           }
         });
       });
     }
 
-    // ✅ ดึง RequestLog ทั้งหมด (pending + approved) เพื่อตรวจสอบสถานะ request
-    // เพื่อกรอง items ที่มี requestId แต่ RequestLog ยัง pending ออก
-    const RequestLog = (await import('@/models/RequestLog')).default;
+    // ✅ PERFORMANCE: ดึง requestIds และ query RequestLog พร้อมกัน
     const requestLogStart = Date.now();
     
     // ดึง requestIds จาก ownedItems ที่มี transferInfo.requestId
@@ -109,8 +134,8 @@ export async function GET(request: NextRequest) {
       .map((item: any) => item.transferInfo?.requestId)
       .filter((id: string | undefined): id is string => !!id);
     
-    // ดึง RequestLog ทั้งหมดที่เกี่ยวข้อง (pending + approved)
-    // ✅ ไม่ต้องใช้ userId เป็นเงื่อนไข เพราะ requestId ควรจะ unique อยู่แล้ว
+    // ✅ Query RequestLog เฉพาะเมื่อมี requestIds (ไม่ query ถ้าไม่มี)
+    // ✅ ใช้ lean() และ select เฉพาะ fields ที่จำเป็น
     const allRequestLogs = requestIds.length > 0
       ? await RequestLog.find({
           _id: { $in: requestIds },
@@ -120,7 +145,7 @@ export async function GET(request: NextRequest) {
         .lean()
       : [];
     
-    // สร้าง map ของ requestId -> status
+    // ✅ สร้าง map ของ requestId -> status (ใช้ Map สำหรับ O(1) lookup)
     const requestStatusMap = new Map<string, string>();
     allRequestLogs.forEach((req: any) => {
       requestStatusMap.set(String(req._id), req.status);
@@ -137,11 +162,15 @@ export async function GET(request: NextRequest) {
     const availableItems = ownedItems.filter(item => {
       // ✅ รองรับทั้ง serialNumber และ numberPhone (สำหรับซิมการ์ด)
       const isSIMCard = (item as any).categoryId === 'cat_sim_card';
-      const itemKey = isSIMCard && item.numberPhone
-        ? `${String(item._id)}-${item.numberPhone}`
+      // 🔧 CRITICAL FIX: สร้าง itemKey แบบเดียวกับที่เก็บใน returnedItemsMap และ pendingReturnItems
+      // เพื่อให้จับคู่ได้ถูกต้อง ทั้งกรณีที่มีและไม่มี serialNumber/numberPhone
+      const itemIdStr = String(item._id);
+      const itemKeyWithSN = isSIMCard && item.numberPhone
+        ? `${itemIdStr}-${item.numberPhone}`
         : item.serialNumber 
-        ? `${String(item._id)}-${item.serialNumber}` 
-        : String(item._id);
+        ? `${itemIdStr}-${item.serialNumber}` 
+        : null;
+      const itemKey = itemKeyWithSN || itemIdStr; // Fallback to itemId if no serialNumber/numberPhone
       
       // ❌ กรอง items ที่มี requestId แต่ RequestLog ยัง pending ออก
       // (ไม่แสดงรายการรออนุมัติการเบิกในหน้า dashboard)
@@ -156,15 +185,20 @@ export async function GET(request: NextRequest) {
       
       // ❌ Filter out items with pending returns เฉพาะเมื่อ excludePendingReturns = true
       // (สำหรับหน้า equipment-return เท่านั้น, หน้า dashboard ยังแสดงได้)
-      if (excludePendingReturns && pendingReturnItems.has(itemKey)) {
+      // 🔧 CRITICAL FIX: ตรวจสอบทั้ง itemKey และ itemId เพื่อให้จับคู่ได้แม้ไม่มี serialNumber/numberPhone
+      if (excludePendingReturns && (pendingReturnItems.has(itemKey) || pendingReturnItems.has(itemIdStr))) {
         return false;
       }
       
       // Check if this item has a return log
-      const returnApprovedAt = returnedItemsMap.get(itemKey);
+      // 🔧 CRITICAL FIX: ตรวจสอบทั้ง itemKey และ itemId เพื่อให้จับคู่ได้แม้ไม่มี serialNumber/numberPhone
+      // ให้ตรวจสอบ itemKey ก่อน (เพราะถ้ามี serialNumber/numberPhone จะแม่นยำกว่า)
+      // แล้วค่อยตรวจสอบ itemId (fallback สำหรับกรณีไม่มี serialNumber/numberPhone)
+      const returnApprovedAt = returnedItemsMap.get(itemKey) || returnedItemsMap.get(itemIdStr);
       
       if (!returnApprovedAt) {
         // No return log → show item
+        // ✅ Items ที่มี pending return จะไม่มี returnApprovedAt จึงจะแสดงในหน้า dashboard
         return true;
       }
       
@@ -213,23 +247,13 @@ export async function GET(request: NextRequest) {
       });
     });
     
+    // ✅ PERFORMANCE: Query config และ office พร้อมกัน (ไม่ขึ้นต่อกัน)
+    const configAndOfficeStart = Date.now();
+    
     // Get configurations for display (with cache)
     const { getCachedData: getConfigCache, setCachedData: setConfigCache } = await import('@/lib/cache-utils');
     const configCacheKey = 'inventory_config_all';
     let config = getConfigCache(configCacheKey);
-    
-    if (!config) {
-      config = await InventoryConfig.findOne({})
-        .select('statusConfigs conditionConfigs categoryConfigs')
-        .lean();
-      if (config) {
-        setConfigCache(configCacheKey, config);
-      }
-    }
-    
-    const statusConfigs = config?.statusConfigs || [];
-    const conditionConfigs = config?.conditionConfigs || [];
-    const categoryConfigs = config?.categoryConfigs || [];
     
     // 🆕 Load Office collection for real-time office name lookup (with cache)
     const { getOfficeMap } = await import('@/lib/office-helpers');
@@ -239,13 +263,35 @@ export async function GET(request: NextRequest) {
     });
     if (user?.officeId) officeIds.add(user.officeId);
     
-    const officeMapStart = Date.now();
-    const officeMap = officeIds.size > 0 
-      ? await getOfficeMap(Array.from(officeIds))
-      : new Map<string, string>(); // Skip query if no office IDs
+    // ✅ Query config และ office พร้อมกัน
+    const [configResult, officeMapResult] = await Promise.all([
+      // Query config (ถ้ายังไม่มีใน cache)
+      config ? Promise.resolve(config) : InventoryConfig.findOne({})
+        .select('statusConfigs conditionConfigs categoryConfigs')
+        .lean()
+        .then(result => {
+          if (result) {
+            setConfigCache(configCacheKey, result);
+          }
+          return result;
+        }),
+      // Query office map
+      officeIds.size > 0 
+        ? getOfficeMap(Array.from(officeIds))
+        : Promise.resolve(new Map<string, string>())
+    ]);
+    
+    if (configResult && !config) {
+      config = configResult;
+    }
+    
+    const statusConfigs = config?.statusConfigs || [];
+    const conditionConfigs = config?.conditionConfigs || [];
+    const categoryConfigs = config?.categoryConfigs || [];
+    const officeMap = officeMapResult;
     
     if (process.env.NODE_ENV === 'development') {
-      console.log(`⏱️  Office lookup: ${Date.now() - officeMapStart}ms (${officeIds.size} offices)`);
+      console.log(`⏱️  Config & Office lookup: ${Date.now() - configAndOfficeStart}ms (${officeIds.size} offices)`);
     }
     
     // ประกอบข้อมูลด้วยฟิลด์จาก InventoryItem โดยตรง + mapping จาก InventoryConfig
@@ -256,16 +302,19 @@ export async function GET(request: NextRequest) {
 
       // Check if this item has pending return
       // ✅ รองรับทั้ง serialNumber และ numberPhone (สำหรับซิมการ์ด)
+      // 🔧 CRITICAL FIX: สร้าง itemKey แบบเดียวกับที่เก็บใน pendingReturnItems เพื่อให้จับคู่ได้ถูกต้อง
       const isSIMCard = (item as any).categoryId === 'cat_sim_card';
-      const itemKey = isSIMCard && item.numberPhone
-        ? `${String(item._id)}-${item.numberPhone}`
+      const itemIdStr = String(item._id);
+      const itemKeyWithSN = isSIMCard && item.numberPhone
+        ? `${itemIdStr}-${item.numberPhone}`
         : item.serialNumber 
-        ? `${String(item._id)}-${item.serialNumber}` 
-        : String(item._id);
-      const hasPendingReturn = pendingReturnItems.has(itemKey);
+        ? `${itemIdStr}-${item.serialNumber}` 
+        : null;
+      const itemKey = itemKeyWithSN || itemIdStr; // Fallback to itemId if no serialNumber/numberPhone
+      // 🔧 CRITICAL FIX: ตรวจสอบทั้ง itemKey และ itemId เพื่อให้จับคู่ได้แม้ไม่มี serialNumber/numberPhone
+      const hasPendingReturn = pendingReturnItems.has(itemKey) || pendingReturnItems.has(itemIdStr);
       
       // Get delivery location from request log (if item came from request)
-      const itemIdStr = String(item._id);
       const deliveryLocation = itemToDeliveryLocationMap.get(itemIdStr) || '';
 
       // ✅ ดึงข้อมูลจาก item.requesterInfo (สำหรับอุปกรณ์ที่เพิ่มเอง)
@@ -357,7 +406,7 @@ export async function GET(request: NextRequest) {
       totalCount: populatedItems.length
     };
     
-    // Cache the result (TTL is determined by cache-utils based on key pattern)
+    // ✅ Cache the result (เพิ่ม cache duration สำหรับ owned equipment)
     setCachedData(cacheKey, result);
     
     const totalTime = Date.now() - startTime;
@@ -365,8 +414,8 @@ export async function GET(request: NextRequest) {
     // Always log performance for monitoring
     console.log(`✅ Owned Equipment API - ${populatedItems.length} items in ${totalTime}ms`);
     
-    // Add warning if slow
-    if (totalTime > 2000) {
+    // Add warning if slow (ลด threshold จาก 2000ms เป็น 1500ms)
+    if (totalTime > 1500) {
       console.warn(`⚠️ Slow query detected: ${totalTime}ms for user ${userId}`);
     }
     

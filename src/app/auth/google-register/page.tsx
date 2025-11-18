@@ -190,6 +190,12 @@ export default function GoogleRegisterPage() {
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     
+    // ✅ ป้องกันการ submit ซ้ำ
+    if (loading) {
+      console.log('⚠️ Form is already submitting, ignoring duplicate submission');
+      return;
+    }
+    
     if (!validateForm() || !googleProfile) return;
 
     setLoading(true);

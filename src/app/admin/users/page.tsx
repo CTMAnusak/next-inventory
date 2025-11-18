@@ -341,6 +341,12 @@ export default function AdminUsersPage() {
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     
+    // ✅ ป้องกันการ submit ซ้ำ
+    if (loading) {
+      console.log('⚠️ Form is already submitting, ignoring duplicate submission');
+      return;
+    }
+    
     if (!validateForm()) return;
 
     setLoading(true);
@@ -473,6 +479,12 @@ export default function AdminUsersPage() {
   };
 
   const handleDeleteConfirm = async () => {
+    // ✅ ป้องกันการ submit ซ้ำ
+    if (deletingUserId) {
+      console.log('⚠️ Already deleting a user, ignoring duplicate click');
+      return;
+    }
+    
     if (!userToDelete || deleteUserConfirmText !== 'delete') {
       return;
     }

@@ -67,9 +67,32 @@ export async function DELETE(
 
     // Send email notifications
     try {
+      // ✅ Populate category names for items before sending email
+      const { getCategoryNameById } = await import('@/lib/item-name-resolver');
+      const requestData = requestLog.toObject();
+      
+      if (requestData.items && Array.isArray(requestData.items)) {
+        const itemsWithCategory = await Promise.all(
+          requestData.items.map(async (item: any) => {
+            let category = item.category;
+            if (!category && item.categoryId) {
+              const categoryName = await getCategoryNameById(item.categoryId);
+              if (categoryName) {
+                category = categoryName;
+              }
+            }
+            return {
+              ...item,
+              category: category || 'ไม่ระบุ'
+            };
+          })
+        );
+        requestData.items = itemsWithCategory;
+      }
+      
       const { sendEquipmentRequestCancellationNotification } = await import('@/lib/email');
       const emailData = {
-        ...requestLog.toObject(),
+        ...requestData,
         cancellationReason: cancellationReason.trim(),
         cancelledByName: adminName
       };

@@ -1,5 +1,7 @@
 import nodemailer from 'nodemailer';
 import { getITAdminEmails } from './admin-emails';
+import path from 'path';
+import fs from 'fs';
 
 // Helper function to format date as dd/mm/yyyy with Buddhist Era
 const formatDateBE = (date: Date | string | null | undefined): string => {
@@ -1415,24 +1417,55 @@ const formatEquipmentItemsForEmail = (items: any[], isReturn: boolean = false): 
     const itemNotes = item.itemNotes || '-';
     
     // Serial Numbers (for non-SIM cards)
+    // ✅ รองรับทั้ง ReturnLog format (serialNumber: string) และ RequestLog format (serialNumbers: array)
     let serialNumbersHtml = '-';
     if (item.categoryId !== 'cat_sim_card') {
-      const serialNumbers = item.assignedSerialNumbers || item.serialNumbers || [];
-      if (serialNumbers.length > 0) {
-        serialNumbersHtml = serialNumbers.join(', ');
+      // สำหรับ ReturnLog: ใช้ serialNumber (string)
+      // สำหรับ RequestLog: ใช้ serialNumbers (array) และ assignedSerialNumbers (array)
+      const returnLogSerialNumber = item.serialNumber; // ReturnLog format
+      const userSerialNumbers = item.serialNumbers || []; // RequestLog format
+      const assignedSerialNumbers = item.assignedSerialNumbers || []; // RequestLog format
+      
+      // รวม Serial Numbers ทั้งหมด
+      const allSerialNumbers: string[] = [];
+      if (returnLogSerialNumber) {
+        allSerialNumbers.push(returnLogSerialNumber);
+      }
+      allSerialNumbers.push(...userSerialNumbers);
+      allSerialNumbers.push(...assignedSerialNumbers);
+      
+      const uniqueSerialNumbers = [...new Set(allSerialNumbers.filter(Boolean))];
+      if (uniqueSerialNumbers.length > 0) {
+        serialNumbersHtml = uniqueSerialNumbers.join(', ');
       }
     }
     
     // Phone Numbers (for SIM cards)
+    // ✅ รองรับทั้ง ReturnLog format (numberPhone: string) และ RequestLog format (requestedPhoneNumbers: array)
     let phoneNumbersHtml = '-';
     if (item.categoryId === 'cat_sim_card') {
-      const phoneNumbers = item.assignedPhoneNumbers || item.requestedPhoneNumbers || [];
-      if (phoneNumbers.length > 0) {
-        phoneNumbersHtml = phoneNumbers.join(', ');
+      // สำหรับ ReturnLog: ใช้ numberPhone (string)
+      // สำหรับ RequestLog: ใช้ requestedPhoneNumbers (array) และ assignedPhoneNumbers (array)
+      const returnLogPhoneNumber = item.numberPhone; // ReturnLog format
+      const requestedPhoneNumbers = item.requestedPhoneNumbers || []; // RequestLog format
+      const assignedPhoneNumbers = item.assignedPhoneNumbers || []; // RequestLog format
+      
+      // รวม Phone Numbers ทั้งหมด
+      const allPhoneNumbers: string[] = [];
+      if (returnLogPhoneNumber) {
+        allPhoneNumbers.push(returnLogPhoneNumber);
+      }
+      allPhoneNumbers.push(...requestedPhoneNumbers);
+      allPhoneNumbers.push(...assignedPhoneNumbers);
+      
+      const uniquePhoneNumbers = [...new Set(allPhoneNumbers.filter(Boolean))];
+      if (uniquePhoneNumbers.length > 0) {
+        phoneNumbersHtml = uniquePhoneNumbers.join(', ');
       }
     }
     
     // Asset Number (only for returns)
+    // ✅ แสดงเลขทรัพย์สินเสมอถ้า isReturn เป็น true (แม้ว่าจะเป็น '-' หรือ undefined ก็ตาม)
     const assetNumber = isReturn ? (item.assetNumber || '-') : null;
     
     return `
@@ -1459,16 +1492,24 @@ const formatEquipmentItemsForEmail = (items: any[], isReturn: boolean = false): 
             <td style="padding: 5px 0;">${phoneNumbersHtml}</td>
           </tr>
           ` : ''}
-          ${isReturn && assetNumber ? `
+          ${isReturn ? `
           <tr>
             <td style="padding: 5px 0;"><strong>เลขทรัพย์สิน:</strong></td>
-            <td style="padding: 5px 0;">${assetNumber}</td>
+            <td style="padding: 5px 0;">${assetNumber || '-'}</td>
           </tr>
           ` : ''}
           <tr>
             <td style="padding: 5px 0;"><strong>หมายเหตุ:</strong></td>
             <td style="padding: 5px 0;">${itemNotes}</td>
           </tr>
+          ${item.image ? `
+          <tr>
+            <td style="padding: 5px 0; vertical-align: top;"><strong>รูปภาพ:</strong></td>
+            <td style="padding: 5px 0;">
+              <img src="cid:item${index}_image@equipment" alt="รูปภาพอุปกรณ์" style="max-width: 300px; max-height: 300px; border-radius: 8px; border: 1px solid #ddd; margin-top: 5px;" />
+            </td>
+          </tr>
+          ` : ''}
         </table>
       </div>
     `;
@@ -1488,8 +1529,8 @@ const getSubjectItemNames = (items: any[]): string => {
 
 // Helper function to get user display name
 const getUserDisplayName = (data: any): string => {
-  const firstName = data.firstName || data.requesterFirstName || '';
-  const lastName = data.lastName || data.requesterLastName || '';
+  const firstName = data.firstName || data.requesterFirstName || data.returnerFirstName || '';
+  const lastName = data.lastName || data.requesterLastName || data.returnerLastName || '';
   if (firstName && lastName) {
     return `${firstName} ${lastName}`;
   }
@@ -1498,20 +1539,53 @@ const getUserDisplayName = (data: any): string => {
 
 // Helper function to get user email
 const getUserEmail = (data: any): string => {
-  return data.email || data.requesterEmail || '';
+  return data.email || data.requesterEmail || data.returnerEmail || '';
 };
 
 // Helper function to get user info
 const getUserInfo = (data: any) => {
   return {
-    firstName: data.firstName || data.requesterFirstName || '',
-    lastName: data.lastName || data.requesterLastName || '',
-    nickname: data.nickname || data.requesterNickname || '',
-    department: data.department || data.requesterDepartment || '',
-    office: data.office || data.requesterOffice || data.requesterOfficeName || '',
-    phone: data.phone || data.requesterPhone || '',
+    firstName: data.firstName || data.requesterFirstName || data.returnerFirstName || '',
+    lastName: data.lastName || data.requesterLastName || data.returnerLastName || '',
+    nickname: data.nickname || data.requesterNickname || data.returnerNickname || '',
+    department: data.department || data.requesterDepartment || data.returnerDepartment || '',
+    office: data.office || data.requesterOffice || data.requesterOfficeName || data.returnerOffice || data.returnerOfficeName || '',
+    phone: data.phone || data.requesterPhone || data.returnerPhone || '',
     email: getUserEmail(data)
   };
+};
+
+// Helper function to collect images from items and prepare attachments
+const prepareEquipmentImageAttachments = (items: any[]): Array<{ filename: string; path: string; cid: string }> => {
+  const attachments: Array<{ filename: string; path: string; cid: string }> = [];
+  
+  if (!items || !Array.isArray(items)) return attachments;
+  
+  items.forEach((item: any, index: number) => {
+    if (item.image) {
+      // รูปภาพถูกเก็บใน public/assets/ReturnLog/ หรือ public/assets/RequestLog/
+      // ตรวจสอบทั้ง 2 ที่
+      const possiblePaths = [
+        path.join(process.cwd(), 'public', 'assets', 'ReturnLog', item.image),
+        path.join(process.cwd(), 'public', 'assets', 'RequestLog', item.image),
+        path.join(process.cwd(), 'public', 'assets', 'uploads', item.image)
+      ];
+      
+      for (const imagePath of possiblePaths) {
+        if (fs.existsSync(imagePath)) {
+          attachments.push({
+            filename: item.image,
+            path: imagePath,
+            cid: `item${index}_image@equipment`
+          });
+          console.log(`✅ Found image for item ${index}: ${imagePath}`);
+          break;
+        }
+      }
+    }
+  });
+  
+  return attachments;
 };
 
 const wrapEmail = (
@@ -1615,6 +1689,9 @@ export async function sendEquipmentRequestNotification(requestData: any) {
     const itAdminEmails = await getITAdminEmails();
     const adminResults = [];
     
+    // ✅ เตรียม attachments สำหรับรูปภาพ
+    const imageAttachments = prepareEquipmentImageAttachments(requestData.items || []);
+
     if (itAdminEmails.length > 0) {
       for (const adminEmail of itAdminEmails) {
         const adminMailOptions = {
@@ -1622,6 +1699,7 @@ export async function sendEquipmentRequestNotification(requestData: any) {
           replyTo: userEmail || process.env.EMAIL_FROM,
           to: adminEmail,
           subject: `แจ้งเบิกอุปกรณ์ VSQ [${urgencyText}] - ${subjectItemNames} จาก ${userDisplayName}`,
+          attachments: imageAttachments,
           html: `
             <div style="font-family: Arial, sans-serif; line-height: 1.6; color: #333; max-width: 800px; margin: 0 auto;">
               <div style="background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); padding: 30px; border-radius: 10px 10px 0 0;">
@@ -1724,6 +1802,7 @@ export async function sendEquipmentRequestNotification(requestData: any) {
         from: `VSQ Inventory Management <${process.env.EMAIL_FROM || 'it@vsqclinic.com'}>`,
         to: userEmail,
         subject: `ยืนยัน คำขอเบิกอุปกรณ์ VSQ - ${subjectItemNames} จาก ${userDisplayName}`,
+        attachments: imageAttachments,
         html: `
           <div style="font-family: Arial, sans-serif; line-height: 1.6; color: #333; max-width: 800px; margin: 0 auto;">
             <div style="background: linear-gradient(135deg, #4caf50 0%, #2e7d32 100%); padding: 30px; border-radius: 10px 10px 0 0;">
@@ -1752,6 +1831,8 @@ export async function sendEquipmentRequestNotification(requestData: any) {
                   </tr>
                 </table>
               </div>
+
+              ${buildUserInfoSection(userInfo)}
 
               <div style="margin: 25px 0;">
                 <h2 style="color: #1976d2; border-bottom: 2px solid #1976d2; padding-bottom: 10px; margin-bottom: 15px;">📋 รายการอุปกรณ์</h2>
@@ -1830,6 +1911,9 @@ export async function sendEquipmentRequestApprovalNotification(requestData: any)
       { start: '#2563eb', end: '#1e3a8a' }
     );
 
+    // ✅ เตรียม attachments สำหรับรูปภาพ
+    const imageAttachments = prepareEquipmentImageAttachments(requestData.items || []);
+
     const itAdminEmails = await getITAdminEmails();
     const adminResults: Array<{ success: boolean; email: string; error?: unknown }> = [];
 
@@ -1841,6 +1925,7 @@ export async function sendEquipmentRequestApprovalNotification(requestData: any)
             replyTo: userEmail || process.env.EMAIL_FROM,
             to: adminEmail,
           subject: `แจ้งอนุมัติเบิกอุปกรณ์ VSQ - ${subjectItemNames} จาก ${userDisplayName}`,
+            attachments: imageAttachments,
             html: adminHtml
           });
           adminResults.push({ success: true, email: adminEmail });
@@ -1854,7 +1939,7 @@ export async function sendEquipmentRequestApprovalNotification(requestData: any)
     if (userEmail) {
       const userHtml = wrapEmail(
         '✅ อนุมัติคำขอเบิกอุปกรณ์',
-        `${detailsSection}${itemsSection}`,
+        `${detailsSection}${userSection}${itemsSection}`,
         { start: '#34d399', end: '#059669' }
       );
 
@@ -1863,6 +1948,7 @@ export async function sendEquipmentRequestApprovalNotification(requestData: any)
           from: `VSQ Inventory Management <${process.env.EMAIL_FROM || 'it@vsqclinic.com'}>`,
           to: userEmail,
         subject: `อนุมัติ คำขอเบิกอุปกรณ์ VSQ - ${subjectItemNames} จาก ${userDisplayName}`,
+          attachments: imageAttachments,
           html: userHtml
         });
         userResult = { success: true };
@@ -1927,6 +2013,9 @@ export async function sendEquipmentRequestCancellationNotification(requestData: 
       { start: '#ef4444', end: '#b91c1c' }
     );
 
+    // ✅ เตรียม attachments สำหรับรูปภาพ
+    const imageAttachments = prepareEquipmentImageAttachments(requestData.items || []);
+
     const itAdminEmails = await getITAdminEmails();
     const adminResults: Array<{ success: boolean; email: string; error?: unknown }> = [];
 
@@ -1938,6 +2027,7 @@ export async function sendEquipmentRequestCancellationNotification(requestData: 
             replyTo: userEmail || process.env.EMAIL_FROM,
             to: adminEmail,
           subject: `แจ้งยกเลิกคำขอเบิกอุปกรณ์ VSQ - ${subjectItemNames} จาก ${userDisplayName}`,
+            attachments: imageAttachments,
             html: adminHtml
           });
           adminResults.push({ success: true, email: adminEmail });
@@ -1951,7 +2041,7 @@ export async function sendEquipmentRequestCancellationNotification(requestData: 
     if (userEmail) {
       const userHtml = wrapEmail(
         '❌ ยกเลิกคำขอเบิกอุปกรณ์',
-        `${detailsSection}${reasonCallout}${itemsSection}`,
+        `${detailsSection}${reasonCallout}${userSection}${itemsSection}`,
         { start: '#ef4444', end: '#b91c1c' }
       );
 
@@ -1960,6 +2050,7 @@ export async function sendEquipmentRequestCancellationNotification(requestData: 
           from: `VSQ Inventory Management <${process.env.EMAIL_FROM || 'it@vsqclinic.com'}>`,
           to: userEmail,
         subject: `ยกเลิก คำขอเบิกอุปกรณ์ VSQ - ${subjectItemNames} จาก ${userDisplayName}`,
+          attachments: imageAttachments,
           html: userHtml
         });
         userResult = { success: true };
@@ -1986,6 +2077,13 @@ export async function sendEquipmentRequestCancellationNotification(requestData: 
 // ส่งให้ Admin และผู้ใช้เมื่อผู้ใช้ส่งฟอร์มคืน
 // ============================================
 export async function sendEquipmentReturnNotification(returnData: any) {
+  console.log('📧 [sendEquipmentReturnNotification] Function called at:', new Date().toISOString());
+  console.log('📧 [sendEquipmentReturnNotification] Return data:', {
+    firstName: returnData.firstName,
+    lastName: returnData.lastName,
+    itemsCount: returnData.items?.length
+  });
+  
   try {
     const userInfo = getUserInfo(returnData);
     const userDisplayName = getUserDisplayName(returnData);
@@ -1995,6 +2093,12 @@ export async function sendEquipmentReturnNotification(returnData: any) {
     const submittedDate = formatDateBE(returnData.returnDate || returnData.createdAt);
     const approvedDate = '-';
     const statusBadge = buildStatusBadge('⏳ รอดำเนินการ', '#f59e0b', '#000000');
+    
+    console.log('📧 [sendEquipmentReturnNotification] Prepared email data:', {
+      userDisplayName,
+      userEmail,
+      subjectItemNames
+    });
 
     const detailsSection = buildInfoTable('รายละเอียดการคืน', [
       { label: '📅 วันที่แจ้ง', value: submittedDate },
@@ -2011,21 +2115,30 @@ export async function sendEquipmentReturnNotification(returnData: any) {
       { start: '#0f62fe', end: '#0043ce' }
     );
 
+    // ✅ เตรียม attachments สำหรับรูปภาพ
+    const imageAttachments = prepareEquipmentImageAttachments(returnData.items || []);
+
     const itAdminEmails = await getITAdminEmails();
     const adminResults: Array<{ success: boolean; email: string; error?: unknown }> = [];
 
+    console.log('📧 [sendEquipmentReturnNotification] IT Admin emails found:', itAdminEmails.length);
+    
     if (itAdminEmails.length > 0) {
       for (const adminEmail of itAdminEmails) {
         try {
+          console.log('📧 [sendEquipmentReturnNotification] Sending to admin:', adminEmail);
           await transporter.sendMail({
             from: `VSQ Inventory Management <${process.env.EMAIL_FROM || 'it@vsqclinic.com'}>`,
             replyTo: userEmail || process.env.EMAIL_FROM,
             to: adminEmail,
             subject: `แจ้งคืนอุปกรณ์ VSQ - ${subjectItemNames} จาก ${userDisplayName}`,
+            attachments: imageAttachments,
             html: adminHtml
           });
+          console.log('✅ [sendEquipmentReturnNotification] Email sent to admin:', adminEmail);
           adminResults.push({ success: true, email: adminEmail });
         } catch (error) {
+          console.error('❌ [sendEquipmentReturnNotification] Failed to send to admin:', adminEmail, error);
           adminResults.push({ success: false, email: adminEmail, error });
         }
       }
@@ -2033,23 +2146,30 @@ export async function sendEquipmentReturnNotification(returnData: any) {
 
     let userResult: { success: boolean; error?: unknown } = { success: false };
     if (userEmail) {
+      console.log('📧 [sendEquipmentReturnNotification] Preparing user email for:', userEmail);
       const userHtml = wrapEmail(
         '📦 ยืนยันคำขอคืนอุปกรณ์',
-        `${detailsSection}${itemsSection}`,
+        `${detailsSection}${userSection}${itemsSection}`,
         { start: '#34d399', end: '#059669' }
       );
 
       try {
+        console.log('📧 [sendEquipmentReturnNotification] Sending to user:', userEmail);
         await transporter.sendMail({
           from: `VSQ Inventory Management <${process.env.EMAIL_FROM || 'it@vsqclinic.com'}>`,
           to: userEmail,
           subject: `ยืนยัน คำขอคืนอุปกรณ์ VSQ - ${subjectItemNames} จาก ${userDisplayName}`,
+          attachments: imageAttachments,
           html: userHtml
         });
+        console.log('✅ [sendEquipmentReturnNotification] Email sent to user:', userEmail);
         userResult = { success: true };
       } catch (error) {
+        console.error('❌ [sendEquipmentReturnNotification] Failed to send to user:', userEmail, error);
         userResult = { success: false, error };
       }
+    } else {
+      console.log('⚠️ [sendEquipmentReturnNotification] No user email provided');
     }
 
     return {
@@ -2104,6 +2224,9 @@ export async function sendEquipmentReturnApprovalNotification(returnData: any) {
       { start: '#0f62fe', end: '#0043ce' }
     );
 
+    // ✅ เตรียม attachments สำหรับรูปภาพ
+    const imageAttachments = prepareEquipmentImageAttachments(returnData.items || []);
+
     const itAdminEmails = await getITAdminEmails();
     const adminResults: Array<{ success: boolean; email: string; error?: unknown }> = [];
 
@@ -2115,6 +2238,7 @@ export async function sendEquipmentReturnApprovalNotification(returnData: any) {
             replyTo: userEmail || process.env.EMAIL_FROM,
             to: adminEmail,
             subject: `แจ้งอนุมัติคืนอุปกรณ์ VSQ - ${subjectItemNames} จาก ${userDisplayName}`,
+            attachments: imageAttachments,
             html: adminHtml
           });
           adminResults.push({ success: true, email: adminEmail });
@@ -2128,7 +2252,7 @@ export async function sendEquipmentReturnApprovalNotification(returnData: any) {
     if (userEmail) {
       const userHtml = wrapEmail(
         '✅ อนุมัติคำขอคืนอุปกรณ์',
-        `${detailsSection}${itemsSection}`,
+        `${detailsSection}${userSection}${itemsSection}`,
         { start: '#34d399', end: '#059669' }
       );
 
@@ -2137,6 +2261,7 @@ export async function sendEquipmentReturnApprovalNotification(returnData: any) {
           from: `VSQ Inventory Management <${process.env.EMAIL_FROM || 'it@vsqclinic.com'}>`,
           to: userEmail,
           subject: `อนุมัติ คำขอคืนอุปกรณ์ VSQ - ${subjectItemNames} จาก ${userDisplayName}`,
+          attachments: imageAttachments,
           html: userHtml
         });
         userResult = { success: true };
@@ -2201,6 +2326,9 @@ export async function sendEquipmentReturnCancellationNotification(returnData: an
       { start: '#ef4444', end: '#b91c1c' }
     );
 
+    // ✅ เตรียม attachments สำหรับรูปภาพ
+    const imageAttachments = prepareEquipmentImageAttachments(returnData.items || []);
+
     const itAdminEmails = await getITAdminEmails();
     const adminResults: Array<{ success: boolean; email: string; error?: unknown }> = [];
 
@@ -2212,6 +2340,7 @@ export async function sendEquipmentReturnCancellationNotification(returnData: an
             replyTo: userEmail || process.env.EMAIL_FROM,
             to: adminEmail,
             subject: `แจ้งยกเลิกคำขอคืนอุปกรณ์ VSQ - ${subjectItemNames} จาก ${userDisplayName}`,
+            attachments: imageAttachments,
             html: adminHtml
           });
           adminResults.push({ success: true, email: adminEmail });
@@ -2225,7 +2354,7 @@ export async function sendEquipmentReturnCancellationNotification(returnData: an
     if (userEmail) {
       const userHtml = wrapEmail(
         '❌ ยกเลิกคำขอคืนอุปกรณ์',
-        `${detailsSection}${reasonCallout}${itemsSection}`,
+        `${detailsSection}${reasonCallout}${userSection}${itemsSection}`,
         { start: '#ef4444', end: '#b91c1c' }
       );
 
@@ -2234,6 +2363,7 @@ export async function sendEquipmentReturnCancellationNotification(returnData: an
           from: `VSQ Inventory Management <${process.env.EMAIL_FROM || 'it@vsqclinic.com'}>`,
           to: userEmail,
           subject: `ยกเลิก คำขอคืนอุปกรณ์ VSQ - ${subjectItemNames} จาก ${userDisplayName}`,
+          attachments: imageAttachments,
           html: userHtml
         });
         userResult = { success: true };

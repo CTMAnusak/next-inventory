@@ -334,9 +334,27 @@ export async function POST(
       clearAllCaches();
 
       try {
+        // ✅ Populate category names for items before sending email
+        const { getCategoryNameById } = await import('@/lib/item-name-resolver');
+        const itemsWithCategory = await Promise.all(
+          approvedItemsForEmail.map(async (item: any) => {
+            let category = item.category;
+            if (!category && item.categoryId) {
+              const categoryName = await getCategoryNameById(item.categoryId);
+              if (categoryName) {
+                category = categoryName;
+              }
+            }
+            return {
+              ...item,
+              category: category || 'ไม่ระบุ'
+            };
+          })
+        );
+
         const emailPayload = {
           ...requestLog.toObject(),
-          items: approvedItemsForEmail,
+          items: itemsWithCategory, // ใช้ items ที่มี category แล้ว
           firstName: (requestLog as any).firstName || requestLog.requesterFirstName,
           lastName: (requestLog as any).lastName || requestLog.requesterLastName,
           nickname: (requestLog as any).nickname || requestLog.requesterNickname,

@@ -11,8 +11,9 @@ export async function POST(request: NextRequest) {
   try {
     const returnData = await request.json();
     
-    // 🔍 Debug: Log the received data
-    console.log('\n📥 Received equipment return data:');
+    // 🔍 Debug: Log the received data with timestamp
+    const requestTimestamp = new Date().toISOString();
+    console.log('\n📥 [API] Received equipment return request at:', requestTimestamp);
     console.log('  User data:', {
       firstName: returnData.firstName,
       lastName: returnData.lastName,
@@ -194,6 +195,7 @@ export async function POST(request: NextRequest) {
     await newReturn.save();
 
     try {
+      console.log('📧 [API] About to send equipment return notification email at:', new Date().toISOString());
       const emailPayload = {
         ...newReturn.toObject(),
         firstName: returnData.firstName || user?.firstName,
@@ -205,8 +207,9 @@ export async function POST(request: NextRequest) {
         email: returnData.email || user?.email
       };
       await sendEquipmentReturnNotification(emailPayload);
+      console.log('✅ [API] Equipment return notification email sent successfully at:', new Date().toISOString());
     } catch (emailError) {
-      console.error('Equipment return email notification error:', emailError);
+      console.error('❌ [API] Equipment return email notification error:', emailError);
     }
 
     // ✅ Clear cache to ensure dashboard shows updated pending return status

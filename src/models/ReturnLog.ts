@@ -107,6 +107,7 @@ const ReturnLogSchema = new Schema<IReturnLog>({
 // Recommended indexes
 ReturnLogSchema.index({ returnDate: -1, createdAt: -1 });
 ReturnLogSchema.index({ userId: 1 });
+ReturnLogSchema.index({ userId: 1, 'items.approvalStatus': 1 }); // ✅ Composite index สำหรับ owned equipment query
 ReturnLogSchema.index({ 'items.approvalStatus': 1 });
 ReturnLogSchema.index({ 'items.itemId': 1 });
 

@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useState, useRef } from 'react';
 
 interface ErrorInfo {
   message: string;
@@ -30,10 +30,23 @@ export function useErrorMonitoring() {
     cls: 0,
     ttfb: 0
   });
+  
+  // ✅ Track shown errors to prevent duplicates
+  const shownErrorsRef = useRef<Set<string>>(new Set());
 
   useEffect(() => {
     // Global error handler
     const handleError = (event: ErrorEvent) => {
+      // ✅ Create error key to check for duplicates
+      const errorKey = `${event.message}-${event.filename}-${event.lineno}`;
+      
+      // ✅ Skip if this error was already shown
+      if (shownErrorsRef.current.has(errorKey)) {
+        return;
+      }
+      
+      shownErrorsRef.current.add(errorKey);
+      
       const errorInfo: ErrorInfo = {
         message: event.message,
         stack: event.error?.stack,
@@ -43,14 +56,36 @@ export function useErrorMonitoring() {
         userAgent: navigator.userAgent
       };
       
-      setErrors(prev => [...prev, errorInfo]);
+      setErrors(prev => {
+        // ✅ Check if this exact error already exists in state
+        const exists = prev.some(e => 
+          e.message === errorInfo.message && 
+          e.stack === errorInfo.stack &&
+          Math.abs(e.timestamp.getTime() - errorInfo.timestamp.getTime()) < 1000 // Within 1 second
+        );
+        if (exists) {
+          return prev;
+        }
+        return [...prev, errorInfo];
+      });
       console.error('🚨 Global Error:', errorInfo);
     };
 
     // Unhandled promise rejection handler
     const handleUnhandledRejection = (event: PromiseRejectionEvent) => {
+      // ✅ Create error key to check for duplicates
+      const reasonStr = typeof event.reason === 'object' ? JSON.stringify(event.reason) : String(event.reason);
+      const errorKey = `Unhandled Promise Rejection: ${reasonStr}`;
+      
+      // ✅ Skip if this error was already shown
+      if (shownErrorsRef.current.has(errorKey)) {
+        return;
+      }
+      
+      shownErrorsRef.current.add(errorKey);
+      
       const errorInfo: ErrorInfo = {
-        message: `Unhandled Promise Rejection: ${event.reason}`,
+        message: `Unhandled Promise Rejection: ${reasonStr}`,
         stack: event.reason?.stack,
         timestamp: new Date(),
         component: 'Promise',
@@ -58,7 +93,17 @@ export function useErrorMonitoring() {
         userAgent: navigator.userAgent
       };
       
-      setErrors(prev => [...prev, errorInfo]);
+      setErrors(prev => {
+        // ✅ Check if this exact error already exists in state
+        const exists = prev.some(e => 
+          e.message === errorInfo.message &&
+          Math.abs(e.timestamp.getTime() - errorInfo.timestamp.getTime()) < 1000 // Within 1 second
+        );
+        if (exists) {
+          return prev;
+        }
+        return [...prev, errorInfo];
+      });
       console.error('🚨 Unhandled Promise Rejection:', errorInfo);
     };
 
