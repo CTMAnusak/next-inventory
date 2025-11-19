@@ -64,7 +64,7 @@ export default function Layout({ children }: LayoutProps) {
 
               {/* User menu */}
               <div className="flex items-center space-x-4">
-                <div className="flex items-center space-x-3 bg-blue-50 px-4 py-2 rounded-full mr-2 min-[410px]:mr-4">
+                <div className="flex items-center space-x-3 bg-blue-50 px-4 py-2 rounded-full mr-2 min-[510px]:mr-4">
                   <div className="w-8 h-8 bg-blue-500 rounded-full flex items-center justify-center">
                     <User className="h-4 w-4 text-white" />
                   </div>
@@ -79,10 +79,10 @@ export default function Layout({ children }: LayoutProps) {
                 </div>
                 <button
                   onClick={handleLogout}
-                  className="flex items-center space-x-2 px-3 py-3 min-[410px]:px-4 min-[410px]:py-2 text-sm text-red-600 hover:text-red-700 hover:bg-red-50 rounded-xl transition-all duration-200 border border-red-200 hover:border-red-300"
+                  className="flex items-center space-x-2 px-3 py-3 min-[510px]:px-4 min-[510px]:py-2 text-sm text-red-600 hover:text-red-700 hover:bg-red-50 rounded-xl transition-all duration-200 border border-red-200 hover:border-red-300"
                 >
-                  <LogOut className="h-4 w-4 mr-0 min-[410px]:mr-2" />
-                  <span className="hidden min-[410px]:inline-block">ออกจากระบบ</span>
+                  <LogOut className="h-4 w-4 mr-0 min-[510px]:mr-2" />
+                  <span className="hidden min-[510px]:inline-block">ออกจากระบบ</span>
                 </button>
               </div>
             </div>

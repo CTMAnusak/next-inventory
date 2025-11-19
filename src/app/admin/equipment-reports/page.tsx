@@ -1740,11 +1740,11 @@ export default function AdminEquipmentReportsPage() {
         <div className="bg-white/90 backdrop-blur-sm rounded-2xl shadow-xl p-8 border border-white/50">
           {/* Header */}
           <div className="flex flex-col justify-between items-center mb-7 xl:flex-row">
-            <h1 className="text-2xl font-semibold text-gray-900 pb-5 xl:pb-0">รายงานการเบิก/คืนอุปกรณ์</h1>
+            <h1 className="text-2xl text-center xl:text-left font-semibold text-gray-900 pb-5 xl:pb-0">รายงานการเบิก/คืนอุปกรณ์</h1>
             <div className="flex flex-wrap justify-center gap-4 w-full xl:w-auto">
               <button
                 onClick={() => setShowFilters(!showFilters)}
-                className="w-full min-[400px]:w-3/5 min-[481px]:w-auto flex items-center justify-center space-x-2 px-4 py-2 bg-gray-100 text-gray-700 rounded-lg hover:bg-gray-200 transition-colors"
+                className="w-full min-[481px]:w-auto flex items-center justify-center space-x-2 px-4 py-2 bg-gray-100 text-gray-700 rounded-lg hover:bg-gray-200 transition-colors"
               >
                 <Filter className="w-4 h-4" />
                 <span>ฟิลเตอร์</span>
@@ -1755,7 +1755,7 @@ export default function AdminEquipmentReportsPage() {
                   fetchInventoryData();
                 }}
                 disabled={loading}
-                className="w-full min-[400px]:w-3/5 min-[481px]:w-auto flex items-center justify-center space-x-2 px-4 py-2 bg-blue-100 text-blue-700 rounded-lg hover:bg-blue-200 transition-colors disabled:opacity-50"
+                className="w-full min-[481px]:w-auto flex items-center justify-center space-x-2 px-4 py-2 bg-blue-100 text-blue-700 rounded-lg hover:bg-blue-200 transition-colors disabled:opacity-50"
               >
                 <RefreshCw className={`w-4 h-4 ${loading ? 'animate-spin' : ''}`} />
                 <span>รีเฟรช</span>
@@ -1764,7 +1764,7 @@ export default function AdminEquipmentReportsPage() {
               <button
                 onClick={exportToExcel}
                 disabled={loading || displayRows.length === 0}
-                className="w-full min-[400px]:w-3/5 min-[481px]:w-auto flex items-center justify-center space-x-2 px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                className="w-full min-[481px]:w-auto flex items-center justify-center space-x-2 px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
                 title={displayRows.length === 0 ? 'ไม่มีข้อมูลให้ Export' : 'Export ข้อมูลเป็น Excel'}
               >
                 <Download className="w-4 h-4" />

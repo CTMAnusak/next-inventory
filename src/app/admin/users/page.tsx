@@ -1009,11 +1009,11 @@ export default function AdminUsersPage() {
       <div className="max-w-full mx-auto">
         <div className="bg-white/90 backdrop-blur-sm rounded-2xl shadow-xl p-8 border border-white/50">
           {/* Header */}
-          <div className="flex justify-between items-center mb-6 flex-col md:flex-row ">
-            <h1 className="text-2xl font-semibold text-gray-900  mb-5 md:mb-0">จัดการผู้ใช้งาน</h1>
+          <div className="flex justify-between items-center mb-6 flex-col xl:flex-row ">
+            <h1 className="text-2xl font-semibold text-gray-900 mb-5 xl:mb-0">จัดการผู้ใช้งาน</h1>
             
             {/* Action Buttons */}
-            <div className="flex max-[470px]:flex-col max-[470px]:gap-3 max-[470px]:w-4/5 space-x-4 max-[470px]:space-x-0">
+            <div className="flex flex-wrap justify-center max-[470px]:flex-col gap-2 max-[724px]:gap-3 max-[724px]:w-4/5">
               <button
                 onClick={() => setShowOfficeModal(true)}
                 className="flex justify-center items-center space-x-2 px-4 py-2 bg-purple-600 text-white rounded-lg hover:bg-purple-700 transition-colors"

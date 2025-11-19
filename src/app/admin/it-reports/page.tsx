@@ -849,7 +849,7 @@ export default function AdminITReportsPage() {
         <div className="bg-white/90 backdrop-blur-sm rounded-2xl shadow-xl p-8 border border-white/50">
           {/* Header */}
           <div className="flex flex-col justify-between items-center mb-7 xl:flex-row">
-            <h1 className="text-2xl font-semibold text-gray-900 pb-5 xl:pb-0">รายงานแจ้งงาน IT</h1> 
+            <h1 className="text-2xl text-center xl:text-left font-semibold text-gray-900 pb-5 xl:pb-0">รายงานแจ้งงาน IT</h1> 
             <div className="flex flex-wrap justify-center gap-4 w-full xl:w-auto">
               <button
                 onClick={() => setShowFilters(!showFilters)}

@@ -481,14 +481,14 @@ export default function AdminEquipmentTrackingPage() {
       <div className="max-w-full mx-auto">
         <div className="bg-white/90 backdrop-blur-sm rounded-2xl shadow-xl px-4 py-6 md:p-8 border border-white/50">
           {/* Header */}
-          <div className="flex justify-between items-center mb-6  flex-col lg:flex-row ">
-            <div className="text-center lg:text-left mb-5 lg:mb-0">
+          <div className="flex justify-between items-center mb-6  flex-col xl:flex-row ">
+            <div className="text-center xl:text-left mb-5 xl:mb-0">
               <h1 className="text-2xl font-semibold text-gray-900">ติดตามอุปกรณ์</h1>
               <p className="text-gray-600 mt-1">
                 ค้นหาและติดตามว่าใครเบิกอุปกรณ์อะไรไป
               </p>
             </div>
-            <div className="flex justify-center space-x-0 sm:space-x-4 flex-wrap gap-4 sm:gap-2">
+            <div className="flex flex-col sm:flex-row justify-center space-x-0 sm:space-x-2 flex-wrap gap-2 w-4/5 min-[401px]:w-3/5 min-[640px]:w-auto">
               <button
                 onClick={() => setShowFilters(!showFilters)}
                 className="flex items-center space-x-2 px-4 py-2 bg-gray-100 text-gray-700 rounded-lg hover:bg-gray-200 transition-colors"
