@@ -51,6 +51,7 @@ interface ITIssue {
   completedDate?: string;
   closedDate?: string;
   updatedAt?: string;
+  userType?: 'individual' | 'branch'; // เพิ่มประเภทผู้ใช้
   assignedAdmin?: {
     name: string;
     email: string;
@@ -119,6 +120,7 @@ export default function AdminITReportsPage() {
   const [nameFilter, setNameFilter] = useState(''); // ชื่อ, นามสกุล, ชื่อเล่น
   const [emailFilter, setEmailFilter] = useState(''); // อีเมล
   const [phoneFilter, setPhoneFilter] = useState(''); // เบอร์โทรศัพท์
+  const [userTypeFilter, setUserTypeFilter] = useState(''); // ประเภทผู้ใช้
   const [urgencyFilter, setUrgencyFilter] = useState('');
   const [categoryFilter, setCategoryFilter] = useState('');
   const [adminFilter, setAdminFilter] = useState(''); // IT Admin ผู้รับงาน
@@ -187,7 +189,7 @@ export default function AdminITReportsPage() {
 
   useEffect(() => {
     applyFilters();
-  }, [issues, nameFilter, emailFilter, phoneFilter, urgencyFilter, categoryFilter, adminFilter, dateFilter, monthFilter, yearFilter]);
+  }, [issues, nameFilter, emailFilter, phoneFilter, userTypeFilter, urgencyFilter, categoryFilter, adminFilter, dateFilter, monthFilter, yearFilter]);
 
   // Handle escape key to close image modal
   useEffect(() => {
@@ -258,6 +260,7 @@ export default function AdminITReportsPage() {
     setNameFilter('');
     setEmailFilter('');
     setPhoneFilter('');
+    setUserTypeFilter('');
     setUrgencyFilter('');
     setCategoryFilter('');
     setAdminFilter('');
@@ -356,6 +359,10 @@ export default function AdminITReportsPage() {
       const matchesPhone = !phoneFilter || 
         issue.phone.includes(phoneFilter);
 
+      // Filter by user type
+      const matchesUserType = !userTypeFilter || 
+        issue.userType === userTypeFilter;
+
       // Urgency filter
       const matchesUrgency = !urgencyFilter || issue.urgency === urgencyFilter;
 
@@ -385,7 +392,7 @@ export default function AdminITReportsPage() {
         }
       }
 
-      return matchesName && matchesEmail && matchesPhone && matchesUrgency && matchesCategory && matchesAdmin && matchesDate && matchesMonthYear;
+      return matchesName && matchesEmail && matchesPhone && matchesUserType && matchesUrgency && matchesCategory && matchesAdmin && matchesDate && matchesMonthYear;
     });
 
     // Server already sorts by urgency and date
@@ -515,22 +522,9 @@ export default function AdminITReportsPage() {
 
   const exportToExcel = async () => {
     try {
-      toast.loading('กำลังโหลดข้อมูลทั้งหมด...', { id: 'export-loading' });
-
-      // Fetch all data for export (bypass pagination)
-      const params = new URLSearchParams({
-        all: 'true',
-        status: activeTab,
-      });
-      if (searchTerm) params.append('search', searchTerm);
-
-      const response = await fetch(`/api/admin/it-reports?${params.toString()}`);
-      if (!response.ok) {
-        throw new Error('Failed to fetch data');
-      }
-
-      const data = await response.json();
-      const allIssues = data.issues || [];
+      // ✅ ใช้ filteredIssues ที่ filter แล้วใน client-side แทนการเรียก API ใหม่
+      // เพื่อให้ export ตามฟิลเตอร์ที่เลือก
+      const allIssues = filteredIssues;
 
       if (allIssues.length === 0) {
         toast.error('ไม่มีข้อมูลให้ Export', { id: 'export-loading' });
@@ -550,6 +544,7 @@ export default function AdminITReportsPage() {
         { header: 'วันที่แจ้ง', key: 'reportDate', width: 15 },
         { header: 'ความเร่งด่วน', key: 'urgency', width: 12 },
         { header: 'Issue ID', key: 'issueId', width: 15 },
+        { header: 'ประเภทผู้ใช้', key: 'userType', width: 12 },
         { header: 'ชื่อ-นามสกุล', key: 'name', width: 25 },
         { header: 'เบอร์โทร', key: 'phone', width: 15 },
         { header: 'อีเมล', key: 'email', width: 25 },
@@ -604,6 +599,7 @@ export default function AdminITReportsPage() {
           reportDate: new Date(issue.reportDate).toLocaleDateString('th-TH', { timeZone: 'Asia/Bangkok' }),
           urgency: issue.urgency === 'very_urgent' ? 'ด่วนมาก' : 'ปกติ',
           issueId: issue.issueId,
+          userType: issue.userType === 'branch' ? 'สาขา' : 'บุคคล',
           name: fullName,
           phone: issue.phone,
           email: issue.email,
@@ -844,7 +840,7 @@ export default function AdminITReportsPage() {
   const endIndex = Math.min(startIndex + itemsPerPage, totalItems);
 
   const getNoDataColSpan = () => {
-    return activeTab === 'completed' ? 11 : 10;
+    return activeTab === 'completed' ? 12 : 11; // เพิ่ม 1 เพื่อรองรับคอลัมน์ประเภทผู้ใช้
   };
 
   return (
@@ -955,6 +951,23 @@ export default function AdminITReportsPage() {
                   </div>
                 </div>
 
+                {/* User Type Filter */}
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">
+                    ประเภทผู้ใช้
+                  </label>
+                  <SearchableSelect
+                    options={[
+                      { value: '', label: 'ทั้งหมด' },
+                      { value: 'branch', label: 'สาขา' },
+                      { value: 'individual', label: 'บุคคล' }
+                    ]}
+                    value={userTypeFilter}
+                    onChange={setUserTypeFilter}
+                    placeholder="ทั้งหมด"
+                  />
+                </div>
+
                 {/* Urgency Filter */}
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-1">
@@ -1039,7 +1052,7 @@ export default function AdminITReportsPage() {
               </div>
 
               {/* Clear Filters Button */}
-              {(searchTerm || nameFilter || emailFilter || phoneFilter || urgencyFilter || categoryFilter || adminFilter || dateFilter || monthFilter || yearFilter) && (
+              {(searchTerm || nameFilter || emailFilter || phoneFilter || userTypeFilter || urgencyFilter || categoryFilter || adminFilter || dateFilter || monthFilter || yearFilter) && (
                 <div className="flex justify-end">
                   <button
                     onClick={clearAllFilters}
@@ -1104,6 +1117,9 @@ export default function AdminITReportsPage() {
                     Issue ID
                   </th>
                   <th className="px-6 py-3 text-center text-xs font-medium text-white uppercase tracking-wider">
+                    ประเภทผู้ใช้
+                  </th>
+                  <th className="px-6 py-3 text-center text-xs font-medium text-white uppercase tracking-wider">
                     ชื่อ-นามสกุล
                   </th>
                   <th className="px-6 py-3 text-center text-xs font-medium text-white uppercase tracking-wider">
@@ -1164,6 +1180,18 @@ export default function AdminITReportsPage() {
                     <td className="px-6 py-4 text-sm font-medium text-blue-600 text-center text-selectable">
                       {issue.issueId}
                     </td>
+                    {/* ประเภทผู้ใช้ */}
+                    <td className="px-6 py-4 text-sm text-center text-selectable">
+                      <span className={`inline-flex px-2 py-1 text-xs font-medium rounded-full ${
+                        issue.userType === 'branch' 
+                          ? 'bg-blue-100 text-blue-800 border border-blue-300'
+                          : 'bg-green-100 text-green-800 border border-green-300'
+                      }`}>
+                        {issue.userType === 'branch' ? 'สาขา' : 'บุคคล'}
+                      </span>
+                    </td>
+                    
+                    {/* ชื่อ-นามสกุล */}
                     <td className="px-6 py-4 text-sm text-center text-selectable">
                       <div className={
                         (issue as any).userId?.pendingDeletion 

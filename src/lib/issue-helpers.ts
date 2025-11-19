@@ -165,6 +165,7 @@ export async function populateRequesterInfo(issue: any) {
             // เฉพาะสาขาใช้จาก snapshot (ข้อมูลล่าสุดก่อนลบ)
             office: finalOffice,
             officeName: finalOffice,
+            userType: deletedUser.userType, // เพิ่มประเภทผู้ใช้
           };
         } else {
           // ผู้ใช้บุคคล: ใช้ข้อมูลจาก DeletedUsers เป็นหลัก (ข้อมูลล่าสุดก่อนลบ)
@@ -187,6 +188,7 @@ export async function populateRequesterInfo(issue: any) {
             officeName: finalOffice,
             phone: deletedUser.phone || issueObj.phone,
             email: deletedUser.email || issueObj.email,
+            userType: deletedUser.userType, // เพิ่มประเภทผู้ใช้
           };
         }
       }
@@ -239,6 +241,7 @@ export async function populateRequesterInfo(issue: any) {
         ...issueObj,
         office: finalOffice,
         officeName: finalOffice,
+        userType: user.userType, // เพิ่มประเภทผู้ใช้
         // ✅ firstName, lastName, nickname, department, phone, email → ใช้จากฟอร์มที่กรอก (issueObj)
         // ⚠️ ไม่ populate จาก User collection เพราะเป็นข้อมูลส่วนตัวที่เปลี่ยนไปตามคนที่มาแจ้งงาน
       };
@@ -299,6 +302,7 @@ export async function populateRequesterInfo(issue: any) {
         office: finalOffice, // 🆕 ใช้ข้อมูลล่าสุดจาก User collection
         phone: user.phone || issueObj.phone,
         email: user.email || issueObj.email,
+        userType: user.userType, // เพิ่มประเภทผู้ใช้
       };
     }
 
@@ -306,6 +310,7 @@ export async function populateRequesterInfo(issue: any) {
     return {
       ...issueObj,
       office: userOffice || issueObj.office || '-', // 🆕 ใช้ officeName ที่ populate แล้ว
+      userType: user.userType || 'individual', // เพิ่มประเภทผู้ใช้ (default เป็น individual)
       // ใช้ข้อมูลจากฟอร์มเพื่อความปลอดภัย
     };
   } catch (error) {

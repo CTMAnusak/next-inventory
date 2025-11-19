@@ -474,7 +474,7 @@ export default function ITReportPage() {
                   <Upload className="mx-auto h-12 w-12 text-gray-400" />
                   <div className="flex text-sm text-gray-600">
                     <label className="relative cursor-pointer bg-white rounded-md font-medium text-blue-600 hover:text-blue-500 focus-within:outline-none focus-within:ring-2 focus-within:ring-offset-2 focus-within:ring-blue-500">
-                      <span>เลือกไฟล์</span>
+                      <span>เลือกไฟล์รูปภาพ</span>
                       <input
                         type="file"
                         className="sr-only"

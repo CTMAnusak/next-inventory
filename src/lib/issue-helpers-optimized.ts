@@ -118,6 +118,7 @@ export async function populateIssueInfoBatchOptimized(issues: any[]) {
             ...result,
             office: finalOffice,
             officeName: finalOffice,
+            userType: user.userType, // เพิ่มประเภทผู้ใช้
           };
         } else if (user.userType === 'individual') {
           // Individual user: populate all from user collection
@@ -133,6 +134,7 @@ export async function populateIssueInfoBatchOptimized(issues: any[]) {
             officeName: finalOffice,
             phone: user.phone || issue.phone,
             email: user.email || issue.email,
+            userType: user.userType, // เพิ่มประเภทผู้ใช้
           };
         }
       }

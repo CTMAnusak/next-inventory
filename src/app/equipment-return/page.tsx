@@ -1837,7 +1837,7 @@ export default function EquipmentReturnPage() {
                                   onClick={() => handleFileChange(null)}
                                   className="text-red-600 hover:text-red-800 text-sm"
                                 >
-                                  ลบไฟล์
+                                  ลบไฟล์รูปภาพ
                                 </button>
                               </div>
                             ) : (

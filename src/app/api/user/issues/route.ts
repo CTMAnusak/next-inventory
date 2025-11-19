@@ -71,6 +71,7 @@ export async function GET(request: NextRequest) {
         assignedAdmin: issue.assignedAdmin, // เพิ่มข้อมูล IT Admin ที่รับงาน
         requesterType: issue.requesterType,
         requesterId: issue.requesterId,
+        userType: issue.userType, // เพิ่มประเภทผู้ใช้
         // เพิ่มข้อมูล feedback ที่หายไป
         userFeedback: issue.userFeedback,
         userFeedbackHistory: issue.userFeedbackHistory || [],

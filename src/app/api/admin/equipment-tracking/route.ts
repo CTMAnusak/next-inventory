@@ -357,6 +357,7 @@ export async function GET(request: NextRequest) {
           office: userOffice,   // จาก User collection
           phone: userPhone,     // จาก User collection
           pendingDeletion: user?.pendingDeletion || false,
+          userType: user?.userType || 'individual', // เพิ่มประเภทผู้ใช้
           itemId: String(item._id),
           itemName: finalItemName, // 🆕 ใช้ snapshot หรือ real-time
           currentItemName: finalItemName, // 🆕 ใช้ snapshot หรือ real-time

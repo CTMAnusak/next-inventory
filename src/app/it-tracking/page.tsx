@@ -34,6 +34,7 @@ interface IssueItem {
   closedDate?: string;
   notes?: string;
   images?: string[];
+  userType?: 'individual' | 'branch'; // เพิ่มประเภทผู้ใช้
   assignedAdmin?: {
     name: string;
     email: string;
@@ -79,6 +80,7 @@ export default function ITTrackingPage() {
   const [nameFilter, setNameFilter] = useState(''); // ชื่อ, นามสกุล, ชื่อเล่น
   const [emailFilter, setEmailFilter] = useState(''); // อีเมล
   const [phoneFilter, setPhoneFilter] = useState(''); // เบอร์โทรศัพท์
+  const [userTypeFilter, setUserTypeFilter] = useState(''); // ประเภทผู้ใช้
   const [urgencyFilter, setUrgencyFilter] = useState('');
   const [categoryFilter, setCategoryFilter] = useState('');
   const [adminFilter, setAdminFilter] = useState('');
@@ -157,6 +159,7 @@ export default function ITTrackingPage() {
     setNameFilter('');
     setEmailFilter('');
     setPhoneFilter('');
+    setUserTypeFilter('');
     setDateFilter('');
     setUrgencyFilter('');
     setCategoryFilter('');
@@ -309,6 +312,11 @@ export default function ITTrackingPage() {
       if (!issue.phone.includes(phoneFilter)) return false;
     }
 
+    // Filter by user type
+    if (userTypeFilter) {
+      if (issue.userType !== userTypeFilter) return false;
+    }
+
     // Filter by date (วันที่แจ้งงาน)
     if (dateFilter) {
       const issueDate = new Date(issue.reportDate).toISOString().split('T')[0];
@@ -367,7 +375,7 @@ export default function ITTrackingPage() {
   // Reset to page 1 when changing tabs or filters
   useEffect(() => {
     setCurrentPage(1);
-  }, [activeTab, searchTerm, nameFilter, emailFilter, phoneFilter, dateFilter, urgencyFilter, categoryFilter, adminFilter, statusFilter, monthFilter, yearFilter]);
+  }, [activeTab, searchTerm, nameFilter, emailFilter, phoneFilter, userTypeFilter, dateFilter, urgencyFilter, categoryFilter, adminFilter, statusFilter, monthFilter, yearFilter]);
 
   // Get unique admins from issues
   const getUniqueAdmins = () => {
@@ -530,6 +538,23 @@ export default function ITTrackingPage() {
                   </div>
                 </div>
 
+                {/* User Type Filter */}
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">
+                    ประเภทผู้ใช้
+                  </label>
+                  <SearchableSelect
+                    options={[
+                      { value: '', label: 'ทั้งหมด' },
+                      { value: 'branch', label: 'สาขา' },
+                      { value: 'individual', label: 'บุคคล' }
+                    ]}
+                    value={userTypeFilter}
+                    onChange={setUserTypeFilter}
+                    placeholder="ทั้งหมด"
+                  />
+                </div>
+
                 {/* Urgency Filter */}
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-1">
@@ -624,7 +649,7 @@ export default function ITTrackingPage() {
               </div>
 
               {/* Clear Filters Button */}
-              {(searchTerm || nameFilter || emailFilter || phoneFilter || dateFilter || urgencyFilter || categoryFilter || adminFilter || statusFilter || monthFilter || yearFilter) && (
+              {(searchTerm || nameFilter || emailFilter || phoneFilter || userTypeFilter || dateFilter || urgencyFilter || categoryFilter || adminFilter || statusFilter || monthFilter || yearFilter) && (
                 <div className="mt-4 flex justify-end">
                   <button
                     onClick={clearAllFilters}
@@ -682,6 +707,7 @@ export default function ITTrackingPage() {
                     <th className="px-4 py-3 text-center text-xs font-semibold text-white uppercase tracking-wider whitespace-nowrap border-r border-blue-500">Issue ID</th>
                     <th className="px-4 py-3 text-center text-xs font-semibold text-white uppercase tracking-wider whitespace-nowrap border-r border-blue-500">วันที่แจ้งงาน</th>
                     <th className="px-4 py-3 text-center text-xs font-semibold text-white uppercase tracking-wider whitespace-nowrap border-r border-blue-500">ความเร่งด่วน</th>
+                    <th className="px-4 py-3 text-center text-xs font-semibold text-white uppercase tracking-wider whitespace-nowrap border-r border-blue-500">ประเภทผู้ใช้</th>
                     <th className="px-4 py-3 text-center text-xs font-semibold text-white uppercase tracking-wider whitespace-nowrap border-r border-blue-500">ชื่อ-นามสกุล</th>
                     <th className="px-4 py-3 text-center text-xs font-semibold text-white uppercase tracking-wider whitespace-nowrap border-r border-blue-500">เบอร์โทรศัพท์</th>
                     <th className="px-4 py-3 text-center text-xs font-semibold text-white uppercase tracking-wider whitespace-nowrap border-r border-blue-500">อีเมล</th>
@@ -729,6 +755,17 @@ export default function ITTrackingPage() {
                             : 'bg-gray-100 text-gray-700 border border-gray-300'
                         }`}>
                           {issue.urgency === 'very_urgent' ? 'ด่วนมาก' : 'ปกติ'}
+                        </span>
+                      </td>
+                      
+                      {/* ประเภทผู้ใช้ */}
+                      <td className="px-4 py-3 whitespace-nowrap text-sm text-gray-900 text-center border-r border-gray-200">
+                        <span className={`inline-flex px-2 py-1 text-xs font-medium rounded-full ${
+                          issue.userType === 'branch' 
+                            ? 'bg-blue-100 text-blue-800 border border-blue-300'
+                            : 'bg-green-100 text-green-800 border border-green-300'
+                        }`}>
+                          {issue.userType === 'branch' ? 'สาขา' : 'บุคคล'}
                         </span>
                       </td>
                       

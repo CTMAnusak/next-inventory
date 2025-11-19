@@ -33,6 +33,7 @@ interface EquipmentTracking {
   office: string;
   phone: string;
   pendingDeletion?: boolean;
+  userType?: 'individual' | 'branch'; // เพิ่มประเภทผู้ใช้
   itemId: string;
   itemName: string;
   currentItemName: string;
@@ -70,6 +71,7 @@ export default function AdminEquipmentTrackingPage() {
   const [detailFilter, setDetailFilter] = useState('');
   const [statusFilter, setStatusFilter] = useState('');
   const [conditionFilter, setConditionFilter] = useState('');
+  const [userTypeFilter, setUserTypeFilter] = useState(''); // ประเภทผู้ใช้
   const [departmentFilter, setDepartmentFilter] = useState('');
   const [officeFilter, setOfficeFilter] = useState('');
   const [dateAddedFilter, setDateAddedFilter] = useState('');
@@ -112,7 +114,7 @@ export default function AdminEquipmentTrackingPage() {
 
   useEffect(() => {
     applyFilters();
-  }, [trackingData, searchTerm, itemNameFilter, itemFilter, categoryFilter, detailFilter, statusFilter, conditionFilter, departmentFilter, officeFilter, dateAddedFilter, sourceFilter, deliveryLocationFilter, quantityFilter, monthFilter, yearFilter]);
+  }, [trackingData, searchTerm, itemNameFilter, itemFilter, categoryFilter, detailFilter, statusFilter, conditionFilter, userTypeFilter, departmentFilter, officeFilter, dateAddedFilter, sourceFilter, deliveryLocationFilter, quantityFilter, monthFilter, yearFilter]);
 
   const fetchTrackingData = async (page: number = 1) => {
     setLoading(true);
@@ -184,6 +186,9 @@ export default function AdminEquipmentTrackingPage() {
       // Condition filter
       const matchesCondition = !conditionFilter || record.condition === conditionFilter;
 
+      // User Type filter
+      const matchesUserType = !userTypeFilter || record.userType === userTypeFilter;
+
       // Department filter - ✅ แก้ไข: ใช้ exact match แทน substring
       const matchesDepartment = !departmentFilter || (record.department && record.department.toLowerCase() === departmentFilter.toLowerCase());
 
@@ -222,7 +227,7 @@ export default function AdminEquipmentTrackingPage() {
       }
 
       return matchesSearch && matchesItemName && matchesItem && matchesCategory && matchesDetail && matchesStatus && 
-             matchesCondition && matchesDepartment && matchesOffice && 
+             matchesCondition && matchesUserType && matchesDepartment && matchesOffice && 
              matchesDateAdded && matchesSource && matchesDeliveryLocation && matchesQuantity && matchesMonthYear;
     });
 
@@ -238,6 +243,7 @@ export default function AdminEquipmentTrackingPage() {
     setDetailFilter('');
     setStatusFilter('');
     setConditionFilter('');
+    setUserTypeFilter('');
     setDepartmentFilter('');
     setOfficeFilter('');
     setDateAddedFilter('');
@@ -275,6 +281,7 @@ export default function AdminEquipmentTrackingPage() {
           'สถานะ': record.statusName || record.status || 'ไม่ระบุ',
           'สภาพ': record.conditionName || record.condition || 'ไม่ระบุ',
           'วันที่เพิ่มอุปกรณ์': `${dateString} ${timeString}`,
+          'ประเภทผู้ใช้': record.userType === 'branch' ? 'สาขา' : 'บุคคล',
           'ชื่อ': record.firstName || '-',
           'นามสกุล': record.lastName || '-',
           'ชื่อเล่น': record.nickname || '-',
@@ -299,6 +306,7 @@ export default function AdminEquipmentTrackingPage() {
         { wch: 12 }, // สถานะ
         { wch: 12 }, // สภาพ
         { wch: 22 }, // วันที่เพิ่มอุปกรณ์
+        { wch: 12 }, // ประเภทผู้ใช้
         { wch: 15 }, // ชื่อ
         { wch: 15 }, // นามสกุล
         { wch: 12 }, // ชื่อเล่น
@@ -620,18 +628,6 @@ export default function AdminEquipmentTrackingPage() {
                 
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-1">
-                    แผนก
-                  </label>
-                  <SearchableSelect
-                    options={departmentOptions}
-                    value={departmentFilter}
-                    onChange={setDepartmentFilter}
-                    placeholder="ทั้งหมด"
-                  />
-                </div>
-                
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">
                     จำนวน
                   </label>
                   <input
@@ -641,6 +637,34 @@ export default function AdminEquipmentTrackingPage() {
                     placeholder="ทั้งหมด"
                     min="1"
                     className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 text-gray-900"
+                  />
+                </div>
+                
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">
+                    ประเภทผู้ใช้
+                  </label>
+                  <SearchableSelect
+                    options={[
+                      { value: '', label: 'ทั้งหมด' },
+                      { value: 'branch', label: 'สาขา' },
+                      { value: 'individual', label: 'บุคคล' }
+                    ]}
+                    value={userTypeFilter}
+                    onChange={setUserTypeFilter}
+                    placeholder="ทั้งหมด"
+                  />
+                </div>
+                
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">
+                    แผนก
+                  </label>
+                  <SearchableSelect
+                    options={departmentOptions}
+                    value={departmentFilter}
+                    onChange={setDepartmentFilter}
+                    placeholder="ทั้งหมด"
                   />
                 </div>
                 
@@ -758,6 +782,9 @@ export default function AdminEquipmentTrackingPage() {
                     </th>
                     <th className="px-6 py-3 text-center text-xs font-medium text-white uppercase tracking-wider">
                       วันที่เพิ่มอุปกรณ์
+                    </th>
+                    <th className="px-6 py-3 text-center text-xs font-medium text-white uppercase tracking-wider">
+                      ประเภทผู้ใช้
                     </th>
                     <th className="px-6 py-3 text-center text-xs font-medium text-white uppercase tracking-wider">
                       ชื่อ-นามสกุล (ชื่อเล่น)
@@ -885,7 +912,18 @@ export default function AdminEquipmentTrackingPage() {
                           </div>
                         </td>
                         
-                        {/* 7. ชื่อ-นามสกุล (ชื่อเล่น) */}
+                        {/* 7. ประเภทผู้ใช้ */}
+                        <td className="px-6 py-4 whitespace-nowrap text-center">
+                          <span className={`inline-flex px-2 py-1 text-xs font-medium rounded-full ${
+                            record.userType === 'branch' 
+                              ? 'bg-blue-100 text-blue-800 border border-blue-300'
+                              : 'bg-green-100 text-green-800 border border-green-300'
+                          }`}>
+                            {record.userType === 'branch' ? 'สาขา' : 'บุคคล'}
+                          </span>
+                        </td>
+                        
+                        {/* 8. ชื่อ-นามสกุล (ชื่อเล่น) */}
                         <td className="px-6 py-4 whitespace-nowrap text-center">
                           <div className="flex items-center justify-center">
                             <div className="text-center">

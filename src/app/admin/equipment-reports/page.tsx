@@ -159,6 +159,7 @@ export default function AdminEquipmentReportsPage() {
 
   // Search and filter states
   const [searchTerm, setSearchTerm] = useState('');
+  const [userTypeFilter, setUserTypeFilter] = useState(''); // ประเภทผู้ใช้
   const [itemNameFilter, setItemNameFilter] = useState('');
   const [categoryFilter, setCategoryFilter] = useState('');
   const [statusFilter, setStatusFilter] = useState('');
@@ -220,7 +221,7 @@ export default function AdminEquipmentReportsPage() {
 
   useEffect(() => {
     applyFilters();
-  }, [requestLogs, returnLogs, activeTab, searchTerm, itemNameFilter, categoryFilter, statusFilter, conditionFilter, departmentFilter, officeFilter, serialNumberFilter, phoneNumberFilter, emailFilter, assetNumberFilter, deliveryLocationFilter, urgencyFilter, dateFromFilter, dateToFilter, monthFilter, yearFilter]);
+  }, [requestLogs, returnLogs, activeTab, searchTerm, userTypeFilter, itemNameFilter, categoryFilter, statusFilter, conditionFilter, departmentFilter, officeFilter, serialNumberFilter, phoneNumberFilter, emailFilter, assetNumberFilter, deliveryLocationFilter, urgencyFilter, dateFromFilter, dateToFilter, monthFilter, yearFilter]);
 
 
 
@@ -624,6 +625,7 @@ export default function AdminEquipmentReportsPage() {
   // ฟังก์ชันรีเซทค่าฟิลเตอร์ทั้งหมดกลับเป็นค่าเริ่มต้น
   const resetFilters = () => {
     setSearchTerm('');
+    setUserTypeFilter('');
     setItemNameFilter('');
     setCategoryFilter('');
     setStatusFilter('');
@@ -655,6 +657,10 @@ export default function AdminEquipmentReportsPage() {
         (item.firstName && item.firstName.toLowerCase().includes(searchTerm.toLowerCase())) ||
         (item.lastName && item.lastName.toLowerCase().includes(searchTerm.toLowerCase())) ||
         (item.nickname && item.nickname.toLowerCase().includes(searchTerm.toLowerCase()));
+
+      // User Type filter
+      const matchesUserType = !userTypeFilter || 
+        ((item as any).userInfo?.userType === userTypeFilter);
 
       // Item Name filter - ใช้ exact match (case-insensitive)
       const matchesItemName = !itemNameFilter || 
@@ -911,7 +917,7 @@ export default function AdminEquipmentReportsPage() {
         }
       }
 
-      return matchesSearch && matchesItemName && matchesCategory && matchesStatus && 
+      return matchesSearch && matchesUserType && matchesItemName && matchesCategory && matchesStatus && 
              matchesCondition && matchesDepartment && matchesOffice && 
              matchesSerialNumber && matchesPhoneNumber && matchesEmail && matchesAssetNumber &&
              matchesDeliveryLocation && matchesUrgency && matchesRequestDate && matchesReturnDate &&
@@ -1275,6 +1281,7 @@ export default function AdminEquipmentReportsPage() {
           { header: 'วันที่เบิก', key: 'requestDate', width: 15 },
           { header: 'วันที่อนุมัติ', key: 'approvedDate', width: 15 },
           { header: 'ความเร่งด่วน', key: 'urgency', width: 12 },
+          { header: 'ประเภทผู้ใช้', key: 'userType', width: 12 },
           { header: 'ชื่อผู้เบิก', key: 'requester', width: 20 },
           { header: 'ชื่อเล่น', key: 'nickname', width: 12 },
           { header: 'แผนก', key: 'department', width: 20 },
@@ -1324,6 +1331,7 @@ export default function AdminEquipmentReportsPage() {
             requestDate: log.requestDate ? new Date(log.requestDate).toLocaleDateString('th-TH', { timeZone: 'Asia/Bangkok' }) : '-',
             approvedDate: formatDateBE((item as any).approvedAt),
             urgency: log.urgency === 'very_urgent' ? 'ด่วนมาก' : 'ปกติ',
+            userType: (log as any).userInfo?.userType === 'branch' ? 'สาขา' : 'บุคคล',
             requester: log.firstName && log.lastName ? `${log.firstName} ${log.lastName}` : 'Unknown User',
             nickname: log.nickname || '-',
             department: log.department || '-',
@@ -1348,6 +1356,7 @@ export default function AdminEquipmentReportsPage() {
           { header: 'ลำดับ', key: 'no', width: 8 },
           { header: 'วันที่คืน', key: 'returnDate', width: 15 },
           { header: 'วันที่อนุมัติ', key: 'approvedDate', width: 15 },
+          { header: 'ประเภทผู้ใช้', key: 'userType', width: 12 },
           { header: 'ชื่อผู้คืน', key: 'returner', width: 20 },
           { header: 'ชื่อเล่น', key: 'nickname', width: 12 },
           { header: 'แผนก', key: 'department', width: 20 },
@@ -1378,6 +1387,7 @@ export default function AdminEquipmentReportsPage() {
             no: index + 1,
             returnDate: log.returnDate ? new Date(log.returnDate).toLocaleDateString('th-TH', { timeZone: 'Asia/Bangkok' }) : '-',
             approvedDate: formatDateBE((item as any).approvedAt),
+            userType: (log as any).userInfo?.userType === 'branch' ? 'สาขา' : 'บุคคล',
             returner: log.firstName && log.lastName ? `${log.firstName} ${log.lastName}` : 'Unknown User',
             nickname: log.nickname || '-',
             department: log.department || '-',
@@ -1795,7 +1805,24 @@ export default function AdminEquipmentReportsPage() {
                   </div>
                 </div>
                 
-                {/* 2. แผนก */}
+                {/* 2. ประเภทผู้ใช้ */}
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">
+                    ประเภทผู้ใช้
+                  </label>
+                  <SearchableSelect
+                    options={[
+                      { value: '', label: 'ทั้งหมด' },
+                      { value: 'branch', label: 'สาขา' },
+                      { value: 'individual', label: 'บุคคล' }
+                    ]}
+                    value={userTypeFilter}
+                    onChange={setUserTypeFilter}
+                    placeholder="ทั้งหมด"
+                  />
+                </div>
+                
+                {/* 3. แผนก */}
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-1">
                     แผนก
@@ -2083,6 +2110,9 @@ export default function AdminEquipmentReportsPage() {
                       ความเร่งด่วน
                     </th>
                     <th className="px-6 py-3 text-center text-xs font-medium text-white uppercase tracking-wider">
+                      ประเภทผู้ใช้
+                    </th>
+                    <th className="px-6 py-3 text-center text-xs font-medium text-white uppercase tracking-wider">
                       ชื่อผู้เบิก
                     </th>
                     <th className="px-6 py-3 text-center text-xs font-medium text-white uppercase tracking-wider">
@@ -2135,7 +2165,7 @@ export default function AdminEquipmentReportsPage() {
                 <tbody className="bg-white divide-y divide-gray-200">
                   {(loading || isTabSwitching) && (
                     <tr>
-                      <td colSpan={19} className="px-6 py-8 text-left text-gray-500">
+                      <td colSpan={20} className="px-6 py-8 text-left text-gray-500">
                         <RefreshCw className="inline-block w-4 h-4 mr-2 animate-spin text-gray-400" />
                         กำลังโหลดข้อมูล
                       </td>
@@ -2143,7 +2173,7 @@ export default function AdminEquipmentReportsPage() {
                   )}
                   {!loading && !isTabSwitching && currentItems.length === 0 && (
                     <tr>
-                      <td colSpan={19} className="px-6 py-8 text-left text-gray-500">ไม่พบข้อมูล</td>
+                      <td colSpan={20} className="px-6 py-8 text-left text-gray-500">ไม่พบข้อมูล</td>
                     </tr>
                   )}
                   {!isTabSwitching && currentItems.map((row, rowIndex) => {
@@ -2175,6 +2205,17 @@ export default function AdminEquipmentReportsPage() {
                             {requestLog.urgency === 'very_urgent' ? 'ด่วนมาก' : 'ปกติ'}
                           </span>
                         </td>
+                        {/* ประเภทผู้ใช้ */}
+                        <td className="px-6 py-4 text-sm text-center text-selectable">
+                          <span className={`inline-flex px-2 py-1 text-xs font-medium rounded-full ${
+                            (requestLog as any).userInfo?.userType === 'branch' 
+                              ? 'bg-blue-100 text-blue-800 border border-blue-300'
+                              : 'bg-green-100 text-green-800 border border-green-300'
+                          }`}>
+                            {(requestLog as any).userInfo?.userType === 'branch' ? 'สาขา' : 'บุคคล'}
+                          </span>
+                        </td>
+                        
                         {/* ชื่อผู้เบิก */}
                         <td className="px-6 py-4 text-sm text-center text-selectable">
                           <div className={
@@ -2369,6 +2410,9 @@ export default function AdminEquipmentReportsPage() {
                       วันที่อนุมัติ
                     </th>
                     <th className="px-6 py-3 text-center text-xs font-medium text-white uppercase tracking-wider">
+                      ประเภทผู้ใช้
+                    </th>
+                    <th className="px-6 py-3 text-center text-xs font-medium text-white uppercase tracking-wider">
                       ชื่อผู้คืน
                     </th>
                     <th className="px-6 py-3 text-center text-xs font-medium text-white uppercase tracking-wider">
@@ -2427,7 +2471,7 @@ export default function AdminEquipmentReportsPage() {
                 <tbody className="bg-white divide-y divide-gray-200">
                   {(loading || isTabSwitching) && (
                     <tr>
-                      <td colSpan={21} className="px-6 py-8 text-left text-gray-500">
+                      <td colSpan={22} className="px-6 py-8 text-left text-gray-500">
                         <RefreshCw className="inline-block w-4 h-4 mr-2 animate-spin text-gray-400" />
                         กำลังโหลดข้อมูล
                       </td>
@@ -2435,7 +2479,7 @@ export default function AdminEquipmentReportsPage() {
                   )}
                   {!loading && !isTabSwitching && currentItems.length === 0 && (
                     <tr>
-                      <td colSpan={21} className="px-6 py-8 text-left text-gray-500">ไม่พบข้อมูล</td>
+                      <td colSpan={22} className="px-6 py-8 text-left text-gray-500">ไม่พบข้อมูล</td>
                     </tr>
                   )}
                   {!isTabSwitching && currentItems.map((row, rowIndex) => {
@@ -2457,6 +2501,17 @@ export default function AdminEquipmentReportsPage() {
                         <td className="px-6 py-4 text-sm text-gray-500 text-center text-selectable">
                           {formatDateBE((item as any).approvedAt)}
                         </td>
+                        {/* ประเภทผู้ใช้ */}
+                        <td className="px-6 py-4 text-sm text-center text-selectable">
+                          <span className={`inline-flex px-2 py-1 text-xs font-medium rounded-full ${
+                            (returnLog as any).userInfo?.userType === 'branch' 
+                              ? 'bg-blue-100 text-blue-800 border border-blue-300'
+                              : 'bg-green-100 text-green-800 border border-green-300'
+                          }`}>
+                            {(returnLog as any).userInfo?.userType === 'branch' ? 'สาขา' : 'บุคคล'}
+                          </span>
+                        </td>
+                        
                         {/* ชื่อผู้คืน */}
                         <td className="px-6 py-4 text-sm text-center text-selectable">
                           <div className={
