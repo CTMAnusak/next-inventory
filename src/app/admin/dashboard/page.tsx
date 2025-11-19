@@ -115,10 +115,16 @@ export default function AdminDashboardPage() {
     try {
       const workbook = XLSX.utils.book_new();
       
+      // กำหนดข้อความฟิลเตอร์ผู้ใช้
+      const userTypeText = selectedUserType === 'all' ? 'ทั้งหมด' : 
+                          selectedUserType === 'individual' ? 'ผู้ใช้ประเภทบุคคล' : 
+                          'ผู้ใช้ประเภทสาขา';
+      
       // สร้าง Worksheet สรุปภาพรวม
       const summaryData = [
         ['Dashboard สรุปภาพรวมระบบจัดการคลังสินค้า'],
         [`ข้อมูล: ${selectedMonth === 'all' ? 'ทั้งหมด' : generateMonths().find(m => m.value === selectedMonth)?.label} ${selectedYear + 543}`],
+        [`ฟิลเตอร์ผู้ใช้: ${userTypeText}`],
         [''],
         ['สถิติภาพรวม (ทั้งหมด - ไม่ยึดตามช่วงเวลา)'],
         ['หัวข้อ', 'จำนวน'],
@@ -168,6 +174,7 @@ export default function AdminDashboardPage() {
       const issuesCategoryData = [
         ['แจ้งงาน IT ตามประเภท'],
         [`ช่วงเวลา: ${selectedMonth === 'all' ? 'ทั้งหมด' : selectedMonth}/${selectedYear + 543}`],
+        [`ฟิลเตอร์ผู้ใช้: ${userTypeText}`],
         [''],
         ['ประเภท', 'จำนวน', 'เปอร์เซ็นต์'],
         ...stats.issuesByCategory.map(item => [
@@ -190,6 +197,7 @@ export default function AdminDashboardPage() {
       const requestsUrgencyData = [
         ['เบิกอุปกรณ์ตามความเร่งด่วน'],
         [`ช่วงเวลา: ${selectedMonth === 'all' ? 'ทั้งหมด' : selectedMonth}/${selectedYear + 543}`],
+        [`ฟิลเตอร์ผู้ใช้: ${userTypeText}`],
         [''],
         ['ความเร่งด่วน', 'จำนวน', 'เปอร์เซ็นต์'],
         ...stats.requestsByUrgency.map(item => [
@@ -212,6 +220,7 @@ export default function AdminDashboardPage() {
       const monthlyIssuesData = [
         ['แจ้งงาน IT รายเดือน'],
         [`ปี: ${selectedYear + 543}`],
+        [`ฟิลเตอร์ผู้ใช้: ${userTypeText}`],
         [''],
         ['เดือน', 'จำนวน'],
         ...stats.monthlyIssues
@@ -235,6 +244,7 @@ export default function AdminDashboardPage() {
       const monthlyRequestsData = [
         ['เบิกอุปกรณ์รายเดือน'],
         [`ปี: ${selectedYear + 543}`],
+        [`ฟิลเตอร์ผู้ใช้: ${userTypeText}`],
         [''],
         ['เดือน', 'จำนวน'],
         ...stats.monthlyRequests
@@ -258,6 +268,7 @@ export default function AdminDashboardPage() {
       const monthlyReturnsData = [
         ['คืนอุปกรณ์รายเดือน'],
         [`ปี: ${selectedYear + 543}`],
+        [`ฟิลเตอร์ผู้ใช้: ${userTypeText}`],
         [''],
         ['เดือน', 'จำนวน'],
         ...stats.monthlyReturns
@@ -279,7 +290,9 @@ export default function AdminDashboardPage() {
 
       // สร้างชื่อไฟล์
       const monthText = selectedMonth === 'all' ? 'ทั้งหมด' : `เดือน${selectedMonth}`;
-      const fileName = `Dashboard_${monthText}_${selectedYear + 543}.xlsx`;
+      const userTypeFileName = selectedUserType === 'all' ? 'ทั้งหมด' : 
+                               selectedUserType === 'individual' ? 'บุคคล' : 'สาขา';
+      const fileName = `Dashboard_${userTypeFileName}_${monthText}_${selectedYear + 543}.xlsx`;
 
       // Export ไฟล์
       XLSX.writeFile(workbook, fileName);
