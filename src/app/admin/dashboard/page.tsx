@@ -55,6 +55,7 @@ export default function AdminDashboardPage() {
   const [loading, setLoading] = useState(false);
   const [selectedMonth, setSelectedMonth] = useState<number | 'all'>(new Date().getMonth() + 1);
   const [selectedYear, setSelectedYear] = useState(new Date().getFullYear());
+  const [selectedUserType, setSelectedUserType] = useState<'all' | 'individual' | 'branch'>('all');
 
   // ✅ Reset data loaded flag when pathname changes (navigation to this page)
   useEffect(() => {
@@ -62,18 +63,22 @@ export default function AdminDashboardPage() {
   }, [pathname]);
 
   useEffect(() => {
+    dataLoadedRef.current = false; // Reset flag เมื่อมีการเปลี่ยนแปลงฟิลเตอร์
+  }, [selectedMonth, selectedYear, selectedUserType]);
+
+  useEffect(() => {
     if (!dataLoadedRef.current) {
       dataLoadedRef.current = true;
       fetchStats();
     }
-  }, [selectedMonth, selectedYear, pathname]);
+  }, [selectedMonth, selectedYear, selectedUserType, pathname]);
 
   const fetchStats = async (forceRefresh: boolean = false) => {
     setLoading(true);
     try {
       const url = forceRefresh 
-        ? `/api/admin/dashboard?month=${selectedMonth}&year=${selectedYear}&forceRefresh=true`
-        : `/api/admin/dashboard?month=${selectedMonth}&year=${selectedYear}`;
+        ? `/api/admin/dashboard?month=${selectedMonth}&year=${selectedYear}&userType=${selectedUserType}&forceRefresh=true`
+        : `/api/admin/dashboard?month=${selectedMonth}&year=${selectedYear}&userType=${selectedUserType}`;
       const response = await fetch(url);
       if (response.ok) {
         const data = await response.json();
@@ -425,6 +430,15 @@ export default function AdminDashboardPage() {
             </div>
             <div className="flex flex-col md:flex-row items-center mx-auto md:mx-0 space-x-0 md:space-x-4 gap-5 md:gap-0">
               <div className="flex items-center space-x-2">
+                <select
+                  value={selectedUserType}
+                  onChange={(e) => setSelectedUserType(e.target.value as 'all' | 'individual' | 'branch')}
+                  className="px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 text-gray-900"
+                >
+                  <option value="all">ทั้งหมด</option>
+                  <option value="individual">ผู้ใช้ประเภทบุคคล</option>
+                  <option value="branch">ผู้ใช้ประเภทสาขา</option>
+                </select>
                 <select
                   value={selectedMonth as any}
                   onChange={(e) => {
