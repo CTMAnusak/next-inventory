@@ -27,6 +27,7 @@ export interface IRequestItem {
   assignedPhoneNumbers?: string[]; // Phone numbers ที่ Admin assign ให้ (สำหรับซิมการ์ด)
   availableItemIds?: string[]; // Available items for admin selection
   itemNotes?: string; // หมายเหตุของรายการเบิก (ไม่บังคับ)
+  image?: string; // 🆕 รูปภาพประกอบรายการเบิก (ชื่อไฟล์)
   statusOnRequest?: string; // ID ของสถานะ (สภาพอุปกรณ์: มี/หาย) เมื่ออนุมัติ
   conditionOnRequest?: string; // ID ของสภาพ (สถานะอุปกรณ์: ใช้งานได้/ชำรุด) เมื่ออนุมัติ
   statusOnRequestName?: string; // 🆕 Snapshot: ชื่อสถานะ (สภาพอุปกรณ์)
@@ -101,6 +102,7 @@ const RequestItemSchema = new Schema<IRequestItem>({
   assignedPhoneNumbers: [{ type: String, required: false }], // Phone numbers ที่ Admin assign ให้
   availableItemIds: [{ type: String, required: false }],  // Available items for admin selection
   itemNotes: { type: String },
+  image: { type: String }, // 🆕 รูปภาพประกอบรายการเบิก (ชื่อไฟล์)
   statusOnRequest: { type: String }, // ID ของสถานะ (สภาพอุปกรณ์: มี/หาย) เมื่ออนุมัติ
   conditionOnRequest: { type: String }, // ID ของสภาพ (สถานะอุปกรณ์: ใช้งานได้/ชำรุด) เมื่ออนุมัติ
   statusOnRequestName: { type: String }, // 🆕 Snapshot: ชื่อสถานะ
