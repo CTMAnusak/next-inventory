@@ -65,7 +65,6 @@ export default function AdminEquipmentTrackingPage() {
 
   // Search and filter states
   const [searchTerm, setSearchTerm] = useState('');
-  const [itemNameFilter, setItemNameFilter] = useState('');
   const [itemFilter, setItemFilter] = useState('');
   const [categoryFilter, setCategoryFilter] = useState('');
   const [detailFilter, setDetailFilter] = useState('');
@@ -114,7 +113,7 @@ export default function AdminEquipmentTrackingPage() {
 
   useEffect(() => {
     applyFilters();
-  }, [trackingData, searchTerm, itemNameFilter, itemFilter, categoryFilter, detailFilter, statusFilter, conditionFilter, userTypeFilter, departmentFilter, officeFilter, dateAddedFilter, sourceFilter, deliveryLocationFilter, quantityFilter, monthFilter, yearFilter]);
+  }, [trackingData, searchTerm, itemFilter, categoryFilter, detailFilter, statusFilter, conditionFilter, userTypeFilter, departmentFilter, officeFilter, dateAddedFilter, sourceFilter, deliveryLocationFilter, quantityFilter, monthFilter, yearFilter]);
 
   const fetchTrackingData = async (page: number = 1) => {
     setLoading(true);
@@ -164,11 +163,7 @@ export default function AdminEquipmentTrackingPage() {
         (record.lastName && record.lastName.toLowerCase().includes(searchTerm.toLowerCase())) ||
         (record.nickname && record.nickname.toLowerCase().includes(searchTerm.toLowerCase()));
 
-      // Item Name filter - ✅ แก้ไข: ใช้ exact match แทน substring
-      const matchesItemName = !itemNameFilter || 
-        record.currentItemName.toLowerCase() === itemNameFilter.toLowerCase();
-
-      // Item filter (เก่า - คงไว้เพื่อความเข้ากันได้) - ✅ แก้ไข: ใช้ exact match แทน substring
+      // Item filter - ✅ แก้ไข: ใช้ exact match แทน substring
       const matchesItem = !itemFilter || 
         record.currentItemName.toLowerCase() === itemFilter.toLowerCase();
 
@@ -226,7 +221,7 @@ export default function AdminEquipmentTrackingPage() {
         }
       }
 
-      return matchesSearch && matchesItemName && matchesItem && matchesCategory && matchesDetail && matchesStatus && 
+      return matchesSearch && matchesItem && matchesCategory && matchesDetail && matchesStatus && 
              matchesCondition && matchesUserType && matchesDepartment && matchesOffice && 
              matchesDateAdded && matchesSource && matchesDeliveryLocation && matchesQuantity && matchesMonthYear;
     });
@@ -237,7 +232,6 @@ export default function AdminEquipmentTrackingPage() {
 
   const clearFilters = () => {
     setSearchTerm('');
-    setItemNameFilter('');
     setItemFilter('');
     setCategoryFilter('');
     setDetailFilter('');
@@ -517,7 +511,7 @@ export default function AdminEquipmentTrackingPage() {
           </div>
 
           {/* Quick Search */}
-          <div className="mb-6 grid grid-cols-1 md:grid-cols-2 gap-4">
+          <div className="mb-6 w-full sm:w-lg xl:w-md">
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-2">
                 ค้นหาชื่อผู้เบิก
@@ -530,22 +524,6 @@ export default function AdminEquipmentTrackingPage() {
                   onChange={(e) => setSearchTerm(e.target.value)}
                   className="w-full pl-10 pr-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 text-gray-900"
                   placeholder="ชื่อ, นามสกุล, ชื่อเล่น"
-                />
-              </div>
-            </div>
-            
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">
-                ค้นหาชื่ออุปกรณ์
-              </label>
-              <div className="relative">
-                <Package className="absolute left-3 h-5 w-5 text-gray-400 top-1/2 -translate-y-1/2" />
-                <input
-                  type="text"
-                  value={itemNameFilter}
-                  onChange={(e) => setItemNameFilter(e.target.value)}
-                  className="w-full pl-10 pr-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 text-gray-900"
-                  placeholder="ชื่ออุปกรณ์"
                 />
               </div>
             </div>
