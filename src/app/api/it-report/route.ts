@@ -43,6 +43,38 @@ export async function POST(request: NextRequest) {
     const { error, user } = await authenticateUser(request);
     if (error) return error;
 
+    // ✅ ตรวจสอบการส่งซ้ำ: ตรวจสอบว่ามี issue log ที่เพิ่งสร้างไปเมื่อไม่กี่วินาทีที่แล้วหรือไม่
+    // เพื่อป้องกันการส่ง API ซ้ำจาก double-click หรือ React Strict Mode
+    const recentIssues = await IssueLog.find({
+      requesterId: user.user_id,
+      reportDate: {
+        $gte: new Date(Date.now() - 5000) // ตรวจสอบ 5 วินาทีที่ผ่านมา
+      },
+      createdAt: {
+        $gte: new Date(Date.now() - 5000) // ตรวจสอบ 5 วินาทีที่ผ่านมา
+      }
+    }).sort({ createdAt: -1 }).limit(10);
+
+    // ✅ ตรวจสอบว่ามี issue log ที่มีข้อมูลเหมือนกันหรือไม่
+    for (const recentIssue of recentIssues) {
+      const isDuplicate = 
+        recentIssue.firstName === reportData.firstName &&
+        recentIssue.lastName === reportData.lastName &&
+        recentIssue.email === reportData.email &&
+        recentIssue.issueCategory === reportData.issueCategory &&
+        recentIssue.description === reportData.description &&
+        recentIssue.urgency === reportData.urgency;
+      
+      if (isDuplicate) {
+        console.log('⚠️ [API] Duplicate issue detected, returning existing issueId:', recentIssue.issueId);
+        return NextResponse.json({
+          message: 'บันทึกการแจ้งงาน IT เรียบร้อยแล้ว (รายการซ้ำถูกป้องกัน)',
+          issueId: recentIssue.issueId,
+          isDuplicate: true
+        });
+      }
+    }
+
     // Generate unique Issue ID
     const issueId = generateIssueId();
     console.log('Generated issue ID:', issueId);

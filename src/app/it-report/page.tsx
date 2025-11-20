@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { useAuth } from '@/contexts/AuthContext';
 import Layout from '@/components/Layout';
 import { toast } from 'react-hot-toast';
@@ -32,6 +32,8 @@ export default function ITReportPage() {
   const [mounted, setMounted] = useState(false);
   const [previewImage, setPreviewImage] = useState<string | null>(null);
   const [imageURLs, setImageURLs] = useState<string[]>([]);
+  // ✅ เพิ่ม ref เพื่อป้องกันการ submit ซ้ำจาก React Strict Mode
+  const isSubmittingRef = useRef(false);
 
   // Mount check
   useEffect(() => {
@@ -191,20 +193,37 @@ export default function ITReportPage() {
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     
-    // ✅ ป้องกันการ submit ซ้ำ
-    if (isLoading) {
-      console.log('⚠️ Form is already submitting, ignoring duplicate submission');
+    // ✅ ป้องกันการ submit ซ้ำ (ใช้ ref เพื่อป้องกัน React Strict Mode)
+    if (isLoading || isSubmittingRef.current) {
+      console.log('⚠️ Form is already submitting, ignoring duplicate submission', {
+        isLoading,
+        isSubmittingRef: isSubmittingRef.current
+      });
       return;
     }
     
+    // ✅ Set ref flag ทันทีเพื่อป้องกันการเรียกซ้ำ
+    isSubmittingRef.current = true;
+    
+    // ✅ Set loading state ทันทีเพื่อป้องกันการกดซ้ำ
     setIsLoading(true);
     setIsSubmitted(true);
+    
+    console.log('📧 [handleSubmit] Starting form submission');
 
     try {
+      // ✅ ตรวจสอบว่ามีการ submit ซ้ำหรือไม่ (ป้องกัน double-click)
+      if (!isSubmittingRef.current) {
+        console.log('⚠️ Submit was cancelled, aborting');
+        setIsLoading(false);
+        return;
+      }
+
       // Validate form - required fields
       if (!formData.email || !formData.issueCategory || !formData.description) {
         toast.error('กรุณากรอกอีเมล ประเภทปัญหา และรายละเอียดให้ครบถ้วน');
         setIsLoading(false);
+        isSubmittingRef.current = false; // ✅ Reset ref เมื่อ validation fail
         return;
       }
 
@@ -213,6 +232,7 @@ export default function ITReportPage() {
         if (!formData.firstName || !formData.lastName || !formData.nickname || !formData.department || !formData.phone) {
           toast.error('กรุณากรอกข้อมูลส่วนตัวให้ครบถ้วน');
           setIsLoading(false);
+          isSubmittingRef.current = false; // ✅ Reset ref เมื่อ validation fail
           return;
         }
       }
@@ -222,6 +242,7 @@ export default function ITReportPage() {
       if (user?.userType === 'branch' && formData.phone !== '000-000-0000' && formData.phone.length !== 10) {
         toast.error('เบอร์โทรศัพท์ต้องเป็นตัวเลข 10 หลักเท่านั้น');
         setIsLoading(false);
+        isSubmittingRef.current = false; // ✅ Reset ref เมื่อ validation fail
         return;
       }
 
@@ -230,6 +251,7 @@ export default function ITReportPage() {
       if (!emailRegex.test(formData.email)) {
         toast.error('รูปแบบอีเมลล์ไม่ถูกต้อง');
         setIsLoading(false);
+        isSubmittingRef.current = false; // ✅ Reset ref เมื่อ validation fail
         return;
       }
 
@@ -237,6 +259,7 @@ export default function ITReportPage() {
       if (formData.issueCategory === 'อื่น ๆ (โปรดระบุ)' && !formData.customCategory) {
         toast.error('กรุณาระบุประเภทปัญหา');
         setIsLoading(false);
+        isSubmittingRef.current = false; // ✅ Reset ref เมื่อ validation fail
         return;
       }
 
@@ -329,7 +352,10 @@ export default function ITReportPage() {
       console.error('Submit error:', error);
       toast.error(`เกิดข้อผิดพลาดในการเชื่อมต่อ: ${error instanceof Error ? error.message : 'Unknown error'}`);
     } finally {
+      // ✅ Reset ทั้ง state และ ref เพื่อให้สามารถ submit ใหม่ได้
       setIsLoading(false);
+      isSubmittingRef.current = false;
+      console.log('✅ [handleSubmit] Form submission completed, reset flags');
     }
   };
 
@@ -534,8 +560,17 @@ export default function ITReportPage() {
             <div className="flex justify-center">
               <button
                 type="submit"
-                disabled={isLoading}
+                disabled={isLoading || isSubmittingRef.current}
                 className="px-6 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500 disabled:opacity-50 disabled:cursor-not-allowed"
+                onClick={(e) => {
+                  // ✅ ป้องกัน double-click โดยตรวจสอบ state ก่อน
+                  if (isLoading || isSubmittingRef.current) {
+                    e.preventDefault();
+                    e.stopPropagation();
+                    console.log('⚠️ Button click prevented - already submitting');
+                    return false;
+                  }
+                }}
               >
                 {isLoading ? (
                   <div className="flex items-center">
