@@ -3285,10 +3285,10 @@ export default function AdminInventoryPage() {
                   </tr>
                 )}
                 {currentItems.map((item, index) => {
-                  const hasSerials = Array.isArray(item.serialNumbers) && item.serialNumbers.length > 0;
                   const threshold = lowStockThreshold;
                   // 🔧 FIX: ใช้ availableQuantity สำหรับ low stock warning (อุปกรณ์ที่พร้อมเบิก)
-                  const isLowStock = (item.availableQuantity ?? 0) <= threshold && !hasSerials;
+                  // แสดงสีแดงเมื่อจำนวนที่เบิกได้ ≤ threshold (ไม่สนใจว่ามี Serial Number หรือเบอร์โทรศัพท์หรือไม่)
+                  const isLowStock = (item.availableQuantity ?? 0) <= threshold;
                   return (
                     <tr 
                       key={item._id} 
@@ -3437,7 +3437,7 @@ export default function AdminInventoryPage() {
           {!loading && filteredItems.length > 0 && (
             <div className="mt-5 text-left">
               <p className="text-sm text-red-600 italic">
-                หมายเหตุ: รายการที่เป็นสีแดง เนื่องจากเป็นรายการที่มีจำนวนที่เบิกได้ ≤ {lowStockThreshold}
+                หมายเหตุ: แถวรายการที่เป็นสีแดง คือ แถวที่แสดงรายการจำนวนที่เบิกได้ ≤ {lowStockThreshold}
               </p>
             </div>
           )}
