@@ -965,16 +965,7 @@ export default function EquipmentReturnPage() {
     // ✅ Set ref flag ทันทีเพื่อป้องกันการเรียกซ้ำ
     isSubmittingRef.current = true;
     
-    // ✅ เพิ่ม small delay เพื่อให้ ref update ทั่วทั้ง component tree
-    await new Promise(resolve => setTimeout(resolve, 50));
-    
-    // ✅ ตรวจสอบอีกครั้งหลัง delay
-    if (isLoading) {
-      console.log('⚠️ Already loading after delay check');
-      isSubmittingRef.current = false;
-      return;
-    }
-    
+    // ✅ Set loading state ทันทีเพื่อป้องกันการกดซ้ำ
     setIsLoading(true);
     setIsSubmitted(true);
     
@@ -1148,6 +1139,13 @@ export default function EquipmentReturnPage() {
         }];
       }
 
+      // ✅ ตรวจสอบว่ามีการ submit ซ้ำหรือไม่ (ป้องกัน double-click)
+      if (!isSubmittingRef.current) {
+        console.log('⚠️ Submit was cancelled, aborting');
+        setIsLoading(false);
+        return;
+      }
+      
       // ✅ ส่ง API แยกตามจำนวน returnDataList (แต่ละกลุ่มผู้คืน)
       console.log(`\n📤 กำลังส่ง ${returnDataList.length} รายการคืนอุปกรณ์...`);
       
@@ -1162,7 +1160,17 @@ export default function EquipmentReturnPage() {
       let allSuccess = true;
       let successCount = 0;
       
+      // ✅ เก็บ timestamp เพื่อตรวจสอบการส่งซ้ำ
+      const submissionTimestamp = Date.now();
+      console.log('🕐 Submission timestamp:', submissionTimestamp);
+      
       for (let i = 0; i < returnDataList.length; i++) {
+        // ✅ ตรวจสอบอีกครั้งก่อนส่งแต่ละรายการ
+        if (!isSubmittingRef.current) {
+          console.log('⚠️ Submit was cancelled during loop, aborting');
+          break;
+        }
+        
         const returnData = returnDataList[i];
         console.log(`\n📦 รายการที่ ${i + 1}:`, {
           firstName: returnData.firstName,
@@ -1176,6 +1184,12 @@ export default function EquipmentReturnPage() {
         const maxRetries = 2;
         
         while (retryCount <= maxRetries) {
+          // ✅ ตรวจสอบอีกครั้งก่อน retry
+          if (!isSubmittingRef.current) {
+            console.log('⚠️ Submit was cancelled during retry, aborting');
+            break;
+          }
+          
           // ✅ สร้าง AbortController ใหม่ทุกครั้งที่ retry
           const controller = new AbortController();
           const timeoutId = setTimeout(() => controller.abort(), 30000); // 30 second timeout
@@ -1967,8 +1981,17 @@ export default function EquipmentReturnPage() {
             <div className="flex justify-center">
               <button
                 type="submit"
-                disabled={isLoading}
+                disabled={isLoading || isSubmittingRef.current}
                 className="px-6 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500 disabled:opacity-50 disabled:cursor-not-allowed"
+                onClick={(e) => {
+                  // ✅ ป้องกัน double-click โดยตรวจสอบ state ก่อน
+                  if (isLoading || isSubmittingRef.current) {
+                    e.preventDefault();
+                    e.stopPropagation();
+                    console.log('⚠️ Button click prevented - already submitting');
+                    return false;
+                  }
+                }}
               >
                 {isLoading ? (
                   <div className="flex items-center">

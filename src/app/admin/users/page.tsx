@@ -1007,7 +1007,7 @@ export default function AdminUsersPage() {
   return (
     <Layout>
       <div className="max-w-full mx-auto">
-        <div className="bg-white/90 backdrop-blur-sm rounded-2xl shadow-xl p-8 border border-white/50">
+        <div className="bg-white/90 backdrop-blur-sm rounded-2xl shadow-xl p-4 sm:p-8 border border-white/50">
           {/* Header */}
           <div className="flex justify-between items-center mb-6 flex-col xl:flex-row ">
             <h1 className="text-2xl font-semibold text-gray-900 mb-5 xl:mb-0">จัดการผู้ใช้งาน</h1>

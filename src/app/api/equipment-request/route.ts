@@ -96,6 +96,53 @@ export async function POST(request: NextRequest) {
       }
     }
 
+    // ✅ ตรวจสอบการส่งซ้ำ: ตรวจสอบว่ามี request log ที่เพิ่งสร้างไปเมื่อไม่กี่วินาทีที่แล้วหรือไม่
+    // เพื่อป้องกันการส่ง API ซ้ำจาก double-click หรือ React Strict Mode
+    const recentRequests = await RequestLog.find({
+      userId: currentUserId,
+      requestDate: new Date(requestData.requestDate),
+      createdAt: {
+        $gte: new Date(Date.now() - 5000) // ตรวจสอบ 5 วินาทีที่ผ่านมา
+      }
+    }).sort({ createdAt: -1 }).limit(10);
+
+    // ✅ ตรวจสอบว่ามี request log ที่มี items เหมือนกันหรือไม่
+    for (const recentRequest of recentRequests) {
+      const recentItems = recentRequest.items.map((item: any) => ({
+        masterId: String(item.masterId),
+        serialNumbers: item.serialNumbers || [],
+        requestedPhoneNumbers: item.requestedPhoneNumbers || [],
+        quantity: item.quantity || 1
+      }));
+      
+      const currentItems = requestData.items.map((item: any) => ({
+        masterId: String(item.masterId),
+        serialNumbers: item.serialNumbers || [],
+        requestedPhoneNumbers: item.requestedPhoneNumbers || [],
+        quantity: item.quantity || 1
+      }));
+      
+      // เปรียบเทียบว่า items เหมือนกันหรือไม่
+      const isDuplicate = recentItems.length === currentItems.length &&
+        recentItems.every((recentItem: { masterId: string; serialNumbers: string[]; requestedPhoneNumbers: string[]; quantity: number }) => 
+          currentItems.some((currentItem: { masterId: string; serialNumbers: string[]; requestedPhoneNumbers: string[]; quantity: number }) => 
+            currentItem.masterId === recentItem.masterId &&
+            JSON.stringify(currentItem.serialNumbers?.sort()) === JSON.stringify(recentItem.serialNumbers?.sort()) &&
+            JSON.stringify(currentItem.requestedPhoneNumbers?.sort()) === JSON.stringify(recentItem.requestedPhoneNumbers?.sort()) &&
+            currentItem.quantity === recentItem.quantity
+          )
+        );
+      
+      if (isDuplicate) {
+        console.log('⚠️ [API] Duplicate request detected, returning existing requestId:', recentRequest._id);
+        return NextResponse.json({
+          message: 'ส่งข้อมูลเรียบร้อยแล้ว (รายการซ้ำถูกป้องกัน)',
+          requestId: recentRequest._id,
+          isDuplicate: true
+        });
+      }
+    }
+
     // Check for pending requests first
     const pendingRequests = await RequestLog.find({
       userId: currentUserId,
@@ -107,7 +154,8 @@ export async function POST(request: NextRequest) {
       const hasPendingRequest = pendingRequests.some(request => 
         request.items.some((requestItem: any) => 
           requestItem.masterId === item.masterId &&
-          (!item.serialNumber || requestItem.serialNumber === item.serialNumber)
+          (!item.serialNumbers || JSON.stringify((item.serialNumbers || []).sort()) === JSON.stringify((requestItem.serialNumbers || []).sort())) &&
+          (!item.requestedPhoneNumbers || JSON.stringify((item.requestedPhoneNumbers || []).sort()) === JSON.stringify((requestItem.requestedPhoneNumbers || []).sort()))
         )
       );
 
@@ -115,7 +163,7 @@ export async function POST(request: NextRequest) {
         const master = await InventoryMaster.findById(item.masterId);
         const itemName = master?.itemName || 'อุปกรณ์';
         return NextResponse.json(
-          { error: `${itemName} ${item.serialNumber ? `(S/N: ${item.serialNumber}) ` : ''}อยู่ในรายการเบิกที่รออนุมัติอยู่แล้ว` },
+          { error: `${itemName} ${item.serialNumbers && item.serialNumbers.length > 0 ? `(S/N: ${item.serialNumbers.join(', ')}) ` : ''}${item.requestedPhoneNumbers && item.requestedPhoneNumbers.length > 0 ? `(เบอร์: ${item.requestedPhoneNumbers.join(', ')}) ` : ''}อยู่ในรายการเบิกที่รออนุมัติอยู่แล้ว` },
           { status: 400 }
         );
       }

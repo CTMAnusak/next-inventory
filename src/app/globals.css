@@ -414,7 +414,7 @@ button span {
 
 /* Beautiful Blue WebKit scrollbar for all tables */
 .table-container::-webkit-scrollbar {
-  height: 12px; /* Slightly thicker for better visibility */
+  height: 17px; /* Slightly thicker for better visibility */
 }
 
 .table-container::-webkit-scrollbar-track {

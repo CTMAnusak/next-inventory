@@ -433,20 +433,20 @@ export default function AdminDashboardPage() {
 
   return (
     <Layout>
-      <div className="max-w-[94%] mx-auto space-y-6">
+      <div className="max-w-[97%] mx-auto space-y-6">
         {/* Header */}
         <div className="bg-white/90 backdrop-blur-sm rounded-2xl shadow-xl p-8 border border-white/50">
-          <div className="flex flex-col lg:flex-row justify-between items-center mb-6">
-            <div className="text-center lg:text-left mb-5 lg:mb-0">
+          <div className="flex flex-col min-[1332px]:flex-row justify-between items-center mb-6">
+            <div className="text-center min-[1332px]:text-left mb-5 min-[1332px]:mb-0">
               <h1 className="text-2xl font-bold text-gray-900">Dashboard</h1>
               <p className="text-gray-600 mt-1">ภาพรวมระบบจัดการคลังสินค้า</p>
             </div>
-            <div className="flex flex-col md:flex-row items-center mx-auto md:mx-0 space-x-0 md:space-x-4 gap-5 md:gap-0">
-              <div className="flex items-center space-x-2">
+            <div className="flex flex-col xl:flex-row items-center mx-auto xl:mx-0 space-x-0 xl:space-x-4 gap-5 xl:gap-0 w-full xl:w-auto">
+              <div className="flex flex-col md:flex-row items-center space-x-0 space-y-4 md:space-y-0 md:space-x-2 w-full md:w-auto">
                 <select
                   value={selectedUserType}
                   onChange={(e) => setSelectedUserType(e.target.value as 'all' | 'individual' | 'branch')}
-                  className="px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 text-gray-900"
+                  className="px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 text-gray-900 w-full min-[425px]:w-4/5 sm:w-3/5 md:w-auto"
                 >
                   <option value="all">ทั้งหมด</option>
                   <option value="individual">ผู้ใช้ประเภทบุคคล</option>
@@ -458,7 +458,7 @@ export default function AdminDashboardPage() {
                     const val = e.target.value;
                     setSelectedMonth(val === 'all' ? 'all' : Number(val));
                   }}
-                  className="px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 text-gray-900"
+                  className="px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 text-gray-900 w-full min-[425px]:w-4/5 sm:w-3/5 md:w-auto"
                 >
                   {generateMonths().map((month) => (
                     <option key={month.value} value={month.value}>
@@ -469,7 +469,7 @@ export default function AdminDashboardPage() {
                 <select
                   value={selectedYear}
                   onChange={(e) => setSelectedYear(Number(e.target.value))}
-                  className="px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 text-gray-900"
+                  className="px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 text-gray-900 w-full min-[425px]:w-4/5 sm:w-3/5 md:w-auto"
                 >
                   {generateYears().map((year) => (
                     <option key={year} value={year}>
@@ -481,7 +481,7 @@ export default function AdminDashboardPage() {
               <button
                 onClick={() => fetchStats(true)}
                 disabled={loading}
-                className="flex items-center space-x-2 px-4 py-2 bg-blue-100 text-blue-700 rounded-lg hover:bg-blue-200 transition-colors disabled:opacity-50"
+                className="flex items-center space-x-2 px-4 py-2 bg-blue-100 text-blue-700 rounded-lg hover:bg-blue-200 transition-colors disabled:opacity-50 w-full min-[425px]:w-4/5 sm:w-3/5 md:w-2/5 xl:w-auto"
               >
                 <RefreshCw className={`w-4 h-4 ${loading ? 'animate-spin' : ''}`} />
                 <span className="inline-block">รีเฟรช</span>
@@ -489,7 +489,7 @@ export default function AdminDashboardPage() {
               <button
                 onClick={handleExportExcel}
                 disabled={loading || !stats}
-                className="flex items-center space-x-2 px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                className="flex items-center space-x-2 px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed w-full min-[425px]:w-4/5 sm:w-3/5 md:w-2/5 xl:w-auto"
                 title="Export Excel"
               >
                 <Download className="w-4 h-4" />

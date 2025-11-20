@@ -62,6 +62,8 @@ export default function EquipmentRequestPage() {
   const [isLoadingEquipment, setIsLoadingEquipment] = useState(false);
   const [pendingRequests, setPendingRequests] = useState<PendingRequest[]>([]);
   const dataLoadedRef = useRef(false);
+  // ✅ เพิ่ม ref เพื่อป้องกันการ submit ซ้ำจาก React Strict Mode
+  const isSubmittingRef = useRef(false);
   
   // Form data including personal info for branch users
   const [formData, setFormData] = useState({
@@ -544,23 +546,40 @@ export default function EquipmentRequestPage() {
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     
-    // ✅ ป้องกันการ submit ซ้ำ
-    if (isLoading) {
-      console.log('⚠️ Form is already submitting, ignoring duplicate submission');
+    // ✅ ป้องกันการ submit ซ้ำ (ใช้ ref เพื่อป้องกัน React Strict Mode)
+    if (isLoading || isSubmittingRef.current) {
+      console.log('⚠️ Form is already submitting, ignoring duplicate submission', {
+        isLoading,
+        isSubmittingRef: isSubmittingRef.current
+      });
       return;
     }
     
+    // ✅ Set ref flag ทันทีเพื่อป้องกันการเรียกซ้ำ
+    isSubmittingRef.current = true;
+    
+    // ✅ Set loading state ทันทีเพื่อป้องกันการกดซ้ำ
     setIsLoading(true);
     setIsSubmitted(true);
+    
+    console.log('📧 [handleSubmit] Starting form submission');
 
     try {
       // Refresh inventory data before submitting
       await fetchInventoryItems();
 
+      // ✅ ตรวจสอบว่ามีการ submit ซ้ำหรือไม่ (ป้องกัน double-click)
+      if (!isSubmittingRef.current) {
+        console.log('⚠️ Submit was cancelled, aborting');
+        setIsLoading(false);
+        return;
+      }
+
       // Validate form using user profile data
       if (!user) {
         toast.error('กรุณาเข้าสู่ระบบ');
         setIsLoading(false);
+        isSubmittingRef.current = false; // ✅ Reset ref เมื่อ validation fail
         return;
       }
 
@@ -572,6 +591,7 @@ export default function EquipmentRequestPage() {
         setValidationErrors({ requestDate: 'กรุณาเลือกวันที่ต้องการเบิก' });
         toast.error('กรุณาเลือกวันที่ต้องการเบิก');
         setIsLoading(false);
+        isSubmittingRef.current = false; // ✅ Reset ref เมื่อ validation fail
         return;
       }
 
@@ -579,6 +599,7 @@ export default function EquipmentRequestPage() {
       if (!formData.deliveryLocation || formData.deliveryLocation.trim() === '') {
         toast.error('กรุณากรอกสถานที่รับอุปกรณ์');
         setIsLoading(false);
+        isSubmittingRef.current = false; // ✅ Reset ref เมื่อ validation fail
         return;
       }
 
@@ -587,6 +608,7 @@ export default function EquipmentRequestPage() {
         if (!formData.firstName || !formData.lastName || !formData.nickname || !formData.department || !formData.phone) {
           toast.error('กรุณากรอกข้อมูลส่วนตัวให้ครบถ้วน');
           setIsLoading(false);
+          isSubmittingRef.current = false; // ✅ Reset ref เมื่อ validation fail
           return;
         }
         
@@ -596,6 +618,7 @@ export default function EquipmentRequestPage() {
         if (formData.phone !== '000-000-0000' && !phoneRegex.test(formData.phone)) {
           toast.error('กรุณากรอกเบอร์โทรศัพท์ให้ถูกต้อง (10 หลัก)');
           setIsLoading(false);
+          isSubmittingRef.current = false; // ✅ Reset ref เมื่อ validation fail
           return;
         }
       }
@@ -604,6 +627,7 @@ export default function EquipmentRequestPage() {
       if (requestItems.length === 0) {
         toast.error('กรุณาเพิ่มรายการอุปกรณ์ที่ต้องการเบิกในรายการด้านล่างก่อนกดบันทึก');
         setIsLoading(false);
+        isSubmittingRef.current = false; // ✅ Reset ref เมื่อ validation fail
         return;
       }
 
@@ -686,7 +710,10 @@ export default function EquipmentRequestPage() {
       console.error('Network error:', error);
       toast.error('เกิดข้อผิดพลาดในการเชื่อมต่อ');
     } finally {
+      // ✅ Reset ทั้ง state และ ref เพื่อให้สามารถ submit ใหม่ได้
       setIsLoading(false);
+      isSubmittingRef.current = false;
+      console.log('✅ [handleSubmit] Form submission completed, reset flags');
     }
   };
 
@@ -1257,8 +1284,17 @@ export default function EquipmentRequestPage() {
             <div className="flex justify-center">
               <button
                 type="submit"
-                disabled={isLoading}
+                disabled={isLoading || isSubmittingRef.current}
                 className="px-6 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500 disabled:opacity-50 disabled:cursor-not-allowed"
+                onClick={(e) => {
+                  // ✅ ป้องกัน double-click โดยตรวจสอบ state ก่อน
+                  if (isLoading || isSubmittingRef.current) {
+                    e.preventDefault();
+                    e.stopPropagation();
+                    console.log('⚠️ Button click prevented - already submitting');
+                    return false;
+                  }
+                }}
               >
                 {isLoading ? (
                   <div className="flex items-center">

@@ -64,6 +64,50 @@ export async function POST(request: NextRequest) {
     
     const currentUserId = user!.user_id;
 
+    // ✅ ตรวจสอบการส่งซ้ำ: ตรวจสอบว่ามี return log ที่เพิ่งสร้างไปเมื่อไม่กี่วินาทีที่แล้วหรือไม่
+    // เพื่อป้องกันการส่ง API ซ้ำจาก double-click หรือ React Strict Mode
+    const recentReturns = await ReturnLog.find({
+      userId: currentUserId,
+      returnDate: new Date(returnData.returnDate),
+      createdAt: {
+        $gte: new Date(Date.now() - 5000) // ตรวจสอบ 5 วินาทีที่ผ่านมา
+      }
+    }).sort({ createdAt: -1 }).limit(10);
+
+    // ✅ ตรวจสอบว่ามี return log ที่มี items เหมือนกันหรือไม่
+    for (const recentReturn of recentReturns) {
+      const recentItems = recentReturn.items.map((item: any) => ({
+        itemId: String(item.itemId),
+        serialNumber: item.serialNumber || '',
+        numberPhone: item.numberPhone || ''
+      }));
+      
+      const currentItems = returnData.items.map((item: any) => ({
+        itemId: String(item.itemId),
+        serialNumber: item.serialNumber || '',
+        numberPhone: item.numberPhone || ''
+      }));
+      
+      // เปรียบเทียบว่า items เหมือนกันหรือไม่
+      const isDuplicate = recentItems.length === currentItems.length &&
+        recentItems.every((recentItem: { itemId: string; serialNumber: string; numberPhone: string }) => 
+          currentItems.some((currentItem: { itemId: string; serialNumber: string; numberPhone: string }) => 
+            currentItem.itemId === recentItem.itemId &&
+            currentItem.serialNumber === recentItem.serialNumber &&
+            currentItem.numberPhone === recentItem.numberPhone
+          )
+        );
+      
+      if (isDuplicate) {
+        console.log('⚠️ [API] Duplicate return detected, returning existing returnId:', recentReturn._id);
+        return NextResponse.json({
+          message: 'บันทึกการคืนอุปกรณ์เรียบร้อยแล้ว (รายการซ้ำถูกป้องกัน)',
+          returnId: recentReturn._id,
+          isDuplicate: true
+        });
+      }
+    }
+
     // Check for pending returns first
     const pendingReturns = await ReturnLog.find({
       userId: currentUserId,
@@ -75,7 +119,8 @@ export async function POST(request: NextRequest) {
       const hasPendingReturn = pendingReturns.some(returnLog => 
         returnLog.items.some((returnItem: any) => 
           returnItem.itemId === item.itemId &&
-          (!item.serialNumber || returnItem.serialNumber === item.serialNumber)
+          (!item.serialNumber || returnItem.serialNumber === item.serialNumber) &&
+          (!item.numberPhone || returnItem.numberPhone === item.numberPhone)
         )
       );
 
@@ -84,7 +129,7 @@ export async function POST(request: NextRequest) {
         const inventoryItem = await InventoryItem.findById(item.itemId);
         const itemName = (inventoryItem as any)?.itemName || 'อุปกรณ์';
         return NextResponse.json(
-          { error: `${itemName} ${item.serialNumber ? `(S/N: ${item.serialNumber}) ` : ''}อยู่ในรายการคืนที่รออนุมัติอยู่แล้ว` },
+          { error: `${itemName} ${item.serialNumber ? `(S/N: ${item.serialNumber}) ` : ''}${item.numberPhone ? `(เบอร์: ${item.numberPhone}) ` : ''}อยู่ในรายการคืนที่รออนุมัติอยู่แล้ว` },
           { status: 400 }
         );
       }

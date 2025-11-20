@@ -446,7 +446,7 @@ export default function ITTrackingPage() {
         <div className="bg-white rounded-lg shadow-lg pb-4">
           {/* Header */}
           <div className="flex flex-col sm:flex-row items-center justify-between p-6 pb-4 gap-4 sm:gap-0">
-            <h1 className="text-2xl font-semibold text-gray-900">รายการแจ้งปัญหา IT ของคุณ</h1>
+            <h1 className="text-center xl:text-left text-2xl font-semibold text-gray-900">รายการแจ้งปัญหา IT ของคุณ</h1>
             <div className="flex gap-2">
               <button
                 onClick={() => setShowFilters(!showFilters)}

@@ -1015,7 +1015,7 @@ export default function DashboardPage() {
           </div>
 
           <div ref={tableContainerRef} className="table-container">
-            <table className="min-w-[140%] divide-y divide-gray-200">
+            <table className="max-[425px]:min-w-[500vw] max-[510px]:min-w-[400vw] max-[610px]:min-w-[350vw] max-[768px]:min-w-[300vw] max-[1024px]:min-w-[250vw] max-[1440px]:min-w-[200vw] min-w-[150vw] divide-y divide-gray-200">
               <thead>
                 <tr className="bg-blue-600">
                   <th className="px-3 py-2 text-center border-b text-white">วันที่เพิ่ม</th>
