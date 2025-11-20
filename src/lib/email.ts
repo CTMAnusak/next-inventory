@@ -1407,7 +1407,7 @@ export async function sendIssueUpdateNotification(issueData: any) {
 // ============================================
 
 // Helper function to format equipment items list for email
-const formatEquipmentItemsForEmail = (items: any[], isReturn: boolean = false): string => {
+const formatEquipmentItemsForEmail = (items: any[], isReturn: boolean = false, showOnlyAssigned: boolean = false): string => {
   if (!items || items.length === 0) return '<p>ไม่มีรายการอุปกรณ์</p>';
   
   return items.map((item, index) => {
@@ -1426,13 +1426,23 @@ const formatEquipmentItemsForEmail = (items: any[], isReturn: boolean = false): 
       const userSerialNumbers = item.serialNumbers || []; // RequestLog format
       const assignedSerialNumbers = item.assignedSerialNumbers || []; // RequestLog format
       
-      // รวม Serial Numbers ทั้งหมด
+      // ✅ ถ้า showOnlyAssigned = true ให้แสดงเฉพาะ assignedSerialNumbers (เมื่ออนุมัติแล้ว)
+      // ถ้า showOnlyAssigned = false ให้รวมทั้งหมด (เมื่อแจ้งขอเบิกหรือยกเลิก)
       const allSerialNumbers: string[] = [];
-      if (returnLogSerialNumber) {
-        allSerialNumbers.push(returnLogSerialNumber);
+      if (showOnlyAssigned) {
+        // แสดงเฉพาะที่อนุมัติแล้ว
+        if (returnLogSerialNumber) {
+          allSerialNumbers.push(returnLogSerialNumber);
+        }
+        allSerialNumbers.push(...assignedSerialNumbers);
+      } else {
+        // รวมทั้งหมด
+        if (returnLogSerialNumber) {
+          allSerialNumbers.push(returnLogSerialNumber);
+        }
+        allSerialNumbers.push(...userSerialNumbers);
+        allSerialNumbers.push(...assignedSerialNumbers);
       }
-      allSerialNumbers.push(...userSerialNumbers);
-      allSerialNumbers.push(...assignedSerialNumbers);
       
       const uniqueSerialNumbers = [...new Set(allSerialNumbers.filter(Boolean))];
       if (uniqueSerialNumbers.length > 0) {
@@ -1450,13 +1460,23 @@ const formatEquipmentItemsForEmail = (items: any[], isReturn: boolean = false): 
       const requestedPhoneNumbers = item.requestedPhoneNumbers || []; // RequestLog format
       const assignedPhoneNumbers = item.assignedPhoneNumbers || []; // RequestLog format
       
-      // รวม Phone Numbers ทั้งหมด
+      // ✅ ถ้า showOnlyAssigned = true ให้แสดงเฉพาะ assignedPhoneNumbers (เมื่ออนุมัติแล้ว)
+      // ถ้า showOnlyAssigned = false ให้รวมทั้งหมด (เมื่อแจ้งขอเบิกหรือยกเลิก)
       const allPhoneNumbers: string[] = [];
-      if (returnLogPhoneNumber) {
-        allPhoneNumbers.push(returnLogPhoneNumber);
+      if (showOnlyAssigned) {
+        // แสดงเฉพาะที่อนุมัติแล้ว
+        if (returnLogPhoneNumber) {
+          allPhoneNumbers.push(returnLogPhoneNumber);
+        }
+        allPhoneNumbers.push(...assignedPhoneNumbers);
+      } else {
+        // รวมทั้งหมด
+        if (returnLogPhoneNumber) {
+          allPhoneNumbers.push(returnLogPhoneNumber);
+        }
+        allPhoneNumbers.push(...requestedPhoneNumbers);
+        allPhoneNumbers.push(...assignedPhoneNumbers);
       }
-      allPhoneNumbers.push(...requestedPhoneNumbers);
-      allPhoneNumbers.push(...assignedPhoneNumbers);
       
       const uniquePhoneNumbers = [...new Set(allPhoneNumbers.filter(Boolean))];
       if (uniquePhoneNumbers.length > 0) {
@@ -1878,7 +1898,8 @@ export async function sendEquipmentRequestApprovalNotification(requestData: any)
     const userDisplayName = getUserDisplayName(requestData);
     const userEmail = getUserEmail(requestData);
     const subjectItemNames = getSubjectItemNames(requestData.items || []);
-    const itemsHtml = formatEquipmentItemsForEmail(requestData.items || [], false);
+    // ✅ แสดงเฉพาะเบอร์ที่อนุมัติแล้ว (assignedPhoneNumbers/assignedSerialNumbers)
+    const itemsHtml = formatEquipmentItemsForEmail(requestData.items || [], false, true);
     const requestDate = formatDateBE(requestData.requestDate || requestData.createdAt);
     const approvedAt =
       requestData.approvedAt ||
