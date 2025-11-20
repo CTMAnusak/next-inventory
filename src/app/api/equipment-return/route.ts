@@ -66,11 +66,12 @@ export async function POST(request: NextRequest) {
 
     // ✅ ตรวจสอบการส่งซ้ำ: ตรวจสอบว่ามี return log ที่เพิ่งสร้างไปเมื่อไม่กี่วินาทีที่แล้วหรือไม่
     // เพื่อป้องกันการส่ง API ซ้ำจาก double-click หรือ React Strict Mode
+    // เพิ่มเวลาเป็น 10 วินาทีเพื่อให้ครอบคลุมกรณีที่ request มาพร้อมกัน
     const recentReturns = await ReturnLog.find({
       userId: currentUserId,
       returnDate: new Date(returnData.returnDate),
       createdAt: {
-        $gte: new Date(Date.now() - 5000) // ตรวจสอบ 5 วินาทีที่ผ่านมา
+        $gte: new Date(Date.now() - 10000) // ตรวจสอบ 10 วินาทีที่ผ่านมา
       }
     }).sort({ createdAt: -1 }).limit(10);
 
@@ -236,9 +237,114 @@ export async function POST(request: NextRequest) {
       notes: returnData.notes || undefined
     };
 
+    // ✅ สร้าง hash ของ items เพื่อใช้ในการตรวจสอบ duplicate
+    const itemsHash = JSON.stringify(
+      cleanItems
+        .map((item: any) => ({
+          itemId: String(item.itemId),
+          serialNumber: item.serialNumber || '',
+          numberPhone: item.numberPhone || '',
+          quantity: item.quantity
+        }))
+        .sort((a: any, b: any) => {
+          // Sort by itemId, then serialNumber, then numberPhone
+          if (a.itemId !== b.itemId) return a.itemId.localeCompare(b.itemId);
+          if (a.serialNumber !== b.serialNumber) return a.serialNumber.localeCompare(b.serialNumber);
+          return a.numberPhone.localeCompare(b.numberPhone);
+        })
+    );
+
     const newReturn = new ReturnLog(returnLogData);
     await newReturn.save();
 
+    // ✅ ตรวจสอบ duplicate อีกครั้งหลังจากสร้าง return log เพื่อป้องกันการส่งอีเมลซ้ำ
+    // ในกรณีที่มีการเรียก API พร้อมกัน 2 ครั้ง (เช่นจาก React Strict Mode)
+    // ใช้เวลา 15 วินาทีเพื่อให้ครอบคลุมกรณีที่ request มาพร้อมกันและใช้เวลาในการประมวลผล
+    const duplicateCheck = await ReturnLog.find({
+      userId: currentUserId,
+      returnDate: new Date(returnData.returnDate),
+      createdAt: {
+        $gte: new Date(Date.now() - 15000) // ตรวจสอบ 15 วินาทีที่ผ่านมา
+      },
+      _id: { $ne: newReturn._id } // ไม่นับตัวที่เพิ่งสร้าง
+    }).sort({ createdAt: -1 }).limit(10);
+
+    // ตรวจสอบว่ามี return log ที่มี items เหมือนกันหรือไม่ (ใช้ hash เพื่อความแม่นยำ)
+    for (const duplicateReturn of duplicateCheck) {
+      const duplicateItemsHash = JSON.stringify(
+        duplicateReturn.items
+          .map((item: any) => ({
+            itemId: String(item.itemId),
+            serialNumber: item.serialNumber || '',
+            numberPhone: item.numberPhone || '',
+            quantity: item.quantity
+          }))
+          .sort((a: any, b: any) => {
+            // Sort by itemId, then serialNumber, then numberPhone
+            if (a.itemId !== b.itemId) return a.itemId.localeCompare(b.itemId);
+            if (a.serialNumber !== b.serialNumber) return a.serialNumber.localeCompare(b.serialNumber);
+            return a.numberPhone.localeCompare(b.numberPhone);
+          })
+      );
+      
+      // เปรียบเทียบ hash เพื่อตรวจสอบว่า items เหมือนกันหรือไม่
+      if (duplicateItemsHash === itemsHash) {
+        // ถ้าพบ duplicate ให้ลบ return log ที่เพิ่งสร้างและ return return log ที่มีอยู่แล้ว
+        console.log('⚠️ [API] Duplicate return detected after save (by hash), deleting duplicate and returning existing returnId:', duplicateReturn._id);
+        await ReturnLog.findByIdAndDelete(newReturn._id);
+        return NextResponse.json({
+          message: 'บันทึกการคืนอุปกรณ์เรียบร้อยแล้ว (รายการซ้ำถูกป้องกัน)',
+          returnId: duplicateReturn._id,
+          isDuplicate: true
+        });
+      }
+    }
+
+    // ✅ ตรวจสอบ duplicate อีกครั้งก่อนส่งอีเมล (เพื่อป้องกันการส่งอีเมลซ้ำในกรณีที่ request มาพร้อมกัน)
+    // รอสักครู่เพื่อให้ request อื่นๆ ที่มาพร้อมกันมีเวลาในการสร้าง return log
+    await new Promise(resolve => setTimeout(resolve, 100)); // รอ 100ms
+    
+    const finalDuplicateCheck = await ReturnLog.find({
+      userId: currentUserId,
+      returnDate: new Date(returnData.returnDate),
+      createdAt: {
+        $gte: new Date(Date.now() - 15000) // ตรวจสอบ 15 วินาทีที่ผ่านมา
+      },
+      _id: { $ne: newReturn._id } // ไม่นับตัวที่เพิ่งสร้าง
+    }).sort({ createdAt: -1 }).limit(10);
+
+    // ตรวจสอบ duplicate โดยใช้ hash
+    for (const duplicateReturn of finalDuplicateCheck) {
+      const duplicateItemsHash = JSON.stringify(
+        duplicateReturn.items
+          .map((item: any) => ({
+            itemId: String(item.itemId),
+            serialNumber: item.serialNumber || '',
+            numberPhone: item.numberPhone || '',
+            quantity: item.quantity
+          }))
+          .sort((a: any, b: any) => {
+            // Sort by itemId, then serialNumber, then numberPhone
+            if (a.itemId !== b.itemId) return a.itemId.localeCompare(b.itemId);
+            if (a.serialNumber !== b.serialNumber) return a.serialNumber.localeCompare(b.serialNumber);
+            return a.numberPhone.localeCompare(b.numberPhone);
+          })
+      );
+      
+      // เปรียบเทียบ hash เพื่อตรวจสอบว่า items เหมือนกันหรือไม่
+      if (duplicateItemsHash === itemsHash) {
+        // ถ้าพบ duplicate ให้ลบ return log ที่เพิ่งสร้างและ return return log ที่มีอยู่แล้ว
+        console.log('⚠️ [API] Duplicate return detected before sending email (by hash), deleting duplicate and returning existing returnId:', duplicateReturn._id);
+        await ReturnLog.findByIdAndDelete(newReturn._id);
+        return NextResponse.json({
+          message: 'บันทึกการคืนอุปกรณ์เรียบร้อยแล้ว (รายการซ้ำถูกป้องกัน)',
+          returnId: duplicateReturn._id,
+          isDuplicate: true
+        });
+      }
+    }
+
+    // ✅ ส่งอีเมลเฉพาะเมื่อไม่พบ duplicate
     try {
       console.log('📧 [API] About to send equipment return notification email at:', new Date().toISOString());
       const emailPayload = {
