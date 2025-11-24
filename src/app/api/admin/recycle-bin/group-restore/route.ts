@@ -10,11 +10,11 @@ import { clearAllCaches } from '@/lib/cache-utils';
 export async function POST(request: NextRequest) {
   try {
     await dbConnect();
-    
+
     // Get user info from token
     const token = request.cookies.get('auth-token')?.value;
     const payload: any = token ? verifyToken(token) : null;
-    
+
     if (!payload) {
       return NextResponse.json(
         { error: 'กรุณาเข้าสู่ระบบ' },
@@ -52,7 +52,7 @@ export async function POST(request: NextRequest) {
     const recycleBin = db.collection('recyclebins');
 
     // Find all items in the group
-    const groupItems = await recycleBin.find({ 
+    const groupItems = await recycleBin.find({
       inventoryMasterId: inventoryMasterId,
       isRestored: { $ne: true }
     }).toArray();
@@ -73,29 +73,22 @@ export async function POST(request: NextRequest) {
       try {
         // Restore the original InventoryItem
         const originalData = recycleBinItem.originalData;
-        
+
         // Remove MongoDB-specific fields that shouldn't be restored
         delete originalData._id;
         delete originalData.__v;
         delete originalData.createdAt;
         delete originalData.updatedAt;
+        // ✅ FIX: Explicitly remove deletedAt and deleteReason to ensure item is active
+        delete originalData.deletedAt;
+        delete originalData.deleteReason;
 
         // Create new InventoryItem
         const newItem = new InventoryItem(originalData);
         const savedItem = await newItem.save();
 
-        // Mark as restored in recycle bin
-        await recycleBin.updateOne(
-          { _id: recycleBinItem._id },
-          { 
-            $set: { 
-              isRestored: true, 
-              restoredAt: new Date(),
-              restoredBy: currentUser.user_id,
-              restoredByName: `${currentUser.firstName || 'Unknown'} ${currentUser.lastName || 'User'}`
-            } 
-          }
-        );
+        // ✅ FIX: Delete from recycle bin after successful restore
+        await recycleBin.deleteOne({ _id: recycleBinItem._id });
 
         restoredItems.push({
           recycleBinId: recycleBinItem._id,

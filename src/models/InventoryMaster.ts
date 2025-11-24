@@ -6,7 +6,7 @@ export interface IInventoryMaster extends Document {
   categoryId: string;           // หมวดหมู่
   relatedItemIds: string[];     // 🆕 รายการ InventoryItem._id ทั้งหมดที่เป็นกลุ่มเดียวกัน
   // hasSerialNumber removed - use itemDetails.withSerialNumber > 0 instead
-  
+
   // รายละเอียดแต่ละชิ้น (เก็บทั้งจำนวนและ ID ของแต่ละรายการ)
   itemDetails: {
     withSerialNumber: {
@@ -22,18 +22,18 @@ export interface IInventoryMaster extends Document {
       itemIds: string[];      // ID ของรายการอื่นๆ
     };
   };
-  
+
   // สถิติรวม
   totalQuantity: number;        // จำนวนรวมทั้งหมด (admin_stock + user_owned)
   availableQuantity: number;    // จำนวนที่เหลือให้ยืม (admin_stock เท่านั้น)
   userOwnedQuantity: number;    // จำนวนที่ user ถือ (user_owned เท่านั้น)
-  
+
   // 🆕 FIXED: สถิติตามสถานะ (รองรับ dynamic keys ตาม config)
   statusBreakdown: Record<string, number>; // เช่น { status_available: 2, status_missing: 1 }
-  
+
   // 🆕 NEW: สถิติตามสภาพอุปกรณ์ (รองรับ dynamic keys ตาม config)
   conditionBreakdown: Record<string, number>; // เช่น { cond_working: 3, cond_damaged: 1 }
-  
+
   // Stock Management - ใหม่
   stockManagement: {
     adminDefinedStock: number;    // จำนวนที่ Admin กำหนดให้มีในคลัง
@@ -41,7 +41,7 @@ export interface IInventoryMaster extends Document {
     currentlyAllocated: number;   // จำนวนที่ถูกเบิกจาก admin stock
     realAvailable: number;        // adminDefinedStock - currentlyAllocated
   };
-  
+
   // Admin Stock Operations History - ใหม่
   adminStockOperations: [{
     date: Date;
@@ -53,28 +53,28 @@ export interface IInventoryMaster extends Document {
     adjustmentAmount: number;
     reason: string;
   }];
-  
+
   // ข้อมูลการอัปเดตล่าสุด
   lastUpdated: Date;
   lastUpdatedBy?: string;       // Admin ที่อัปเดตล่าสุด
-  
+
   createdAt: Date;
   updatedAt: Date;
 }
 
 const InventoryMasterSchema = new Schema<IInventoryMaster>({
-  masterItemId: { 
-    type: String, 
+  masterItemId: {
+    type: String,
     required: true,
     index: true
   },
-  itemName: { 
-    type: String, 
+  itemName: {
+    type: String,
     required: true,
     index: true
   },
-  categoryId: { 
-    type: String, 
+  categoryId: {
+    type: String,
     required: true,
     index: true
   },
@@ -83,7 +83,7 @@ const InventoryMasterSchema = new Schema<IInventoryMaster>({
     required: true
   }],
   // hasSerialNumber field removed - use itemDetails.withSerialNumber > 0 instead
-  
+
   // รายละเอียดแต่ละชิ้น (เก็บทั้งจำนวนและ ID ของแต่ละรายการ)
   itemDetails: {
     withSerialNumber: {
@@ -120,7 +120,7 @@ const InventoryMasterSchema = new Schema<IInventoryMaster>({
       }]
     }
   },
-  
+
   // สถิติรวม
   totalQuantity: {
     type: Number,
@@ -140,19 +140,19 @@ const InventoryMasterSchema = new Schema<IInventoryMaster>({
     min: 0,
     default: 0
   },
-  
+
   // 🆕 FIXED: สถิติตามสถานะ (ใช้ dynamic object รองรับ config)
   statusBreakdown: {
     type: Schema.Types.Mixed, // รองรับ dynamic keys เช่น { status_available: 2, status_missing: 1 }
     default: {}
   },
-  
+
   // 🆕 NEW: สถิติตามสภาพอุปกรณ์ (ใช้ dynamic object รองรับ config)
   conditionBreakdown: {
     type: Schema.Types.Mixed, // รองรับ dynamic keys เช่น { cond_working: 3, cond_damaged: 1 }
     default: {}
   },
-  
+
   // Stock Management - ใหม่
   stockManagement: {
     adminDefinedStock: {
@@ -176,7 +176,7 @@ const InventoryMasterSchema = new Schema<IInventoryMaster>({
       default: 0
     }
   },
-  
+
   // Admin Stock Operations History - ใหม่
   adminStockOperations: [{
     date: {
@@ -212,7 +212,7 @@ const InventoryMasterSchema = new Schema<IInventoryMaster>({
       required: true
     }
   }],
-  
+
   // ข้อมูลการอัปเดต
   lastUpdated: {
     type: Date,
@@ -229,11 +229,11 @@ const InventoryMasterSchema = new Schema<IInventoryMaster>({
 InventoryMasterSchema.index({ itemName: 1, categoryId: 1 }, { unique: true });
 
 // Pre-save validation
-InventoryMasterSchema.pre('save', function(next) {
+InventoryMasterSchema.pre('save', function (next) {
   // 🔧 CRITICAL FIX: ลบ validation ที่บังคับให้ totalQuantity = availableQuantity + userOwnedQuantity
   // เพราะ totalQuantity ควรนับอุปกรณ์ทั้งหมด (รวมชำรุด/สูญหาย)
   // แต่ availableQuantity นับเฉพาะที่พร้อมเบิก (available + working)
-  
+
   // ✅ NEW: Validation ที่ถูกต้อง - ตรวจสอบว่าค่าไม่ติดลบ
   if (this.totalQuantity < 0) {
     console.warn(`Invalid totalQuantity for ${this.itemName}: ${this.totalQuantity}`);
@@ -247,30 +247,33 @@ InventoryMasterSchema.pre('save', function(next) {
     console.warn(`Invalid userOwnedQuantity for ${this.itemName}: ${this.userOwnedQuantity}`);
     this.userOwnedQuantity = 0;
   }
-  
+
   // Stock Management Auto-correction: realAvailable = adminDefinedStock - currentlyAllocated
   if (this.stockManagement) {
     this.stockManagement.realAvailable = Math.max(0, this.stockManagement.adminDefinedStock - this.stockManagement.currentlyAllocated);
   }
-  
+
   // อัปเดต lastUpdated
   this.lastUpdated = new Date();
-  
+
   next();
 });
 
 // Static methods สำหรับ common operations
-InventoryMasterSchema.statics.updateSummary = async function(itemName: string, category: string) {
+InventoryMasterSchema.statics.updateSummary = async function (itemName: string, category: string) {
   const InventoryItem = mongoose.model('InventoryItems');
-  
+
   // คำนวณสถิติจาก InventoryItem
   // 🔧 CRITICAL FIX: Exclude soft-deleted items from aggregation
   const stats = await InventoryItem.aggregate([
     {
-      $match: { 
-        itemName, 
+      $match: {
+        itemName,
         categoryId: category, // 🆕 FIXED: Use categoryId field
-        deletedAt: { $exists: false } // 🆕 FIXED: Use proper soft delete check
+        $or: [
+          { deletedAt: { $exists: false } },
+          { deletedAt: null }
+        ] // 🆕 FIXED: Robust check for non-deleted items
       }
     },
     {
@@ -303,36 +306,49 @@ InventoryMasterSchema.statics.updateSummary = async function(itemName: string, c
       }
     }
   ]);
-  
+
   if (stats.length === 0) {
     // ไม่มี item แล้ว ลบ master record
     await this.deleteOne({ itemName, categoryId: category });
     return null;
   }
-  
+
   const stat = stats[0];
-  
+
   // 🆕 FIXED: คำนวณ status breakdown แบบ dynamic
   const statusBreakdown: Record<string, number> = {};
   const conditionBreakdown: Record<string, number> = {};
-  
+
   stat.statusBreakdown.forEach((status: string) => {
     statusBreakdown[status] = (statusBreakdown[status] || 0) + 1;
   });
-  
+
   // เพิ่มการคำนวณ condition breakdown ถ้ามีข้อมูล
   if (stat.conditionBreakdown) {
     stat.conditionBreakdown.forEach((condition: string) => {
       conditionBreakdown[condition] = (conditionBreakdown[condition] || 0) + 1;
     });
   }
-  
+
+  // ✅ FIX: Get all related item IDs for this group
+  const relatedItems = await InventoryItem.find({
+    itemName,
+    categoryId: category,
+    $or: [
+      { deletedAt: { $exists: false } },
+      { deletedAt: null }
+    ]
+  }).select('_id').lean();
+
+  const relatedItemIds = relatedItems.map((item: any) => item._id.toString());
+
   // อัปเดตหรือสร้าง master record
   return await this.findOneAndUpdate(
     { itemName, categoryId: category },
     {
       itemName,
       categoryId: category,
+      relatedItemIds, // ✅ FIX: Update related item IDs
       // hasSerialNumber removed - use itemDetails.withSerialNumber > 0 instead
       totalQuantity: stat.totalQuantity,
       availableQuantity: stat.availableQuantity,
@@ -341,17 +357,17 @@ InventoryMasterSchema.statics.updateSummary = async function(itemName: string, c
       conditionBreakdown, // 🆕 NEW: Include condition breakdown
       lastUpdated: new Date()
     },
-    { 
-      upsert: true, 
+    {
+      upsert: true,
       new: true,
       runValidators: true
     }
   );
 };
 
-InventoryMasterSchema.statics.incrementQuantity = async function(
-  itemName: string, 
-  category: string, 
+InventoryMasterSchema.statics.incrementQuantity = async function (
+  itemName: string,
+  category: string,
   ownerType: 'admin_stock' | 'user_owned',
   status: string = 'active',
   delta: number = 1
@@ -365,18 +381,18 @@ InventoryMasterSchema.statics.incrementQuantity = async function(
       lastUpdated: new Date()
     }
   };
-  
+
   if (ownerType === 'admin_stock') {
     updateFields.$inc.availableQuantity = delta;
   } else {
     updateFields.$inc.userOwnedQuantity = delta;
   }
-  
+
   return await this.findOneAndUpdate(
     { itemName, category },
     updateFields,
-    { 
-      upsert: true, 
+    {
+      upsert: true,
       new: true,
       runValidators: true
     }
@@ -384,14 +400,14 @@ InventoryMasterSchema.statics.incrementQuantity = async function(
 };
 
 // Static methods สำหรับ Admin Stock Management
-InventoryMasterSchema.statics.setAdminStock = async function(itemName: string, category: string, newStock: number, reason: string, adminId: string, adminName: string) {
+InventoryMasterSchema.statics.setAdminStock = async function (itemName: string, category: string, newStock: number, reason: string, adminId: string, adminName: string) {
   const item = await this.findOne({ itemName, categoryId: category });
   if (!item) {
     throw new Error(`ไม่พบรายการ ${itemName} ในหมวดหมู่ ${category}`);
   }
-  
+
   const previousStock = item.stockManagement?.adminDefinedStock || 0;
-  
+
   // Initialize stockManagement if not exists
   if (!item.stockManagement) {
     item.stockManagement = {
@@ -401,12 +417,12 @@ InventoryMasterSchema.statics.setAdminStock = async function(itemName: string, c
       realAvailable: 0
     };
   }
-  
+
   // Initialize adminStockOperations if not exists
   if (!item.adminStockOperations) {
     item.adminStockOperations = [];
   }
-  
+
   // เพิ่ม operation ลงใน history
   item.adminStockOperations.push({
     date: new Date(),
@@ -418,22 +434,22 @@ InventoryMasterSchema.statics.setAdminStock = async function(itemName: string, c
     adjustmentAmount: newStock - previousStock,
     reason
   });
-  
+
   // อัปเดต stock
   item.stockManagement.adminDefinedStock = newStock;
   item.lastUpdated = new Date();
   item.lastUpdatedBy = adminId;
-  
+
   await item.save();
   return item;
 };
 
-InventoryMasterSchema.statics.adjustAdminStock = async function(itemName: string, category: string, adjustment: number, reason: string, adminId: string, adminName: string) {
+InventoryMasterSchema.statics.adjustAdminStock = async function (itemName: string, category: string, adjustment: number, reason: string, adminId: string, adminName: string) {
   const item = await this.findOne({ itemName, categoryId: category });
   if (!item) {
     throw new Error(`ไม่พบรายการ ${itemName} ในหมวดหมู่ ${category}`);
   }
-  
+
   // Initialize stockManagement if not exists
   if (!item.stockManagement) {
     item.stockManagement = {
@@ -443,15 +459,15 @@ InventoryMasterSchema.statics.adjustAdminStock = async function(itemName: string
       realAvailable: 0
     };
   }
-  
+
   const previousStock = item.stockManagement.adminDefinedStock;
   const newStock = Math.max(0, previousStock + adjustment);
-  
+
   // Initialize adminStockOperations if not exists
   if (!item.adminStockOperations) {
     item.adminStockOperations = [];
   }
-  
+
   // เพิ่ม operation ลงใน history
   item.adminStockOperations.push({
     date: new Date(),
@@ -463,12 +479,12 @@ InventoryMasterSchema.statics.adjustAdminStock = async function(itemName: string
     adjustmentAmount: adjustment,
     reason
   });
-  
+
   // อัปเดต stock
   item.stockManagement.adminDefinedStock = newStock;
   item.lastUpdated = new Date();
   item.lastUpdatedBy = adminId;
-  
+
   await item.save();
   return item;
 };

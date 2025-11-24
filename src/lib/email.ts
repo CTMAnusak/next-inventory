@@ -33,7 +33,7 @@ export async function sendIssueNotification(issueData: any) {
     // ดึงรายชื่ออีเมล IT Admin ทั้งหมด
     const itAdminEmails = await getITAdminEmails();
     const results = [];
-    
+
     if (itAdminEmails.length === 0) {
       console.error('No IT admin emails found');
       return { success: false, error: 'No IT admin emails found' };
@@ -41,22 +41,22 @@ export async function sendIssueNotification(issueData: any) {
 
     const urgencyText = issueData.urgency === 'very_urgent' ? 'ด่วน' : 'ปกติ';
     const issueTitle = issueData.issueCategory + (issueData.customCategory ? ` - ${issueData.customCategory}` : '');
-    
+
     // เตรียม attachments สำหรับรูปภาพ
     const attachments = [];
     console.log('📧 sendIssueNotification - issueData.images:', issueData.images);
-    
+
     if (issueData.images && issueData.images.length > 0) {
       const path = require('path');
       const fs = require('fs');
-      
+
       for (let i = 0; i < issueData.images.length; i++) {
         const img = issueData.images[i];
         const imagePath = path.join(process.cwd(), 'public', 'assets', 'IssueLog', img);
-        
-        console.log(`🔍 Checking image ${i+1}:`, imagePath);
+
+        console.log(`🔍 Checking image ${i + 1}:`, imagePath);
         console.log(`📁 File exists:`, fs.existsSync(imagePath));
-        
+
         // ตรวจสอบว่าไฟล์มีอยู่จริง
         if (fs.existsSync(imagePath)) {
           attachments.push({
@@ -64,15 +64,15 @@ export async function sendIssueNotification(issueData: any) {
             path: imagePath,
             cid: `image${i}@issueLog` // Content-ID สำหรับอ้างอิงในอีเมล
           });
-          console.log(`✅ Added attachment ${i+1}:`, img);
+          console.log(`✅ Added attachment ${i + 1}:`, img);
         } else {
           console.log(`❌ Image file not found:`, imagePath);
         }
       }
     }
-    
+
     console.log(`📎 Total attachments: ${attachments.length}`);
-    
+
     // ส่งอีเมลไปยังแอดมิน IT ทุกคน
     for (const adminEmail of itAdminEmails) {
       const mailOptions = {
@@ -81,7 +81,7 @@ export async function sendIssueNotification(issueData: any) {
         to: adminEmail, // To: แอดมิน IT แต่ละคน
         subject: `แจ้งงาน IT VSQ [${urgencyText}] จาก ${issueData.firstName} ${issueData.lastName} (${issueData.issueId}) - ${issueTitle}`,
         attachments: attachments, // แนบรูปภาพ
-      html: `
+        html: `
         <div style="font-family: Arial, sans-serif; line-height: 1.6; color: #333; max-width: 800px; margin: 0 auto;">
           <div style="background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); padding: 30px; border-radius: 10px 10px 0 0;">
             <h1 style="color: white; margin: 0; font-size: 28px; text-align: center;">🔔 แจ้งปัญหาด้าน IT</h1>
@@ -98,16 +98,16 @@ export async function sendIssueNotification(issueData: any) {
                 </tr>
                 <tr>
                   <td style="padding: 8px 0;"><strong>📅 วันที่แจ้ง:</strong></td>
-                  <td style="padding: 8px 0;">${new Date(issueData.reportDate).toLocaleDateString('th-TH', { 
-                    year: 'numeric', 
-                    month: 'long', 
-                    day: 'numeric',
-                    timeZone: 'Asia/Bangkok' 
-                  })} เวลา ${new Date(issueData.reportDate).toLocaleTimeString('th-TH', { 
-                    hour: '2-digit', 
-                    minute: '2-digit',
-                    timeZone: 'Asia/Bangkok' 
-                  })} น.</td>
+                  <td style="padding: 8px 0;">${new Date(issueData.reportDate).toLocaleDateString('th-TH', {
+          year: 'numeric',
+          month: 'long',
+          day: 'numeric',
+          timeZone: 'Asia/Bangkok'
+        })} เวลา ${new Date(issueData.reportDate).toLocaleTimeString('th-TH', {
+          hour: '2-digit',
+          minute: '2-digit',
+          timeZone: 'Asia/Bangkok'
+        })} น.</td>
                 </tr>
                 <tr>
                   <td style="padding: 8px 0;"><strong>📊 สถานะปัจจุบัน:</strong></td>
@@ -154,9 +154,9 @@ export async function sendIssueNotification(issueData: any) {
                 <tr>
                   <td style="padding: 8px 0;"><strong>ความเร่งด่วน:</strong></td>
                   <td style="padding: 8px 0;">
-                    ${issueData.urgency === 'very_urgent' 
-                      ? '<span style="background-color: #f44336; color: white; padding: 4px 12px; border-radius: 12px; font-weight: bold;">🔴 ด่วนมาก</span>' 
-                      : '<span style="background-color: #4caf50; color: white; padding: 4px 12px; border-radius: 12px; font-weight: bold;">🟢 ปกติ</span>'}
+                    ${issueData.urgency === 'very_urgent'
+            ? '<span style="background-color: #f44336; color: white; padding: 4px 12px; border-radius: 12px; font-weight: bold;">🔴 ด่วนมาก</span>'
+            : '<span style="background-color: #4caf50; color: white; padding: 4px 12px; border-radius: 12px; font-weight: bold;">🟢 ปกติ</span>'}
                   </td>
                 </tr>
               </table>
@@ -215,7 +215,7 @@ export async function sendIssueNotification(issueData: any) {
           </div>
         </div>
       `
-    };
+      };
 
       try {
         await transporter.sendMail(mailOptions);
@@ -227,8 +227,8 @@ export async function sendIssueNotification(issueData: any) {
       }
     }
 
-    return { 
-      success: results.some(r => r.success), 
+    return {
+      success: results.some(r => r.success),
       results: results,
       totalSent: results.filter(r => r.success).length,
       totalFailed: results.filter(r => !r.success).length
@@ -243,37 +243,37 @@ export async function sendIssueNotification(issueData: any) {
 export async function sendIssueConfirmationToReporter(issueData: any) {
   const urgencyText = issueData.urgency === 'very_urgent' ? 'ด่วน' : 'ปกติ';
   const issueTitle = issueData.issueCategory + (issueData.customCategory ? ` - ${issueData.customCategory}` : '');
-  
+
   // เตรียม attachments สำหรับรูปภาพ
   const attachments = [];
   console.log('📧 sendIssueConfirmationToReporter - issueData.images:', issueData.images);
-  
+
   if (issueData.images && issueData.images.length > 0) {
     const path = require('path');
     const fs = require('fs');
-    
+
     for (let i = 0; i < issueData.images.length; i++) {
       const img = issueData.images[i];
       const imagePath = path.join(process.cwd(), 'public', 'assets', 'IssueLog', img);
-      
-      console.log(`🔍 [Confirmation] Checking image ${i+1}:`, imagePath);
+
+      console.log(`🔍 [Confirmation] Checking image ${i + 1}:`, imagePath);
       console.log(`📁 [Confirmation] File exists:`, fs.existsSync(imagePath));
-      
+
       if (fs.existsSync(imagePath)) {
         attachments.push({
           filename: img,
           path: imagePath,
           cid: `image${i}@issueLog`
         });
-        console.log(`✅ [Confirmation] Added attachment ${i+1}:`, img);
+        console.log(`✅ [Confirmation] Added attachment ${i + 1}:`, img);
       } else {
         console.log(`❌ [Confirmation] Image file not found:`, imagePath);
       }
     }
   }
-  
+
   console.log(`📎 [Confirmation] Total attachments: ${attachments.length}`);
-  
+
   const mailOptions = {
     from: `VSQ IT Service Desk <${process.env.EMAIL_FROM || 'it@vsqclinic.com'}>`,
     to: issueData.email,
@@ -301,16 +301,16 @@ export async function sendIssueConfirmationToReporter(issueData: any) {
               </tr>
               <tr>
                 <td style="padding: 8px 0;"><strong>📅 วันที่แจ้ง:</strong></td>
-                <td style="padding: 8px 0;">${new Date(issueData.reportDate).toLocaleDateString('th-TH', { 
-                  year: 'numeric', 
-                  month: 'long', 
-                  day: 'numeric',
-                  timeZone: 'Asia/Bangkok' 
-                })} เวลา ${new Date(issueData.reportDate).toLocaleTimeString('th-TH', { 
-                  hour: '2-digit', 
-                  minute: '2-digit',
-                  timeZone: 'Asia/Bangkok' 
-                })} น.</td>
+                <td style="padding: 8px 0;">${new Date(issueData.reportDate).toLocaleDateString('th-TH', {
+      year: 'numeric',
+      month: 'long',
+      day: 'numeric',
+      timeZone: 'Asia/Bangkok'
+    })} เวลา ${new Date(issueData.reportDate).toLocaleTimeString('th-TH', {
+      hour: '2-digit',
+      minute: '2-digit',
+      timeZone: 'Asia/Bangkok'
+    })} น.</td>
               </tr>
               <tr>
                 <td style="padding: 8px 0;"><strong>📊 สถานะปัจจุบัน:</strong></td>
@@ -357,9 +357,9 @@ export async function sendIssueConfirmationToReporter(issueData: any) {
               <tr>
                 <td style="padding: 8px 0;"><strong>ความเร่งด่วน:</strong></td>
                 <td style="padding: 8px 0;">
-                  ${issueData.urgency === 'very_urgent' 
-                    ? '<span style="background-color: #f44336; color: white; padding: 4px 12px; border-radius: 12px; font-weight: bold;">🔴 ด่วนมาก</span>' 
-                    : '<span style="background-color: #4caf50; color: white; padding: 4px 12px; border-radius: 12px; font-weight: bold;">🟢 ปกติ</span>'}
+                  ${issueData.urgency === 'very_urgent'
+        ? '<span style="background-color: #f44336; color: white; padding: 4px 12px; border-radius: 12px; font-weight: bold;">🔴 ด่วนมาก</span>'
+        : '<span style="background-color: #4caf50; color: white; padding: 4px 12px; border-radius: 12px; font-weight: bold;">🟢 ปกติ</span>'}
                 </td>
               </tr>
             </table>
@@ -443,20 +443,20 @@ export async function sendJobAcceptedNotification(issueData: any) {
   try {
     const itAdminEmails = await getITAdminEmails();
     const results = [];
-    
+
     const urgencyText = issueData.urgency === 'very_urgent' ? 'ด่วน' : 'ปกติ';
     const issueTitle = issueData.issueCategory + (issueData.customCategory ? ` - ${issueData.customCategory}` : '');
-    
+
     // เตรียม attachments สำหรับรูปภาพ
     const attachments = [];
     if (issueData.images && issueData.images.length > 0) {
       const path = require('path');
       const fs = require('fs');
-      
+
       for (let i = 0; i < issueData.images.length; i++) {
         const img = issueData.images[i];
         const imagePath = path.join(process.cwd(), 'public', 'assets', 'IssueLog', img);
-        
+
         if (fs.existsSync(imagePath)) {
           attachments.push({
             filename: img,
@@ -466,10 +466,10 @@ export async function sendJobAcceptedNotification(issueData: any) {
         }
       }
     }
-    
+
     // รวมอีเมลผู้แจ้งและ IT Admin ทั้งหมด
     const allRecipients = [issueData.email, ...itAdminEmails];
-    
+
     // ส่งอีเมลไปยังทุกคน
     for (const recipientEmail of allRecipients) {
       const mailOptions = {
@@ -477,7 +477,7 @@ export async function sendJobAcceptedNotification(issueData: any) {
         to: recipientEmail,
         subject: `แจ้งงาน IT VSQ [${urgencyText}] จาก ${issueData.firstName} ${issueData.lastName} (${issueData.issueId}) - ${issueTitle} : ✅ IT รับงานแล้ว`,
         attachments: attachments,
-    html: `
+        html: `
       <div style="font-family: Arial, sans-serif; line-height: 1.6; color: #333; max-width: 800px; margin: 0 auto;">
         <div style="background: linear-gradient(135deg, #4caf50 0%, #2e7d32 100%); padding: 30px; border-radius: 10px 10px 0 0;">
           <h1 style="color: white; margin: 0; font-size: 28px; text-align: center;">✅ ทีม IT Support รับงานเรียบร้อยแล้ว</h1>
@@ -494,16 +494,16 @@ export async function sendJobAcceptedNotification(issueData: any) {
               </tr>
               <tr>
                 <td style="padding: 8px 0;"><strong>📅 วันที่แจ้ง:</strong></td>
-                <td style="padding: 8px 0;">${new Date(issueData.reportDate).toLocaleDateString('th-TH', { 
-                  year: 'numeric', 
-                  month: 'long', 
-                  day: 'numeric',
-                  timeZone: 'Asia/Bangkok' 
-                })} เวลา ${new Date(issueData.reportDate).toLocaleTimeString('th-TH', { 
-                  hour: '2-digit', 
-                  minute: '2-digit',
-                  timeZone: 'Asia/Bangkok' 
-                })} น.</td>
+                <td style="padding: 8px 0;">${new Date(issueData.reportDate).toLocaleDateString('th-TH', {
+          year: 'numeric',
+          month: 'long',
+          day: 'numeric',
+          timeZone: 'Asia/Bangkok'
+        })} เวลา ${new Date(issueData.reportDate).toLocaleTimeString('th-TH', {
+          hour: '2-digit',
+          minute: '2-digit',
+          timeZone: 'Asia/Bangkok'
+        })} น.</td>
               </tr>
               <tr>
                 <td style="padding: 8px 0;"><strong>📊 สถานะปัจจุบัน:</strong></td>
@@ -567,9 +567,9 @@ export async function sendJobAcceptedNotification(issueData: any) {
               <tr>
                 <td style="padding: 8px 0;"><strong>ความเร่งด่วน:</strong></td>
                 <td style="padding: 8px 0;">
-                  ${issueData.urgency === 'very_urgent' 
-                    ? '<span style="background-color: #f44336; color: white; padding: 4px 12px; border-radius: 12px; font-weight: bold;">🔴 ด่วนมาก</span>' 
-                    : '<span style="background-color: #4caf50; color: white; padding: 4px 12px; border-radius: 12px; font-weight: bold;">🟢 ปกติ</span>'}
+                  ${issueData.urgency === 'very_urgent'
+            ? '<span style="background-color: #f44336; color: white; padding: 4px 12px; border-radius: 12px; font-weight: bold;">🔴 ด่วนมาก</span>'
+            : '<span style="background-color: #4caf50; color: white; padding: 4px 12px; border-radius: 12px; font-weight: bold;">🟢 ปกติ</span>'}
                 </td>
               </tr>
             </table>
@@ -639,8 +639,8 @@ export async function sendJobAcceptedNotification(issueData: any) {
       }
     }
 
-    return { 
-      success: results.some(r => r.success), 
+    return {
+      success: results.some(r => r.success),
       results: results,
       totalSent: results.filter(r => r.success).length,
       totalFailed: results.filter(r => !r.success).length
@@ -656,20 +656,20 @@ export async function sendWorkCompletedNotification(issueData: any) {
   try {
     const itAdminEmails = await getITAdminEmails();
     const results = [];
-    
+
     const urgencyText = issueData.urgency === 'very_urgent' ? 'ด่วน' : 'ปกติ';
     const issueTitle = issueData.issueCategory + (issueData.customCategory ? ` - ${issueData.customCategory}` : '');
-    
+
     // เตรียม attachments สำหรับรูปภาพ
     const attachments = [];
     if (issueData.images && issueData.images.length > 0) {
       const path = require('path');
       const fs = require('fs');
-      
+
       for (let i = 0; i < issueData.images.length; i++) {
         const img = issueData.images[i];
         const imagePath = path.join(process.cwd(), 'public', 'assets', 'IssueLog', img);
-        
+
         if (fs.existsSync(imagePath)) {
           attachments.push({
             filename: img,
@@ -679,10 +679,10 @@ export async function sendWorkCompletedNotification(issueData: any) {
         }
       }
     }
-    
+
     // รวมอีเมลผู้แจ้งและ IT Admin ทั้งหมด
     const allRecipients = [issueData.email, ...itAdminEmails];
-    
+
     // ส่งอีเมลไปยังทุกคน
     for (const recipientEmail of allRecipients) {
       const mailOptions = {
@@ -707,29 +707,29 @@ export async function sendWorkCompletedNotification(issueData: any) {
                 </tr>
                 <tr>
                   <td style="padding: 8px 0;"><strong>📅 วันที่แจ้ง:</strong></td>
-                  <td style="padding: 8px 0;">${new Date(issueData.reportDate).toLocaleDateString('th-TH', { 
-                    year: 'numeric', 
-                    month: 'long', 
-                    day: 'numeric',
-                    timeZone: 'Asia/Bangkok' 
-                  })} เวลา ${new Date(issueData.reportDate).toLocaleTimeString('th-TH', { 
-                    hour: '2-digit', 
-                    minute: '2-digit',
-                    timeZone: 'Asia/Bangkok' 
-                  })} น.</td>
+                  <td style="padding: 8px 0;">${new Date(issueData.reportDate).toLocaleDateString('th-TH', {
+          year: 'numeric',
+          month: 'long',
+          day: 'numeric',
+          timeZone: 'Asia/Bangkok'
+        })} เวลา ${new Date(issueData.reportDate).toLocaleTimeString('th-TH', {
+          hour: '2-digit',
+          minute: '2-digit',
+          timeZone: 'Asia/Bangkok'
+        })} น.</td>
                 </tr>
                 <tr>
                   <td style="padding: 8px 0;"><strong>🕐 ส่งงานเมื่อ:</strong></td>
-                  <td style="padding: 8px 0;">${new Date().toLocaleDateString('th-TH', { 
-                    year: 'numeric', 
-                    month: 'long', 
-                    day: 'numeric',
-                    timeZone: 'Asia/Bangkok' 
-                  })} เวลา ${new Date().toLocaleTimeString('th-TH', { 
-                    hour: '2-digit', 
-                    minute: '2-digit',
-                    timeZone: 'Asia/Bangkok' 
-                  })} น.</td>
+                  <td style="padding: 8px 0;">${new Date().toLocaleDateString('th-TH', {
+          year: 'numeric',
+          month: 'long',
+          day: 'numeric',
+          timeZone: 'Asia/Bangkok'
+        })} เวลา ${new Date().toLocaleTimeString('th-TH', {
+          hour: '2-digit',
+          minute: '2-digit',
+          timeZone: 'Asia/Bangkok'
+        })} น.</td>
                 </tr>
                 <tr>
                   <td style="padding: 8px 0;"><strong>📊 สถานะปัจจุบัน:</strong></td>
@@ -793,9 +793,9 @@ export async function sendWorkCompletedNotification(issueData: any) {
                 <tr>
                   <td style="padding: 8px 0;"><strong>ความเร่งด่วน:</strong></td>
                   <td style="padding: 8px 0;">
-                    ${issueData.urgency === 'very_urgent' 
-                      ? '<span style="background-color: #f44336; color: white; padding: 4px 12px; border-radius: 12px; font-weight: bold;">🔴 ด่วนมาก</span>' 
-                      : '<span style="background-color: #4caf50; color: white; padding: 4px 12px; border-radius: 12px; font-weight: bold;">🟢 ปกติ</span>'}
+                    ${issueData.urgency === 'very_urgent'
+            ? '<span style="background-color: #f44336; color: white; padding: 4px 12px; border-radius: 12px; font-weight: bold;">🔴 ด่วนมาก</span>'
+            : '<span style="background-color: #4caf50; color: white; padding: 4px 12px; border-radius: 12px; font-weight: bold;">🟢 ปกติ</span>'}
                   </td>
                 </tr>
               </table>
@@ -865,8 +865,8 @@ export async function sendWorkCompletedNotification(issueData: any) {
       }
     }
 
-    return { 
-      success: results.some(r => r.success), 
+    return {
+      success: results.some(r => r.success),
       results: results,
       totalSent: results.filter(r => r.success).length,
       totalFailed: results.filter(r => !r.success).length
@@ -882,21 +882,21 @@ export async function sendUserApprovalNotification(issueData: any, userFeedback:
   try {
     const itAdminEmails = await getITAdminEmails();
     const results = [];
-    
+
     const isApproved = userFeedback.action === 'approved';
     const urgencyText = issueData.urgency === 'very_urgent' ? 'ด่วน' : 'ปกติ';
     const issueTitle = issueData.issueCategory + (issueData.customCategory ? ` - ${issueData.customCategory}` : '');
-    
+
     // เตรียม attachments สำหรับรูปภาพ
     const attachments = [];
     if (issueData.images && issueData.images.length > 0) {
       const path = require('path');
       const fs = require('fs');
-      
+
       for (let i = 0; i < issueData.images.length; i++) {
         const img = issueData.images[i];
         const imagePath = path.join(process.cwd(), 'public', 'assets', 'IssueLog', img);
-        
+
         if (fs.existsSync(imagePath)) {
           attachments.push({
             filename: img,
@@ -906,17 +906,17 @@ export async function sendUserApprovalNotification(issueData: any, userFeedback:
         }
       }
     }
-    
+
     // รวมอีเมลผู้แจ้งและ IT Admin ทั้งหมด
     const allRecipients = [issueData.email, ...itAdminEmails];
-    
+
     // ส่งอีเมลไปยังทุกคน
     for (const recipientEmail of allRecipients) {
       const mailOptions = {
         from: `VSQ IT Service Desk <${process.env.EMAIL_FROM || 'it@vsqclinic.com'}>`,
         to: recipientEmail,
-        subject: isApproved 
-          ? `แจ้งงาน IT VSQ [${urgencyText}] จาก ${issueData.firstName} ${issueData.lastName} (${issueData.issueId}) - ${issueTitle} : ✅ IT อนุมัติงาน`
+        subject: isApproved
+          ? `แจ้งงาน IT VSQ [${urgencyText}] จาก ${issueData.firstName} ${issueData.lastName} (${issueData.issueId}) - ${issueTitle} : ✅ ผู้ใช้อนุมัติปิดงาน IT`
           : `แจ้งงาน IT VSQ [${urgencyText}] จาก ${issueData.firstName} ${issueData.lastName} (${issueData.issueId}) - ${issueTitle} : 🔄 ผู้แจ้งงาน IT ส่งงานกลับแก้ไข`,
         attachments: attachments,
         html: `
@@ -936,29 +936,29 @@ export async function sendUserApprovalNotification(issueData: any, userFeedback:
                 </tr>
                 <tr>
                   <td style="padding: 8px 0;"><strong>📅 วันที่แจ้ง:</strong></td>
-                  <td style="padding: 8px 0;">${new Date(issueData.reportDate).toLocaleDateString('th-TH', { 
-                    year: 'numeric', 
-                    month: 'long', 
-                    day: 'numeric',
-                    timeZone: 'Asia/Bangkok' 
-                  })} เวลา ${new Date(issueData.reportDate).toLocaleTimeString('th-TH', { 
-                    hour: '2-digit', 
-                    minute: '2-digit',
-                    timeZone: 'Asia/Bangkok' 
-                  })} น.</td>
+                  <td style="padding: 8px 0;">${new Date(issueData.reportDate).toLocaleDateString('th-TH', {
+          year: 'numeric',
+          month: 'long',
+          day: 'numeric',
+          timeZone: 'Asia/Bangkok'
+        })} เวลา ${new Date(issueData.reportDate).toLocaleTimeString('th-TH', {
+          hour: '2-digit',
+          minute: '2-digit',
+          timeZone: 'Asia/Bangkok'
+        })} น.</td>
                 </tr>
                 <tr>
                   <td style="padding: 8px 0;"><strong>🕐 ตรวจสอบเมื่อ:</strong></td>
-                  <td style="padding: 8px 0;">${new Date(userFeedback.submittedAt).toLocaleDateString('th-TH', { 
-                    year: 'numeric', 
-                    month: 'long', 
-                    day: 'numeric',
-                    timeZone: 'Asia/Bangkok' 
-                  })} เวลา ${new Date(userFeedback.submittedAt).toLocaleTimeString('th-TH', { 
-                    hour: '2-digit', 
-                    minute: '2-digit',
-                    timeZone: 'Asia/Bangkok' 
-                  })} น.</td>
+                  <td style="padding: 8px 0;">${new Date(userFeedback.submittedAt).toLocaleDateString('th-TH', {
+          year: 'numeric',
+          month: 'long',
+          day: 'numeric',
+          timeZone: 'Asia/Bangkok'
+        })} เวลา ${new Date(userFeedback.submittedAt).toLocaleTimeString('th-TH', {
+          hour: '2-digit',
+          minute: '2-digit',
+          timeZone: 'Asia/Bangkok'
+        })} น.</td>
                 </tr>
                 <tr>
                   <td style="padding: 8px 0;"><strong>📊 สถานะปัจจุบัน:</strong></td>
@@ -1035,9 +1035,9 @@ export async function sendUserApprovalNotification(issueData: any, userFeedback:
                 <tr>
                   <td style="padding: 8px 0;"><strong>ความเร่งด่วน:</strong></td>
                   <td style="padding: 8px 0;">
-                    ${issueData.urgency === 'very_urgent' 
-                      ? '<span style="background-color: #f44336; color: white; padding: 4px 12px; border-radius: 12px; font-weight: bold;">🔴 ด่วนมาก</span>' 
-                      : '<span style="background-color: #4caf50; color: white; padding: 4px 12px; border-radius: 12px; font-weight: bold;">🟢 ปกติ</span>'}
+                    ${issueData.urgency === 'very_urgent'
+            ? '<span style="background-color: #f44336; color: white; padding: 4px 12px; border-radius: 12px; font-weight: bold;">🔴 ด่วนมาก</span>'
+            : '<span style="background-color: #4caf50; color: white; padding: 4px 12px; border-radius: 12px; font-weight: bold;">🟢 ปกติ</span>'}
                   </td>
                 </tr>
               </table>
@@ -1115,8 +1115,8 @@ export async function sendUserApprovalNotification(issueData: any, userFeedback:
       }
     }
 
-    return { 
-      success: results.some(r => r.success), 
+    return {
+      success: results.some(r => r.success),
       results: results,
       totalSent: results.filter(r => r.success).length,
       totalFailed: results.filter(r => !r.success).length
@@ -1183,7 +1183,7 @@ export async function sendNewUserRegistrationNotification(userData: any) {
   try {
     const adminEmails = await getITAdminEmails(); // ใช้ IT Admin emails สำหรับตอนนี้
     const results = [];
-    
+
     // ส่งเมลล์ไปยัง Admin ทุกคน
     for (const adminEmail of adminEmails) {
       const mailOptions = {
@@ -1239,8 +1239,8 @@ export async function sendNewUserRegistrationNotification(userData: any) {
       }
     }
 
-    return { 
-      success: results.some(r => r.success), 
+    return {
+      success: results.some(r => r.success),
       results: results,
       totalSent: results.filter(r => r.success).length,
       totalFailed: results.filter(r => !r.success).length
@@ -1285,11 +1285,11 @@ export async function sendIssueUpdateNotification(issueData: any) {
   if (issueData.images && issueData.images.length > 0) {
     const path = require('path');
     const fs = require('fs');
-    
+
     for (let i = 0; i < issueData.images.length; i++) {
       const img = issueData.images[i];
       const imagePath = path.join(process.cwd(), 'public', 'assets', 'IssueLog', img);
-      
+
       if (fs.existsSync(imagePath)) {
         attachments.push({
           filename: img,
@@ -1409,13 +1409,13 @@ export async function sendIssueUpdateNotification(issueData: any) {
 // Helper function to format equipment items list for email
 const formatEquipmentItemsForEmail = (items: any[], isReturn: boolean = false, showOnlyAssigned: boolean = false): string => {
   if (!items || items.length === 0) return '<p>ไม่มีรายการอุปกรณ์</p>';
-  
+
   return items.map((item, index) => {
     const itemName = item.itemName || 'Unknown Item';
     const category = item.category || 'ไม่ระบุ';
     const quantity = item.quantity || 0;
     const itemNotes = item.itemNotes || '-';
-    
+
     // Serial Numbers (for non-SIM cards)
     // ✅ รองรับทั้ง ReturnLog format (serialNumber: string) และ RequestLog format (serialNumbers: array)
     let serialNumbersHtml = '-';
@@ -1425,7 +1425,7 @@ const formatEquipmentItemsForEmail = (items: any[], isReturn: boolean = false, s
       const returnLogSerialNumber = item.serialNumber; // ReturnLog format
       const userSerialNumbers = item.serialNumbers || []; // RequestLog format
       const assignedSerialNumbers = item.assignedSerialNumbers || []; // RequestLog format
-      
+
       // ✅ ถ้า showOnlyAssigned = true ให้แสดงเฉพาะ assignedSerialNumbers (เมื่ออนุมัติแล้ว)
       // ถ้า showOnlyAssigned = false ให้รวมทั้งหมด (เมื่อแจ้งขอเบิกหรือยกเลิก)
       const allSerialNumbers: string[] = [];
@@ -1443,13 +1443,13 @@ const formatEquipmentItemsForEmail = (items: any[], isReturn: boolean = false, s
         allSerialNumbers.push(...userSerialNumbers);
         allSerialNumbers.push(...assignedSerialNumbers);
       }
-      
+
       const uniqueSerialNumbers = [...new Set(allSerialNumbers.filter(Boolean))];
       if (uniqueSerialNumbers.length > 0) {
         serialNumbersHtml = uniqueSerialNumbers.join(', ');
       }
     }
-    
+
     // Phone Numbers (for SIM cards)
     // ✅ รองรับทั้ง ReturnLog format (numberPhone: string) และ RequestLog format (requestedPhoneNumbers: array)
     let phoneNumbersHtml = '-';
@@ -1459,7 +1459,7 @@ const formatEquipmentItemsForEmail = (items: any[], isReturn: boolean = false, s
       const returnLogPhoneNumber = item.numberPhone; // ReturnLog format
       const requestedPhoneNumbers = item.requestedPhoneNumbers || []; // RequestLog format
       const assignedPhoneNumbers = item.assignedPhoneNumbers || []; // RequestLog format
-      
+
       // ✅ ถ้า showOnlyAssigned = true ให้แสดงเฉพาะ assignedPhoneNumbers (เมื่ออนุมัติแล้ว)
       // ถ้า showOnlyAssigned = false ให้รวมทั้งหมด (เมื่อแจ้งขอเบิกหรือยกเลิก)
       const allPhoneNumbers: string[] = [];
@@ -1477,17 +1477,17 @@ const formatEquipmentItemsForEmail = (items: any[], isReturn: boolean = false, s
         allPhoneNumbers.push(...requestedPhoneNumbers);
         allPhoneNumbers.push(...assignedPhoneNumbers);
       }
-      
+
       const uniquePhoneNumbers = [...new Set(allPhoneNumbers.filter(Boolean))];
       if (uniquePhoneNumbers.length > 0) {
         phoneNumbersHtml = uniquePhoneNumbers.join(', ');
       }
     }
-    
+
     // Asset Number (only for returns)
     // ✅ แสดงเลขทรัพย์สินเสมอถ้า isReturn เป็น true (แม้ว่าจะเป็น '-' หรือ undefined ก็ตาม)
     const assetNumber = isReturn ? (item.assetNumber || '-') : null;
-    
+
     return `
       <div style="background-color: #f8f9fa; padding: 15px; margin: 10px 0; border-radius: 8px; border-left: 4px solid #667eea;">
         <h4 style="margin: 0 0 10px 0; color: #667eea;">รายการที่ ${index + 1}: ${itemName}</h4>
@@ -1578,9 +1578,9 @@ const getUserInfo = (data: any) => {
 // Helper function to collect images from items and prepare attachments
 const prepareEquipmentImageAttachments = (items: any[]): Array<{ filename: string; path: string; cid: string }> => {
   const attachments: Array<{ filename: string; path: string; cid: string }> = [];
-  
+
   if (!items || !Array.isArray(items)) return attachments;
-  
+
   items.forEach((item: any, index: number) => {
     if (item.image) {
       // รูปภาพถูกเก็บใน public/assets/ReturnLog/ หรือ public/assets/RequestLog/
@@ -1590,7 +1590,7 @@ const prepareEquipmentImageAttachments = (items: any[]): Array<{ filename: strin
         path.join(process.cwd(), 'public', 'assets', 'RequestLog', item.image),
         path.join(process.cwd(), 'public', 'assets', 'uploads', item.image)
       ];
-      
+
       for (const imagePath of possiblePaths) {
         if (fs.existsSync(imagePath)) {
           attachments.push({
@@ -1604,7 +1604,7 @@ const prepareEquipmentImageAttachments = (items: any[]): Array<{ filename: strin
       }
     }
   });
-  
+
   return attachments;
 };
 
@@ -1638,15 +1638,15 @@ const buildInfoTable = (
     <h2 style="color: ${accent}; border-bottom: 2px solid ${accent}; padding-bottom: 10px; margin-bottom: 14px;">${title}</h2>
     <table style="width: 100%; border-collapse: collapse;">
       ${rows
-        .map(
-          (row) => `
+    .map(
+      (row) => `
             <tr>
               <td style="padding: 6px 0; width: 210px; font-weight: 600; color: #444;">${row.label}</td>
               <td style="padding: 6px 0; color: #333;">${row.value}</td>
             </tr>
           `
-        )
-        .join('')}
+    )
+    .join('')}
     </table>
   </div>
 `;
@@ -1708,7 +1708,7 @@ export async function sendEquipmentRequestNotification(requestData: any) {
     // ส่งให้ Admin IT ทุกคน
     const itAdminEmails = await getITAdminEmails();
     const adminResults = [];
-    
+
     // ✅ เตรียม attachments สำหรับรูปภาพ
     const imageAttachments = prepareEquipmentImageAttachments(requestData.items || []);
 
@@ -1744,9 +1744,9 @@ export async function sendEquipmentRequestNotification(requestData: any) {
                     <tr>
                       <td style="padding: 8px 0;"><strong>⚡ ความเร่งด่วน:</strong></td>
                       <td style="padding: 8px 0;">
-                        ${requestData.urgency === 'very_urgent' 
-                          ? '<span style="background-color: #f44336; color: white; padding: 4px 12px; border-radius: 12px; font-weight: bold;">🔴 ด่วนมาก</span>' 
-                          : '<span style="background-color: #4caf50; color: white; padding: 4px 12px; border-radius: 12px; font-weight: bold;">🟢 ปกติ</span>'}
+                        ${requestData.urgency === 'very_urgent'
+              ? '<span style="background-color: #f44336; color: white; padding: 4px 12px; border-radius: 12px; font-weight: bold;">🔴 ด่วนมาก</span>'
+              : '<span style="background-color: #4caf50; color: white; padding: 4px 12px; border-radius: 12px; font-weight: bold;">🟢 ปกติ</span>'}
                       </td>
                     </tr>
                     <tr>
@@ -1945,7 +1945,7 @@ export async function sendEquipmentRequestApprovalNotification(requestData: any)
             from: `VSQ Inventory Management <${process.env.EMAIL_FROM || 'it@vsqclinic.com'}>`,
             replyTo: userEmail || process.env.EMAIL_FROM,
             to: adminEmail,
-          subject: `แจ้งอนุมัติเบิกอุปกรณ์ VSQ - ${subjectItemNames} จาก ${userDisplayName}`,
+            subject: `แจ้งอนุมัติเบิกอุปกรณ์ VSQ - ${subjectItemNames} จาก ${userDisplayName}`,
             attachments: imageAttachments,
             html: adminHtml
           });
@@ -1968,7 +1968,7 @@ export async function sendEquipmentRequestApprovalNotification(requestData: any)
         await transporter.sendMail({
           from: `VSQ Inventory Management <${process.env.EMAIL_FROM || 'it@vsqclinic.com'}>`,
           to: userEmail,
-        subject: `อนุมัติ คำขอเบิกอุปกรณ์ VSQ - ${subjectItemNames} จาก ${userDisplayName}`,
+          subject: `อนุมัติ คำขอเบิกอุปกรณ์ VSQ - ${subjectItemNames} จาก ${userDisplayName}`,
           attachments: imageAttachments,
           html: userHtml
         });
@@ -2047,7 +2047,7 @@ export async function sendEquipmentRequestCancellationNotification(requestData: 
             from: `VSQ Inventory Management <${process.env.EMAIL_FROM || 'it@vsqclinic.com'}>`,
             replyTo: userEmail || process.env.EMAIL_FROM,
             to: adminEmail,
-          subject: `แจ้งยกเลิกคำขอเบิกอุปกรณ์ VSQ - ${subjectItemNames} จาก ${userDisplayName}`,
+            subject: `แจ้งยกเลิกคำขอเบิกอุปกรณ์ VSQ - ${subjectItemNames} จาก ${userDisplayName}`,
             attachments: imageAttachments,
             html: adminHtml
           });
@@ -2070,7 +2070,7 @@ export async function sendEquipmentRequestCancellationNotification(requestData: 
         await transporter.sendMail({
           from: `VSQ Inventory Management <${process.env.EMAIL_FROM || 'it@vsqclinic.com'}>`,
           to: userEmail,
-        subject: `ยกเลิก คำขอเบิกอุปกรณ์ VSQ - ${subjectItemNames} จาก ${userDisplayName}`,
+          subject: `ยกเลิก คำขอเบิกอุปกรณ์ VSQ - ${subjectItemNames} จาก ${userDisplayName}`,
           attachments: imageAttachments,
           html: userHtml
         });
@@ -2104,7 +2104,7 @@ export async function sendEquipmentReturnNotification(returnData: any) {
     lastName: returnData.lastName,
     itemsCount: returnData.items?.length
   });
-  
+
   try {
     const userInfo = getUserInfo(returnData);
     const userDisplayName = getUserDisplayName(returnData);
@@ -2114,7 +2114,7 @@ export async function sendEquipmentReturnNotification(returnData: any) {
     const submittedDate = formatDateBE(returnData.returnDate || returnData.createdAt);
     const approvedDate = '-';
     const statusBadge = buildStatusBadge('⏳ รอดำเนินการ', '#f59e0b', '#000000');
-    
+
     console.log('📧 [sendEquipmentReturnNotification] Prepared email data:', {
       userDisplayName,
       userEmail,
@@ -2143,7 +2143,7 @@ export async function sendEquipmentReturnNotification(returnData: any) {
     const adminResults: Array<{ success: boolean; email: string; error?: unknown }> = [];
 
     console.log('📧 [sendEquipmentReturnNotification] IT Admin emails found:', itAdminEmails.length);
-    
+
     if (itAdminEmails.length > 0) {
       for (const adminEmail of itAdminEmails) {
         try {

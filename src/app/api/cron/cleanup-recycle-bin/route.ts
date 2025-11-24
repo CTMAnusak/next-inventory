@@ -13,10 +13,12 @@ import { permanentDeleteExpiredItems } from '@/lib/recycle-bin-helpers';
 export async function POST(request: NextRequest) {
   try {
     // Optional: Add authorization header check for cron jobs
+    // For internal calls from client-side, no auth header is needed
     const authHeader = request.headers.get('authorization');
     const cronSecret = process.env.CRON_SECRET;
-    
-    if (cronSecret && authHeader !== `Bearer ${cronSecret}`) {
+
+    // Only check auth if CRON_SECRET is set (for external cron services)
+    if (cronSecret && authHeader && authHeader !== `Bearer ${cronSecret}`) {
       console.log('❌ Unauthorized cron job request');
       return NextResponse.json(
         { error: 'Unauthorized' },
@@ -44,9 +46,9 @@ export async function POST(request: NextRequest) {
 
   } catch (error) {
     console.error('❌ Recycle Bin Cleanup Error:', error);
-    
+
     return NextResponse.json(
-      { 
+      {
         error: 'Cleanup failed',
         message: error instanceof Error ? error.message : 'Unknown error',
         cleanupTime: new Date().toISOString()
@@ -62,7 +64,7 @@ export async function GET(request: NextRequest) {
     // Optional: Add authorization for monitoring
     const authHeader = request.headers.get('authorization');
     const cronSecret = process.env.CRON_SECRET;
-    
+
     if (cronSecret && authHeader !== `Bearer ${cronSecret}`) {
       return NextResponse.json(
         { error: 'Unauthorized' },
@@ -79,7 +81,7 @@ export async function GET(request: NextRequest) {
       permanentDeleteAt: { $lte: new Date() }
     });
     const soonToExpire = await RecycleBin.countDocuments({
-      permanentDeleteAt: { 
+      permanentDeleteAt: {
         $lte: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000), // 7 days from now
         $gt: new Date()
       }
@@ -98,9 +100,9 @@ export async function GET(request: NextRequest) {
 
   } catch (error) {
     console.error('❌ Recycle Bin Status Check Error:', error);
-    
+
     return NextResponse.json(
-      { 
+      {
         error: 'Status check failed',
         message: error instanceof Error ? error.message : 'Unknown error'
       },

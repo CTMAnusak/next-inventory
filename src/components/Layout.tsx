@@ -4,10 +4,14 @@ import { useState } from 'react';
 import { useAuth } from '@/contexts/AuthContext';
 import { useTokenWarning } from '@/hooks/useTokenWarning';
 import { useForceLogoutCheck } from '@/hooks/useForceLogoutCheck';
-import TokenExpiryModal from './TokenExpiryModal';
-import LogoutModal from './LogoutModal';
+import { useRecycleBinCleanup } from '@/hooks/useRecycleBinCleanup';
+import dynamic from 'next/dynamic';
 import Sidebar from './Sidebar';
 import { Menu, LogOut, User } from 'lucide-react';
+
+// Lazy load modals
+const TokenExpiryModal = dynamic(() => import('./TokenExpiryModal'), { ssr: false });
+const LogoutModal = dynamic(() => import('./LogoutModal'), { ssr: false });
 
 interface LayoutProps {
   children: React.ReactNode;
@@ -16,12 +20,15 @@ interface LayoutProps {
 export default function Layout({ children }: LayoutProps) {
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const { user, loading, logout } = useAuth();
-  
+
   // เปิดใช้ระบบแจ้งเตือน token หมดอายุ
   const { timeToExpiry, showModal, showLogoutModal, handleCloseModal, handleLogoutConfirm } = useTokenWarning();
 
   // เปิดใช้ระบบตรวจสอบ force logout สำหรับ user ที่รอลบ
   useForceLogoutCheck();
+
+  // เปิดใช้ระบบลบถาวรอัตโนมัติสำหรับถังขยะ (ทุกวัน)
+  useRecycleBinCleanup();
 
   const handleLogout = async () => {
     if (confirm('คุณต้องการออกจากระบบหรือไม่?')) {
@@ -45,7 +52,7 @@ export default function Layout({ children }: LayoutProps) {
     <div className="min-h-screen bg-gradient-to-br from-blue-50 via-indigo-50 to-cyan-50">
       {/* Sidebar */}
       <Sidebar isOpen={sidebarOpen} onClose={() => setSidebarOpen(false)} />
-      
+
       {/* Main Content with margin for sidebar */}
       <div className="lg:ml-64">
         {/* Top Navigation */}
@@ -96,16 +103,16 @@ export default function Layout({ children }: LayoutProps) {
           </div>
         </main>
       </div>
-      
+
       {/* Token Expiry Modal */}
-      <TokenExpiryModal 
+      <TokenExpiryModal
         isOpen={showModal}
         timeLeft={timeToExpiry || 0}
         onClose={handleCloseModal}
       />
-      
+
       {/* Logout Modal */}
-      <LogoutModal 
+      <LogoutModal
         isOpen={showLogoutModal}
         onConfirm={handleLogoutConfirm}
       />

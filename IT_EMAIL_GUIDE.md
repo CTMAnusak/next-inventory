@@ -353,7 +353,7 @@ Subject: แจ้งงาน IT VSQ [ด่วน] จาก สมชาย �
 ```
 From: VSQ IT Service Desk <it@vsqclinic.com>
 To: somchai.jaidee@vsqclinic.com, itadmin1@vsqclinic.com, itadmin2@vsqclinic.com
-Subject: แจ้งงาน IT VSQ [ด่วน] จาก สมชาย ใจดี (IT-2025-0001) - ปัญหา Internet : ✅ IT อนุมัติงาน
+Subject: แจ้งงาน IT VSQ [ด่วน] จาก สมชาย ใจดี (IT-2025-0001) - ปัญหา Internet : ✅ ผู้ใช้อนุมัติปิดงาน
 
 เนื้อหา:
 ┌─────────────────────────────────────────────────────┐

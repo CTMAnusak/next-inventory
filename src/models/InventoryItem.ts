@@ -8,7 +8,7 @@ export interface IInventoryItem extends Document {
   statusId: string;  // ใช้ ID แทน string เพื่อ relational integrity
   conditionId?: string;  // ใช้ ID แทน string เพื่อ relational integrity
   notes?: string;  // หมายเหตุเพิ่มเติม
-  
+
   // Ownership ปัจจุบัน
   currentOwnership: {
     ownerType: 'admin_stock' | 'user_owned';
@@ -16,7 +16,7 @@ export interface IInventoryItem extends Document {
     ownedSince: Date;
     assignedBy?: string;        // Admin ที่มอบหมาย (สำหรับ tracking)
   };
-  
+
   // ข้อมูลต้นกำเนิด
   sourceInfo: {
     addedBy: 'admin' | 'user';
@@ -26,7 +26,7 @@ export interface IInventoryItem extends Document {
     acquisitionMethod: 'self_reported' | 'admin_purchased' | 'transferred';
     notes?: string;
   };
-  
+
   // ข้อมูลการ transfer (ถ้ามี)
   transferInfo?: {
     transferredFrom: 'admin_stock' | 'user_owned';
@@ -35,7 +35,7 @@ export interface IInventoryItem extends Document {
     requestId?: string;         // Link ไป RequestLog
     returnId?: string;          // Link ไป ReturnLog
   };
-  
+
   // ข้อมูลผู้ใช้สาขา (สำหรับการแสดงผลในหน้าติดตามอุปกรณ์)
   requesterInfo?: {
     firstName?: string;
@@ -47,27 +47,27 @@ export interface IInventoryItem extends Document {
     officeId?: string; // 🆕 Office ID สำหรับอ้างอิง
     officeName?: string; // 🆕 Office Name (populated field)
   };
-  
+
   // ข้อมูลการลบ (soft delete)
   deletedAt?: Date;
   deleteReason?: string;
-  
+
   createdAt: Date;
   updatedAt: Date;
 }
 
 const InventoryItemSchema = new Schema<IInventoryItem>({
-  itemName: { 
-    type: String, 
+  itemName: {
+    type: String,
     required: true,
     index: true  // สำหรับ query ที่เร็วขึ้น
   },
-  categoryId: { 
-    type: String, 
+  categoryId: {
+    type: String,
     required: true,
     index: true
   },
-  serialNumber: { 
+  serialNumber: {
     type: String,
     sparse: true   // อนุญาตให้เป็น null/undefined แต่ไม่ enforce unique constraint
     // Note: ลบ unique: true เพื่อป้องกัน E11000 error กับ null values
@@ -77,7 +77,7 @@ const InventoryItemSchema = new Schema<IInventoryItem>({
     type: String,
     sparse: true,  // เบอร์โทรศัพท์สำหรับซิมการ์ด (10 หลัก)
     validate: {
-      validator: function(v: string) {
+      validator: function (v: string) {
         // ถ้าไม่มีค่า ให้ผ่าน (เพราะเป็น optional field)
         if (!v) return true;
         // ถ้ามีค่า ต้องเป็นตัวเลข 10 หลักเท่านั้น
@@ -86,20 +86,20 @@ const InventoryItemSchema = new Schema<IInventoryItem>({
       message: 'เบอร์โทรศัพท์ต้องเป็นตัวเลข 10 หลักเท่านั้น'
     }
   },
-  statusId: { 
-    type: String, 
+  statusId: {
+    type: String,
     required: true,
     index: true
   },
-  conditionId: { 
-    type: String, 
+  conditionId: {
+    type: String,
     sparse: true,
     index: true
   },
-  notes: { 
-    type: String 
+  notes: {
+    type: String
   },
-  
+
   // Ownership ปัจจุบัน
   currentOwnership: {
     ownerType: {
@@ -123,7 +123,7 @@ const InventoryItemSchema = new Schema<IInventoryItem>({
       sparse: true
     }
   },
-  
+
   // ข้อมูลต้นกำเนิด
   sourceInfo: {
     addedBy: {
@@ -154,7 +154,7 @@ const InventoryItemSchema = new Schema<IInventoryItem>({
       type: String
     }
   },
-  
+
   // ข้อมูลการ transfer
   transferInfo: {
     transferredFrom: {
@@ -174,7 +174,7 @@ const InventoryItemSchema = new Schema<IInventoryItem>({
       type: String  // Link to ReturnLog
     }
   },
-  
+
   // ข้อมูลผู้ใช้สาขา (สำหรับการแสดงผลในหน้าติดตามอุปกรณ์)
   requesterInfo: {
     firstName: {
@@ -202,7 +202,7 @@ const InventoryItemSchema = new Schema<IInventoryItem>({
       type: String // 🆕 Office Name (populated field)
     }
   },
-  
+
   // ข้อมูลการลบ (soft delete)
   deletedAt: {
     type: Date
@@ -220,29 +220,30 @@ InventoryItemSchema.index({ 'currentOwnership.ownerType': 1, 'currentOwnership.u
 InventoryItemSchema.index({ 'currentOwnership.ownerType': 1, 'currentOwnership.userId': 1, deletedAt: 1 }); // ✅ Composite index สำหรับ owned equipment query
 InventoryItemSchema.index({ 'sourceInfo.addedBy': 1, 'sourceInfo.addedByUserId': 1 });
 InventoryItemSchema.index({ 'transferInfo.requestId': 1 }); // ✅ Index สำหรับ lookup requestId
+InventoryItemSchema.index({ statusId: 1, categoryId: 1 }); // 🆕 Compound index for filtering items by status and category
 
 // Pre-save validation
-InventoryItemSchema.pre('save', function(next) {
+InventoryItemSchema.pre('save', function (next) {
   // ตรวจสอบว่า user_owned ต้องมี userId
   if (this.currentOwnership.ownerType === 'user_owned' && !this.currentOwnership.userId) {
     return next(new Error('user_owned items must have userId'));
   }
-  
+
   // ตรวจสอบว่า admin_stock ต้องไม่มี userId
   if (this.currentOwnership.ownerType === 'admin_stock' && this.currentOwnership.userId) {
     this.currentOwnership.userId = undefined;
   }
-  
+
   // ตรวจสอบว่า user เพิ่มต้องมี addedByUserId
   if (this.sourceInfo.addedBy === 'user' && !this.sourceInfo.addedByUserId) {
     return next(new Error('User-added items must have addedByUserId'));
   }
-  
+
   // ตรวจสอบว่า admin เพิ่มต้องไม่มี addedByUserId
   if (this.sourceInfo.addedBy === 'admin' && this.sourceInfo.addedByUserId) {
     this.sourceInfo.addedByUserId = undefined;
   }
-  
+
   next();
 });
 
@@ -279,7 +280,7 @@ InventoryItemSchema.post('findOneAndUpdate', async function(doc) {
 */
 
 // Static methods สำหรับ common queries
-InventoryItemSchema.statics.findAvailableByName = function(itemName: string) {
+InventoryItemSchema.statics.findAvailableByName = function (itemName: string) {
   // 🔧 CRITICAL FIX: Use statusId for filtering
   return this.find({
     itemName: itemName,
@@ -288,7 +289,7 @@ InventoryItemSchema.statics.findAvailableByName = function(itemName: string) {
   });
 };
 
-InventoryItemSchema.statics.findUserOwned = function(userId: string) {
+InventoryItemSchema.statics.findUserOwned = function (userId: string) {
   return this.find({
     'currentOwnership.ownerType': 'user_owned',
     'currentOwnership.userId': userId,

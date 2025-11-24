@@ -56,7 +56,7 @@ export interface IRequestLog extends Document {
   items: IRequestItem[]; // รายการอุปกรณ์ที่เบิก
   status: 'approved' | 'pending' | 'rejected' | 'completed'; // สถานะการเบิก
   requestType: 'request' | 'user-owned'; // ประเภท: การเบิก หรือ อุปกรณ์ที่ user เพิ่มเอง
-  
+
   // Admin actions
   approvedAt?: Date;
   approvedBy?: string; // Admin userId
@@ -70,7 +70,7 @@ export interface IRequestLog extends Document {
   cancelledByName?: string; // 🆕 Snapshot: ชื่อ Admin ที่ยกเลิก
   cancellationReason?: string; // เหตุผลการยกเลิก (เมื่อลบรายการ)
   transferredItems?: any[]; // Items that were actually transferred
-  
+
   createdAt: Date;
   updatedAt: Date;
 }
@@ -125,17 +125,17 @@ const RequestLogSchema = new Schema<IRequestLog>({
   requesterOfficeId: { type: String }, // 🆕 Office ID สำหรับอ้างอิง
   requesterOfficeName: { type: String }, // 🆕 Office Name (populated field)
   requestDate: { type: Date, required: true },
-  urgency: { 
-    type: String, 
-    enum: ['very_urgent', 'normal'], 
+  urgency: {
+    type: String,
+    enum: ['very_urgent', 'normal'],
     required: true,
     default: 'normal'
   },
   deliveryLocation: { type: String, required: true },
   items: [RequestItemSchema],
-  status: { 
-    type: String, 
-    enum: ['approved', 'pending', 'rejected', 'completed'], 
+  status: {
+    type: String,
+    enum: ['approved', 'pending', 'rejected', 'completed'],
     default: 'pending'
   },
   requestType: {
@@ -144,7 +144,7 @@ const RequestLogSchema = new Schema<IRequestLog>({
     required: true,
     default: 'request'
   },
-  
+
   // Admin actions
   approvedAt: { type: Date },
   approvedBy: { type: String },
@@ -168,6 +168,8 @@ RequestLogSchema.index({ userId: 1 });
 RequestLogSchema.index({ status: 1 });
 RequestLogSchema.index({ 'items.masterId': 1 });
 RequestLogSchema.index({ _id: 1, requestType: 1 }); // ✅ Composite index สำหรับ owned equipment query (lookup by _id and requestType)
+RequestLogSchema.index({ status: 1, createdAt: -1 }); // 🆕 Compound index for dashboard/list filtering
+RequestLogSchema.index({ assignedAdminId: 1 }); // 🆕 Index for assigned admin lookup
 
 // Force recompile model in dev/hot-reload to pick up schema changes
 if (mongoose.models.RequestLog) {
