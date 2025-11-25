@@ -18,7 +18,7 @@ import {
   Building,
   Phone,
   Mail,
-  Download,
+  Upload,
   Loader2,
   AlertTriangle
 } from 'lucide-react';
@@ -1042,7 +1042,7 @@ export default function AdminUsersPage() {
                 className="flex justify-center items-center space-x-2 px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
                 title={currentData.length === 0 ? 'ไม่มีข้อมูลให้ Export' : 'Export ข้อมูลเป็น Excel'}
               >
-                <Download className="w-4 h-4" />
+                <Upload className="w-4 h-4" />
                 <span>Export Excel</span>
               </button>
               <button

@@ -48,7 +48,7 @@ export default function ContactPage() {
               >
                 V Square it support
               </a>
-              <p className="text-green-600 font-medium text-lg hover:text-green-800">(Line Id : vsqitsupport)</p>
+              <p className="text-green-600 font-medium text-lg">(Line Id : vsqitsupport)</p>
               <p className="text-sm text-gray-600 mt-1">
                 สำหรับการสนทนาแบบทันที
               </p>

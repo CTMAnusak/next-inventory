@@ -13,7 +13,7 @@ import {
   Users,
   FileText,
   UserPlus,
-  Download
+  Upload
 } from 'lucide-react';
 import { toast } from 'react-hot-toast';
 import * as XLSX from 'xlsx';
@@ -492,7 +492,7 @@ export default function AdminDashboardPage() {
                 className="flex items-center space-x-2 px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed w-full min-[425px]:w-4/5 sm:w-3/5 md:w-2/5 xl:w-auto"
                 title="Export Excel"
               >
-                <Download className="w-4 h-4" />
+                <Upload className="w-4 h-4" />
                 <span className="inline-block">Export Excel</span>
               </button>
             </div>

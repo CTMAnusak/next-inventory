@@ -14,7 +14,7 @@ import {
   ExternalLink,
   CheckCircle,
   FileText,
-  Download
+  Upload
 } from 'lucide-react';
 import { toast } from 'react-hot-toast';
 import { useRouter } from 'next/navigation';
@@ -429,7 +429,7 @@ export default function PendingSummaryPage() {
                 className="flex items-center justify-center space-x-2 px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
                 title={totalPendingCount === 0 ? 'ไม่มีข้อมูลให้ Export' : 'Export ข้อมูลเป็น Excel'}
               >
-                <Download className="w-4 h-4" />
+                <Upload className="w-4 h-4" />
                 <span>Export Excel</span>
               </button>
             </div>
