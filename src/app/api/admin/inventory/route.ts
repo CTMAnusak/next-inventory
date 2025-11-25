@@ -457,7 +457,7 @@ export async function DELETE(request: NextRequest) {
     // ❌ กรณีที่ 3: มีเฉพาะ User Owned → ลบไม่ได้เลย
     else if (adminStockItems.length === 0 && userOwnedItems.length > 0) {
       return NextResponse.json({
-        error: `❌ ไม่สามารถลบ "${itemName}" ได้`,
+        error: `ไม่สามารถลบ "${itemName}" ได้`,
         reason: `มีผู้ใช้ครอบครองอุปกรณ์อยู่ ${userOwnedItems.length} ชิ้น`,
         message: "รายการนี้จะหายจากตารางเมื่อผู้ใช้คืนอุปกรณ์ครบทุกชิ้น",
         nextSteps: [
