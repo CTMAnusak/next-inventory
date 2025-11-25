@@ -465,24 +465,30 @@ const StatusCell: React.FC<StatusCellProps> = ({
                     setIsLoading(true);
                     
                     if (onFetchBreakdown) {
-                      onFetchBreakdown()
-                        .then((result) => {
-                          // ไม่ต้องรออะไร เพราะ useEffect ที่ตรวจสอบ breakdown จะทำงานทันที
-                          // เมื่อ breakdown prop ถูก update useEffect จะ clear loading state อัตโนมัติ
-                          if (result && typeof result === 'object' && 'error' in result && result.error) {
-                            setIsLoading(false);
-                            const errorMsg = (result as any).message || 'เกิดข้อผิดพลาดในการโหลดข้อมูล';
-                            setError(errorMsg);
-                          } else if (!result) {
-                            setIsLoading(false);
+                      const p = onFetchBreakdown();
+                      // Support both Promise and void returns
+                      if (p && typeof (p as any).then === 'function') {
+                        (p as Promise<any>)
+                          .then((result) => {
+                            // ไม่ต้องรออะไร เพราะ useEffect ที่ตรวจสอบ breakdown จะทำงานทันที
+                            // เมื่อ breakdown prop ถูก update useEffect จะ clear loading state อัตโนมัติ
+                            if (result && typeof result === 'object' && 'error' in result && result.error) {
+                              setIsLoading(false);
+                              const errorMsg = (result as any).message || 'เกิดข้อผิดพลาดในการโหลดข้อมูล';
+                              setError(errorMsg);
+                            } else if (!result) {
+                              setIsLoading(false);
+                              setError('ไม่สามารถโหลดข้อมูลได้');
+                            }
+                            // ถ้าได้ result ที่ถูกต้อง ไม่ต้องทำอะไร เพราะ useEffect จะจัดการ
+                          })
+                          .catch((err) => {
                             setError('ไม่สามารถโหลดข้อมูลได้');
-                          }
-                          // ถ้าได้ result ที่ถูกต้อง ไม่ต้องทำอะไร เพราะ useEffect จะจัดการ
-                        })
-                        .catch((err) => {
-                          setError('ไม่สามารถโหลดข้อมูลได้');
-                          setIsLoading(false);
-                        });
+                            setIsLoading(false);
+                          });
+                      } else {
+                        setIsLoading(false);
+                      }
                     }
                   }}
                   style={{ 
