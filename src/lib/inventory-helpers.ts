@@ -277,6 +277,9 @@ export async function createInventoryItem(params: CreateItemParams) {
     console.log('🔍 createInventoryItem - Saved item requesterInfo:');
     console.log('   savedItem.requesterInfo:', JSON.stringify((savedItem as any).requesterInfo, null, 2));
 
+    // 🔧 CRITICAL FIX: รอสักครู่เพื่อให้แน่ใจว่า item ถูก save เรียบร้อยแล้วก่อนเรียก updateInventoryMaster
+    await new Promise(resolve => setTimeout(resolve, 50));
+    
     // Update InventoryMaster immediately and ensure it completes
     try {
       await updateInventoryMaster(itemName, categoryId);
@@ -284,6 +287,7 @@ export async function createInventoryItem(params: CreateItemParams) {
       console.error('❌ Failed to update InventoryMaster:', masterError);
       // Force retry once more for critical sync
       try {
+        await new Promise(resolve => setTimeout(resolve, 100));
         await updateInventoryMaster(itemName, categoryId);
       } catch (retryError) {
         console.error('❌ InventoryMaster retry also failed:', retryError);
@@ -522,6 +526,18 @@ export async function updateInventoryMaster(itemName: string, categoryId: string
       item.statusId === 'status_available' && item.conditionId === 'cond_working'
     );
     
+    // 🔍 Enhanced debug logging for availableQuantity calculation
+    console.log(`📊 AvailableQuantity calculation for ${itemName}:`, {
+      totalItems: allItems.length,
+      adminStockItems: adminStockItems.length,
+      availableToBorrow: availableToBorrow.length,
+      statusBreakdown: adminStockItems.reduce((acc, item) => {
+        const key = `${item.statusId || 'null'}_${item.conditionId || 'null'}`;
+        acc[key] = (acc[key] || 0) + 1;
+        return acc;
+      }, {} as Record<string, number>)
+    });
+    
     // 🔍 Debug logging for troubleshooting
     if (availableToBorrow.length === 0 && adminStockItems.length > 0) {
       const statusCounts: Record<string, number> = {};
@@ -555,6 +571,28 @@ export async function updateInventoryMaster(itemName: string, categoryId: string
     updatedMaster.availableQuantity = availableToBorrow.length;
     updatedMaster.userOwnedQuantity = userOwnedItems.length;
     
+    // 🔍 Enhanced debug logging for availableQuantity
+    const statusConditionBreakdown = adminStockItems.reduce((acc, item) => {
+      const key = `${item.statusId || 'null'}_${item.conditionId || 'null'}`;
+      acc[key] = (acc[key] || 0) + 1;
+      return acc;
+    }, {} as Record<string, number>);
+    
+    console.log(`📊 Final availableQuantity calculation for ${itemName}:`, {
+      totalItems: allItems.length,
+      adminStockItems: adminStockItems.length,
+      availableToBorrow: availableToBorrow.length,
+      finalAvailableQuantity: updatedMaster.availableQuantity,
+      statusConditionBreakdown,
+      // 🔍 Debug: แสดงรายละเอียดของ items ที่นับเป็น availableToBorrow
+      availableItemsDetails: availableToBorrow.map(item => ({
+        _id: item._id,
+        statusId: item.statusId,
+        conditionId: item.conditionId,
+        ownerType: item.currentOwnership?.ownerType
+      }))
+    });
+    
     // 🔧 VALIDATION: availableQuantity ต้องไม่เกิน totalQuantity
     // availableQuantity = อุปกรณ์ที่พร้อมเบิก (admin_stock + status_available + cond_working)
     // totalQuantity = จำนวนทั้งหมด (admin_stock + user_owned)
@@ -581,6 +619,17 @@ export async function updateInventoryMaster(itemName: string, categoryId: string
     
     if (hasChanges) {
       updatedMaster.relatedItemIds = currentRelatedIds;
+    }
+    
+    // 🔧 CRITICAL FIX: อัปเดต masterItemId ถ้าเป็น null หรือ master item ไม่มีอยู่แล้ว
+    if (!updatedMaster.masterItemId || !currentRelatedIds.includes(updatedMaster.masterItemId)) {
+      if (currentRelatedIds.length > 0) {
+        updatedMaster.masterItemId = currentRelatedIds[0];
+        console.log(`🔧 Updated masterItemId to: ${updatedMaster.masterItemId}`);
+      } else {
+        // ถ้าไม่มี items เลย ต้อง throw error เพราะ masterItemId เป็น required
+        throw new Error(`Cannot update InventoryMaster: No items found for ${itemName} in category ${categoryId}`);
+      }
     }
     
     // 🆕 FIXED: Calculate status breakdown dynamically from all items using statusId
@@ -673,12 +722,26 @@ export async function updateInventoryMaster(itemName: string, categoryId: string
     
     const savedMaster = await updatedMaster.save();
     
+    // 🔍 Verify saved data matches calculated data
+    if (savedMaster.availableQuantity !== availableToBorrow.length) {
+      console.error(`❌ CRITICAL: availableQuantity mismatch after save!`, {
+        itemName: savedMaster.itemName,
+        categoryId: savedMaster.categoryId,
+        calculated: availableToBorrow.length,
+        saved: savedMaster.availableQuantity,
+        adminStockItems: adminStockItems.length,
+        statusConditionBreakdown
+      });
+    }
+    
     console.log(`✅ Saved InventoryMaster:`, {
       _id: savedMaster._id,
       itemName: savedMaster.itemName,
+      categoryId: savedMaster.categoryId,
       totalQuantity: savedMaster.totalQuantity,
       availableQuantity: savedMaster.availableQuantity,
-      userOwnedQuantity: savedMaster.userOwnedQuantity
+      userOwnedQuantity: savedMaster.userOwnedQuantity,
+      calculatedAvailableQuantity: availableToBorrow.length
     });
     
     return savedMaster;
@@ -1191,6 +1254,9 @@ export async function refreshAllMasterSummaries() {
   const results = [];
   for (const combo of combinations) {
     try {
+      // 🔧 CRITICAL FIX: รอสักครู่เพื่อให้แน่ใจว่า items ใหม่ถูก save และ query ได้
+      await new Promise(resolve => setTimeout(resolve, 50));
+      
       const result = await updateInventoryMaster(combo._id.itemName, combo._id.categoryId);
       results.push(result);
     } catch (error) {
@@ -1553,8 +1619,10 @@ export async function syncAdminStockItems(itemName: string, categoryId: string, 
                            (newConditionId === 'cond_working' || !newConditionId);
     
     if (createNewItems) {
+      const createdItemIds: string[] = [];
+      
       for (let i = 0; i < itemsToCreate; i++) {
-        await createInventoryItem({
+        const createdItem = await createInventoryItem({
           itemName,
           categoryId: categoryId, // ใช้หมวดหมู่เดิม (ไม่เปลี่ยนหมวดหมู่)
           statusId: newStatusId || 'status_available', // ใช้สถานะใหม่หากระบุ
@@ -1564,7 +1632,46 @@ export async function syncAdminStockItems(itemName: string, categoryId: string, 
           initialOwnerType: 'admin_stock',
           notes: `Auto-created via stock adjustment: ${reason}`
         });
+        
+        createdItemIds.push((createdItem._id as any).toString());
+        
+        // 🔍 Debug: ตรวจสอบว่า item ที่สร้างมี status และ condition ถูกต้อง
+        console.log(`✅ Created item ${i + 1}/${itemsToCreate}:`, {
+          _id: createdItem._id,
+          itemName: createdItem.itemName,
+          statusId: createdItem.statusId,
+          conditionId: createdItem.conditionId,
+          ownerType: createdItem.currentOwnership?.ownerType
+        });
+        
+        // 🔧 CRITICAL FIX: รอสักครู่หลังจากสร้างแต่ละ item เพื่อให้แน่ใจว่า item ถูก save เรียบร้อยแล้ว
+        // และให้ updateInventoryMaster ที่ถูกเรียกภายใน createInventoryItem มีเวลา query items ได้
+        if (i < itemsToCreate - 1) {
+          await new Promise(resolve => setTimeout(resolve, 150));
+        }
       }
+      
+      // 🔧 CRITICAL FIX: รอสักครู่หลังจากสร้าง items ทั้งหมดเสร็จแล้ว
+      // เพื่อให้แน่ใจว่า items ทั้งหมดถูก save และ query ได้
+      await new Promise(resolve => setTimeout(resolve, 300));
+      
+      // 🔧 CRITICAL FIX: Verify that all created items are queryable
+      const verifyCreatedItems = await InventoryItem.countDocuments({
+        _id: { $in: createdItemIds },
+        itemName,
+        categoryId,
+        statusId: newStatusId || 'status_available',
+        conditionId: newConditionId || 'cond_working',
+        'currentOwnership.ownerType': 'admin_stock',
+        deletedAt: { $exists: false }
+      });
+      
+      if (verifyCreatedItems !== itemsToCreate) {
+        console.warn(`⚠️  Created ${itemsToCreate} items but only ${verifyCreatedItems} are queryable. Waiting longer...`);
+        await new Promise(resolve => setTimeout(resolve, 500));
+      }
+      
+      console.log(`✅ Verified ${verifyCreatedItems}/${itemsToCreate} created items are queryable`);
     } else {
     }
   } else if (currentCount > targetAdminStock) {
@@ -1629,8 +1736,51 @@ export async function syncAdminStockItems(itemName: string, categoryId: string, 
     }
   }
   
+  // 🔧 CRITICAL FIX: รอสักครู่เพื่อให้แน่ใจว่า items ที่สร้าง/ลบถูก save/delete เรียบร้อยแล้ว
+  // ก่อนที่จะเรียก updateInventoryMaster
+  await new Promise(resolve => setTimeout(resolve, 300));
+  
   // Update InventoryMaster - ไม่มีการเปลี่ยนหมวดหมู่
   await updateInventoryMaster(itemName, categoryId);
+  
+  // 🔧 CRITICAL FIX: Verify and retry until availableQuantity is correct
+  let retryCount = 0;
+  const maxRetries = 5;
+  
+  while (retryCount < maxRetries) {
+    const verifyMaster = await InventoryMaster.findOne({ itemName, categoryId });
+    if (!verifyMaster) {
+      console.warn(`⚠️  InventoryMaster not found, retrying...`);
+      await new Promise(resolve => setTimeout(resolve, 200));
+      await updateInventoryMaster(itemName, categoryId);
+      retryCount++;
+      continue;
+    }
+    
+    // Count actual available items (admin_stock + status_available + cond_working)
+    const actualAvailableItems = await InventoryItem.countDocuments({
+      itemName,
+      categoryId,
+      'currentOwnership.ownerType': 'admin_stock',
+      statusId: 'status_available',
+      conditionId: 'cond_working',
+      deletedAt: { $exists: false }
+    });
+    
+    if (verifyMaster.availableQuantity === actualAvailableItems) {
+      console.log(`✅ availableQuantity verified: ${verifyMaster.availableQuantity} (attempt ${retryCount + 1})`);
+      break; // ตรงแล้ว ไม่ต้อง retry
+    } else {
+      console.log(`⚠️  availableQuantity mismatch (attempt ${retryCount + 1}/${maxRetries}): master=${verifyMaster.availableQuantity}, actual=${actualAvailableItems}. Re-updating...`);
+      await new Promise(resolve => setTimeout(resolve, 300));
+      await updateInventoryMaster(itemName, categoryId);
+      retryCount++;
+    }
+  }
+  
+  if (retryCount >= maxRetries) {
+    console.error(`❌ Failed to sync availableQuantity after ${maxRetries} attempts`);
+  }
   
   return true;
 }

@@ -378,6 +378,56 @@ export async function POST(request: NextRequest) {
           undefined, // 🔧 CRITICAL FIX: ไม่เปลี่ยนสถานะของอุปกรณ์ที่มีอยู่ (เฉพาะสร้างใหม่เท่านั้น)
           undefined  // 🔧 CRITICAL FIX: ไม่เปลี่ยนสภาพของอุปกรณ์ที่มีอยู่ (เฉพาะสร้างใหม่เท่านั้น)
         );
+        
+        // 🔧 CRITICAL FIX: syncAdminStockItems จะเรียก updateInventoryMaster ภายในแล้ว
+        // แต่เราต้อง verify และ retry อีกครั้งเพื่อให้แน่ใจว่า availableQuantity ถูกต้อง
+        
+        // 🔧 CRITICAL FIX: Retry updateInventoryMaster หลายครั้งจนกว่า availableQuantity จะถูกต้อง
+        let retryCount = 0;
+        const maxRetries = 5;
+        const expectedAvailable = targetNonSNCount; // จำนวน non-SN ที่มี+ใช้งานได้ ที่ต้องการ
+        
+        while (retryCount < maxRetries) {
+          // รอสักครู่เพื่อให้แน่ใจว่า items ใหม่/ลบถูก save/delete และ query ได้
+          await new Promise(resolve => setTimeout(resolve, 400));
+          
+          // อัปเดต InventoryMaster
+          await updateInventoryMaster(itemName, category);
+          
+          // Verify availableQuantity
+          const verifyMaster = await InventoryMaster.findOne({ itemName, categoryId: category });
+          if (verifyMaster) {
+            // Count actual available items from InventoryItems
+            const actualAvailableItems = await InventoryItem.countDocuments({
+              itemName,
+              categoryId: category,
+              'currentOwnership.ownerType': 'admin_stock',
+              statusId: 'status_available',
+              conditionId: 'cond_working',
+              deletedAt: { $exists: false }
+            });
+            
+            if (verifyMaster.availableQuantity === expectedAvailable && verifyMaster.availableQuantity === actualAvailableItems) {
+              console.log(`✅ availableQuantity verified: ${verifyMaster.availableQuantity} (expected: ${expectedAvailable}, actual: ${actualAvailableItems}) - attempt ${retryCount + 1}`);
+              break; // ตรงแล้ว ไม่ต้อง retry
+            } else {
+              console.log(`⚠️  availableQuantity mismatch (attempt ${retryCount + 1}/${maxRetries}):`, {
+                expected: expectedAvailable,
+                master: verifyMaster.availableQuantity,
+                actual: actualAvailableItems
+              });
+              retryCount++;
+            }
+          } else {
+            console.log(`⚠️  InventoryMaster not found, retrying...`);
+            retryCount++;
+          }
+        }
+        
+        if (retryCount >= maxRetries) {
+          console.error(`❌ Failed to sync availableQuantity after ${maxRetries} attempts for ${itemName}`);
+        }
+        
         clearAllCaches(); // 🆕 FIXED: เคลียร์แคชหลังจากอัปเดต inventory item เรียบร้อยแล้ว
 
       } else if (operationType === 'change_status_condition') {

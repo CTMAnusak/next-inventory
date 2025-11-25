@@ -1,10 +1,13 @@
 import { NextRequest, NextResponse } from 'next/server';
+import { MongoClient } from 'mongodb';
 import dbConnect from '@/lib/mongodb';
 import User from '@/models/User';
 import { verifyToken } from '@/lib/auth';
 
 // POST - Clean up restored items from recycle bin
 export async function POST(request: NextRequest) {
+    let client: MongoClient | null = null;
+
     try {
         await dbConnect();
 
@@ -29,10 +32,12 @@ export async function POST(request: NextRequest) {
         }
 
         // Use direct MongoDB to clean up
-        const { MongoClient } = require('mongodb');
         const uri = process.env.MONGODB_URI;
-        const client = new MongoClient(uri);
+        if (!uri) {
+            throw new Error('MONGODB_URI is not defined');
+        }
 
+        client = new MongoClient(uri);
         await client.connect();
         const db = client.db();
         const recycleBin = db.collection('recyclebins');
@@ -57,6 +62,7 @@ export async function POST(request: NextRequest) {
         });
 
         await client.close();
+        client = null;
 
         return NextResponse.json({
             success: true,
@@ -71,6 +77,16 @@ export async function POST(request: NextRequest) {
 
     } catch (error) {
         console.error('❌ Cleanup API - Error:', error);
+
+        // Ensure client is closed even on error
+        if (client) {
+            try {
+                await client.close();
+            } catch (closeError) {
+                console.error('Error closing MongoDB client:', closeError);
+            }
+        }
+
         return NextResponse.json(
             { error: 'เกิดข้อผิดพลาดในการทำความสะอาด' },
             { status: 500 }

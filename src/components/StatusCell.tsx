@@ -32,6 +32,19 @@ interface StatusCellProps {
       withSN: number;
       withPhone: number;
     };
+    // 🆕 Grouped breakdowns (status + condition + type combined)
+    adminGroupedBreakdown?: Array<{
+      statusId: string;
+      conditionId: string;
+      type: 'withoutSN' | 'withSN' | 'withPhone';
+      count: number;
+    }>;
+    userGroupedBreakdown?: Array<{
+      statusId: string;
+      conditionId: string;
+      type: 'withoutSN' | 'withSN' | 'withPhone';
+      count: number;
+    }>;
   };
   onFetchBreakdown?: () => Promise<any> | void;
   statusConfigs?: Array<{ id: string; name: string; }>;
@@ -48,6 +61,9 @@ const StatusCell: React.FC<StatusCellProps> = ({
   const [showTooltip, setShowTooltip] = useState(false);
   const [isPinned, setIsPinned] = useState(false); // โหมดค้างเมื่อคลิก
   const [isLoading, setIsLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const [hasTriedFetch, setHasTriedFetch] = useState(false); // ป้องกันการ fetch ซ้ำ
+  const loadingTimeoutRef = useRef<NodeJS.Timeout | null>(null); // สำหรับ timeout loading
   const infoButtonRef = useRef<HTMLButtonElement | null>(null);
   const [tooltipPosition, setTooltipPosition] = useState<{ top: number; left: number; transform?: string } | null>(null);
   const tooltipRef = useRef<HTMLDivElement | null>(null);
@@ -93,19 +109,156 @@ const StatusCell: React.FC<StatusCellProps> = ({
 
     setTooltipPosition({ top, left, transform });
   };
-  // Auto-fetch breakdown whenever it's missing and we're not already loading
+  // Auto-fetch breakdown whenever it's missing - โหลดล่วงหน้าเมื่อ component mount
   useEffect(() => {
-    if (!breakdown && onFetchBreakdown && !isLoading) {
+    // ถ้ามี breakdown แล้ว ให้หยุด loading
+    if (breakdown) {
+      setIsLoading(false);
+      setError(null);
+      // Clear timeout ถ้ามี
+      if (loadingTimeoutRef.current) {
+        clearTimeout(loadingTimeoutRef.current);
+        loadingTimeoutRef.current = null;
+      }
+      return;
+    }
+    
+    // ถ้าไม่มี onFetchBreakdown ให้ไม่ fetch
+    if (!onFetchBreakdown) {
+      return;
+    }
+    
+    // ถ้าเคย fetch แล้ว และยังไม่มี breakdown และไม่มี error ให้ไม่ fetch อีก
+    // แต่ถ้ามี error ให้ reset และ fetch ใหม่ (เหมือนปุ่ม "ลองอีกครั้ง")
+    if (hasTriedFetch && !error) {
+      return;
+    }
+    
+    console.log(`🚀 Starting auto-fetch for ${item.itemName} (hasTriedFetch: ${hasTriedFetch}, breakdown: ${!!breakdown}, error: ${!!error})`);
+    
+    // เริ่ม fetch ทันทีเมื่อ component mount (ไม่ต้องรอ hover)
+    // Reset state เหมือนปุ่ม "ลองอีกครั้ง"
+    setIsLoading(true);
+    setError(null);
+    setHasTriedFetch(true); // ป้องกันการ fetch ซ้ำ
+    
+    // เรียก fetch ทันทีโดยไม่ต้อง debounce เพื่อให้โหลดเร็วขึ้น
+    // ใช้ requestAnimationFrame เพื่อให้ไม่ block UI แต่ยังเร็ว
+    const rafId = requestAnimationFrame(() => {
+      console.log(`📞 Calling onFetchBreakdown for ${item.itemName}`);
       const p = onFetchBreakdown();
       // Support both Promise and void returns
-      if (p && typeof (p as any).finally === 'function') {
-        setIsLoading(true);
-        (p as Promise<any>).finally(() => setIsLoading(false));
+      if (p && typeof (p as any).then === 'function') {
+        (p as Promise<any>)
+          .then((result) => {
+            // ถ้า result เป็น error object ให้แสดง error ทันที
+            if (result && typeof result === 'object' && 'error' in result && result.error) {
+              setIsLoading(false);
+              const errorMsg = (result as any).message || 'เกิดข้อผิดพลาดในการโหลดข้อมูล';
+              setError(errorMsg);
+              return;
+            }
+            
+            // ถ้าได้ result ที่ถูกต้อง ไม่ต้องรออะไร เพราะ useEffect ที่ตรวจสอบ breakdown จะทำงานทันที
+            // เมื่อ breakdown prop ถูก update useEffect จะ clear loading state อัตโนมัติ
+            if (result && !result.error) {
+              // ไม่ต้องทำอะไร เพราะ useEffect ที่ตรวจสอบ breakdown จะทำงานเมื่อ breakdown ถูก update
+              // แต่ถ้ายังไม่มี breakdown หลังจาก 5 วินาที ให้แสดง error (fallback)
+              const timeoutId = setTimeout(() => {
+                setIsLoading(prevLoading => {
+                  if (prevLoading && !breakdown) {
+                    console.warn(`⚠️ Breakdown data fetched but not received via props for ${item.itemName} after 5 seconds`);
+                    setError('ไม่สามารถโหลดข้อมูลได้');
+                    return false;
+                  }
+                  return prevLoading;
+                });
+              }, 5000); // ลดจาก 22 วินาทีเป็น 5 วินาที
+              
+              loadingTimeoutRef.current = timeoutId;
+            } else {
+              // ถ้า result เป็น null หรือ undefined
+              setIsLoading(false);
+              setError('ไม่สามารถโหลดข้อมูลได้');
+            }
+          })
+          .catch((error) => {
+            console.error('❌ Auto-fetch breakdown error:', error);
+            setError('ไม่สามารถโหลดข้อมูลได้');
+            setIsLoading(false);
+          });
+      } else {
+        setIsLoading(false);
+      }
+    });
+    
+    return () => {
+      cancelAnimationFrame(rafId);
+      if (loadingTimeoutRef.current) {
+        clearTimeout(loadingTimeoutRef.current);
+        loadingTimeoutRef.current = null;
+      }
+    };
+  }, [breakdown, onFetchBreakdown, error, hasTriedFetch, item.itemName]); // เพิ่ม item.itemName เพื่อให้ trigger เมื่อ component เปลี่ยน
+  
+  // ใช้ ref เพื่อเก็บค่า breakdown ก่อนหน้า
+  const prevBreakdownRef = useRef(breakdown);
+  
+  // ตรวจสอบว่า breakdown ถูก update แล้วหรือไม่ และ reset state เมื่อ breakdown ถูก clear
+  useEffect(() => {
+    const prevBreakdown = prevBreakdownRef.current;
+    
+    if (breakdown) {
+      // มี breakdown แล้ว
+      setIsLoading(false);
+      setError(null);
+      // Clear timeout ถ้ามี
+      if (loadingTimeoutRef.current) {
+        clearTimeout(loadingTimeoutRef.current);
+        loadingTimeoutRef.current = null;
+      }
+    } else if (prevBreakdown && !breakdown) {
+      // breakdown เปลี่ยนจากมีเป็นไม่มี (เช่น เมื่อรีเฟรชหน้าเว็บ)
+      console.log(`🔄 Breakdown cleared for ${item.itemName} (was: ${!!prevBreakdown}, now: ${!!breakdown}), resetting state to allow refetch`);
+      setHasTriedFetch(false);
+      setError(null);
+      setIsLoading(false);
+      // Clear timeout ถ้ามี
+      if (loadingTimeoutRef.current) {
+        clearTimeout(loadingTimeoutRef.current);
+        loadingTimeoutRef.current = null;
       }
     }
-  }, [breakdown, onFetchBreakdown, isLoading]);
+    
+    // อัปเดต ref ทุกครั้งที่ breakdown เปลี่ยน
+    prevBreakdownRef.current = breakdown;
+  }, [breakdown, item.itemName]);
+  
+  // ตรวจสอบว่าเมื่อ hasTriedFetch เปลี่ยนเป็น false ให้ fetch ใหม่
+  useEffect(() => {
+    // ถ้า hasTriedFetch เปลี่ยนเป็น false และยังไม่มี breakdown และไม่มี error
+    // ให้ trigger useEffect หลักเพื่อ fetch ใหม่
+    if (!hasTriedFetch && !breakdown && !error && onFetchBreakdown) {
+      console.log(`🔄 hasTriedFetch reset to false for ${item.itemName}, will trigger refetch`);
+    }
+  }, [hasTriedFetch, breakdown, error, onFetchBreakdown, item.itemName]);
+  
+  // เพิ่ม timeout สำหรับ loading เพื่อไม่ให้แสดง "กำลังโหลด..." นานเกินไป
+  useEffect(() => {
+    if (isLoading && !breakdown && !error) {
+      const timeoutId = setTimeout(() => {
+        if (isLoading && !breakdown && !error) {
+          console.warn(`⚠️ Loading timeout for ${item.itemName} - clearing loading state after 25 seconds`);
+          setIsLoading(false);
+          setError('ไม่สามารถโหลดข้อมูลได้ (Timeout)');
+        }
+      }, 25000); // เพิ่มเป็น 25 วินาที timeout เพื่อให้มีเวลาโหลดข้อมูล (มากกว่า API timeout 20 วินาที)
+      
+      return () => clearTimeout(timeoutId);
+    }
+  }, [isLoading, breakdown, error, item.itemName]);
 
-  // Fetch breakdown data when tooltip is shown
+  // Show tooltip when hover - ข้อมูลควรจะโหลดไว้แล้วจาก useEffect
   const handleMouseEnter = async (event: React.MouseEvent) => {
     if (isPinned) return; // ถ้าคลิกค้างอยู่ ไม่ต้องตอบสนอง hover
     setShowTooltip(true);
@@ -127,13 +280,26 @@ const StatusCell: React.FC<StatusCellProps> = ({
       });
     }
     
-    if (!breakdown && onFetchBreakdown) {
+    // ถ้ายังไม่มี breakdown และยังไม่เคย fetch ให้ fetch ทันที (fallback)
+    if (!breakdown && onFetchBreakdown && !error && !hasTriedFetch) {
       setIsLoading(true);
+      setError(null);
+      setHasTriedFetch(true);
       try {
-        await onFetchBreakdown();
-      } catch (error) {
-        console.error('Error fetching breakdown:', error);
-      } finally {
+        const result = await onFetchBreakdown();
+        setIsLoading(false);
+        if (!result) {
+          setError('ไม่สามารถโหลดข้อมูลได้');
+          console.warn('⚠️ Breakdown fetch returned null/undefined');
+        } else if (result && typeof result === 'object' && 'error' in result && result.error) {
+          // ถ้า result เป็น error object (เช่น 500 error)
+          const errorMsg = (result as any).message || 'เกิดข้อผิดพลาดในการโหลดข้อมูล';
+          setError(errorMsg);
+        }
+      } catch (error: any) {
+        const errorMessage = error?.message || 'เกิดข้อผิดพลาดในการโหลดข้อมูล';
+        setError(errorMessage);
+        console.error('❌ Error fetching breakdown in StatusCell:', error);
         setIsLoading(false);
       }
     }
@@ -199,6 +365,25 @@ const StatusCell: React.FC<StatusCellProps> = ({
     return conditionConfig?.name || conditionId;
   };
 
+  // Get type display name
+  const getTypeDisplayName = (type: 'withoutSN' | 'withSN' | 'withPhone') => {
+    switch (type) {
+      case 'withoutSN':
+        return 'ไม่มี SN';
+      case 'withSN':
+        return 'มี SN';
+      case 'withPhone':
+        return 'เบอร์';
+      default:
+        return type;
+    }
+  };
+
+  // Get type unit (ชิ้น or เบอร์)
+  const getTypeUnit = (type: 'withoutSN' | 'withSN' | 'withPhone') => {
+    return type === 'withPhone' ? 'เบอร์' : 'ชิ้น';
+  };
+
   // คำนวณ statusMain จากข้อมูล condition breakdown
   const calculateStatusMain = () => {
     // If breakdown is cleared (undefined), force refresh by returning loading state
@@ -262,8 +447,57 @@ const StatusCell: React.FC<StatusCellProps> = ({
           style={{ top: tooltipPosition.top, left: tooltipPosition.left, transform: tooltipPosition.transform }}
         >
           <div className="tooltip-content">
-            {isLoading ? (
-              <div className="loading">กำลังโหลดข้อมูล...</div>
+            {isLoading && !breakdown && !error ? (
+              <div className="loading">
+                กำลังโหลดข้อมูล...
+                <br />
+                <small style={{ fontSize: '10px', color: '#666' }}>กรุณารอสักครู่...</small>
+              </div>
+            ) : error ? (
+              <div className="error" style={{ color: '#dc2626', padding: '8px' }}>
+                ❌ {error}
+                <br />
+                <button 
+                  onClick={() => {
+                    // Reset state ทั้งหมดเพื่อให้ fetch ใหม่
+                    setError(null);
+                    setHasTriedFetch(false);
+                    setIsLoading(true);
+                    
+                    if (onFetchBreakdown) {
+                      onFetchBreakdown()
+                        .then((result) => {
+                          // ไม่ต้องรออะไร เพราะ useEffect ที่ตรวจสอบ breakdown จะทำงานทันที
+                          // เมื่อ breakdown prop ถูก update useEffect จะ clear loading state อัตโนมัติ
+                          if (result && typeof result === 'object' && 'error' in result && result.error) {
+                            setIsLoading(false);
+                            const errorMsg = (result as any).message || 'เกิดข้อผิดพลาดในการโหลดข้อมูล';
+                            setError(errorMsg);
+                          } else if (!result) {
+                            setIsLoading(false);
+                            setError('ไม่สามารถโหลดข้อมูลได้');
+                          }
+                          // ถ้าได้ result ที่ถูกต้อง ไม่ต้องทำอะไร เพราะ useEffect จะจัดการ
+                        })
+                        .catch((err) => {
+                          setError('ไม่สามารถโหลดข้อมูลได้');
+                          setIsLoading(false);
+                        });
+                    }
+                  }}
+                  style={{ 
+                    marginTop: '8px', 
+                    padding: '4px 8px', 
+                    backgroundColor: '#3b82f6', 
+                    color: 'white', 
+                    border: 'none', 
+                    borderRadius: '4px',
+                    cursor: 'pointer'
+                  }}
+                >
+                  ลองอีกครั้ง
+                </button>
+              </div>
             ) : breakdown ? (
               <>
                 <div className="breakdown-note" style={{ 
@@ -276,102 +510,29 @@ const StatusCell: React.FC<StatusCellProps> = ({
                 }}>
                   💡 <strong>จำนวนที่เบิกได้</strong> = อุปกรณ์ที่อยู่ใน Admin Stock + สถานะ "มี" + สภาพ "ใช้งานได้"
                 </div>
-                <h4 className="text-green-600 mb-1">สถานะอุปกรณ์ (Admin Stock):</h4>
-                {breakdown.adminStatusBreakdown && Object.keys(breakdown.adminStatusBreakdown).length > 0 ? (
-                  Object.entries(breakdown.adminStatusBreakdown).map(([statusId, count]) => (
-                    <div key={statusId} className="breakdown-item">
-                      • {getStatusName(statusId)}: {count} ชิ้น
-                    </div>
-                  ))
-                ) : (
-                  <div className="breakdown-item text-gray-500">• ไม่มีอุปกรณ์ในคลัง</div>
-                )}
                 
-                <h4 className="text-green-600 mb-1">สภาพอุปกรณ์ (Admin Stock):</h4>
-                {breakdown.adminConditionBreakdown && Object.keys(breakdown.adminConditionBreakdown).length > 0 ? (
-                  Object.entries(breakdown.adminConditionBreakdown).map(([conditionId, count]) => (
-                    <div key={conditionId} className="breakdown-item">
-                      • {getConditionName(conditionId)}: {count} ชิ้น
+                {/* 🆕 Admin Stock - Grouped Display */}
+                <h4 className="text-green-600 mb-1">สถานะ, สภาพ, ประเภทอุปกรณ์ (Admin Stock):</h4>
+                {breakdown.adminGroupedBreakdown && breakdown.adminGroupedBreakdown.length > 0 ? (
+                  breakdown.adminGroupedBreakdown.map((group, index) => (
+                    <div key={`admin-${index}-${group.statusId}-${group.conditionId}-${group.type}`} className="breakdown-item">
+                      • {getStatusName(group.statusId)}: {group.count} ชิ้น, {getConditionName(group.conditionId)}: {group.count} ชิ้น, ประเภท "{getTypeDisplayName(group.type)}": {group.count} {getTypeUnit(group.type)}
                     </div>
                   ))
                 ) : (
-                  <div className="breakdown-item text-gray-500">• ไม่มีอุปกรณ์ในคลัง</div>
+                  <div className="breakdown-item text-gray-500">• ไม่มีอุปกรณ์</div>
                 )}
 
-                <h4 className="text-green-600 mb-1 mt-2">ประเภทอุปกรณ์ (Admin Stock):</h4>
-                {breakdown.adminTypeBreakdown ? (
-                  <>
-                    {breakdown.adminTypeBreakdown.withoutSN > 0 && (
-                      <div className="breakdown-item">
-                        • ไม่มี SN: {breakdown.adminTypeBreakdown.withoutSN} ชิ้น
-                      </div>
-                    )}
-                    {breakdown.adminTypeBreakdown.withSN > 0 && (
-                      <div className="breakdown-item">
-                        • มี SN: {breakdown.adminTypeBreakdown.withSN} ชิ้น
-                      </div>
-                    )}
-                    {breakdown.adminTypeBreakdown.withPhone > 0 && (
-                      <div className="breakdown-item">
-                        • เบอร์: {breakdown.adminTypeBreakdown.withPhone} เบอร์
-                      </div>
-                    )}
-                    {breakdown.adminTypeBreakdown.withoutSN === 0 && 
-                     breakdown.adminTypeBreakdown.withSN === 0 && 
-                     breakdown.adminTypeBreakdown.withPhone === 0 && (
-                      <div className="breakdown-item text-gray-500">• ไม่มีอุปกรณ์ในคลัง</div>
-                    )}
-                  </>
+                {/* 🆕 User Owned - Grouped Display */}
+                <h4 className="text-orange-500 mt-2 mb-1">สถานะ, สภาพ, ประเภทอุปกรณ์ (User Owned):</h4>
+                {breakdown.userGroupedBreakdown && breakdown.userGroupedBreakdown.length > 0 ? (
+                  breakdown.userGroupedBreakdown.map((group, index) => (
+                    <div key={`user-${index}-${group.statusId}-${group.conditionId}-${group.type}`} className="breakdown-item">
+                      • {getStatusName(group.statusId)}: {group.count} ชิ้น, {getConditionName(group.conditionId)}: {group.count} ชิ้น, ประเภท "{getTypeDisplayName(group.type)}": {group.count} {getTypeUnit(group.type)}
+                    </div>
+                  ))
                 ) : (
-                  <div className="breakdown-item text-gray-500">• ไม่มีอุปกรณ์ในคลัง</div>
-                )}
-
-                {breakdown.userStatusBreakdown && Object.keys(breakdown.userStatusBreakdown).length > 0 && (
-                  <>
-                    <h4 className="text-orange-500 mt-2 mb-1">สถานะอุปกรณ์ (User Owned):</h4>
-                    {Object.entries(breakdown.userStatusBreakdown).map(([statusId, count]) => (
-                      <div key={statusId} className="breakdown-item">
-                        • {getStatusName(statusId)}: {count} ชิ้น
-                      </div>
-                    ))}
-                  </>
-                )}
-
-                {breakdown.userConditionBreakdown && Object.keys(breakdown.userConditionBreakdown).length > 0 && (
-                  <>
-                    <h4 className="text-orange-500 mt-2 mb-1">สภาพอุปกรณ์ (User Owned):</h4>
-                    {Object.entries(breakdown.userConditionBreakdown).map(([conditionId, count]) => (
-                      <div key={conditionId} className="breakdown-item">
-                        • {getConditionName(conditionId)}: {count} ชิ้น
-                      </div>
-                    ))}
-                  </>
-                )}
-
-                {breakdown.userTypeBreakdown && (
-                  <>
-                    <h4 className="text-orange-500 mt-2 mb-1">ประเภทอุปกรณ์ (User Owned):</h4>
-                    {breakdown.userTypeBreakdown.withoutSN > 0 && (
-                      <div className="breakdown-item">
-                        • ไม่มี SN: {breakdown.userTypeBreakdown.withoutSN} ชิ้น
-                      </div>
-                    )}
-                    {breakdown.userTypeBreakdown.withSN > 0 && (
-                      <div className="breakdown-item">
-                        • มี SN: {breakdown.userTypeBreakdown.withSN} ชิ้น
-                      </div>
-                    )}
-                    {breakdown.userTypeBreakdown.withPhone > 0 && (
-                      <div className="breakdown-item">
-                        • เบอร์: {breakdown.userTypeBreakdown.withPhone} เบอร์
-                      </div>
-                    )}
-                    {breakdown.userTypeBreakdown.withoutSN === 0 && 
-                     breakdown.userTypeBreakdown.withSN === 0 && 
-                     breakdown.userTypeBreakdown.withPhone === 0 && (
-                      <div className="breakdown-item text-gray-500">• ไม่มีอุปกรณ์</div>
-                    )}
-                  </>
+                  <div className="breakdown-item text-gray-500">• ไม่มีอุปกรณ์</div>
                 )}
               </>
             ) : (

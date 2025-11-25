@@ -342,12 +342,29 @@ InventoryMasterSchema.statics.updateSummary = async function (itemName: string, 
 
   const relatedItemIds = relatedItems.map((item: any) => item._id.toString());
 
+  // 🔧 CRITICAL FIX: ตรวจสอบว่า masterItemId จะไม่เป็น null
+  if (relatedItemIds.length === 0) {
+    // ถ้าไม่มี items เลย ต้องลบ master record (ไม่ควรมี master ที่ไม่มี items)
+    await this.deleteOne({ itemName, categoryId: category });
+    return null;
+  }
+
+  // หา masterItemId ที่ถูกต้อง (ใช้ masterItemId เดิมถ้ายังมีอยู่ หรือใช้ item แรก)
+  const existingMaster = await this.findOne({ itemName, categoryId: category });
+  let masterItemId = relatedItemIds[0]; // default: ใช้ item แรก
+  
+  // ถ้ามี master อยู่แล้ว และ masterItemId เดิมยังอยู่ใน relatedItemIds ให้ใช้ตัวเดิม
+  if (existingMaster?.masterItemId && relatedItemIds.includes(existingMaster.masterItemId)) {
+    masterItemId = existingMaster.masterItemId;
+  }
+
   // อัปเดตหรือสร้าง master record
   return await this.findOneAndUpdate(
     { itemName, categoryId: category },
     {
       itemName,
       categoryId: category,
+      masterItemId: masterItemId, // 🔧 CRITICAL FIX: ใช้ masterItemId ที่ถูกต้อง (ไม่เป็น null)
       relatedItemIds, // ✅ FIX: Update related item IDs
       // hasSerialNumber removed - use itemDetails.withSerialNumber > 0 instead
       totalQuantity: stat.totalQuantity,
@@ -406,6 +423,29 @@ InventoryMasterSchema.statics.setAdminStock = async function (itemName: string, 
     throw new Error(`ไม่พบรายการ ${itemName} ในหมวดหมู่ ${category}`);
   }
 
+  // 🔧 CRITICAL FIX: ตรวจสอบและอัปเดต masterItemId ถ้าเป็น null หรือไม่มีอยู่
+  if (!item.masterItemId || !item.relatedItemIds || item.relatedItemIds.length === 0) {
+    const InventoryItem = mongoose.model('InventoryItems');
+    const firstItem = await InventoryItem.findOne({ 
+      itemName, 
+      categoryId: category, 
+      deletedAt: { $exists: false } 
+    });
+    
+    if (firstItem) {
+      const firstItemId = (firstItem._id as any).toString();
+      item.masterItemId = firstItemId;
+      if (!item.relatedItemIds) {
+        item.relatedItemIds = [firstItemId];
+      } else if (!item.relatedItemIds.includes(firstItemId)) {
+        item.relatedItemIds = [firstItemId, ...item.relatedItemIds];
+      }
+    } else if (!item.masterItemId) {
+      // ถ้าไม่มี items เลย แต่มี master record อยู่แล้ว ต้อง throw error
+      throw new Error(`ไม่พบ InventoryItem สำหรับ ${itemName} ในหมวดหมู่ ${category} - ไม่สามารถอัปเดต masterItemId ได้`);
+    }
+  }
+
   const previousStock = item.stockManagement?.adminDefinedStock || 0;
 
   // Initialize stockManagement if not exists
@@ -448,6 +488,29 @@ InventoryMasterSchema.statics.adjustAdminStock = async function (itemName: strin
   const item = await this.findOne({ itemName, categoryId: category });
   if (!item) {
     throw new Error(`ไม่พบรายการ ${itemName} ในหมวดหมู่ ${category}`);
+  }
+
+  // 🔧 CRITICAL FIX: ตรวจสอบและอัปเดต masterItemId ถ้าเป็น null หรือไม่มีอยู่
+  if (!item.masterItemId || !item.relatedItemIds || item.relatedItemIds.length === 0) {
+    const InventoryItem = mongoose.model('InventoryItems');
+    const firstItem = await InventoryItem.findOne({ 
+      itemName, 
+      categoryId: category, 
+      deletedAt: { $exists: false } 
+    });
+    
+    if (firstItem) {
+      const firstItemId = (firstItem._id as any).toString();
+      item.masterItemId = firstItemId;
+      if (!item.relatedItemIds) {
+        item.relatedItemIds = [firstItemId];
+      } else if (!item.relatedItemIds.includes(firstItemId)) {
+        item.relatedItemIds = [firstItemId, ...item.relatedItemIds];
+      }
+    } else if (!item.masterItemId) {
+      // ถ้าไม่มี items เลย แต่มี master record อยู่แล้ว ต้อง throw error
+      throw new Error(`ไม่พบ InventoryItem สำหรับ ${itemName} ในหมวดหมู่ ${category} - ไม่สามารถอัปเดต masterItemId ได้`);
+    }
   }
 
   // Initialize stockManagement if not exists

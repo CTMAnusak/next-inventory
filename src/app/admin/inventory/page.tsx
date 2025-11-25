@@ -543,7 +543,22 @@ export default function AdminInventoryPage() {
         // 🔧 FIX: Force new array reference to trigger re-render
         const freshItems = Array.isArray(data.items) ? [...data.items] : (Array.isArray(data) ? [...data] : []);
         console.log('📦 Fetched items:', freshItems.length, 'items');
-        setItems(freshItems);
+        
+        // 🔍 Debug: Log MN002 data
+        const mn002Item = freshItems.find((item: any) => item.itemName === 'MN002');
+        if (mn002Item) {
+          console.log('🔍 MN002 in fetchInventory:', {
+            itemName: mn002Item.itemName,
+            availableQuantity: mn002Item.availableQuantity,
+            totalQuantity: mn002Item.totalQuantity
+          });
+        }
+        
+        // 🔧 CRITICAL FIX: Force state update with new array reference
+        setItems([]); // Clear first to force re-render
+        setTimeout(() => {
+          setItems(freshItems);
+        }, 0);
         // TODO: Handle pagination data if needed
       } else if (handledResponse) {
         toast.error('เกิดข้อผิดพลาด');
@@ -560,22 +575,105 @@ export default function AdminInventoryPage() {
     const cacheKey = `${itemName}_${categoryId}`;
     
     try {
-      // Always fetch fresh data to ensure accuracy
-      const response = await fetch(`/api/admin/inventory/breakdown?itemName=${encodeURIComponent(itemName)}&categoryId=${encodeURIComponent(categoryId)}&t=${Date.now()}`);
+      console.log(`🔍 Fetching breakdown for ${itemName}`);
+      console.log(`  categoryId: "${categoryId}"`);
+      console.log(`  cacheKey: "${cacheKey}"`);
+      
+      // Always fetch fresh data to ensure accuracy with timeout
+      const controller = new AbortController();
+      const timeoutId = setTimeout(() => controller.abort(), 20000); // เพิ่มเป็น 20 วินาที timeout เพื่อให้มีเวลาโหลดข้อมูล
+      
+      const url = `/api/admin/inventory/breakdown?itemName=${encodeURIComponent(itemName)}&categoryId=${encodeURIComponent(categoryId)}&t=${Date.now()}`;
+      console.log(`🌐 Fetching from: ${url}`);
+      
+      const response = await fetch(url, {
+        signal: controller.signal
+      });
+      
+      clearTimeout(timeoutId);
+      
+      console.log(`📡 Response received for ${itemName}:`, {
+        ok: response.ok,
+        status: response.status,
+        statusText: response.statusText,
+        headers: Object.fromEntries(response.headers.entries())
+      });
       
       if (response.ok) {
+        try {
         const data = await response.json();
-        setBreakdownData(prev => ({
+          console.log(`✅ Breakdown data received for ${itemName}:`, {
+            adminGroupedBreakdown: data.adminGroupedBreakdown?.length || 0,
+            userGroupedBreakdown: data.userGroupedBreakdown?.length || 0,
+            adminItems: data.totalQuantity || 0
+          });
+          
+          setBreakdownData(prev => {
+            const updated = {
           ...prev,
           [cacheKey]: data
-        }));
+            };
+            console.log(`💾 Updated breakdownData for ${itemName}:`, {
+              cacheKey,
+              hasData: !!data,
+              adminGroupedBreakdown: data?.adminGroupedBreakdown?.length || 0
+            });
+            return updated;
+          });
         return data;
+        } catch (jsonError: any) {
+          console.error(`❌ Failed to parse JSON for ${itemName}:`, jsonError);
+          return null;
+        }
       } else {
-        console.error('Failed to fetch breakdown data:', response.status);
+        // Try to get error message from response
+        let errorMessage = `HTTP ${response.status} ${response.statusText}`;
+        let errorDetails = '';
+        try {
+          const errorData = await response.json();
+          if (errorData.error) {
+            errorMessage = errorData.error;
+          }
+          if (errorData.details) {
+            errorDetails = errorData.details;
+          }
+        } catch {
+          // If JSON parse fails, try text
+          try {
+            const errorText = await response.text();
+            if (errorText) {
+              errorMessage = errorText;
+            }
+          } catch {
+            // If text also fails, use default message
+          }
+        }
+        
+        console.error(`❌ Failed to fetch breakdown data for ${itemName}`);
+        console.error(`  Status: ${response.status} ${response.statusText}`);
+        console.error(`  Error: ${errorMessage}`);
+        if (errorDetails) {
+          console.error(`  Details: ${errorDetails}`);
+        }
+        console.error(`  URL: ${response.url}`);
+        
+        // ถ้าเป็น 500 error ให้ return null พร้อม error object เพื่อให้ component แสดง error
+        if (response.status === 500) {
+          return { 
+            error: true, 
+            message: errorMessage,
+            details: errorDetails 
+          };
+        }
+        
         return null;
       }
-    } catch (error) {
-      console.error('Error fetching breakdown data:', error);
+    } catch (error: any) {
+      if (error.name === 'AbortError') {
+        console.error(`⏱️ Timeout fetching breakdown data for ${itemName}`);
+      } else {
+        console.error(`❌ Error fetching breakdown data for ${itemName}:`, error);
+      }
       return null;
     }
   };
@@ -588,7 +686,8 @@ export default function AdminInventoryPage() {
 
       // 1. Clear local breakdownData cache first
       setBreakdownData({});
-      console.log('🧹 Cleared breakdownData cache');
+      setBreakdownRefreshCounter(prev => prev + 1); // Force re-render ของ StatusCell components
+      console.log('🧹 Cleared breakdownData cache and incremented breakdownRefreshCounter');
 
       // 2. Sync master data
       const syncResponse = await fetch('/api/admin/refresh-master-data', {
@@ -619,6 +718,9 @@ export default function AdminInventoryPage() {
     
     // ✅ Always refresh inventory data at the end - force refresh after import
     await fetchInventory(currentPage, searchTerm, categoryFilter, true);
+    
+    // ✅ Increment breakdownRefreshCounter เพื่อให้ StatusCell components re-mount และ fetch ข้อมูลใหม่
+    setBreakdownRefreshCounter(prev => prev + 1);
   };
 
   const fetchConfig = async () => {
@@ -775,7 +877,7 @@ export default function AdminInventoryPage() {
     // Apply low stock filter AFTER grouping (exclude groups that have serial numbers)
     if (stockDisplayMode === 'low_stock') {
       grouped = grouped.filter(
-        (g) => (g.availableQuantity ?? 0) <= lowStockThreshold && (!g.serialNumbers || g.serialNumbers.length === 0)
+        (g) => Number(g.availableQuantity ?? 0) <= lowStockThreshold && (!g.serialNumbers || g.serialNumbers.length === 0)
       );
     }
     // If stockDisplayMode is 'all', we don't filter by stock level
@@ -785,8 +887,9 @@ export default function AdminInventoryPage() {
     grouped.sort((a, b) => {
       const threshold = lowStockThreshold;
       // 1) Low stock precedence (non-serial groups only)
-      const aIsLowStock = (a.availableQuantity ?? 0) <= threshold && (!a.serialNumbers || a.serialNumbers.length === 0);
-      const bIsLowStock = (b.availableQuantity ?? 0) <= threshold && (!b.serialNumbers || b.serialNumbers.length === 0);
+      // 🔧 FIX: แปลงเป็นตัวเลขก่อนเปรียบเทียบเพื่อป้องกันปัญหา type coercion
+      const aIsLowStock = Number(a.availableQuantity ?? 0) <= threshold && (!a.serialNumbers || a.serialNumbers.length === 0);
+      const bIsLowStock = Number(b.availableQuantity ?? 0) <= threshold && (!b.serialNumbers || b.serialNumbers.length === 0);
       if (aIsLowStock && !bIsLowStock) return -1;
       if (!aIsLowStock && bIsLowStock) return 1;
 
@@ -2003,8 +2106,8 @@ export default function AdminInventoryPage() {
         // ✅ After stock operation - force refresh to show updated data
         await fetchInventory(currentPage, searchTerm, categoryFilter, true);
         
-        // Additional delay and refresh for change_status_condition and edit_items
-        if (stockOperation === 'change_status_condition' || stockOperation === 'edit_items') {
+        // Additional delay and refresh for change_status_condition, edit_items, and adjust_stock
+        if (stockOperation === 'change_status_condition' || stockOperation === 'edit_items' || stockOperation === 'adjust_stock') {
           
           // Clear cache again for these operations
           setBreakdownData({});
@@ -2012,7 +2115,7 @@ export default function AdminInventoryPage() {
           console.log(`🧹 Additional breakdown cache clear for ${stockOperation}`);
           
           await new Promise(resolve => setTimeout(resolve, 500)); // Longer delay
-          // ✅ Force refresh again for these operations
+          // ✅ Force refresh again for these operations to ensure availableQuantity is updated
           await fetchInventory(currentPage, searchTerm, categoryFilter, true);
         }
         
@@ -3288,19 +3391,56 @@ export default function AdminInventoryPage() {
                   const threshold = lowStockThreshold;
                   // 🔧 FIX: ใช้ availableQuantity สำหรับ low stock warning (อุปกรณ์ที่พร้อมเบิก)
                   // แสดงสีแดงเมื่อจำนวนที่เบิกได้ ≤ threshold (ไม่สนใจว่ามี Serial Number หรือเบอร์โทรศัพท์หรือไม่)
-                  const isLowStock = (item.availableQuantity ?? 0) <= threshold;
+                  // 🔧 FIX: แปลงเป็นตัวเลขก่อนเปรียบเทียบเพื่อป้องกันปัญหา type coercion
+                  const availableQty = Number(item.availableQuantity ?? 0);
+                  const isLowStock = availableQty <= threshold;
+                  
+                  // 🔍 Debug: Log for MN002 to see what's happening
+                  if (item.itemName === 'MN002') {
+                    console.log(`🔍 MN002 in frontend render:`, {
+                      itemName: item.itemName,
+                      availableQuantity: item.availableQuantity,
+                      availableQty: availableQty,
+                      threshold: threshold,
+                      isLowStock: isLowStock,
+                      lowStockThreshold: lowStockThreshold,
+                      itemKey: item._id,
+                      itemObject: item
+                    });
+                  }
+                  
+                  // 🔧 CRITICAL FIX: Force className calculation with explicit check
+                  const rowClassName = isLowStock 
+                    ? 'bg-red-100 hover:!bg-red-200 transition-colors duration-200' 
+                    : (index % 2 === 0 ? 'bg-white' : 'bg-blue-50');
+                  
+                  // 🔍 Debug: Log className for MN002
+                  if (item.itemName === 'MN002') {
+                    console.log(`🔍 MN002 className:`, {
+                      isLowStock,
+                      rowClassName,
+                      availableQty,
+                      threshold
+                    });
+                  }
+                  
                   return (
                     <tr 
-                      key={item._id} 
-                      className={isLowStock ? 'bg-red-100 hover:!bg-red-200 transition-colors duration-200' : (index % 2 === 0 ? 'bg-white' : 'bg-blue-50')}
+                      key={`${item._id}-${item.availableQuantity}`} // 🔧 CRITICAL FIX: Include availableQuantity in key to force re-render
+                      className={rowClassName}
+                      style={isLowStock ? {} : { backgroundColor: index % 2 === 0 ? 'white' : '#eff6ff' }} // 🔧 CRITICAL FIX: Force style to override any cached styles
                       onMouseEnter={(e) => {
                         if (isLowStock) {
                           e.currentTarget.style.setProperty('background-color', '#fecaca', 'important');
+                        } else {
+                          e.currentTarget.style.setProperty('background-color', index % 2 === 0 ? 'white' : '#eff6ff', 'important');
                         }
                       }}
                       onMouseLeave={(e) => {
                         if (isLowStock) {
                           e.currentTarget.style.setProperty('background-color', '#fee2e2', 'important');
+                        } else {
+                          e.currentTarget.style.setProperty('background-color', index % 2 === 0 ? 'white' : '#eff6ff', 'important');
                         }
                       }}
                     >
@@ -4781,9 +4921,9 @@ export default function AdminInventoryPage() {
                           <button
                             type="button"
                             onClick={() => setStockValue(Math.max(0, stockValue - 1))}
-                            disabled={stockValue <= 0}
+                            disabled={stockValue <= 1}
                             className={`w-10 h-10 rounded-full border-2 flex items-center justify-center text-lg font-semibold transition-all ${
-                              stockValue <= 0 
+                              stockValue <= 1 
                                 ? 'border-gray-300 text-gray-300 cursor-not-allowed bg-gray-50' 
                                 : 'border-red-500 text-red-500 hover:bg-red-50 hover:border-red-600 hover:text-red-600 active:bg-red-100'
                             }`}

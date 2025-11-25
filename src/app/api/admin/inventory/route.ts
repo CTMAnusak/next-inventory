@@ -72,19 +72,59 @@ export async function GET(request: NextRequest) {
       .limit(limit)
       .lean(); // Use lean() for better performance
     
-    // Convert InventoryMaster to expected format
-    const aggregatedItems = allItems.map(item => ({
-      _id: item._id,
-      itemName: item.itemName,
-      categoryId: item.categoryId,
-      totalQuantity: item.totalQuantity,
-      quantity: item.totalQuantity, // 🔧 CRITICAL FIX: แสดงจำนวนทั้งหมด ไม่ใช่เฉพาะที่เบิกได้
-      availableQuantity: item.availableQuantity, // จำนวนที่พร้อมเบิก (available + working)
-      serialNumbers: [], // จะต้องดึงจาก InventoryItem ถ้าต้องการ
-      dateAdded: item.createdAt,
-      status: 'active', // Default status
-      hasSerialNumber: (item.itemDetails.withSerialNumber as any)?.count > 0 || false,
-      userOwnedQuantity: item.userOwnedQuantity
+    // 🔧 CRITICAL FIX: Verify and recalculate availableQuantity from actual InventoryItems
+    // เพื่อให้แน่ใจว่าข้อมูลที่ส่งไปให้ frontend ถูกต้อง
+    const aggregatedItems = await Promise.all(allItems.map(async (item) => {
+      // 🔧 CRITICAL FIX: Recalculate availableQuantity from actual InventoryItems
+      // เพื่อให้แน่ใจว่าข้อมูลถูกต้องแม้ว่า InventoryMaster อาจยังไม่ถูกอัปเดต
+      const actualAvailableItems = await InventoryItem.countDocuments({
+        itemName: item.itemName,
+        categoryId: item.categoryId,
+        'currentOwnership.ownerType': 'admin_stock',
+        statusId: 'status_available',
+        conditionId: 'cond_working',
+        deletedAt: { $exists: false }
+      });
+      
+      // ใช้ค่าที่คำนวณใหม่เสมอ (ไม่ใช้ค่าใน InventoryMaster)
+      const finalAvailableQuantity = actualAvailableItems;
+      
+      // 🔍 Debug: Log if there's a mismatch for MN002
+      if (item.itemName === 'MN002') {
+        console.log(`🔍 MN002 availableQuantity in API:`, {
+          itemName: item.itemName,
+          categoryId: item.categoryId,
+          masterValue: item.availableQuantity,
+          actualValue: actualAvailableItems,
+          using: finalAvailableQuantity,
+          _id: item._id
+        });
+        
+        // 🔧 CRITICAL FIX: ถ้ามี mismatch ให้อัปเดต InventoryMaster ทันที
+        if (actualAvailableItems !== item.availableQuantity) {
+          console.log(`⚠️  MN002 availableQuantity mismatch detected. Updating InventoryMaster...`);
+          try {
+            const { updateInventoryMaster } = await import('@/lib/inventory-helpers');
+            await updateInventoryMaster(item.itemName, item.categoryId);
+          } catch (updateError) {
+            console.error(`❌ Failed to update InventoryMaster for MN002:`, updateError);
+          }
+        }
+      }
+      
+      return {
+        _id: item._id,
+        itemName: item.itemName,
+        categoryId: item.categoryId,
+        totalQuantity: item.totalQuantity,
+        quantity: item.totalQuantity, // 🔧 CRITICAL FIX: แสดงจำนวนทั้งหมด ไม่ใช่เฉพาะที่เบิกได้
+        availableQuantity: finalAvailableQuantity, // 🔧 CRITICAL FIX: ใช้ค่าที่คำนวณใหม่จาก InventoryItems เสมอ
+        serialNumbers: [], // จะต้องดึงจาก InventoryItem ถ้าต้องการ
+        dateAdded: item.createdAt,
+        status: 'active', // Default status
+        hasSerialNumber: (item.itemDetails.withSerialNumber as any)?.count > 0 || false,
+        userOwnedQuantity: item.userOwnedQuantity
+      };
     }));
     
     const result = {
