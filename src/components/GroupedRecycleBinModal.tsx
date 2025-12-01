@@ -294,7 +294,7 @@ export default function GroupedRecycleBinModal({ isOpen, onClose, onInventoryRef
         <div className="bg-white rounded-2xl shadow-2xl w-full max-w-6xl max-h-[90vh] flex flex-col">
           {/* Header */}
           <div className="bg-gradient-to-r from-red-500 to-pink-600 rounded-t-2xl p-6 text-white">
-            <div className="flex items-center justify-between">
+            <div className="flex items-center justify-between gap-2">
               <div className="flex items-center">
                 <div className="w-12 h-12 bg-white/20 rounded-full flex items-center justify-center mr-4">
                   <Package className="w-6 h-6 text-white" />
@@ -308,7 +308,7 @@ export default function GroupedRecycleBinModal({ isOpen, onClose, onInventoryRef
                 onClick={onClose}
                 className="w-10 h-10 bg-white/20 hover:bg-white/30 rounded-full flex items-center justify-center transition-colors"
               >
-                <span className="text-white text-xl">×</span>
+                <span className="text-white text-4xl pb-2">×</span>
               </button>
             </div>
           </div>
