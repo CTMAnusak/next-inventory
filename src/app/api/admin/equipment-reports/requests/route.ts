@@ -65,6 +65,7 @@ export async function GET() {
           phone: 'Unknown',
           office: 'Unknown',
           email: 'Unknown',
+          userType: 'unknown', // ✅ เพิ่ม userType ใน fallback case
           isActive: false
         }
       }));

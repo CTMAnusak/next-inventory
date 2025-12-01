@@ -651,6 +651,49 @@ export default function AdminEquipmentReportsPage() {
       ? JSON.parse(JSON.stringify(requestLogs))
       : JSON.parse(JSON.stringify(returnLogs));
     
+    // 🔍 Debug: Log filter values when userTypeFilter is active
+    if (userTypeFilter) {
+      console.log('🔍 Filter Debug:', {
+        userTypeFilter,
+        totalItems: data.length,
+        itemsWithUserInfo: data.filter((item: any) => item.userInfo).length,
+        itemsWithoutUserInfo: data.filter((item: any) => !item.userInfo).length,
+        userTypeCounts: {
+          individual: data.filter((item: any) => item.userInfo?.userType === 'individual').length,
+          branch: data.filter((item: any) => item.userInfo?.userType === 'branch').length,
+          unknown: data.filter((item: any) => !item.userInfo?.userType || item.userInfo?.userType === 'unknown').length,
+        },
+        activeFilters: {
+          searchTerm: searchTerm || null,
+          departmentFilter: departmentFilter || null,
+          officeFilter: officeFilter || null,
+          dateFromFilter: dateFromFilter || null,
+          dateToFilter: dateToFilter || null,
+          monthFilter: monthFilter || null,
+          yearFilter: yearFilter || null,
+          itemNameFilter: itemNameFilter || null,
+          categoryFilter: categoryFilter || null,
+          statusFilter: statusFilter || null,
+          conditionFilter: conditionFilter || null,
+          serialNumberFilter: serialNumberFilter || null,
+          phoneNumberFilter: phoneNumberFilter || null,
+          emailFilter: emailFilter || null,
+          urgencyFilter: urgencyFilter || null,
+        }
+      });
+      
+      // 🔍 Debug: Log sample items to check userType
+      const sampleItems = data.slice(0, 5).map((item: any) => ({
+        userId: item.userId,
+        firstName: item.firstName,
+        lastName: item.lastName,
+        hasUserInfo: !!item.userInfo,
+        userType: item.userInfo?.userType,
+        userInfoKeys: item.userInfo ? Object.keys(item.userInfo) : null
+      }));
+      console.log('🔍 Sample Items (first 5):', sampleItems);
+    }
+    
     let filtered = data.filter((item: RequestLog | ReturnLog) => {
       // Search filter - ค้นหาเฉพาะ: ชื่อ, นามสกุล, ชื่อเล่น
       const matchesSearch = !searchTerm || 
@@ -659,8 +702,31 @@ export default function AdminEquipmentReportsPage() {
         (item.nickname && item.nickname.toLowerCase().includes(searchTerm.toLowerCase()));
 
       // User Type filter
-      const matchesUserType = !userTypeFilter || 
-        ((item as any).userInfo?.userType === userTypeFilter);
+      const matchesUserType = !userTypeFilter || (() => {
+        const userType = (item as any).userInfo?.userType;
+        
+        // ✅ ถ้าไม่มี userType หรือเป็น 'unknown' ให้ถือว่าเป็น 'individual' เป็นค่าเริ่มต้น
+        // เพราะใน RequestLog ส่วนใหญ่ถ้าไม่มีข้อมูล user แต่มี requesterFirstName/LastName
+        // มักจะเป็น individual user ที่ถูกสร้างไว้ก่อนหน้านี้
+        const effectiveUserType = userType && userType !== 'unknown' ? userType : 'individual';
+        
+        // ✅ เปรียบเทียบ effectiveUserType กับ userTypeFilter
+        const matches = effectiveUserType === userTypeFilter;
+        
+        if (!matches && userTypeFilter) {
+          // 🔍 Debug: Log items that don't match userType filter
+          console.log('❌ Item failed userType filter:', {
+            userId: (item as any).userId,
+            firstName: (item as any).firstName,
+            lastName: (item as any).lastName,
+            originalUserType: userType,
+            effectiveUserType: effectiveUserType,
+            filterUserType: userTypeFilter
+          });
+        }
+        
+        return matches;
+      })();
 
       // Item Name filter - ใช้ exact match (case-insensitive)
       const matchesItemName = !itemNameFilter || 
@@ -923,6 +989,21 @@ export default function AdminEquipmentReportsPage() {
              matchesDeliveryLocation && matchesUrgency && matchesRequestDate && matchesReturnDate &&
              matchesMonthYear;
     });
+
+    // 🔍 Debug: Log filtered results when userTypeFilter is active
+    if (userTypeFilter) {
+      console.log('🔍 After Filtering:', {
+        totalItems: data.length,
+        filteredCount: filtered.length,
+        filteredItems: filtered.slice(0, 3).map((item: any) => ({
+          userId: item.userId,
+          firstName: item.firstName,
+          lastName: item.lastName,
+          userType: item.userInfo?.userType,
+          requestDate: item.requestDate || item.returnDate
+        }))
+      });
+    }
 
     // ✅ แก้ไข: กรองที่ระดับรายการย่อย (item level) แทนระดับคำขอ (request level)
     // เพื่อให้ฟิลเตอร์ Serial Number และ Phone Number ทำงานถูกต้อง
