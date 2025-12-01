@@ -41,13 +41,16 @@ export async function addUserIdToExistingUsers(): Promise<MigrationResult> {
 
     for (const user of usersWithoutUserId) {
       try {
-        // Generate unique user_id
+        // Generate unique user_id based on user type
         let newUserId;
         let isUnique = false;
         let attempts = 0;
         
+        // ใช้คำนำหน้า "BRANCH" สำหรับประเภทสาขา และ "USER" สำหรับประเภทบุคคล
+        const prefix = user.userType === 'branch' ? 'BRANCH' : 'USER';
+        
         while (!isUnique && attempts < 10) {
-          newUserId = 'USER' + Date.now() + Math.floor(Math.random() * 1000);
+          newUserId = prefix + Date.now() + Math.floor(Math.random() * 1000);
           const existingUser = await User.findOne({ user_id: newUserId });
           if (!existingUser) {
             isUnique = true;

@@ -94,6 +94,7 @@ export async function snapshotRequestLogsBeforeUserDelete(userId: string) {
       if (user.userType === 'individual') {
         // ผู้ใช้บุคคล: Snapshot ทุกข้อมูล
         updateFields = {
+          userType: user.userType, // 🆕 Snapshot userType
           requesterFirstName: user.firstName || '',
           requesterLastName: user.lastName || '',
           requesterNickname: user.nickname || '',
@@ -107,6 +108,7 @@ export async function snapshotRequestLogsBeforeUserDelete(userId: string) {
       } else if (user.userType === 'branch') {
         // ผู้ใช้สาขา: Snapshot เฉพาะข้อมูลสาขา (ห้ามแตะข้อมูลส่วนตัว)
         updateFields = {
+          userType: user.userType, // 🆕 Snapshot userType
           requesterOffice: userOffice, // 🆕 ใช้ officeName ที่ populate แล้ว
           requesterOfficeId: userOfficeId, // 🆕 Snapshot officeId
           requesterOfficeName: userOffice, // 🆕 Snapshot officeName
@@ -184,6 +186,7 @@ export async function snapshotReturnLogsBeforeUserDelete(userId: string) {
       if (user.userType === 'individual') {
         // ผู้ใช้บุคคล: Snapshot ทุกข้อมูล
         updateFields = {
+          userType: user.userType, // 🆕 Snapshot userType
           returnerFirstName: user.firstName || '',
           returnerLastName: user.lastName || '',
           returnerNickname: user.nickname || '',
@@ -197,6 +200,7 @@ export async function snapshotReturnLogsBeforeUserDelete(userId: string) {
       } else if (user.userType === 'branch') {
         // ผู้ใช้สาขา: Snapshot เฉพาะข้อมูลสาขา (ห้ามแตะข้อมูลส่วนตัว)
         updateFields = {
+          userType: user.userType, // 🆕 Snapshot userType
           returnerOffice: userOffice, // 🆕 ใช้ officeName ที่ populate แล้ว
           returnerOfficeId: userOfficeId, // 🆕 Snapshot officeId
           returnerOfficeName: userOffice, // 🆕 Snapshot officeName

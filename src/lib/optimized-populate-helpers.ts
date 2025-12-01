@@ -137,12 +137,12 @@ export async function populateRequestLogUsersBatchOptimized(requestLogs: any[]) 
   
   const [activeUsers, deletedUsers] = await Promise.all([
     User.find({ user_id: { $in: userIdArray } }).lean(), // Use user_id field instead of _id
-    DeletedUser.find({ originalUserId: { $in: userIdArray } }).lean()
+    DeletedUser.find({ user_id: { $in: userIdArray } }).lean() // ✅ แก้ไข: ใช้ user_id แทน originalUserId
   ]);
   
   // Create lookup maps
   const activeUserMap = new Map(activeUsers.map(user => [(user as any).user_id, user]));
-  const deletedUserMap = new Map(deletedUsers.map(user => [(user as any).originalUserId, user]));
+  const deletedUserMap = new Map(deletedUsers.map(user => [(user as any).user_id, user])); // ✅ แก้ไข: ใช้ user_id แทน originalUserId
   
   // 🆕 Batch fetch office names for all users that have officeId
   const officeIds = new Set<string>();

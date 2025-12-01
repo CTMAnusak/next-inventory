@@ -643,6 +643,7 @@ export default function EquipmentRequestPage() {
         office: formData.office || user.officeName || user.office || '',
         officeId: user.userType === 'branch' ? (user.officeId || formData.officeId || '') : (formData.officeId || ''), // 🆕 สำหรับ branch users ใช้ officeId จาก user
         phone: user.userType === 'individual' ? (user.phone || '') : formData.phone,
+        userType: user.userType, // 🆕 ส่งประเภทผู้ใช้
         // Form data
         requestDate: formData.requestDate,
         urgency: formData.urgency,
@@ -1123,8 +1124,8 @@ export default function EquipmentRequestPage() {
                                 // สำหรับ SN ปกติ ให้เช็คว่า SN นี้รออนุมัติหรือไม่
                                 return !isItemPendingApproval(requestItem.itemId, sn);
                               })
-                              .map((sn) => (
-                                <option key={sn} value={sn}>
+                              .map((sn, index) => (
+                                <option key={`${index}-${sn}`} value={sn}>
                                   {sn}
                                 </option>
                               ))}

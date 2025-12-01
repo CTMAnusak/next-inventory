@@ -232,6 +232,7 @@ export async function POST(request: NextRequest) {
     // Create new request log with new structure (real-time lookup)
     const requestLogData = {
       userId: currentUserId,
+      userType: user?.userType || requestData.userType || undefined, // 🆕 ประเภทผู้ใช้ (snapshot)
       // Store user info for branch users (who don't have user profiles)
       requesterFirstName: requestData.firstName || undefined,
       requesterLastName: requestData.lastName || undefined,

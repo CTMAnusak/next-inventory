@@ -224,6 +224,7 @@ export async function POST(request: NextRequest) {
 
     const returnLogData = {
       userId: currentUserId,
+      userType: user?.userType || returnData.userType || undefined, // 🆕 ประเภทผู้ใช้ (snapshot)
       // Store user info for branch users (who don't have user profiles)
       returnerFirstName: returnData.firstName || undefined,
       returnerLastName: returnData.lastName || undefined,

@@ -491,6 +491,19 @@ export async function populateReturnLogUser(returnLog: any) {
         populated.department = populated.returnerDepartment || '-';
         populated.phone = populated.returnerPhone || '-';
         
+        // เก็บ userInfo สำหรับการแสดงผล
+        populated.userInfo = {
+          firstName: populated.firstName,
+          lastName: populated.lastName,
+          nickname: populated.nickname,
+          department: populated.department,
+          phone: populated.phone,
+          office: userOffice,
+          email: user.email,
+          userType: user.userType,
+          isActive: true
+        };
+        
         console.log('  Branch User - After populate:');
         console.log('    firstName:', populated.firstName);
         console.log('    lastName:', populated.lastName);
@@ -555,6 +568,19 @@ export async function populateReturnLogUser(returnLog: any) {
         populated.phone = user.phone;
         populated.email = user.email;
         
+        // เก็บ userInfo สำหรับการแสดงผล
+        populated.userInfo = {
+          firstName: user.firstName,
+          lastName: user.lastName,
+          nickname: user.nickname,
+          department: user.department,
+          phone: user.phone,
+          office: userOffice,
+          email: user.email,
+          userType: user.userType,
+          isActive: true
+        };
+        
         console.log('  Individual User - After populate:');
         console.log('    firstName:', populated.firstName);
         console.log('    lastName:', populated.lastName);
@@ -594,6 +620,19 @@ export async function populateReturnLogUser(returnLog: any) {
           populated.officeId = deletedUser.officeId || populated.returnerOfficeId;
           populated.officeName = deletedUserOffice;
           populated.office = deletedUserOffice;
+          
+          // เก็บ userInfo สำหรับการแสดงผล
+          populated.userInfo = {
+            firstName: populated.firstName,
+            lastName: populated.lastName,
+            nickname: populated.nickname,
+            department: populated.department,
+            phone: populated.phone,
+            office: deletedUserOffice,
+            email: populated.email,
+            userType: deletedUser.userType,
+            isActive: false
+          };
         } else {
           // ผู้ใช้บุคคล: ใช้ข้อมูลจาก DeletedUsers เป็นหลัก (ข้อมูลล่าสุดก่อนลบ)
           populated.firstName = deletedUser.firstName ?? populated.returnerFirstName ?? '-';
@@ -619,6 +658,19 @@ export async function populateReturnLogUser(returnLog: any) {
           populated.office = deletedUserOffice;
           populated.phone = deletedUser.phone ?? populated.returnerPhone ?? '-';
           populated.email = deletedUser.email ?? '-';
+          
+          // เก็บ userInfo สำหรับการแสดงผล
+          populated.userInfo = {
+            firstName: populated.firstName,
+            lastName: populated.lastName,
+            nickname: populated.nickname,
+            department: populated.department,
+            phone: populated.phone,
+            office: deletedUserOffice,
+            email: populated.email,
+            userType: deletedUser.userType,
+            isActive: false
+          };
         }
       } else {
         // ✅ Fallback: ใช้ snapshot จากฟอร์ม
@@ -639,6 +691,19 @@ export async function populateReturnLogUser(returnLog: any) {
         populated.officeName = returnerOffice;
         populated.office = returnerOffice;
         populated.phone = populated.returnerPhone || '-';
+        
+        // เก็บ userInfo สำหรับการแสดงผล (กรณีไม่เจอ user)
+        populated.userInfo = {
+          firstName: populated.firstName,
+          lastName: populated.lastName,
+          nickname: populated.nickname,
+          department: populated.department,
+          phone: populated.phone,
+          office: returnerOffice,
+          email: populated.returnerEmail || 'Unknown',
+          userType: 'unknown',
+          isActive: false
+        };
       }
     }
   } else {

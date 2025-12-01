@@ -500,50 +500,55 @@ export default function AdminDashboardPage() {
 
           {/* Stats Cards */}
           {stats && (
-            <div className="grid max-[768px]:grid-cols-1 max-[1120px]:grid-cols-2 max-[1440px]:grid-cols-3 grid-cols-4 gap-6">
-              <StatCard
-                title="แจ้งงาน IT ทั้งหมด"
-                value={stats.totalIssues}
-                icon={AlertTriangle}
-                color="bg-red-500"
-              />
-              <StatCard
-                title="User เพิ่มเองทั้งหมด"
-                value={stats.userAddedItems}
-                icon={UserPlus}
-                color="bg-orange-500"
-              />
-              <StatCard
-                title="เบิกอุปกรณ์ทั้งหมด"
-                value={stats.totalRequests}
-                icon={Package}
-                color="bg-blue-500"
-              />
-              <StatCard
-                title="คืนอุปกรณ์ทั้งหมด"
-                value={stats.totalReturns}
-                icon={FileText}
-                color="bg-green-500"
-              />
-              <StatCard
-                title="ผู้ใช้งานทั้งหมด"
-                value={stats.totalUsers}
-                icon={Users}
-                color="bg-purple-500"
-              />
-              <StatCard
-                title="จำนวนคลังสินค้าทั้งหมด"
-                value={stats.totalInventoryCount || stats.totalInventoryItems || 0}
-                icon={Package}
-                color="bg-indigo-500"
-              />
-              <StatCard
-                title="รายการเบิกได้ที่ใกล้หมด (≤ 2) ทั้งหมด"
-                value={stats.lowStockItems || 0}
-                icon={AlertTriangle}
-                color="bg-rose-500"
-              />
-            </div>
+            <>
+              <p className="text-lg font-semibold text-gray-900 mb-4">
+                สรุปผลรวมของปี {selectedYear + 543}
+              </p>
+              <div className="grid max-[768px]:grid-cols-1 max-[1120px]:grid-cols-2 max-[1440px]:grid-cols-3 grid-cols-4 gap-6">
+                <StatCard
+                  title="แจ้งงาน IT ทั้งหมด"
+                  value={stats.totalIssues}
+                  icon={AlertTriangle}
+                  color="bg-red-500"
+                />
+                <StatCard
+                  title="User เพิ่มเองทั้งหมด"
+                  value={stats.userAddedItems}
+                  icon={UserPlus}
+                  color="bg-orange-500"
+                />
+                <StatCard
+                  title="เบิกอุปกรณ์ทั้งหมด"
+                  value={stats.totalRequests}
+                  icon={Package}
+                  color="bg-blue-500"
+                />
+                <StatCard
+                  title="คืนอุปกรณ์ทั้งหมด"
+                  value={stats.totalReturns}
+                  icon={FileText}
+                  color="bg-green-500"
+                />
+                <StatCard
+                  title="ผู้ใช้งานทั้งหมด"
+                  value={stats.totalUsers}
+                  icon={Users}
+                  color="bg-purple-500"
+                />
+                <StatCard
+                  title="จำนวนคลังสินค้าทั้งหมด"
+                  value={stats.totalInventoryCount || stats.totalInventoryItems || 0}
+                  icon={Package}
+                  color="bg-indigo-500"
+                />
+                <StatCard
+                  title="รายการเบิกได้ที่ใกล้หมด (≤ 2) ทั้งหมด"
+                  value={stats.lowStockItems || 0}
+                  icon={AlertTriangle}
+                  color="bg-rose-500"
+                />
+              </div>
+            </>
           )}
         </div>
 

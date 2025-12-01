@@ -7,6 +7,7 @@ import User from '@/models/User';
 import InventoryItem from '@/models/InventoryItem';
 import InventoryMaster from '@/models/InventoryMaster';
 import InventorySnapshot from '@/models/InventorySnapshot';
+import DeletedUser from '@/models/DeletedUser';
 import { getCachedData, setCachedData, clearDashboardCache } from '@/lib/cache-utils';
 
 export async function GET(request: NextRequest) {
@@ -36,18 +37,261 @@ export async function GET(request: NextRequest) {
     // Create date range
     const startDate = monthNumber ? new Date(year, monthNumber - 1, 1) : new Date(year, 0, 1);
     const endDate = monthNumber ? new Date(year, monthNumber, 0, 23, 59, 59) : new Date(year, 11, 31, 23, 59, 59);
+    const yearStartDate = new Date(year, 0, 1);
+    const yearEndDate = new Date(year, 11, 31, 23, 59, 59);
 
-    // Helper function: สร้าง user IDs array จาก userType filter
+    // Helper: resolve user IDs (user_id) for filtering when userType selection is applied
     let userIdsForFilter: string[] | null = null;
+    let individualUserIds: string[] = [];
+    let branchUserIds: string[] = [];
+
     if (userTypeParam !== 'all') {
-      const usersWithType = await User.find({ 
-        userType: userTypeParam,
-        pendingDeletion: { $ne: true }
-      }).select('user_id').lean();
-      userIdsForFilter = usersWithType.map(u => u.user_id);
+      const [activeUsers, deletedUsers] = await Promise.all([
+        User.find({
+          pendingDeletion: { $ne: true },
+          userType: { $in: ['individual', 'branch'] }
+        })
+          .select('user_id userType')
+          .lean(),
+        DeletedUser.find({ userType: { $in: ['individual', 'branch'] } })
+          .select('user_id userType')
+          .lean()
+      ]);
+
+      const combined = [...activeUsers, ...deletedUsers].filter(user => !!user.user_id);
+      const collectIds = (type: 'individual' | 'branch') =>
+        Array.from(new Set(combined.filter(u => u.userType === type).map(u => u.user_id as string)));
+
+      individualUserIds = collectIds('individual');
+      branchUserIds = collectIds('branch');
+
+      userIdsForFilter = userTypeParam === 'individual' ? individualUserIds : branchUserIds;
     }
 
+    const buildIssueUserFilter = () => {
+      if (userTypeParam === 'all') return {};
+      const ids = userTypeParam === 'individual' ? individualUserIds : branchUserIds;
+      const orConditions: any[] = [];
+      if (ids.length) {
+        orConditions.push({ requesterId: { $in: ids } });
+      }
+      orConditions.push({ requesterType: userTypeParam });
+      if (userTypeParam === 'individual' && branchUserIds.length) {
+        orConditions.push({ requesterId: { $nin: branchUserIds } });
+      }
+      return orConditions.length > 0 ? { $or: orConditions } : {};
+    };
+
+    const applyUserTypeFilter = (
+      match: any,
+      field: string,
+      includeUnknownAsIndividual: boolean = false
+    ) => {
+      if (userTypeParam === 'all') {
+        return match;
+      }
+
+      // Logic ตรงกับหน้าตารางรายงาน:
+      // - ถ้า userInfo?.userType เป็น undefined/null/'unknown' → ถือว่าเป็น 'individual'
+      // - ถ้า userInfo?.userType เป็น 'branch' → ถือว่าเป็น 'branch'
+      
+      if (userTypeParam === 'branch') {
+        // สาขา: นับเฉพาะ userId ที่อยู่ใน branchUserIds เท่านั้น
+        const ids = branchUserIds.length ? branchUserIds : ['__no_branch_user__'];
+        match[field] = { $in: ids };
+        return match;
+      }
+
+      // บุคคล: นับ userId ที่ไม่อยู่ใน branchUserIds (รวมทั้ง individual และ unknown)
+      const orConditions: any[] = [];
+      
+      if (includeUnknownAsIndividual) {
+        if (branchUserIds.length) {
+          // ถ้ามี branchUserIds: นับ userId ที่ไม่อยู่ใน branchUserIds
+          // (ครอบคลุมทั้ง individualUserIds และ unknown)
+          orConditions.push({ [field]: { $nin: branchUserIds } });
+        } else {
+          // ไม่มี branchUserIds เลย → ทุก userId ถือว่าเป็น individual
+          orConditions.push({ [field]: { $exists: true } });
+        }
+        // รวม userId ที่ไม่มีค่า (null, empty, ไม่มี field) → ถือว่าเป็น individual
+        orConditions.push({ [field]: { $exists: false } });
+        orConditions.push({ [field]: null });
+        orConditions.push({ [field]: '' });
+      } else {
+        // ถ้าไม่ include unknown → นับเฉพาะ individualUserIds
+        if (individualUserIds.length) {
+          orConditions.push({ [field]: { $in: individualUserIds } });
+        } else {
+          match[field] = { $in: ['__no_individual_user__'] };
+          return match;
+        }
+      }
+
+      if (orConditions.length === 0) {
+        match[field] = { $in: ['__no_individual_user__'] };
+        return match;
+      }
+
+      match.$and = match.$and || [];
+      match.$and.push({ $or: orConditions });
+      return match;
+    };
+
+    // 🆕 ฟังก์ชันกรอง RequestLog/ReturnLog ตาม userType field (Priority 1) และ userId (Priority 2 - fallback)
+    const applyEquipmentUserTypeFilter = (match: any, isRequestLog: boolean = true) => {
+      if (userTypeParam === 'all') {
+        return match;
+      }
+
+      const orConditions: any[] = [];
+
+      if (userTypeParam === 'branch') {
+        // สาขา: ใช้ userType === 'branch' หรือ fallback ไป userId ที่อยู่ใน branchUserIds
+        const branchIds = branchUserIds.length ? branchUserIds : ['__no_branch_user__'];
+        
+        // ✅ Priority 1: userType field === 'branch' (มีค่าและเป็น 'branch')
+        orConditions.push({
+          $and: [
+            { userType: { $exists: true } },
+            { userType: { $ne: null } },
+            { userType: 'branch' }
+          ]
+        });
+        
+        // ✅ Priority 2: ไม่มี userType field หรือเป็น null/unknown → fallback ไป userId
+        orConditions.push({
+          $and: [
+            {
+              $or: [
+                { userType: { $exists: false } },
+                { userType: null },
+                { userType: 'unknown' }
+              ]
+            },
+            { userId: { $in: branchIds } }
+          ]
+        });
+      } else {
+        // บุคคล: ใช้ userType === 'individual' หรือไม่มี userType/เป็น null/unknown (ถือว่าเป็น individual)
+        // หรือ fallback ไป userId ที่ไม่อยู่ใน branchUserIds
+        
+        // ✅ Priority 1: userType field === 'individual'
+        orConditions.push({ userType: 'individual' });
+        
+        // ✅ Priority 2: ไม่มี userType field หรือเป็น null/unknown → fallback ไป userId
+        // ถ้า userId ไม่อยู่ใน branchUserIds → ถือว่าเป็น individual
+        if (branchUserIds.length > 0) {
+          // ถ้า userType ไม่มีค่า หรือเป็น null/unknown และ userId ไม่อยู่ใน branchUserIds → ถือว่าเป็น individual
+          orConditions.push({
+            $and: [
+              {
+                $or: [
+                  { userType: { $exists: false } },
+                  { userType: null },
+                  { userType: 'unknown' }
+                ]
+              },
+              { userId: { $nin: branchUserIds } }
+            ]
+          });
+          // ถ้า userType ไม่มีค่า และ userId ก็ไม่มีค่า → ถือว่าเป็น individual
+          orConditions.push({
+            $and: [
+              {
+                $or: [
+                  { userType: { $exists: false } },
+                  { userType: null },
+                  { userType: 'unknown' }
+                ]
+              },
+              {
+                $or: [
+                  { userId: { $exists: false } },
+                  { userId: null },
+                  { userId: '' }
+                ]
+              }
+            ]
+          });
+        } else {
+          // ไม่มี branchUserIds → ทุก userType ที่ไม่มีค่า หรือเป็น null/unknown ถือว่าเป็น individual
+          orConditions.push({
+            $or: [
+              { userType: { $exists: false } },
+              { userType: null },
+              { userType: 'unknown' }
+            ]
+          });
+        }
+      }
+
+      if (orConditions.length > 0) {
+        match.$and = match.$and || [];
+        match.$and.push({ $or: orConditions });
+      }
+
+      // 🔍 Debug: Log match condition when userType filter is active
+      if (userTypeParam !== 'all' && process.env.NODE_ENV === 'development') {
+        console.log(`🔍 Equipment UserType Filter (${isRequestLog ? 'Request' : 'Return'}):`, {
+          userTypeParam,
+          matchCondition: JSON.stringify(match, null, 2)
+        });
+      }
+
+      return match;
+    };
+
     // DB-side aggregations and counts with optimized queries
+    const issueYearFilter = {
+      ...buildIssueUserFilter(),
+      reportDate: { $gte: yearStartDate, $lte: yearEndDate }
+    };
+
+    const requestYearMatch = applyEquipmentUserTypeFilter({
+      status: { $in: ['approved', 'completed'] },
+      requestDate: { $gte: yearStartDate, $lte: yearEndDate }
+    }, true);
+
+    const requestYearMatchForCards = applyEquipmentUserTypeFilter({
+      requestDate: { $gte: yearStartDate, $lte: yearEndDate }
+    }, true);
+
+    const returnYearMatch = applyEquipmentUserTypeFilter({
+      returnDate: { $gte: yearStartDate, $lte: yearEndDate }
+    }, false);
+
+    const returnYearMatchForCards = applyEquipmentUserTypeFilter({
+      returnDate: { $gte: yearStartDate, $lte: yearEndDate }
+    }, false);
+
+    const issueStatusFilter = (status: string) => ({
+      ...buildIssueUserFilter(),
+      status,
+      reportDate: { $gte: yearStartDate, $lte: yearEndDate }
+    });
+
+    const issueUrgencyFilter = (urgency: 'very_urgent' | 'normal') => ({
+      ...buildIssueUserFilter(),
+      urgency,
+      reportDate: { $gte: yearStartDate, $lte: yearEndDate }
+    });
+
+    const issuePeriodFilter = (extra: any = {}) => ({
+      ...buildIssueUserFilter(),
+      ...extra,
+      reportDate: { $gte: startDate, $lte: endDate }
+    });
+
+    const requestPeriodMatch = applyEquipmentUserTypeFilter({
+      status: { $in: ['approved', 'completed'] },
+      requestDate: { $gte: startDate, $lte: endDate }
+    }, true);
+
+    const returnPeriodMatch = applyEquipmentUserTypeFilter({
+      returnDate: { $gte: startDate, $lte: endDate }
+    }, false);
+
     const [
       totalIssues,
       pendingIssues,
@@ -79,39 +323,37 @@ export async function GET(request: NextRequest) {
       issuesByCategory,
       requestsByUrgency
     ] = await Promise.all([
-      // การ์ดด้านบน: นับทั้งหมด (ไม่อิงเดือน/ปี) - กรองตาม userType
-      IssueLog.countDocuments(userIdsForFilter ? { requesterId: { $in: userIdsForFilter } } : {}).lean(),
-      IssueLog.countDocuments(userIdsForFilter ? { status: 'pending', requesterId: { $in: userIdsForFilter } } : { status: 'pending' }).lean(),
-      IssueLog.countDocuments(userIdsForFilter ? { status: 'in_progress', requesterId: { $in: userIdsForFilter } } : { status: 'in_progress' }).lean(),
-      IssueLog.countDocuments(userIdsForFilter ? { status: 'completed', requesterId: { $in: userIdsForFilter } } : { status: 'completed' }).lean(),
-      IssueLog.countDocuments(userIdsForFilter ? { urgency: 'very_urgent', requesterId: { $in: userIdsForFilter } } : { urgency: 'very_urgent' }).lean(),
-      IssueLog.countDocuments(userIdsForFilter ? { urgency: 'normal', requesterId: { $in: userIdsForFilter } } : { urgency: 'normal' }).lean(),
+      // การ์ดด้านบน: นับทั้งหมด (อิงปีและประเภทผู้ใช้)
+      IssueLog.countDocuments(issueYearFilter).lean(),
+      IssueLog.countDocuments(issueStatusFilter('pending')).lean(),
+      IssueLog.countDocuments(issueStatusFilter('in_progress')).lean(),
+      IssueLog.countDocuments(issueStatusFilter('completed')).lean(),
+      IssueLog.countDocuments(issueUrgencyFilter('very_urgent')).lean(),
+      IssueLog.countDocuments(issueUrgencyFilter('normal')).lean(),
 
       // นับจำนวนรายการอุปกรณ์ทั้งหมดที่เบิก (นับ items ที่อนุมัติแล้วเท่านั้น)
       RequestLog.aggregate([
-        { $match: userIdsForFilter ? { 
-          status: { $in: ['approved', 'completed'] },
-          userId: { $in: userIdsForFilter }
-        } : { status: { $in: ['approved', 'completed'] } } },
+        { $match: requestYearMatchForCards },
         { $unwind: '$items' },
         { $count: 'total' }
       ]).then(result => result[0]?.total || 0),
       // นับจำนวนรายการอุปกรณ์ทั้งหมดที่คืน (นับ items ที่อนุมัติแล้วเท่านั้น)
       ReturnLog.aggregate([
-        { $match: userIdsForFilter ? { userId: { $in: userIdsForFilter } } : {} },
+        { $match: returnYearMatchForCards },
         { $unwind: '$items' },
-        { $match: { 'items.approvalStatus': 'approved' } },
         { $count: 'total' }
       ]).then(result => result[0]?.total || 0),
-      User.countDocuments(userIdsForFilter ? { 
+      User.countDocuments(userTypeParam !== 'all' ? { 
         pendingDeletion: { $ne: true },
-        user_id: { $in: userIdsForFilter }
-      } : { pendingDeletion: { $ne: true } }).lean(),
+        userType: userTypeParam,
+        createdAt: { $gte: yearStartDate, $lte: yearEndDate }
+      } : { pendingDeletion: { $ne: true }, createdAt: { $gte: yearStartDate, $lte: yearEndDate } }).lean(),
       // 🔧 FIX: คำนวณ totalInventoryItems จาก sum ของ totalQuantity จาก InventoryMaster แทนการนับ InventoryItem
       InventoryMaster.aggregate([
         {
           $match: {
-            relatedItemIds: { $exists: true, $ne: [] }
+            relatedItemIds: { $exists: true, $ne: [] },
+            createdAt: { $gte: yearStartDate, $lte: yearEndDate }
           }
         },
         {
@@ -137,47 +379,35 @@ export async function GET(request: NextRequest) {
             ...(userIdsForFilter ? { 'currentOwnership.userId': { $in: userIdsForFilter } } : {})
           }
         },
+        {
+          $addFields: {
+            effectiveDate: {
+              $ifNull: ['$sourceInfo.dateAdded', '$createdAt']
+            }
+          }
+        },
+        {
+          $match: {
+            effectiveDate: { $gte: yearStartDate, $lte: yearEndDate }
+          }
+        },
         { $count: 'total' }
       ]).then(result => result[0]?.total || 0),
-      // นับแถวสินค้าใกล้หมด (availableQuantity <= 2 และไม่มี serial number) - นับจำนวนแถว ไม่ใช่จำนวน items
-      // นับจำนวนชื่ออุปกรณ์ที่มีจำนวนเบิกได้ปัจจุบัน ≤ 2 (รวม 0) ไม่ตัด SN/เบอร์ออก เพื่อให้ตรงกับหน้า Inventory
+      // นับแถวสินค้าใกล้หมด (availableQuantity <= 2) ภายในปีที่เลือก
       InventoryMaster.countDocuments({ 
-        availableQuantity: { $lte: 2, $gte: 0 }
+        availableQuantity: { $lte: 2, $gte: 0 },
+        createdAt: { $gte: yearStartDate, $lte: yearEndDate }
       }).lean(),
 
       // กล่อง "สถานะแจ้งงาน IT" (อิงช่วงเวลา) - กรองตาม userType
-      IssueLog.countDocuments(userIdsForFilter ? { 
-        status: 'pending', 
-        reportDate: { $gte: startDate, $lte: endDate },
-        requesterId: { $in: userIdsForFilter }
-      } : { status: 'pending', reportDate: { $gte: startDate, $lte: endDate } }).lean(),
-      IssueLog.countDocuments(userIdsForFilter ? { 
-        status: 'in_progress', 
-        reportDate: { $gte: startDate, $lte: endDate },
-        requesterId: { $in: userIdsForFilter }
-      } : { status: 'in_progress', reportDate: { $gte: startDate, $lte: endDate } }).lean(),
-      IssueLog.countDocuments(userIdsForFilter ? { 
-        status: 'completed', 
-        reportDate: { $gte: startDate, $lte: endDate },
-        requesterId: { $in: userIdsForFilter }
-      } : { status: 'completed', reportDate: { $gte: startDate, $lte: endDate } }).lean(),
-      IssueLog.countDocuments(userIdsForFilter ? { 
-        status: 'closed', 
-        reportDate: { $gte: startDate, $lte: endDate },
-        requesterId: { $in: userIdsForFilter }
-      } : { status: 'closed', reportDate: { $gte: startDate, $lte: endDate } }).lean(),
-      IssueLog.countDocuments(userIdsForFilter ? { 
-        urgency: 'very_urgent', 
-        reportDate: { $gte: startDate, $lte: endDate },
-        requesterId: { $in: userIdsForFilter }
-      } : { urgency: 'very_urgent', reportDate: { $gte: startDate, $lte: endDate } }).lean(),
-      IssueLog.countDocuments(userIdsForFilter ? { 
-        urgency: 'normal', 
-        reportDate: { $gte: startDate, $lte: endDate },
-        requesterId: { $in: userIdsForFilter }
-      } : { urgency: 'normal', reportDate: { $gte: startDate, $lte: endDate } }).lean(),
+      IssueLog.countDocuments(issuePeriodFilter({ status: 'pending' })).lean(),
+      IssueLog.countDocuments(issuePeriodFilter({ status: 'in_progress' })).lean(),
+      IssueLog.countDocuments(issuePeriodFilter({ status: 'completed' })).lean(),
+      IssueLog.countDocuments(issuePeriodFilter({ status: 'closed' })).lean(),
+      IssueLog.countDocuments(issuePeriodFilter({ urgency: 'very_urgent' })).lean(),
+      IssueLog.countDocuments(issuePeriodFilter({ urgency: 'normal' })).lean(),
 
-      // กล่อง "สถานะคลังสินค้า" (อิงช่วงเวลา) – จำนวนทั้งหมดของ items ที่เข้าสต็อกแอดมินในช่วงเวลา (แอดมินเพิ่ม หรือผู้ใช้คืน)
+      // กล่อง "สถานะคลังสินค้า" (อิงช่วงเวลา)
       InventoryItem.aggregate([
         {
           $match: {
@@ -204,11 +434,6 @@ export async function GET(request: NextRequest) {
         },
         { $count: 'total' }
       ]).then(result => result[0]?.total || 0),
-      // คำนวณ "ใกล้หมด (≤ 2) ตามช่วงเวลา" ให้สอดคล้องกับหน้า Inventory:
-      // เลือกเฉพาะชื่ออุปกรณ์ที่ปัจจุบัน availableQuantity ≤ 2 และ:
-      // 1. InventoryMaster ถูกสร้างในช่วงเวลาที่เลือก (createdAt) หรือ
-      // 2. มี InventoryItem ที่เข้าสต็อกแอดมินในช่วงเวลาที่เลือก (เพิ่มใหม่/คืนของ)
-      // โดย InventoryItem ต้องมี: admin_stock + status_available + cond_working (ตรงกับ availableQuantity)
       InventoryMaster.aggregate([
         {
           $match: {
@@ -226,7 +451,6 @@ export async function GET(request: NextRequest) {
                     $and: [
                       { $eq: ['$itemName', '$$itemName'] },
                       { $eq: ['$categoryId', '$$categoryId'] },
-                      // ตรวจสอบว่าเป็น admin_stock และมี status + condition ที่ถูกต้อง (ตรงกับ availableQuantity)
                       { $eq: ['$currentOwnership.ownerType', 'admin_stock'] },
                       { $eq: ['$statusId', 'status_available'] },
                       { $eq: ['$conditionId', 'cond_working'] }
@@ -259,9 +483,7 @@ export async function GET(request: NextRequest) {
         {
           $match: {
             $or: [
-              // ถ้า InventoryMaster ถูกสร้างในช่วงเวลาที่เลือก ให้นับ (รองรับกรณีอุปกรณ์ถูกเพิ่มในเดือนนั้น)
               { createdAt: { $gte: startDate, $lte: endDate } },
-              // หรือมี InventoryItem ที่เข้าสต็อกแอดมินในช่วงเวลาที่เลือก (ต้องเป็น admin_stock + status_available + cond_working)
               { enteredInPeriod: { $ne: [] } }
             ]
           }
@@ -285,61 +507,48 @@ export async function GET(request: NextRequest) {
 
       // monthlyIssues - กรองตาม userType
       IssueLog.aggregate([
-        { $match: userIdsForFilter ? { 
-          reportDate: { $gte: startDate, $lte: endDate },
-          requesterId: { $in: userIdsForFilter }
-        } : { reportDate: { $gte: startDate, $lte: endDate } } },
+        { $match: issuePeriodFilter() },
         { $group: { _id: { y: { $year: '$reportDate' }, m: { $month: '$reportDate' } }, count: { $sum: 1 } } },
         { $project: { _id: 0, month: { $concat: [ { $toString: '$_id.y' }, '-', { $toString: { $cond: [ { $lt: ['$_id.m', 10] }, { $concat: ['0', { $toString: '$_id.m' }] }, { $toString: '$_id.m' } ] } } ] }, count: 1 } },
         { $sort: { month: 1 } }
       ]),
       // monthlyRequests (นับจำนวน items ที่เบิก - เฉพาะที่อนุมัติแล้ว) - กรองตาม userType
       RequestLog.aggregate([
-        { $match: userIdsForFilter ? { 
-          requestDate: { $gte: startDate, $lte: endDate },
-          status: { $in: ['approved', 'completed'] },
-          userId: { $in: userIdsForFilter }
-        } : { 
-          requestDate: { $gte: startDate, $lte: endDate },
-          status: { $in: ['approved', 'completed'] }
-        }},
+        { $match: requestPeriodMatch },
         { $unwind: '$items' },
         { $group: { _id: { y: { $year: '$requestDate' }, m: { $month: '$requestDate' } }, count: { $sum: 1 } } },
         { $project: { _id: 0, month: { $concat: [ { $toString: '$_id.y' }, '-', { $toString: { $cond: [ { $lt: ['$_id.m', 10] }, { $concat: ['0', { $toString: '$_id.m' }] }, { $toString: '$_id.m' } ] } } ] }, count: 1 } },
         { $sort: { month: 1 } }
-      ]),
+      ]).then(result => {
+        if (userTypeParam !== 'all' && process.env.NODE_ENV === 'development') {
+          console.log(`🔍 monthlyRequests result (userType: ${userTypeParam}):`, result);
+        }
+        return result;
+      }),
       // monthlyReturns (นับเฉพาะ items ที่อนุมัติแล้ว) - กรองตาม userType
       ReturnLog.aggregate([
-        { $match: userIdsForFilter ? { 
-          returnDate: { $gte: startDate, $lte: endDate },
-          userId: { $in: userIdsForFilter }
-        } : { returnDate: { $gte: startDate, $lte: endDate } }},
+        { $match: returnPeriodMatch },
         { $unwind: '$items' },
         { $match: { 'items.approvalStatus': 'approved' }},
         { $group: { _id: { y: { $year: '$returnDate' }, m: { $month: '$returnDate' } }, count: { $sum: 1 } } },
         { $project: { _id: 0, month: { $concat: [ { $toString: '$_id.y' }, '-', { $toString: { $cond: [ { $lt: ['$_id.m', 10] }, { $concat: ['0', { $toString: '$_id.m' }] }, { $toString: '$_id.m' } ] } } ] }, count: 1 } },
         { $sort: { month: 1 } }
-      ]),
+      ]).then(result => {
+        if (userTypeParam !== 'all' && process.env.NODE_ENV === 'development') {
+          console.log(`🔍 monthlyReturns result (userType: ${userTypeParam}):`, result);
+        }
+        return result;
+      }),
       // issuesByCategory in selected period - กรองตาม userType
       IssueLog.aggregate([
-        { $match: userIdsForFilter ? { 
-          reportDate: { $gte: startDate, $lte: endDate },
-          requesterId: { $in: userIdsForFilter }
-        } : { reportDate: { $gte: startDate, $lte: endDate } } },
+        { $match: issuePeriodFilter() },
         { $group: { _id: '$issueCategory', count: { $sum: 1 } } },
         { $project: { _id: 0, category: { $ifNull: ['$_id', 'อื่นๆ'] }, count: 1 } },
         { $sort: { count: -1 } }
       ]),
       // requestsByUrgency in selected period (นับจำนวน items ที่อนุมัติแล้วเท่านั้น) - กรองตาม userType
       RequestLog.aggregate([
-        { $match: userIdsForFilter ? { 
-          requestDate: { $gte: startDate, $lte: endDate },
-          status: { $in: ['approved', 'completed'] },
-          userId: { $in: userIdsForFilter }
-        } : { 
-          requestDate: { $gte: startDate, $lte: endDate },
-          status: { $in: ['approved', 'completed'] }
-        }},
+        { $match: requestPeriodMatch },
         { $unwind: '$items' },
         { $group: { _id: { $cond: [{ $eq: ['$urgency', 'very_urgent'] }, 'ด่วนมาก', 'ปกติ'] }, count: { $sum: 1 } } },
         { $project: { _id: 0, urgency: '$_id', count: 1 } },

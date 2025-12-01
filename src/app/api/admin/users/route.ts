@@ -267,13 +267,16 @@ export async function POST(request: NextRequest) {
     // Hash password
     const hashedPassword = await hashPassword(password);
 
-    // Generate unique user_id
+    // Generate unique user_id based on user type
     let user_id;
     let isUnique = false;
     let attempts = 0;
     
+    // ใช้คำนำหน้า "BRANCH" สำหรับประเภทสาขา และ "USER" สำหรับประเภทบุคคล
+    const prefix = userType === 'branch' ? 'BRANCH' : 'USER';
+    
     while (!isUnique && attempts < 10) {
-      user_id = 'USER' + Date.now() + Math.floor(Math.random() * 1000);
+      user_id = prefix + Date.now() + Math.floor(Math.random() * 1000);
       const existingUser = await User.findOne({ user_id });
       if (!existingUser) {
         isUnique = true;

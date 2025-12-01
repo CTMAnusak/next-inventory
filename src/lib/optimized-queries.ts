@@ -306,7 +306,7 @@ export async function getEquipmentReportsAggregation(filters: {
     $lookup: {
       from: 'deletedusers',
       localField: 'userId',
-      foreignField: 'originalUserId',
+      foreignField: 'user_id', // ✅ แก้ไข: ใช้ user_id แทน originalUserId
       as: 'deletedUserInfo'
     }
   });

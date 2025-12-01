@@ -1120,6 +1120,7 @@ export default function EquipmentReturnPage() {
             phone: firstReturnItem?.returnerPhone || formData.phone,
             email: user?.email || '',
             office: user?.office || '',
+            userType: user?.userType, // 🆕 ส่งประเภทผู้ใช้
             returnDate: formData.returnDate,
             items: items
           };
@@ -1134,6 +1135,7 @@ export default function EquipmentReturnPage() {
           office: user?.office || '',
           phone: user?.phone || '',
           email: user?.email || '',
+          userType: user?.userType, // 🆕 ส่งประเภทผู้ใช้
           returnDate: formData.returnDate,
           items: itemsWithUploadedImages
         }];

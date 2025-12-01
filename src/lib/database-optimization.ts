@@ -329,12 +329,7 @@ export async function createPerformanceIndexes() {
     // DeletedUser indexes
     console.log('🗑️ Creating DeletedUser indexes...');
     await createIndexesSafely('deletedusers', [
-      // Original user ID index
-      { 
-        key: { originalUserId: 1 },
-        name: 'original_user_id_idx'
-      },
-      // User ID index
+      // User ID index (ใช้ user_id แทน originalUserId)
       { 
         key: { user_id: 1 },
         name: 'deleted_user_id_idx'

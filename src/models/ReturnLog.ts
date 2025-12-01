@@ -24,6 +24,7 @@ export interface IReturnItem {
 export interface IReturnLog extends Document {
   // User info - store only userId for real-time lookup
   userId: string; // Reference to User._id for real-time lookup
+  userType?: 'individual' | 'branch'; // 🆕 ประเภทผู้ใช้ (snapshot)
   // Store user info for branch users (who don't have user profiles)
   returnerFirstName?: string; // ชื่อผู้คืนอุปกรณ์ (สำหรับผู้ใช้ประเภทสาขา)
   returnerLastName?: string; // นามสกุลผู้คืนอุปกรณ์ (สำหรับผู้ใช้ประเภทสาขา)
@@ -78,6 +79,7 @@ const ReturnItemSchema = new Schema<IReturnItem>({
 
 const ReturnLogSchema = new Schema<IReturnLog>({
   userId: { type: String, required: true },  // Reference to User._id
+  userType: { type: String, enum: ['individual', 'branch'] }, // 🆕 ประเภทผู้ใช้ (snapshot)
   // Store user info for branch users (who don't have user profiles)
   returnerFirstName: { type: String }, // ชื่อผู้คืนอุปกรณ์ (สำหรับผู้ใช้ประเภทสาขา)
   returnerLastName: { type: String }, // นามสกุลผู้คืนอุปกรณ์ (สำหรับผู้ใช้ประเภทสาขา)

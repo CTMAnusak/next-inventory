@@ -40,6 +40,7 @@ export interface IRequestItem {
 export interface IRequestLog extends Document {
   // User info - store only userId for real-time lookup
   userId: string; // Reference to User._id for real-time lookup
+  userType?: 'individual' | 'branch'; // 🆕 ประเภทผู้ใช้ (snapshot)
   // Store user info for branch users (who don't have user profiles)
   requesterFirstName?: string; // ชื่อผู้ขอเบิก (สำหรับผู้ใช้ประเภทสาขา)
   requesterLastName?: string; // นามสกุลผู้ขอเบิก (สำหรับผู้ใช้ประเภทสาขา)
@@ -114,6 +115,7 @@ const RequestItemSchema = new Schema<IRequestItem>({
 
 const RequestLogSchema = new Schema<IRequestLog>({
   userId: { type: String, required: true },  // Reference to User._id
+  userType: { type: String, enum: ['individual', 'branch'] }, // 🆕 ประเภทผู้ใช้ (snapshot)
   // Store user info for branch users (who don't have user profiles)
   requesterFirstName: { type: String }, // ชื่อผู้ขอเบิก (สำหรับผู้ใช้ประเภทสาขา)
   requesterLastName: { type: String }, // นามสกุลผู้ขอเบิก (สำหรับผู้ใช้ประเภทสาขา)

@@ -659,8 +659,8 @@ export default function AdminEquipmentReportsPage() {
         itemsWithUserInfo: data.filter((item: any) => item.userInfo).length,
         itemsWithoutUserInfo: data.filter((item: any) => !item.userInfo).length,
         userTypeCounts: {
-          individual: data.filter((item: any) => item.userInfo?.userType === 'individual').length,
-          branch: data.filter((item: any) => item.userInfo?.userType === 'branch').length,
+          individual: data.filter((item: any) => ((item as any).userType || item.userInfo?.userType) === 'individual').length,
+          branch: data.filter((item: any) => ((item as any).userType || item.userInfo?.userType) === 'branch').length,
           unknown: data.filter((item: any) => !item.userInfo?.userType || item.userInfo?.userType === 'unknown').length,
         },
         activeFilters: {
@@ -701,13 +701,15 @@ export default function AdminEquipmentReportsPage() {
         (item.lastName && item.lastName.toLowerCase().includes(searchTerm.toLowerCase())) ||
         (item.nickname && item.nickname.toLowerCase().includes(searchTerm.toLowerCase()));
 
-      // User Type filter
+      // User Type filter - ✅ ใช้ userType จาก field ที่เก็บไว้ใน RequestLog/ReturnLog
       const matchesUserType = !userTypeFilter || (() => {
-        const userType = (item as any).userInfo?.userType;
+        // ✅ Priority 1: ใช้ userType จาก field ที่เก็บไว้ใน RequestLog/ReturnLog (snapshot)
+        const storedUserType = (item as any).userType;
+        // ✅ Priority 2: Fallback ไป userInfo?.userType (กรณีข้อมูลเก่าที่ยังไม่มี field นี้)
+        const userInfoUserType = (item as any).userInfo?.userType;
+        const userType = storedUserType || userInfoUserType;
         
         // ✅ ถ้าไม่มี userType หรือเป็น 'unknown' ให้ถือว่าเป็น 'individual' เป็นค่าเริ่มต้น
-        // เพราะใน RequestLog ส่วนใหญ่ถ้าไม่มีข้อมูล user แต่มี requesterFirstName/LastName
-        // มักจะเป็น individual user ที่ถูกสร้างไว้ก่อนหน้านี้
         const effectiveUserType = userType && userType !== 'unknown' ? userType : 'individual';
         
         // ✅ เปรียบเทียบ effectiveUserType กับ userTypeFilter
@@ -719,7 +721,8 @@ export default function AdminEquipmentReportsPage() {
             userId: (item as any).userId,
             firstName: (item as any).firstName,
             lastName: (item as any).lastName,
-            originalUserType: userType,
+            storedUserType: storedUserType,
+            userInfoUserType: userInfoUserType,
             effectiveUserType: effectiveUserType,
             filterUserType: userTypeFilter
           });
@@ -1412,7 +1415,7 @@ export default function AdminEquipmentReportsPage() {
             requestDate: log.requestDate ? new Date(log.requestDate).toLocaleDateString('th-TH', { timeZone: 'Asia/Bangkok' }) : '-',
             approvedDate: formatDateBE((item as any).approvedAt),
             urgency: log.urgency === 'very_urgent' ? 'ด่วนมาก' : 'ปกติ',
-            userType: (log as any).userInfo?.userType === 'branch' ? 'สาขา' : 'บุคคล',
+            userType: ((log as any).userType || (log as any).userInfo?.userType) === 'branch' ? 'สาขา' : 'บุคคล', // ✅ ใช้ userType จาก field ที่เก็บไว้ (fallback ไป userInfo สำหรับข้อมูลเก่า)
             requester: log.firstName && log.lastName ? `${log.firstName} ${log.lastName}` : 'Unknown User',
             nickname: log.nickname || '-',
             department: log.department || '-',
@@ -1468,7 +1471,7 @@ export default function AdminEquipmentReportsPage() {
             no: index + 1,
             returnDate: log.returnDate ? new Date(log.returnDate).toLocaleDateString('th-TH', { timeZone: 'Asia/Bangkok' }) : '-',
             approvedDate: formatDateBE((item as any).approvedAt),
-            userType: (log as any).userInfo?.userType === 'branch' ? 'สาขา' : 'บุคคล',
+            userType: ((log as any).userType || (log as any).userInfo?.userType) === 'branch' ? 'สาขา' : 'บุคคล', // ✅ ใช้ userType จาก field ที่เก็บไว้ (fallback ไป userInfo สำหรับข้อมูลเก่า)
             returner: log.firstName && log.lastName ? `${log.firstName} ${log.lastName}` : 'Unknown User',
             nickname: log.nickname || '-',
             department: log.department || '-',
@@ -2289,11 +2292,11 @@ export default function AdminEquipmentReportsPage() {
                         {/* ประเภทผู้ใช้ */}
                         <td className="px-6 py-4 text-sm text-center text-selectable">
                           <span className={`inline-flex px-2 py-1 text-xs font-medium rounded-full ${
-                            (requestLog as any).userInfo?.userType === 'branch' 
+                            ((requestLog as any).userType || (requestLog as any).userInfo?.userType) === 'branch' 
                               ? 'bg-blue-100 text-blue-800 border border-blue-300'
                               : 'bg-green-100 text-green-800 border border-green-300'
                           }`}>
-                            {(requestLog as any).userInfo?.userType === 'branch' ? 'สาขา' : 'บุคคล'}
+                            {((requestLog as any).userType || (requestLog as any).userInfo?.userType) === 'branch' ? 'สาขา' : 'บุคคล'}
                           </span>
                         </td>
                         
@@ -2585,11 +2588,11 @@ export default function AdminEquipmentReportsPage() {
                         {/* ประเภทผู้ใช้ */}
                         <td className="px-6 py-4 text-sm text-center text-selectable">
                           <span className={`inline-flex px-2 py-1 text-xs font-medium rounded-full ${
-                            (returnLog as any).userInfo?.userType === 'branch' 
+                            ((returnLog as any).userType || (returnLog as any).userInfo?.userType) === 'branch' 
                               ? 'bg-blue-100 text-blue-800 border border-blue-300'
                               : 'bg-green-100 text-green-800 border border-green-300'
                           }`}>
-                            {(returnLog as any).userInfo?.userType === 'branch' ? 'สาขา' : 'บุคคล'}
+                            {((returnLog as any).userType || (returnLog as any).userInfo?.userType) === 'branch' ? 'สาขา' : 'บุคคล'}
                           </span>
                         </td>
                         
