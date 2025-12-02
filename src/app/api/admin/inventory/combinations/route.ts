@@ -63,59 +63,32 @@ export async function GET(request: NextRequest) {
 
     console.log(`📊 Found ${items.length} non-SN items for ${itemName}`);
 
-    // จัดกลุ่มตาม statusId + conditionId
-    const combinationsMap = new Map<string, {
-      statusId: string;
-      conditionId: string;
-      quantity: number;
-      itemIds: string[];
-    }>();
-
-    items.forEach((item) => {
+    // แสดงรายการแบบ 1 ต่อ 1 แทนการรวม
+    const itemsList = items.map((item, index) => {
       // ใช้ค่าเริ่มต้นถ้าไม่มี statusId หรือ conditionId
       const statusId = item.statusId || 'status_available';
       const conditionId = item.conditionId || 'cond_working';
-      const key = `${statusId}_${conditionId}`;
-
-      if (!combinationsMap.has(key)) {
-        combinationsMap.set(key, {
-          statusId,
-          conditionId,
-          quantity: 0,
-          itemIds: []
-        });
-      }
-
-      const combo = combinationsMap.get(key)!;
-      combo.quantity += 1;
-      combo.itemIds.push((item._id as any).toString());
+      
+      return {
+        itemId: (item._id as any).toString(),
+        statusId,
+        conditionId,
+        quantity: 1, // แต่ละรายการมีจำนวน 1
+        key: `${item._id}_${index}` // ใช้ _id เป็น key เพื่อให้ unique
+      };
     });
 
-    console.log(`📊 Combinations found:`, Array.from(combinationsMap.entries()).map(([key, data]) => ({
-      key,
-      statusId: data.statusId,
-      conditionId: data.conditionId,
-      quantity: data.quantity
-    })));
+    // เรียงตาม statusId ก่อน แล้วตาม conditionId
+    itemsList.sort((a, b) => {
+      if (a.statusId !== b.statusId) {
+        return a.statusId.localeCompare(b.statusId);
+      }
+      return a.conditionId.localeCompare(b.conditionId);
+    });
 
-    // แปลงเป็น array และกรองเฉพาะที่มีจำนวน > 0
-    const combinations = Array.from(combinationsMap.values())
-      .filter(combo => combo.quantity > 0)
-      .map(combo => ({
-        statusId: combo.statusId,
-        conditionId: combo.conditionId,
-        quantity: combo.quantity,
-        key: `${combo.statusId}_${combo.conditionId}`
-      }))
-      .sort((a, b) => {
-        // เรียงตาม statusId ก่อน แล้วตาม conditionId
-        if (a.statusId !== b.statusId) {
-          return a.statusId.localeCompare(b.statusId);
-        }
-        return a.conditionId.localeCompare(b.conditionId);
-      });
+    console.log(`📊 Items list (1-to-1):`, itemsList.length, 'items');
 
-    return NextResponse.json({ combinations });
+    return NextResponse.json({ combinations: itemsList });
 
   } catch (error) {
     console.error('Error fetching combinations:', error);

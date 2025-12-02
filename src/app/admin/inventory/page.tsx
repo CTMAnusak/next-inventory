@@ -31,7 +31,9 @@ import {
   Info,
   Shield,
   Upload,
-  FileText
+  FileText,
+  ChevronLeft,
+  ChevronRight
 } from 'lucide-react';
 import { toast } from 'react-hot-toast';
 import DraggableList from '@/components/DraggableList';
@@ -276,7 +278,7 @@ export default function AdminInventoryPage() {
   // Stock Management state
   const [showStockModal, setShowStockModal] = useState(false);
   const [stockItem, setStockItem] = useState<{itemId: string, itemName: string, categoryId: string} | null>(null);
-  const [stockOperation, setStockOperation] = useState<'view_current_info' | 'adjust_stock' | 'change_status_condition' | 'delete_item' | 'edit_items'>('view_current_info');
+  const [stockOperation, setStockOperation] = useState<'view_current_info' | 'change_status_condition' | 'delete_item' | 'edit_items'>('view_current_info');
   const [stockValue, setStockValue] = useState<number>(0);
   const [stockReason, setStockReason] = useState<string>('');
   const [stockLoading, setStockLoading] = useState(false);
@@ -326,6 +328,7 @@ export default function AdminInventoryPage() {
     quantity: number;
   } | null>(null);
   const [combinationsData, setCombinationsData] = useState<Array<{
+    itemId: string;
     statusId: string;
     conditionId: string;
     quantity: number;
@@ -333,7 +336,14 @@ export default function AdminInventoryPage() {
   }>>([]);
   const [combinationsLoading, setCombinationsLoading] = useState(false);
   // Loading indicator for row actions in combinations table
-  const [rowActionLoading, setRowActionLoading] = useState<{ edit: string | null; save: string | null; cancel: string | null }>({ edit: null, save: null, cancel: null });
+  const [rowActionLoading, setRowActionLoading] = useState<{ edit: string | null; save: string | null; cancel: string | null; delete: string | null }>({ edit: null, save: null, cancel: null, delete: null });
+  // Pagination for combinations table
+  const [combinationPage, setCombinationPage] = useState(1);
+  const combinationItemsPerPage = 15;
+  // Pagination for edit items table
+  const [editItemsSNPage, setEditItemsSNPage] = useState(1);
+  const [editItemsPhonePage, setEditItemsPhonePage] = useState(1);
+  const editItemsPerPage = 15;
 
   // Derived state สำหรับ backward compatibility
   // Remove categories variable - use categoryConfigs directly
@@ -378,12 +388,8 @@ export default function AdminInventoryPage() {
         return `${changes.join(', ')} (Admin Stock)`;
       }
       return 'เปลี่ยนสถานะ/สภาพ ของ Admin Stock';
-    } else if (operation === 'adjust_stock') {
-      const currentStock = currentValues?.currentStock || 0;
-      const newStock = newValues?.newStock || 0;
-      return `ปรับจำนวนอุปกรณ์ (มี + ใช้งานได้) จาก ${currentStock} ชิ้น เป็น ${newStock} ชิ้น`;
     }
-    return 'ปรับจำนวน Admin Stock';
+    return '';
   };
   const statuses = statusConfigs.map(s => s.id); // ใช้ statusId แทน statusName
 
@@ -460,23 +466,6 @@ export default function AdminInventoryPage() {
     }
   }, [stockOperation, currentStatusId, targetStatusId, statusChangeQuantity, currentConditionId, targetConditionId, conditionChangeQuantity, statusConfigs, conditionConfigs]);
 
-  // Update reason text when stock value changes for adjust_stock operation
-  useEffect(() => {
-    if (stockOperation === 'adjust_stock' && stockInfo) {
-      // คำนวณจำนวนที่ปรับได้จริง (มี + ใช้งานได้)
-      let adjustableCount = 0;
-      if (stockInfo.adjustableCount !== undefined) {
-        adjustableCount = stockInfo.adjustableCount;
-      } else {
-        // Fallback: คำนวณจากข้อมูลที่มี
-        const statusAvailable = stockInfo.nonSNStatusBreakdown?.['status_available'] || 0;
-        const conditionWorking = stockInfo.nonSNConditionBreakdown?.['cond_working'] || 0;
-        adjustableCount = Math.min(statusAvailable, conditionWorking);
-      }
-      const newReason = `ปรับจำนวนอุปกรณ์ (มี + ใช้งานได้) จาก ${adjustableCount} ชิ้น เป็น ${stockValue} ชิ้น`;
-      setStockReason(newReason);
-    }
-  }, [stockOperation, stockValue, stockInfo]);
 
   // Initialize drag scrolling
   useEffect(() => {
@@ -487,9 +476,9 @@ export default function AdminInventoryPage() {
     return cleanup;
   }, []);
 
-  // Fetch available items when switching to edit_items operation or adjust_stock
+  // Fetch available items when switching to edit_items operation
   useEffect(() => {
-    if ((stockOperation === 'edit_items' || stockOperation === 'adjust_stock') && stockItem) {
+    if (stockOperation === 'edit_items' && stockItem) {
       fetchAvailableItems(stockItem);
     }
   }, [stockOperation, stockItem]);
@@ -505,22 +494,6 @@ export default function AdminInventoryPage() {
     applyFilters();
   }, [items, searchTerm, categoryFilter, detailsFilter, dateFilter, monthFilter, yearFilter, lowStockFilter, stockDisplayMode, lowStockThreshold]);
 
-  // Update stockValue when stockInfo changes for adjust_stock operation
-  useEffect(() => {
-    if (stockOperation === 'adjust_stock' && stockInfo) {
-      // คำนวณจำนวนที่ปรับได้จริง (มี + ใช้งานได้)
-      let adjustableCount = 0;
-      if (stockInfo.adjustableCount !== undefined) {
-        adjustableCount = stockInfo.adjustableCount;
-      } else {
-        // Fallback: คำนวณจากข้อมูลที่มี
-        const statusAvailable = stockInfo.nonSNStatusBreakdown?.['status_available'] || 0;
-        const conditionWorking = stockInfo.nonSNConditionBreakdown?.['cond_working'] || 0;
-        adjustableCount = Math.min(statusAvailable, conditionWorking);
-      }
-      setStockValue(adjustableCount);
-    }
-  }, [stockInfo, stockOperation]);
 
   const fetchInventory = async (page: number = 1, search: string = '', category: string = '', forceRefresh: boolean = false) => {
     setLoading(true);
@@ -1110,34 +1083,40 @@ export default function AdminInventoryPage() {
         console.log('🔍 Number of combinations:', data.combinations?.length || 0);
         console.log('🔍 Combinations detail:', data.combinations);
         setCombinationsData(data.combinations || []);
+        // Reset to first page when data changes
+        setCombinationPage(1);
       } else {
         console.error('Failed to fetch combinations');
         setCombinationsData([]);
+        setCombinationPage(1);
       }
     } catch (error) {
       console.error('Error fetching combinations:', error);
       setCombinationsData([]);
+      setCombinationPage(1);
     } finally {
       setCombinationsLoading(false);
     }
   };
 
-  // 🆕 NEW: Handle save combination edit
+  // 🆕 NEW: Handle save combination edit (สำหรับรายการแบบ 1 ต่อ 1)
   const handleSaveCombination = async (combo: any) => {
     if (!editingCombinationData || !stockItem) return;
 
     try {
-      const response = await fetch('/api/admin/inventory/update-combination', {
+      // ใช้ itemId แทน quantity สำหรับรายการแบบ 1 ต่อ 1
+      const response = await fetch('/api/admin/inventory/edit-item', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
+          operation: 'edit',
+          itemId: combo.itemId,
           itemName: stockItem.itemName,
-          categoryId: stockItem.categoryId,
-          currentStatusId: combo.statusId,
-          currentConditionId: combo.conditionId,
+          category: stockItem.categoryId,
           newStatusId: editingCombinationData.newStatusId,
           newConditionId: editingCombinationData.newConditionId,
-          quantity: editingCombinationData.quantity
+          currentStatusId: combo.statusId,
+          currentConditionId: combo.conditionId
         })
       });
 
@@ -1160,11 +1139,10 @@ export default function AdminInventoryPage() {
         setBreakdownData({});
         console.log('🧹 Cleared breakdownData cache');
         
-        // Close modal
-        setShowStockModal(false);
+        // Refresh combinations data
+        await fetchCombinationsData(stockItem.itemName, stockItem.categoryId);
         
         // Refresh main table
-        // ✅ After editing item - force refresh to show updated data
         await fetchInventory(currentPage, searchTerm, categoryFilter, true);
         
       } else {
@@ -1174,6 +1152,62 @@ export default function AdminInventoryPage() {
     } catch (error) {
       console.error('Error saving combination:', error);
       toast.error('เกิดข้อผิดพลาดในการบันทึก');
+    }
+  };
+
+  // 🆕 NEW: Handle delete non-SN item (สำหรับรายการแบบ 1 ต่อ 1)
+  const handleDeleteNonSNItem = async (combo: any) => {
+    if (!stockItem || !combo.itemId) return;
+
+    // ยืนยันก่อนลบ
+    if (!confirm(`คุณต้องการลบรายการนี้หรือไม่?`)) {
+      return;
+    }
+
+    try {
+      setRowActionLoading(prev => ({ ...prev, delete: combo.key }));
+      
+      const response = await fetch('/api/admin/inventory/edit-item', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          operation: 'delete',
+          itemId: combo.itemId,
+          itemName: stockItem.itemName,
+          category: stockItem.categoryId
+        })
+      });
+
+      if (response.ok) {
+        toast.success('ลบรายการสำเร็จ');
+        
+        // 🆕 Clear all caches
+        try {
+          await fetch('/api/admin/clear-all-caches', { method: 'POST' });
+          console.log('✅ Cleared all caches');
+        } catch (cacheError) {
+          console.log('⚠️ Cache clear failed, continuing...');
+        }
+        
+        // Clear breakdown cache
+        setBreakdownData({});
+        console.log('🧹 Cleared breakdownData cache');
+        
+        // Refresh combinations data
+        await fetchCombinationsData(stockItem.itemName, stockItem.categoryId);
+        
+        // Refresh main table
+        await fetchInventory(currentPage, searchTerm, categoryFilter, true);
+        
+      } else {
+        const error = await response.json();
+        toast.error(error.error || 'เกิดข้อผิดพลาดในการลบ');
+      }
+    } catch (error) {
+      console.error('Error deleting item:', error);
+      toast.error('เกิดข้อผิดพลาดในการลบ');
+    } finally {
+      setRowActionLoading(prev => ({ ...prev, delete: null }));
     }
   };
 
@@ -1914,11 +1948,6 @@ export default function AdminInventoryPage() {
         }
       }
       
-      // Only validate stockValue for adjust_stock operation
-      if (stockOperation === 'adjust_stock' && stockValue < 0) {
-        toast.error('จำนวน stock ต้องเป็นจำนวนบวก');
-        return;
-      }
     }
 
     setStockLoading(true);
@@ -1926,13 +1955,10 @@ export default function AdminInventoryPage() {
     try {
       // Handle stock management operations
       const currentStock = stockInfo?.stockManagement?.adminDefinedStock || 0;
-      const operationType = stockOperation === 'change_status_condition' ? 'change_status_condition' : 'adjust_stock';
+      const operationType = 'change_status_condition';
       
       // For change_status_condition, use changeQuantity
-      // For adjust_stock, use stockValue
-      const finalStockValue = stockOperation === 'change_status_condition' 
-        ? changeQuantity 
-        : stockValue;
+      const finalStockValue = changeQuantity;
 
       console.log('🔍 Stock operation debug:', {
         itemName: stockItem.itemName,
@@ -2068,8 +2094,8 @@ export default function AdminInventoryPage() {
           }
         }
         
-        // Re-fetch available items to update stock modal data for adjust_stock and change_status_condition operations
-        if (stockOperation === 'adjust_stock' || stockOperation === 'change_status_condition') {
+        // Re-fetch available items to update stock modal data for change_status_condition operation
+        if (stockOperation === 'change_status_condition') {
           // Fetch fresh data and update state directly
           try {
             const params = new URLSearchParams({
@@ -2106,8 +2132,8 @@ export default function AdminInventoryPage() {
         // ✅ After stock operation - force refresh to show updated data
         await fetchInventory(currentPage, searchTerm, categoryFilter, true);
         
-        // Additional delay and refresh for change_status_condition, edit_items, and adjust_stock
-        if (stockOperation === 'change_status_condition' || stockOperation === 'edit_items' || stockOperation === 'adjust_stock') {
+        // Additional delay and refresh for change_status_condition and edit_items
+        if (stockOperation === 'change_status_condition' || stockOperation === 'edit_items') {
           
           // Clear cache again for these operations
           setBreakdownData({});
@@ -4444,28 +4470,21 @@ export default function AdminInventoryPage() {
                   <select
                     value={stockOperation}
                     onChange={(e) => {
-                      const newOperation = e.target.value as 'view_current_info' | 'adjust_stock' | 'change_status_condition' | 'delete_item' | 'edit_items';
+                      const newOperation = e.target.value as 'view_current_info' | 'change_status_condition' | 'delete_item' | 'edit_items';
                       setStockOperation(newOperation);
+                      
+                      // Reset pagination when changing operation
+                      setCombinationPage(1);
+                      setEditItemsSNPage(1);
+                      setEditItemsPhonePage(1);
                       
                       // Reset adjust stock fields when changing operation
                       setNewStatusId('');
                       setNewConditionId('');
                       setChangeQuantity(0);
                       
-                      // Set current stock as starting point for adjustment
-                      if (newOperation === 'adjust_stock') {
-                        // For adjust_stock, use adjustable count (มี + ใช้งานได้)
-                        let adjustableCount = 0;
-                        if (stockInfo?.adjustableCount !== undefined) {
-                          adjustableCount = stockInfo.adjustableCount;
-                        } else {
-                          // Fallback: คำนวณจากข้อมูลที่มี
-                          const statusAvailable = stockInfo?.nonSNStatusBreakdown?.['status_available'] || 0;
-                          const conditionWorking = stockInfo?.nonSNConditionBreakdown?.['cond_working'] || 0;
-                          adjustableCount = Math.min(statusAvailable, conditionWorking);
-                        }
-                        setStockValue(adjustableCount);
-                      } else if (newOperation === 'change_status_condition') {
+                      // Set current stock as starting point
+                      if (newOperation === 'change_status_condition') {
                         // For change_status_condition, set changeQuantity to non-SN items count
                         if (stockInfo?.typeBreakdown?.withoutSN !== undefined) {
                           setChangeQuantity(stockInfo.typeBreakdown.withoutSN);
@@ -4486,20 +4505,8 @@ export default function AdminInventoryPage() {
                         setStockReason('แก้ไขรายการอุปกรณ์');
                       } else if (newOperation === 'change_status_condition') {
                         setStockReason('เปลี่ยนสถานะ/สภาพ ของ Admin Stock');
-                      } else if (newOperation === 'adjust_stock') {
-                        // คำนวณจำนวนที่ปรับได้จริง (มี + ใช้งานได้)
-                        let adjustableCount = 0;
-                        if (stockInfo?.adjustableCount !== undefined) {
-                          adjustableCount = stockInfo.adjustableCount;
-                        } else {
-                          // Fallback: คำนวณจากข้อมูลที่มี
-                          const statusAvailable = stockInfo?.nonSNStatusBreakdown?.['status_available'] || 0;
-                          const conditionWorking = stockInfo?.nonSNConditionBreakdown?.['cond_working'] || 0;
-                          adjustableCount = Math.min(statusAvailable, conditionWorking);
-                        }
-                        setStockReason(`ปรับจำนวนอุปกรณ์ (มี + ใช้งานได้) จาก ${adjustableCount} ชิ้น เป็น ${stockValue} ชิ้น`);
                       } else {
-                        setStockReason('ปรับจำนวน Admin Stock');
+                        setStockReason('');
                       }
                   }}
                   onFocus={(e) => {
@@ -4533,16 +4540,6 @@ export default function AdminInventoryPage() {
                 >
                   {/* 📊 ดูข้อมูลปัจจุบัน - มีทุกหมวดหมู่ */}
                   <option value="view_current_info">📊 ดูข้อมูลปัจจุบัน</option>
-                  
-                  {/* 📝 ปรับจำนวน - ยกเว้นหมวดหมู่ซิมการ์ด */}
-                  {!isSIMCardSync(stockItem?.categoryId || '') && (
-                    <option value="adjust_stock">
-                      {(availableItems?.withoutSerialNumber?.count ?? 0) > 0 
-                        ? '📝 ปรับจำนวน (อุปกรณ์ที่ไม่มี SN)' 
-                        : '📝 ปรับจำนวน - ไม่พบอุปกรณ์ที่ไม่มี SN'
-                      }
-                    </option>
-                  )}
                   
                   {/* 🔄 เปลี่ยนสถานะ/สภาพ - ยกเว้นหมวดหมู่ซิมการ์ด */}
                   {!isSIMCardSync(stockItem?.categoryId || '') && (
@@ -4718,8 +4715,8 @@ export default function AdminInventoryPage() {
                         <div className="text-blue-600">ℹ️</div>
                         <div className="text-sm text-blue-700">
                           <div className="font-medium mb-1">รายการอุปกรณ์ที่ไม่มี Serial Number</div>
-                          <ul className="list-disc pl-5"><li>แสดงเฉพาะรายการที่มีจำนวน &gt; 0 </li>
-                            <li>คลิก "แก้ไข" เพื่อเปลี่ยนสถานะ/สภาพ พร้อมกรอกเลขจำนวนที่ต้องการเปลี่ยนแปลง</li></ul>
+                          <ul className="list-disc pl-5"><li>แสดงรายการแบบ 1 ต่อ 1 (แต่ละรายการแยกกัน) </li>
+                            <li>คลิก "แก้ไข" เพื่อเปลี่ยนสถานะ/สภาพ หรือคลิก "ลบ" เพื่อลบรายการ</li></ul>
                         </div>
                       </div>
                     </div>
@@ -4738,37 +4735,50 @@ export default function AdminInventoryPage() {
                       </div>
                     </div>
                   ) : (
-                    <div className="border border-gray-200 rounded-lg overflow-hidden">
-                      <table className="min-w-full divide-y divide-gray-200">
-                        <thead className="bg-gray-50">
-                          <tr>
-                            <th className="px-4 py-3 text-center text-xs font-medium text-gray-700 uppercase tracking-wider w-16">
-                              ลำดับ
-                            </th>
-                            <th className="px-4 py-3 text-left text-xs font-medium text-gray-700 uppercase tracking-wider">
-                              สถานะ
-                            </th>
-                            <th className="px-4 py-3 text-left text-xs font-medium text-gray-700 uppercase tracking-wider">
-                              สภาพ
-                            </th>
-                            <th className="px-4 py-3 text-center text-xs font-medium text-gray-700 uppercase tracking-wider">
-                              จำนวน
-                            </th>
+                    <>
+                      {/* Calculate pagination */}
+                      {(() => {
+                        const totalItems = combinationsData.length;
+                        const totalPages = Math.ceil(totalItems / combinationItemsPerPage);
+                        const startIndex = (combinationPage - 1) * combinationItemsPerPage;
+                        const endIndex = startIndex + combinationItemsPerPage;
+                        const currentPageItems = combinationsData.slice(startIndex, endIndex);
+                        const showPagination = totalItems > combinationItemsPerPage;
+
+                        return (
+                          <>
+                            <div className="border border-gray-200 rounded-lg overflow-hidden">
+                              <table className="min-w-full divide-y divide-gray-200">
+                                <thead className="bg-gray-50">
+                                  <tr>
+                                    <th className="px-4 py-3 text-center text-xs font-medium text-gray-700 uppercase tracking-wider w-16">
+                                      ลำดับ
+                                    </th>
+                                    <th className="px-4 py-3 text-left text-xs font-medium text-gray-700 uppercase tracking-wider">
+                                      สถานะ
+                                    </th>
+                                    <th className="px-4 py-3 text-left text-xs font-medium text-gray-700 uppercase tracking-wider">
+                                      สภาพ
+                                    </th>
+                                    <th className="px-4 py-3 text-center text-xs font-medium text-gray-700 uppercase tracking-wider">
+                                      จำนวน
+                                    </th>
                             <th className="px-4 py-3 text-center text-xs font-medium text-gray-700 uppercase tracking-wider">
                               การดำเนินการ
                             </th>
-                          </tr>
-                        </thead>
-                        <tbody className="bg-white divide-y divide-gray-200">
-                          {combinationsData.map((combo, idx) => {
-                            const isEditing = editingCombinationKey === combo.key;
-                            
-                            return (
-                              <tr key={combo.key} className={isEditing ? 'bg-blue-50' : 'hover:bg-gray-50'}>
-                                {/* ลำดับ Column */}
-                                <td className="px-4 py-3 text-center text-sm text-gray-700">
-                                  {idx + 1}
-                                </td>
+                                  </tr>
+                                </thead>
+                                <tbody className="bg-white divide-y divide-gray-200">
+                                  {currentPageItems.map((combo, idx) => {
+                                    const isEditing = editingCombinationKey === combo.key;
+                                    const globalIndex = startIndex + idx;
+                                    
+                                    return (
+                                      <tr key={combo.key} className={isEditing ? 'bg-blue-50' : 'hover:bg-gray-50'}>
+                                        {/* ลำดับ Column */}
+                                        <td className="px-4 py-3 text-center text-sm text-gray-700">
+                                          {globalIndex + 1}
+                                        </td>
                                 {/* สถานะ Column */}
                                 <td className="px-4 py-3 text-sm">
                                   {isEditing ? (
@@ -4815,34 +4825,9 @@ export default function AdminInventoryPage() {
 
                                 {/* จำนวน Column */}
                                 <td className="px-4 py-3 text-center text-sm">
-                                  {isEditing ? (
-                                    <div className="flex items-center justify-center space-x-2">
-                                      <input
-                                        type="number"
-                                        value={editingCombinationData?.quantity || 1}
-                                        onChange={(e) => {
-                                          const value = parseInt(e.target.value) || 1;
-                                          const limited = Math.max(1, Math.min(value, combo.quantity));
-                                          setEditingCombinationData(prev => ({
-                                            ...prev!,
-                                            quantity: limited
-                                          }));
-                                        }}
-                                        min={1}
-                                        max={combo.quantity}
-                                        className={`w-20 px-2 py-1 text-center border rounded focus:outline-none focus:ring-2 ${
-                                          (editingCombinationData?.quantity || 0) > combo.quantity
-                                            ? 'border-red-300 focus:ring-red-500 bg-red-50'
-                                            : 'border-blue-300 focus:ring-blue-500'
-                                        }`}
-                                      />
-                                      <span className="text-gray-500 text-xs">/ {combo.quantity}</span>
-                                    </div>
-                                  ) : (
-                                    <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-blue-100 text-blue-800">
-                                      {combo.quantity} ชิ้น
-                                    </span>
-                                  )}
+                                  <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-blue-100 text-blue-800">
+                                    1 ชิ้น
+                                  </span>
                                 </td>
 
                                 {/* การดำเนินการ Column */}
@@ -4858,7 +4843,6 @@ export default function AdminInventoryPage() {
                                             setRowActionLoading(prev => ({ ...prev, save: null }));
                                           }
                                         }}
-                                        disabled={!editingCombinationData?.quantity || editingCombinationData.quantity < 1 || editingCombinationData.quantity > combo.quantity}
                                         className="px-3 py-1 bg-green-600 text-white text-xs rounded hover:bg-green-700 disabled:opacity-50 disabled:cursor-not-allowed flex items-center"
                                       >
                                         บันทึก
@@ -4882,162 +4866,117 @@ export default function AdminInventoryPage() {
                                       </button>
                                     </div>
                                   ) : (
-                                    <button
-                                      onClick={() => {
-                                        setRowActionLoading(prev => ({ ...prev, edit: combo.key }));
-                                        setEditingCombinationKey(combo.key);
-                                        setEditingCombinationData({
-                                          newStatusId: combo.statusId,
-                                          newConditionId: combo.conditionId,
-                                          quantity: combo.quantity
-                                        });
-                                        setTimeout(() => setRowActionLoading(prev => ({ ...prev, edit: null })), 150);
-                                      }}
-                                      className="px-3 py-1 bg-blue-600 text-white text-xs rounded hover:bg-blue-700 flex items-center mx-auto"
-                                    >
-                                      แก้ไข
-                                      {rowActionLoading.edit === combo.key && (
-                                        <RefreshCw className="w-3 h-3 ml-1 animate-spin" />
-                                      )}
-                                    </button>
+                                    <div className="flex items-center justify-center space-x-2">
+                                      <button
+                                        onClick={() => {
+                                          setRowActionLoading(prev => ({ ...prev, edit: combo.key }));
+                                          setEditingCombinationKey(combo.key);
+                                          setEditingCombinationData({
+                                            newStatusId: combo.statusId,
+                                            newConditionId: combo.conditionId,
+                                            quantity: 1
+                                          });
+                                          setTimeout(() => setRowActionLoading(prev => ({ ...prev, edit: null })), 150);
+                                        }}
+                                        className="px-3 py-1 bg-blue-600 text-white text-xs rounded hover:bg-blue-700 flex items-center"
+                                      >
+                                        แก้ไข
+                                        {rowActionLoading.edit === combo.key && (
+                                          <RefreshCw className="w-3 h-3 ml-1 animate-spin" />
+                                        )}
+                                      </button>
+                                      <button
+                                        onClick={() => handleDeleteNonSNItem(combo)}
+                                        disabled={rowActionLoading.delete === combo.key}
+                                        className="px-3 py-1 bg-red-600 text-white text-xs rounded hover:bg-red-700 disabled:opacity-50 disabled:cursor-not-allowed flex items-center"
+                                      >
+                                        ลบ
+                                        {rowActionLoading.delete === combo.key && (
+                                          <RefreshCw className="w-3 h-3 ml-1 animate-spin" />
+                                        )}
+                                      </button>
+                                    </div>
                                   )}
                                 </td>
                               </tr>
                             );
                           })}
-                        </tbody>
-                      </table>
-                    </div>
+                                </tbody>
+                              </table>
+                            </div>
+
+                            {/* Pagination */}
+                            {showPagination && (
+                              <div className="flex items-center justify-between px-4 py-3 bg-white border-t border-gray-200">
+                                <div className="flex items-center text-sm text-gray-700">
+                                  <span>
+                                    แสดง {startIndex + 1} ถึง {Math.min(endIndex, totalItems)} จาก {totalItems} รายการ
+                                  </span>
+                                </div>
+                                <div className="flex items-center space-x-2">
+                                  <button
+                                    onClick={() => setCombinationPage(prev => Math.max(1, prev - 1))}
+                                    disabled={combinationPage === 1}
+                                    className="px-3 py-1.5 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-md hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed flex items-center space-x-1"
+                                  >
+                                    <ChevronLeft className="w-4 h-4" />
+                                    <span>ก่อนหน้า</span>
+                                  </button>
+                                  
+                                  <div className="flex items-center space-x-1">
+                                    {Array.from({ length: totalPages }, (_, i) => i + 1).map((page) => {
+                                      // แสดงเฉพาะหน้าแรก, หน้าสุดท้าย, หน้าปัจจุบัน, และหน้าข้างเคียง
+                                      if (
+                                        page === 1 ||
+                                        page === totalPages ||
+                                        (page >= combinationPage - 1 && page <= combinationPage + 1)
+                                      ) {
+                                        return (
+                                          <button
+                                            key={page}
+                                            onClick={() => setCombinationPage(page)}
+                                            className={`px-3 py-1.5 text-sm font-medium rounded-md ${
+                                              combinationPage === page
+                                                ? 'bg-blue-600 text-white'
+                                                : 'text-gray-700 bg-white border border-gray-300 hover:bg-gray-50'
+                                            }`}
+                                          >
+                                            {page}
+                                          </button>
+                                        );
+                                      } else if (
+                                        page === combinationPage - 2 ||
+                                        page === combinationPage + 2
+                                      ) {
+                                        return (
+                                          <span key={page} className="px-2 text-gray-500">
+                                            ...
+                                          </span>
+                                        );
+                                      }
+                                      return null;
+                                    })}
+                                  </div>
+
+                                  <button
+                                    onClick={() => setCombinationPage(prev => Math.min(totalPages, prev + 1))}
+                                    disabled={combinationPage === totalPages}
+                                    className="px-3 py-1.5 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-md hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed flex items-center space-x-1"
+                                  >
+                                    <span>ถัดไป</span>
+                                    <ChevronRight className="w-4 h-4" />
+                                  </button>
+                                </div>
+                              </div>
+                            )}
+                          </>
+                        );
+                      })()}
+                    </>
                   )}
                 </div>
               )}
 
-              {/* Adjust Stock Interface */}
-              {stockOperation === 'adjust_stock' && (
-                <div className="space-y-4">
-                  {/* ตรวจสอบว่ามีอุปกรณ์ที่ไม่มี SN หรือไม่ */}
-                  {(availableItems?.withoutSerialNumber?.count ?? 0) > 0 ? (
-                    <>
-                      {/* จำนวนที่ต้องการปรับ */}
-                      <div>
-                        <label className="block text-sm font-medium text-gray-700 mb-1">
-                           จำนวนที่ต้องการปรับ (อุปกรณ์ที่ไม่มี Serial Number)
-                        </label>
-                        
-                        {/* Plus/Minus Controls */}
-                        <div className="flex items-center justify-center space-x-4 py-4">
-                          <button
-                            type="button"
-                            onClick={() => setStockValue(Math.max(0, stockValue - 1))}
-                            disabled={stockValue <= 1}
-                            className={`w-10 h-10 rounded-full border-2 flex items-center justify-center text-lg font-semibold transition-all ${
-                              stockValue <= 1 
-                                ? 'border-gray-300 text-gray-300 cursor-not-allowed bg-gray-50' 
-                                : 'border-red-500 text-red-500 hover:bg-red-50 hover:border-red-600 hover:text-red-600 active:bg-red-100'
-                            }`}
-                            title="ลดจำนวน 1 ชิ้น"
-                          >
-                            −
-                          </button>
-                          
-                          <input
-                            type="number"
-                            value={stockValue}
-                            onChange={(e) => setStockValue(Math.max(0, parseInt(e.target.value) || 0))}
-                            className="w-30 text-center px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 text-lg font-semibold"
-                            min={0}
-                          />
-                          
-                          <button
-                            type="button"
-                            onClick={() => setStockValue(stockValue + 1)}
-                            className="w-10 h-10 rounded-full border-2 border-green-500 text-green-500 hover:bg-green-50 hover:border-green-600 hover:text-green-600 active:bg-green-100 flex items-center justify-center text-lg font-semibold transition-all"
-                            title="เพิ่มจำนวน 1 ชิ้น"
-                          >
-                            +
-                          </button>
-                        </div>
-                        
-                        {/* แสดงจำนวนปัจจุบัน */}
-                        <div className="mb-3 p-3 bg-gray-50 border border-gray-200 rounded-md">
-                          <p className="text-sm text-gray-700">
-                            <strong>ปัจจุบัน:</strong> {(() => {
-                              // แสดงจำนวนที่ปรับได้จริง (มี + ใช้งานได้)
-                              if (stockInfo?.adjustableCount !== undefined) {
-                                return stockInfo.adjustableCount;
-                              }
-                              // Fallback: คำนวณจากข้อมูลที่มี
-                              const statusAvailable = stockInfo?.nonSNStatusBreakdown?.['status_available'] || 0;
-                              const conditionWorking = stockInfo?.nonSNConditionBreakdown?.['cond_working'] || 0;
-                              return Math.min(statusAvailable, conditionWorking);
-                            })()} ชิ้น (มีอุปกรณ์ + ใช้งานได้)
-                          </p>
-                          {stockValue !== (() => {
-                            if (stockInfo?.adjustableCount !== undefined) {
-                              return stockInfo.adjustableCount;
-                            }
-                            const statusAvailable = stockInfo?.nonSNStatusBreakdown?.['status_available'] || 0;
-                            const conditionWorking = stockInfo?.nonSNConditionBreakdown?.['cond_working'] || 0;
-                            return Math.min(statusAvailable, conditionWorking);
-                          })() && (
-                            <p className="text-sm mt-1">
-                              <span className="text-blue-600 font-semibold">
-                                📊 การเปลี่ยนแปลง: {stockValue > (() => {
-                                  if (stockInfo?.adjustableCount !== undefined) {
-                                    return stockInfo.adjustableCount;
-                                  }
-                                  const statusAvailable = stockInfo?.nonSNStatusBreakdown?.['status_available'] || 0;
-                                  const conditionWorking = stockInfo?.nonSNConditionBreakdown?.['cond_working'] || 0;
-                                  return Math.min(statusAvailable, conditionWorking);
-                                })() ? '+' : ''}{stockValue - (() => {
-                                  if (stockInfo?.adjustableCount !== undefined) {
-                                    return stockInfo.adjustableCount;
-                                  }
-                                  const statusAvailable = stockInfo?.nonSNStatusBreakdown?.['status_available'] || 0;
-                                  const conditionWorking = stockInfo?.nonSNConditionBreakdown?.['cond_working'] || 0;
-                                  return Math.min(statusAvailable, conditionWorking);
-                                })()} ชิ้น
-                              </span>
-                            </p>
-                          )}
-                        </div>
-
-                        
-                        <div className="mt-2 p-3 bg-yellow-50 border border-yellow-200 rounded-md">
-                          <p className="text-sm text-yellow-800 mb-2">
-                            ⚠️ <strong>หมายเหตุสำคัญ:</strong> การปรับจำนวนจะส่งผลกับอุปกรณ์ที่ไม่มี SN เท่านั้น
-                          </p>
-                          <div className="text-xs text-gray-700 space-y-1">
-                            <div className="mt-2 text-orange-600">
-                              💡 <strong>ต้องการปรับอุปกรณ์สถานะอื่น?</strong> ใช้ "เปลี่ยนสถานะ/สภาพ" เพื่อเปลี่ยนให้เป็น "มี" + "ใช้งานได้" ก่อน
-                            </div>
-                          </div>
-                        </div>
-                      </div>
-
-                      {/* หมายเหตุ */}
-                      <div>
-                        <label className="block text-sm font-medium text-gray-700 mb-1">
-                          หมายเหตุ (เหตุผลในการปรับ)
-                        </label>
-                        <textarea
-                          value={stockReason}
-                          onChange={(e) => setStockReason(e.target.value)}
-                          className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 admin-inventory-dropdown"
-                          placeholder="ระบุเหตุผลในการปรับจำนวน"
-                          rows={3}
-                        />
-                      </div>
-                    </>
-                  ) : (
-                    <div className="text-center py-8">
-                      <div className="text-gray-500 text-lg mb-2">⚠️</div>
-                      <p className="text-gray-600">ไม่พบอุปกรณ์ที่ไม่มี Serial Number</p>
-                      <p className="text-sm text-gray-500 mt-1">ไม่สามารถปรับจำนวนได้เนื่องจากไม่มีอุปกรณ์ที่ไม่มี SN</p>
-                    </div>
-                  )}
-                 </div>
-               )}
 
               {/* Edit Items Interface */}
               {stockOperation === 'edit_items' && (
@@ -5083,7 +5022,10 @@ export default function AdminInventoryPage() {
                                   type="text"
                                   placeholder="ค้นหา Serial Number..."
                                   value={itemSearchTerm}
-                                  onChange={(e) => setItemSearchTerm(e.target.value)}
+                                  onChange={(e) => {
+                                    setItemSearchTerm(e.target.value);
+                                    setEditItemsSNPage(1); // Reset to first page when searching
+                                  }}
                                   className="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
                                 />
                               </div>
@@ -5091,7 +5033,10 @@ export default function AdminInventoryPage() {
                               {/* Filter Buttons */}
                               <div className="flex space-x-2">
                                 <button
-                                  onClick={() => setItemFilterBy('all')}
+                                  onClick={() => {
+                                    setItemFilterBy('all');
+                                    setEditItemsSNPage(1);
+                                  }}
                                   className={`px-3 py-1 text-xs rounded-md transition-colors ${
                                     itemFilterBy === 'all'
                                       ? 'bg-blue-100 text-blue-700 border border-blue-200'
@@ -5101,7 +5046,10 @@ export default function AdminInventoryPage() {
                                   ทั้งหมด ({availableItems ? availableItems.withSerialNumber.length : '...'})
                                 </button>
                                 <button
-                                  onClick={() => setItemFilterBy('admin')}
+                                  onClick={() => {
+                                    setItemFilterBy('admin');
+                                    setEditItemsSNPage(1);
+                                  }}
                                   className={`px-3 py-1 text-xs rounded-md transition-colors ${
                                     itemFilterBy === 'admin'
                                       ? 'bg-blue-100 text-blue-700 border border-blue-200'
@@ -5111,7 +5059,10 @@ export default function AdminInventoryPage() {
                                   Admin ({availableItems ? availableItems.withSerialNumber.filter(item => item.addedBy === 'admin').length : '...'})
                                 </button>
                                 <button
-                                  onClick={() => setItemFilterBy('user')}
+                                  onClick={() => {
+                                    setItemFilterBy('user');
+                                    setEditItemsSNPage(1);
+                                  }}
                                   className={`px-3 py-1 text-xs rounded-md transition-colors ${
                                     itemFilterBy === 'user'
                                       ? 'bg-blue-100 text-blue-700 border border-blue-200'
@@ -5124,91 +5075,201 @@ export default function AdminInventoryPage() {
                             </div>
                           )}
 
-                            <div className="space-y-2 max-h-64 overflow-y-auto">
-                              {(() => {
-                                return null;
-                              })()}
-                              {availableItems?.withSerialNumber && availableItems.withSerialNumber.length > 0 ? (
-                                getFilteredSerialNumberItems().length > 0 ? (
-                                getFilteredSerialNumberItems().map((item: any) => (
-                                  <div
-                                    key={`${item.itemId}-${item.serialNumber}`}
-                                    className="p-3 border rounded-lg hover:bg-gray-50"
-                                  >
-                                    <div className="flex items-center justify-between">
-                                      <div className="flex items-center space-x-2">
-                                        <span className="text-sm font-mono text-blue-600 font-medium">
-                                          {item.serialNumber}
-                                        </span>
-                                        <span className="ml-2 text-xs text-gray-500">
-                                          เพิ่มโดย: {item.addedBy === 'admin' ? 'Admin' : 'User'}
-                                        </span>
-                                        {/* Status and Condition on the left side */}
-                                        {item.statusId && (
-                                          <span className="px-2 py-1 text-xs bg-green-100 text-green-800 rounded font-medium">
-                                            {getStatusName(item.statusId)}
-                                          </span>
-                                        )}
-                                        {item.conditionId && (
-                                          <span className="px-2 py-1 text-xs bg-yellow-100 text-yellow-800 rounded font-medium">
-                                            {getConditionText(item.conditionId)}
-                                          </span>
-                                        )}
+                            {/* Table View for Serial Number Items */}
+                            {(() => {
+                              const filteredItems = getFilteredSerialNumberItems();
+                              const totalItems = filteredItems.length;
+                              const totalPages = Math.ceil(totalItems / editItemsPerPage);
+                              const startIndex = (editItemsSNPage - 1) * editItemsPerPage;
+                              const endIndex = startIndex + editItemsPerPage;
+                              const currentPageItems = filteredItems.slice(startIndex, endIndex);
+                              const showPagination = totalItems > editItemsPerPage;
+
+                              if (availableItems?.withSerialNumber && availableItems.withSerialNumber.length > 0) {
+                                if (filteredItems.length > 0) {
+                                  return (
+                                    <>
+                                      <div className="border border-gray-200 rounded-lg overflow-hidden">
+                                        <table className="min-w-full divide-y divide-gray-200">
+                                          <thead className="bg-gray-50">
+                                            <tr>
+                                              <th className="px-4 py-3 text-center text-xs font-medium text-gray-700 uppercase tracking-wider w-16">
+                                                ลำดับ
+                                              </th>
+                                              <th className="px-4 py-3 text-left text-xs font-medium text-gray-700 uppercase tracking-wider">
+                                                Serial Number
+                                              </th>
+                                              <th className="px-4 py-3 text-left text-xs font-medium text-gray-700 uppercase tracking-wider">
+                                                เพิ่มโดย
+                                              </th>
+                                              <th className="px-4 py-3 text-left text-xs font-medium text-gray-700 uppercase tracking-wider">
+                                                สถานะ
+                                              </th>
+                                              <th className="px-4 py-3 text-left text-xs font-medium text-gray-700 uppercase tracking-wider">
+                                                สภาพ
+                                              </th>
+                                              <th className="px-4 py-3 text-center text-xs font-medium text-gray-700 uppercase tracking-wider">
+                                                การดำเนินการ
+                                              </th>
+                                            </tr>
+                                          </thead>
+                                          <tbody className="bg-white divide-y divide-gray-200">
+                                            {currentPageItems.map((item: any, idx: number) => {
+                                              const globalIndex = startIndex + idx;
+                                              return (
+                                                <tr key={`${item.itemId}-${item.serialNumber}`} className="hover:bg-gray-50">
+                                                  <td className="px-4 py-3 text-center text-sm text-gray-700">
+                                                    {globalIndex + 1}
+                                                  </td>
+                                                  <td className="px-4 py-3 text-sm">
+                                                    <span className="font-mono text-blue-600 font-medium">
+                                                      {item.serialNumber}
+                                                    </span>
+                                                  </td>
+                                                  <td className="px-4 py-3 text-sm text-gray-600">
+                                                    {item.addedBy === 'admin' ? 'Admin' : 'User'}
+                                                  </td>
+                                                  <td className="px-4 py-3 text-sm">
+                                                    {item.statusId && (
+                                                      <span className="px-2 py-1 text-xs bg-green-100 text-green-800 rounded font-medium">
+                                                        {getStatusName(item.statusId)}
+                                                      </span>
+                                                    )}
+                                                  </td>
+                                                  <td className="px-4 py-3 text-sm">
+                                                    {item.conditionId && (
+                                                      <span className="px-2 py-1 text-xs bg-yellow-100 text-yellow-800 rounded font-medium">
+                                                        {getConditionText(item.conditionId)}
+                                                      </span>
+                                                    )}
+                                                  </td>
+                                                  <td className="px-4 py-3 text-center">
+                                                    <div className="flex items-center justify-center space-x-2">
+                                                      <button
+                                                        onClick={() => handleEditItem(item)}
+                                                        className="px-3 py-1 text-xs bg-blue-600 text-white rounded hover:bg-blue-700"
+                                                      >
+                                                        แก้ไข
+                                                      </button>
+                                                      <button
+                                                        onClick={() => handleDeleteItem(item)}
+                                                        className="px-3 py-1 text-xs bg-red-600 text-white rounded hover:bg-red-700"
+                                                      >
+                                                        ลบ
+                                                      </button>
+                                                    </div>
+                                                  </td>
+                                                </tr>
+                                              );
+                                            })}
+                                          </tbody>
+                                        </table>
                                       </div>
-                                      <div className="flex items-center space-x-2">
-                                        <button
-                                          onClick={() => handleEditItem(item)}
-                                          className="px-3 py-1 text-xs bg-blue-100 text-blue-700 rounded hover:bg-blue-200"
-                                        >
-                                          แก้ไข
-                                        </button>
-                                        <button
-                                          onClick={() => handleDeleteItem(item)}
-                                          className="px-3 py-1 text-xs bg-red-100 text-red-700 rounded hover:bg-red-200"
-                                        >
-                                          ลบ
-                                        </button>
-                                      </div>
+
+                                      {/* Pagination */}
+                                      {showPagination && (
+                                        <div className="flex items-center justify-between px-4 py-3 bg-white border-t border-gray-200">
+                                          <div className="flex items-center text-sm text-gray-700">
+                                            <span>
+                                              แสดง {startIndex + 1} ถึง {Math.min(endIndex, totalItems)} จาก {totalItems} รายการ
+                                            </span>
+                                          </div>
+                                          <div className="flex items-center space-x-2">
+                                            <button
+                                              onClick={() => setEditItemsSNPage(prev => Math.max(1, prev - 1))}
+                                              disabled={editItemsSNPage === 1}
+                                              className="px-3 py-1.5 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-md hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed flex items-center space-x-1"
+                                            >
+                                              <ChevronLeft className="w-4 h-4" />
+                                              <span>ก่อนหน้า</span>
+                                            </button>
+                                            
+                                            <div className="flex items-center space-x-1">
+                                              {Array.from({ length: totalPages }, (_, i) => i + 1).map((page) => {
+                                                if (
+                                                  page === 1 ||
+                                                  page === totalPages ||
+                                                  (page >= editItemsSNPage - 1 && page <= editItemsSNPage + 1)
+                                                ) {
+                                                  return (
+                                                    <button
+                                                      key={page}
+                                                      onClick={() => setEditItemsSNPage(page)}
+                                                      className={`px-3 py-1.5 text-sm font-medium rounded-md ${
+                                                        editItemsSNPage === page
+                                                          ? 'bg-blue-600 text-white'
+                                                          : 'text-gray-700 bg-white border border-gray-300 hover:bg-gray-50'
+                                                      }`}
+                                                    >
+                                                      {page}
+                                                    </button>
+                                                  );
+                                                } else if (
+                                                  page === editItemsSNPage - 2 ||
+                                                  page === editItemsSNPage + 2
+                                                ) {
+                                                  return (
+                                                    <span key={page} className="px-2 text-gray-500">
+                                                      ...
+                                                    </span>
+                                                  );
+                                                }
+                                                return null;
+                                              })}
+                                            </div>
+
+                                            <button
+                                              onClick={() => setEditItemsSNPage(prev => Math.min(totalPages, prev + 1))}
+                                              disabled={editItemsSNPage === totalPages}
+                                              className="px-3 py-1.5 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-md hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed flex items-center space-x-1"
+                                            >
+                                              <span>ถัดไป</span>
+                                              <ChevronRight className="w-4 h-4" />
+                                            </button>
+                                          </div>
+                                        </div>
+                                      )}
+                                    </>
+                                  );
+                                } else {
+                                  return (
+                                    <div className="text-center py-8 text-gray-500">
+                                      {itemSearchTerm || itemFilterBy !== 'all' ? (
+                                        <div>
+                                          <p>ไม่พบรายการที่ตรงกับเงื่อนไข</p>
+                                          <button
+                                            onClick={() => {
+                                              setItemSearchTerm('');
+                                              setItemFilterBy('all');
+                                              setEditItemsSNPage(1);
+                                            }}
+                                            className="mt-2 text-sm text-blue-600 hover:text-blue-800 underline"
+                                          >
+                                            ล้างการค้นหา
+                                          </button>
+                                        </div>
+                                      ) : (
+                                        <p>ไม่มีรายการอุปกรณ์ที่มี Serial Number</p>
+                                      )}
+                                    </div>
+                                  );
+                                }
+                              } else {
+                                return (
+                                  <div className="text-center py-8 text-gray-500 bg-gray-50 rounded-lg border-2 border-dashed border-gray-200">
+                                    <div className="flex flex-col items-center">
+                                      <div className="text-4xl mb-2">📦</div>
+                                      <p className="text-sm font-medium text-gray-600 mb-1">
+                                        ไม่พบรายการอุปกรณ์ที่มี Serial Number
+                                      </p>
+                                      <p className="text-xs text-gray-500">
+                                        อุปกรณ์ประเภท "{stockItem?.itemName}" ไม่มีรายการที่มี Serial Number ในระบบ
+                                      </p>
                                     </div>
                                   </div>
-                                ))
-                              ) : (
-                                <div className="text-center py-8 text-gray-500">
-                                  {itemSearchTerm || itemFilterBy !== 'all' ? (
-                                    <div>
-                                      <p>ไม่พบรายการที่ตรงกับเงื่อนไข</p>
-                                      <button
-                                        onClick={() => {
-                                          setItemSearchTerm('');
-                                          setItemFilterBy('all');
-                                        }}
-                                        className="mt-2 text-sm text-blue-600 hover:text-blue-800 underline"
-                                      >
-                                        ล้างการค้นหา
-                                      </button>
-                                    </div>
-                                  ) : (
-                                    <p>ไม่มีรายการอุปกรณ์ที่มี Serial Number</p>
-                                  )}
-                                </div>
-                              )
-                            ) : (
-                              <div className="text-center py-8 text-gray-500 bg-gray-50 rounded-lg border-2 border-dashed border-gray-200">
-                                <div className="flex flex-col items-center">
-                                  <div className="text-4xl mb-2">📦</div>
-                                  <p className="text-sm font-medium text-gray-600 mb-1">
-                                    ไม่พบรายการอุปกรณ์ที่มี Serial Number
-                                  </p>
-                                  <p className="text-xs text-gray-500">
-                                    อุปกรณ์ประเภท "{stockItem?.itemName}" ไม่มีรายการที่มี Serial Number ในระบบ
-                                  </p>
-                                  {(() => {
-                                    return null;
-                                  })()}
-                                </div>
-                              </div>
-                            )}
-                          </div>
+                                );
+                              }
+                            })()}
                         </div>
                       )}
 
@@ -5237,13 +5298,19 @@ export default function AdminInventoryPage() {
                                   type="text"
                                   placeholder="ค้นหาเบอร์โทรศัพท์..."
                                   value={itemSearchTerm}
-                                  onChange={(e) => setItemSearchTerm(e.target.value)}
+                                  onChange={(e) => {
+                                    setItemSearchTerm(e.target.value);
+                                    setEditItemsPhonePage(1); // Reset to first page when searching
+                                  }}
                                   className="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
                                 />
                               </div>
                               <div className="flex items-center space-x-2">
                                 <button
-                                  onClick={() => setItemFilterBy('all')}
+                                  onClick={() => {
+                                    setItemFilterBy('all');
+                                    setEditItemsPhonePage(1);
+                                  }}
                                   className={`px-3 py-1 text-xs rounded-md transition-colors ${
                                     itemFilterBy === 'all'
                                       ? 'bg-blue-100 text-blue-700 border border-blue-200'
@@ -5253,7 +5320,10 @@ export default function AdminInventoryPage() {
                                   ทั้งหมด ({availableItems ? availableItems.withPhoneNumber.length : '...'})
                                 </button>
                                 <button
-                                  onClick={() => setItemFilterBy('admin')}
+                                  onClick={() => {
+                                    setItemFilterBy('admin');
+                                    setEditItemsPhonePage(1);
+                                  }}
                                   className={`px-3 py-1 text-xs rounded-md transition-colors ${
                                     itemFilterBy === 'admin'
                                       ? 'bg-blue-100 text-blue-700 border border-blue-200'
@@ -5263,7 +5333,10 @@ export default function AdminInventoryPage() {
                                   Admin ({availableItems ? availableItems.withPhoneNumber.filter((item: any) => item.addedBy === 'admin').length : '...'})
                                 </button>
                                 <button
-                                  onClick={() => setItemFilterBy('user')}
+                                  onClick={() => {
+                                    setItemFilterBy('user');
+                                    setEditItemsPhonePage(1);
+                                  }}
                                   className={`px-3 py-1 text-xs rounded-md transition-colors ${
                                     itemFilterBy === 'user'
                                       ? 'bg-blue-100 text-blue-700 border border-blue-200'
@@ -5276,90 +5349,201 @@ export default function AdminInventoryPage() {
                             </div>
                           )}
 
-                          <div className="space-y-2 max-h-64 overflow-y-auto">
-                            {availableItems?.withPhoneNumber && availableItems.withPhoneNumber.length > 0 ? (
-                              getFilteredPhoneNumberItems().length > 0 ? (
-                                getFilteredPhoneNumberItems().map((item: any) => (
-                                    <div
-                                      key={`${item.itemId}-${item.numberPhone}`}
-                                      className="p-3 border rounded-lg hover:bg-gray-50"
-                                    >
-                                      <div className="flex items-center justify-between">
-                                        <div className="flex items-center space-x-2">
-                                          <span className="text-sm font-mono text-green-600 font-medium">
-                                            {item.numberPhone}
+                          {/* Table View for Phone Number Items - Already implemented above in the section */}
+                          {(() => {
+                            const filteredItems = getFilteredPhoneNumberItems();
+                            const totalItems = filteredItems.length;
+                            const totalPages = Math.ceil(totalItems / editItemsPerPage);
+                            const startIndex = (editItemsPhonePage - 1) * editItemsPerPage;
+                            const endIndex = startIndex + editItemsPerPage;
+                            const currentPageItems = filteredItems.slice(startIndex, endIndex);
+                            const showPagination = totalItems > editItemsPerPage;
+
+                            if (availableItems?.withPhoneNumber && availableItems.withPhoneNumber.length > 0) {
+                              if (filteredItems.length > 0) {
+                                return (
+                                  <>
+                                    <div className="border border-gray-200 rounded-lg overflow-hidden">
+                                      <table className="min-w-full divide-y divide-gray-200">
+                                        <thead className="bg-gray-50">
+                                          <tr>
+                                            <th className="px-4 py-3 text-center text-xs font-medium text-gray-700 uppercase tracking-wider w-16">
+                                              ลำดับ
+                                            </th>
+                                            <th className="px-4 py-3 text-left text-xs font-medium text-gray-700 uppercase tracking-wider">
+                                              เบอร์โทรศัพท์
+                                            </th>
+                                            <th className="px-4 py-3 text-left text-xs font-medium text-gray-700 uppercase tracking-wider">
+                                              เพิ่มโดย
+                                            </th>
+                                            <th className="px-4 py-3 text-left text-xs font-medium text-gray-700 uppercase tracking-wider">
+                                              สถานะ
+                                            </th>
+                                            <th className="px-4 py-3 text-left text-xs font-medium text-gray-700 uppercase tracking-wider">
+                                              สภาพ
+                                            </th>
+                                            <th className="px-4 py-3 text-center text-xs font-medium text-gray-700 uppercase tracking-wider">
+                                              การดำเนินการ
+                                            </th>
+                                          </tr>
+                                        </thead>
+                                        <tbody className="bg-white divide-y divide-gray-200">
+                                          {currentPageItems.map((item: any, idx: number) => {
+                                            const globalIndex = startIndex + idx;
+                                            return (
+                                              <tr key={`${item.itemId}-${item.numberPhone}`} className="hover:bg-gray-50">
+                                                <td className="px-4 py-3 text-center text-sm text-gray-700">
+                                                  {globalIndex + 1}
+                                                </td>
+                                                <td className="px-4 py-3 text-sm">
+                                                  <span className="font-mono text-green-600 font-medium">
+                                                    {item.numberPhone}
+                                                  </span>
+                                                </td>
+                                                <td className="px-4 py-3 text-sm text-gray-600">
+                                                  {item.addedBy === 'admin' ? 'Admin' : 'User'}
+                                                </td>
+                                                <td className="px-4 py-3 text-sm">
+                                                  {item.statusId && (
+                                                    <span className="px-2 py-1 text-xs bg-green-100 text-green-800 rounded font-medium">
+                                                      {getStatusName(item.statusId)}
+                                                    </span>
+                                                  )}
+                                                </td>
+                                                <td className="px-4 py-3 text-sm">
+                                                  {item.conditionId && (
+                                                    <span className="px-2 py-1 text-xs bg-yellow-100 text-yellow-800 rounded font-medium">
+                                                      {getConditionText(item.conditionId)}
+                                                    </span>
+                                                  )}
+                                                </td>
+                                                <td className="px-4 py-3 text-center">
+                                                  <div className="flex items-center justify-center space-x-2">
+                                                    <button
+                                                      onClick={() => handleEditItem(item, 'phone')}
+                                                      className="px-3 py-1 text-xs bg-blue-600 text-white rounded hover:bg-blue-700"
+                                                    >
+                                                      แก้ไข
+                                                    </button>
+                                                    <button
+                                                      onClick={() => handleDeleteItem(item, 'phone')}
+                                                      className="px-3 py-1 text-xs bg-red-600 text-white rounded hover:bg-red-700"
+                                                    >
+                                                      ลบ
+                                                    </button>
+                                                  </div>
+                                                </td>
+                                              </tr>
+                                            );
+                                          })}
+                                        </tbody>
+                                      </table>
+                                    </div>
+
+                                    {/* Pagination */}
+                                    {showPagination && (
+                                      <div className="flex items-center justify-between px-4 py-3 bg-white border-t border-gray-200">
+                                        <div className="flex items-center text-sm text-gray-700">
+                                          <span>
+                                            แสดง {startIndex + 1} ถึง {Math.min(endIndex, totalItems)} จาก {totalItems} รายการ
                                           </span>
-                                          <span className="ml-2 text-xs text-gray-500">
-                                            เพิ่มโดย: {item.addedBy === 'admin' ? 'Admin' : 'User'}
-                                          </span>
-                                          {/* Status and Condition Display (same style as SN list) */}
-                                          {item.statusId && (
-                                            <span className="px-2 py-1 text-xs bg-green-100 text-green-800 rounded font-medium">
-                                              {getStatusName(item.statusId)}
-                                            </span>
-                                          )}
-                                          {item.conditionId && (
-                                            <span className="px-2 py-1 text-xs bg-yellow-100 text-yellow-800 rounded font-medium">
-                                              {getConditionText(item.conditionId)}
-                                            </span>
-                                          )}
                                         </div>
-                                        <div className="flex space-x-2">
+                                        <div className="flex items-center space-x-2">
                                           <button
-                                            onClick={() => handleEditItem(item, 'phone')}
-                                            className="px-3 py-1 text-xs bg-blue-100 text-blue-700 rounded hover:bg-blue-200"
+                                            onClick={() => setEditItemsPhonePage(prev => Math.max(1, prev - 1))}
+                                            disabled={editItemsPhonePage === 1}
+                                            className="px-3 py-1.5 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-md hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed flex items-center space-x-1"
                                           >
-                                            แก้ไข
+                                            <ChevronLeft className="w-4 h-4" />
+                                            <span>ก่อนหน้า</span>
                                           </button>
+                                          
+                                          <div className="flex items-center space-x-1">
+                                            {Array.from({ length: totalPages }, (_, i) => i + 1).map((page) => {
+                                              if (
+                                                page === 1 ||
+                                                page === totalPages ||
+                                                (page >= editItemsPhonePage - 1 && page <= editItemsPhonePage + 1)
+                                              ) {
+                                                return (
+                                                  <button
+                                                    key={page}
+                                                    onClick={() => setEditItemsPhonePage(page)}
+                                                    className={`px-3 py-1.5 text-sm font-medium rounded-md ${
+                                                      editItemsPhonePage === page
+                                                        ? 'bg-blue-600 text-white'
+                                                        : 'text-gray-700 bg-white border border-gray-300 hover:bg-gray-50'
+                                                    }`}
+                                                  >
+                                                    {page}
+                                                  </button>
+                                                );
+                                              } else if (
+                                                page === editItemsPhonePage - 2 ||
+                                                page === editItemsPhonePage + 2
+                                              ) {
+                                                return (
+                                                  <span key={page} className="px-2 text-gray-500">
+                                                    ...
+                                                  </span>
+                                                );
+                                              }
+                                              return null;
+                                            })}
+                                          </div>
+
                                           <button
-                                            onClick={() => handleDeleteItem(item, 'phone')}
-                                            className="px-3 py-1 text-xs bg-red-100 text-red-700 rounded hover:bg-red-200"
+                                            onClick={() => setEditItemsPhonePage(prev => Math.min(totalPages, prev + 1))}
+                                            disabled={editItemsPhonePage === totalPages}
+                                            className="px-3 py-1.5 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-md hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed flex items-center space-x-1"
                                           >
-                                            ลบ
+                                            <span>ถัดไป</span>
+                                            <ChevronRight className="w-4 h-4" />
                                           </button>
                                         </div>
                                       </div>
-                                    </div>
-                                  ))
-                              ) : (
-                                <div className="text-center py-8 text-gray-500">
-                                  {itemSearchTerm || itemFilterBy !== 'all' ? (
-                                    <div>
-                                      <p>ไม่พบเบอร์โทรศัพท์ที่ตรงกับเงื่อนไข</p>
-                                      <button
-                                        onClick={() => setItemSearchTerm('')}
-                                        className="mt-2 text-sm text-blue-600 hover:text-blue-800 underline"
-                                      >
-                                        ล้างการค้นหา
-                                      </button>
-                                      {itemFilterBy !== 'all' && (
+                                    )}
+                                  </>
+                                );
+                              } else {
+                                return (
+                                  <div className="text-center py-8 text-gray-500">
+                                    {itemSearchTerm || itemFilterBy !== 'all' ? (
+                                      <div>
+                                        <p>ไม่พบเบอร์โทรศัพท์ที่ตรงกับเงื่อนไข</p>
                                         <button
-                                          onClick={() => setItemFilterBy('all')}
-                                          className="ml-3 mt-2 text-sm text-blue-600 hover:text-blue-800 underline"
+                                          onClick={() => {
+                                            setItemSearchTerm('');
+                                            setItemFilterBy('all');
+                                            setEditItemsPhonePage(1);
+                                          }}
+                                          className="mt-2 text-sm text-blue-600 hover:text-blue-800 underline"
                                         >
-                                          แสดงทั้งหมด
+                                          ล้างการค้นหา
                                         </button>
-                                      )}
-                                    </div>
-                                  ) : (
-                                    <p>ไม่มีซิมการ์ดที่มีเบอร์โทรศัพท์</p>
-                                  )}
+                                      </div>
+                                    ) : (
+                                      <p>ไม่มีซิมการ์ดที่มีเบอร์โทรศัพท์</p>
+                                    )}
+                                  </div>
+                                );
+                              }
+                            } else {
+                              return (
+                                <div className="text-center py-8 text-gray-500 bg-gray-50 rounded-lg border-2 border-dashed border-gray-200">
+                                  <div className="flex flex-col items-center">
+                                    <div className="text-4xl mb-2">📱</div>
+                                    <p className="text-sm font-medium text-gray-600 mb-1">
+                                      ไม่พบรายการซิมการ์ด
+                                    </p>
+                                    <p className="text-xs text-gray-500">
+                                      ซิมการ์ดประเภท "{stockItem?.itemName}" ไม่มีรายการที่มีเบอร์โทรศัพท์ในระบบ
+                                    </p>
+                                  </div>
                                 </div>
-                              )
-                            ) : (
-                              <div className="text-center py-8 text-gray-500 bg-gray-50 rounded-lg border-2 border-dashed border-gray-200">
-                                <div className="flex flex-col items-center">
-                                  <div className="text-4xl mb-2">📱</div>
-                                  <p className="text-sm font-medium text-gray-600 mb-1">
-                                    ไม่พบรายการซิมการ์ด
-                                  </p>
-                                  <p className="text-xs text-gray-500">
-                                    ซิมการ์ดประเภท "{stockItem?.itemName}" ไม่มีรายการที่มีเบอร์โทรศัพท์ในระบบ
-                                  </p>
-                                </div>
-                              </div>
-                            )}
-                          </div>
+                              );
+                            }
+                          })()}
                         </div>
                         );
                       })()}
@@ -5413,28 +5597,8 @@ export default function AdminInventoryPage() {
             </div>
 
             {/* Modal Footer - Only show when there are action buttons */}
-            {(stockOperation === 'adjust_stock' || stockOperation === 'delete_item') && (
+            {stockOperation === 'delete_item' && (
               <div className="p-6">
-                {/* Action Buttons - Show only for adjust_stock operation */}
-                {stockOperation === 'adjust_stock' && (
-                  <div className="flex justify-end space-x-3">
-                    <button
-                      onClick={closeStockModal}
-                      className="px-4 py-2 text-gray-600 border border-gray-300 rounded-md hover:bg-gray-50"
-                      disabled={stockLoading}
-                    >
-                      ยกเลิก
-                    </button>
-                    <button
-                      onClick={handleStockSubmit}
-                      disabled={stockLoading || !stockReason.trim()}
-                      className="px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed"
-                    >
-                      {stockLoading ? 'กำลังดำเนินการ...' : 'บันทึก'}
-                    </button>
-                  </div>
-                )}
-
                 {/* Delete operation buttons */}
                 {stockOperation === 'delete_item' && (
                   <div className="flex justify-end space-x-3">
