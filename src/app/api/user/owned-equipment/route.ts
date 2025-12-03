@@ -61,11 +61,12 @@ export async function GET(request: NextRequest) {
       .lean(),
       
       // Query 2: Get return logs (optimized - only get what we need)
+      // ✅ ระบุ fields ใน items อย่างชัดเจนเพื่อให้แน่ใจว่ามี categoryId, serialNumber, numberPhone
       ReturnLog.find({ 
         userId: userId,
         'items.approvalStatus': { $in: ['pending', 'approved'] }
       })
-      .select('items userId status')
+      .select('items.itemId items.categoryId items.serialNumber items.numberPhone items.approvalStatus items.approvedAt userId status')
       .sort({ createdAt: -1 })
       .limit(50) // ✅ ลดจาก 100 เป็น 50 เพื่อความเร็ว (return logs ล่าสุด 50 รายการควรเพียงพอ)
       .lean()
@@ -80,6 +81,10 @@ export async function GET(request: NextRequest) {
     const pendingReturnItems = new Set();
     
     if (allReturns.length > 0) {
+      if (process.env.NODE_ENV === 'development') {
+        console.log(`🔍 Processing ${allReturns.length} return logs for pending/approved items`);
+      }
+      
       allReturns.forEach(returnLog => {
         returnLog.items.forEach((item: any) => {
           // ✅ แปลง itemId เป็น string เสมอเพื่อให้ตรงกับ item._id ใน InventoryItem
@@ -121,9 +126,17 @@ export async function GET(request: NextRequest) {
             if (itemKey !== itemIdStr) {
               pendingReturnItems.add(itemIdStr);
             }
+            
+            if (process.env.NODE_ENV === 'development') {
+              console.log(`  ✅ Added pending return: itemId=${itemIdStr}, itemKey=${itemKey}, categoryId=${item.categoryId || 'N/A'}, serialNumber=${item.serialNumber || 'N/A'}, numberPhone=${item.numberPhone || 'N/A'}`);
+            }
           }
         });
       });
+      
+      if (process.env.NODE_ENV === 'development') {
+        console.log(`  📊 Total pending return items: ${pendingReturnItems.size}`);
+      }
     }
 
     // ✅ PERFORMANCE: ดึง requestIds และ query RequestLog พร้อมกัน
@@ -187,6 +200,9 @@ export async function GET(request: NextRequest) {
       // (สำหรับหน้า equipment-return เท่านั้น, หน้า dashboard ยังแสดงได้)
       // 🔧 CRITICAL FIX: ตรวจสอบทั้ง itemKey และ itemId เพื่อให้จับคู่ได้แม้ไม่มี serialNumber/numberPhone
       if (excludePendingReturns && (pendingReturnItems.has(itemKey) || pendingReturnItems.has(itemIdStr))) {
+        if (process.env.NODE_ENV === 'development') {
+          console.log(`  ❌ Filtered out pending return: itemId=${itemIdStr}, itemKey=${itemKey}, itemName=${(item as any).itemName || 'N/A'}`);
+        }
         return false;
       }
       

@@ -1159,9 +1159,19 @@ export default function AdminInventoryPage() {
   const handleDeleteNonSNItem = async (combo: any) => {
     if (!stockItem || !combo.itemId) return;
 
-    // ยืนยันก่อนลบ
-    if (!confirm(`คุณต้องการลบรายการนี้หรือไม่?`)) {
-      return;
+    // ยืนยันก่อนลบพร้อมกรอก reason
+    const reason = prompt('คุณต้องการลบรายการนี้หรือไม่?\n\nกรุณาระบุเหตุผลในการลบ:');
+    
+    if (!reason || !reason.trim()) {
+      // ถ้าผู้ใช้กด Cancel หรือไม่กรอก reason
+      if (reason === null) {
+        // ผู้ใช้กด Cancel
+        return;
+      } else {
+        // ผู้ใช้กด OK แต่ไม่กรอก reason
+        toast.error('กรุณาระบุเหตุผลในการลบรายการ');
+        return;
+      }
     }
 
     try {
@@ -1174,7 +1184,8 @@ export default function AdminInventoryPage() {
           operation: 'delete',
           itemId: combo.itemId,
           itemName: stockItem.itemName,
-          category: stockItem.categoryId
+          category: stockItem.categoryId,
+          reason: reason.trim()
         })
       });
 
@@ -4543,7 +4554,7 @@ export default function AdminInventoryPage() {
                   
                   {/* 🔄 เปลี่ยนสถานะ/สภาพ - ยกเว้นหมวดหมู่ซิมการ์ด */}
                   {!isSIMCardSync(stockItem?.categoryId || '') && (
-                    <option value="change_status_condition">🔄 แก้ไข/ลบ (อุปกรณ์ที่ไม่มี Serial Number)</option>
+                    <option value="change_status_condition">🔄 เปลี่ยนสถานะ/สภาพ (อุปกรณ์ที่ไม่มี SN)</option>
                   )}
                   
                   {/* ✏️ แก้ไข/ลบ - ข้อความแตกต่างกันตามหมวดหมู่ */}

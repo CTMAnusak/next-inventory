@@ -409,6 +409,7 @@ export default function EquipmentReturnPage() {
         lastName: lastName || '',
         office: office,
         excludePendingReturns: 'true', // ✅ กรองอุปกรณ์ที่มี pending return ออก
+        _t: Date.now().toString(), // ✅ เพิ่ม cache-busting parameter เพื่อให้ดึงข้อมูลใหม่
       });
       
       if (user?.id) {
@@ -1296,9 +1297,6 @@ export default function EquipmentReturnPage() {
       if (allSuccess) {
         toast.success(`ส่งข้อมูลเรียบร้อยแล้ว (${successCount} รายการ)`);
         
-        // Redirect to clean URL without query parameters
-        router.push('/equipment-return');
-        
         // Reset form immediately
         setIsSubmitted(false);
         setFormData({
@@ -1346,6 +1344,17 @@ export default function EquipmentReturnPage() {
         setShowOptionDropdown(false);
         setFilteredEquipment([]);
         setHasShownNotification(false);
+        
+        // ✅ Refresh ข้อมูลอุปกรณ์ทันทีหลัง submit สำเร็จ (เพื่อกรอง pending returns ออก)
+        // Reset dataLoadedRef เพื่อให้สามารถ fetch ข้อมูลใหม่ได้
+        dataLoadedRef.current = false;
+        // เรียก fetchUserItems() พร้อม cache-busting เพื่อให้ดึงข้อมูลใหม่
+        setTimeout(() => {
+          fetchUserItems();
+        }, 500); // รอสักครู่เพื่อให้ API clear cache เสร็จก่อน
+        
+        // Redirect to clean URL without query parameters
+        router.push('/equipment-return');
       } else {
         // บางรายการส่งไม่สำเร็จ
         toast.error(`ส่งข้อมูลไม่สำเร็จบางรายการ (สำเร็จ ${successCount} จาก ${returnDataList.length})`);
@@ -1471,7 +1480,7 @@ export default function EquipmentReturnPage() {
                       
                       {/* Equipment Dropdown */}
                       {showEquipmentDropdown && (
-                        <div className="absolute z-10 w-full mt-1 bg-white border border-gray-300 rounded-md shadow-lg max-h-60 overflow-auto">
+                        <div className="absolute z-50 w-full mt-1 bg-white border border-gray-300 rounded-md shadow-lg max-h-60 overflow-auto">
                           {/* Search Input */}
                           <div className="sticky top-0 bg-white border-b border-gray-200 p-2">
                             <div className="relative">
@@ -1559,7 +1568,7 @@ export default function EquipmentReturnPage() {
                         
                         {/* Option Selection Dropdown */}
                         {showOptionDropdown && (
-                          <div className="absolute z-10 w-full mt-1 bg-white border border-gray-300 rounded-md shadow-lg max-h-60 overflow-auto">
+                          <div className="absolute z-50 w-full mt-1 bg-white border border-gray-300 rounded-md shadow-lg max-h-60 overflow-auto">
                             <div className="max-h-48 overflow-auto">
                               {returnItem.availableOptions?.map((option) => (
                                 <div

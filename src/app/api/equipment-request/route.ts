@@ -293,6 +293,10 @@ export async function POST(request: NextRequest) {
       console.error('Equipment request email notification error:', emailError);
     }
 
+    // ✅ Clear cache เพื่อให้หน้า equipment-request แสดง pending status ใหม่
+    const { clearAllCaches } = await import('@/lib/cache-utils');
+    clearAllCaches();
+
     return NextResponse.json({
       message: 'บันทึกการเบิกอุปกรณ์เรียบร้อยแล้ว',
       requestId: newRequestId,
